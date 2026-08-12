@@ -34,9 +34,9 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
   const [selected, setSelected] = useState<Trip | null>(active[0] ?? null);
 
   return (
-    <div className="relative h-[460px] overflow-hidden rounded-lg border border-border bg-[oklch(0.18_0.024_252)]">
-      <div className="grid-backdrop absolute inset-0 opacity-60" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_35%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_62%)]" />
+    <div className="relative h-[460px] overflow-hidden rounded-2xl border border-border/80 bg-[linear-gradient(160deg,#f8fafc_0%,#eef2f7_45%,#e8eef6_100%)]">
+      <div className="grid-backdrop absolute inset-0 opacity-40" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_35%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_62%)]" />
 
       {/* route lines */}
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -75,7 +75,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
 
       <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
         {["En Route", "Loaded", "Offloading", "Returning", "Delayed", "Stopped"].map((s) => (
-          <span key={s} className="flex items-center gap-1.5 rounded-md border border-border bg-background/80 px-2 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur">
+          <span key={s} className="flex items-center gap-1.5 rounded-full border border-border/80 bg-white/85 px-2.5 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
             <span className={cn("h-1.5 w-1.5 rounded-full", DOT[s])} />
             {s}
           </span>
@@ -84,14 +84,14 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
 
       <div className="absolute top-3 right-3 flex flex-col gap-1.5">
         {[Layers, Crosshair, Maximize2].map((Icon, i) => (
-          <Button key={i} size="sm" variant="outline" className="h-7 w-7 bg-background/80 p-0 backdrop-blur">
+          <Button key={i} size="sm" variant="outline" className="h-8 w-8 rounded-full bg-white/85 p-0 shadow-sm backdrop-blur">
             <Icon className="h-3.5 w-3.5" />
           </Button>
         ))}
       </div>
 
       {selected && (
-        <div className="absolute bottom-3 left-3 w-[290px] rounded-lg border border-border bg-background/92 p-3 backdrop-blur">
+        <div className="absolute bottom-3 left-3 w-[290px] rounded-2xl border border-border/80 bg-white/92 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)] backdrop-blur">
           <div className="flex items-center justify-between gap-2">
             <p className="num text-sm font-semibold text-foreground">{selected.truckReg}</p>
             <StatusBadge status={selected.status} />

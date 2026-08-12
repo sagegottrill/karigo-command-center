@@ -114,7 +114,7 @@ export function DataTable<T extends { id: string }>({
                   <th
                     key={col.key}
                     className={cn(
-                      "px-4 py-2.5 text-left text-[10px] font-semibold tracking-[0.1em] text-muted-foreground uppercase",
+                      "px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.01em] text-muted-foreground",
                       col.align === "right" && "text-right",
                     )}
                   >

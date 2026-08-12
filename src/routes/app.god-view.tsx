@@ -30,10 +30,12 @@ export const Route = createFileRoute("/app/god-view")({
 const PIE_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 const tooltipStyle = {
-  background: "oklch(0.22 0.023 258)",
-  border: "1px solid oklch(0.32 0.02 258)",
-  borderRadius: 8,
+  background: "rgba(255,255,255,0.92)",
+  border: "1px solid rgba(0,0,0,0.08)",
+  borderRadius: 12,
   fontSize: 11,
+  color: "#1d1d1f",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
 };
 
 function GodViewPage() {
@@ -97,9 +99,9 @@ function GodViewPage() {
                   <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-              <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} domain={[40, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} domain={[40, 100]} />
               <Tooltip contentStyle={tooltipStyle} />
               <Area type="monotone" dataKey="utilisation" stroke="var(--chart-1)" fill="url(#utilFill)" strokeWidth={2} />
               <Line type="monotone" dataKey="target" stroke="var(--chart-3)" strokeDasharray="4 4" dot={false} />
@@ -110,9 +112,9 @@ function GodViewPage() {
         <SectionPanel title="Trip Performance" description="Completed vs delayed" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={CHART_TRIP_PERFORMANCE}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-              <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="completed" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
@@ -124,9 +126,9 @@ function GodViewPage() {
         <SectionPanel title="Fuel Efficiency" description="Actual vs standard Km/L" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={CHART_FUEL}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-              <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} domain={[2.5, 3.6]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="actual" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
@@ -154,9 +156,9 @@ function GodViewPage() {
         <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={CHART_COST_REVENUE}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-              <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Area type="monotone" dataKey="revenue" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.18} strokeWidth={2} />

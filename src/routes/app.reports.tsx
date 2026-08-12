@@ -69,10 +69,12 @@ const CATALOGUE = [
 ] as const;
 
 const tooltipStyle = {
-  background: "oklch(0.22 0.023 258)",
-  border: "1px solid oklch(0.32 0.02 258)",
-  borderRadius: 8,
+  background: "rgba(255,255,255,0.92)",
+  border: "1px solid rgba(0,0,0,0.08)",
+  borderRadius: 12,
   fontSize: 11,
+  color: "#1d1d1f",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
 };
 
 function ReportsPage() {
@@ -107,7 +109,7 @@ function ReportsPage() {
           >
             <div className="flex items-center gap-2">
               <cat.icon className={cn("h-4 w-4", active === cat.key ? "text-primary" : "text-muted-foreground")} />
-              <p className="text-sm font-semibold tracking-[0.06em] text-foreground uppercase">{cat.title}</p>
+              <p className="text-sm font-semibold tracking-[-0.01em] text-foreground">{cat.title}</p>
             </div>
             <ul className="mt-3 space-y-1.5">
               {cat.items.map((item) => (
@@ -142,9 +144,9 @@ function ReportsPage() {
           <SectionPanel title="Fleet Utilisation" description="Weekly pattern" bodyClassName="h-64 pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={CHART_UTILISATION}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-                <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-                <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="utilisation" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -164,9 +166,9 @@ function ReportsPage() {
           <SectionPanel title="Completed vs Delayed" bodyClassName="h-64 pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={CHART_TRIP_PERFORMANCE}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-                <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-                <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="completed" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="delayed" fill="var(--chart-5)" radius={[4, 4, 0, 0]} />
@@ -192,9 +194,9 @@ function ReportsPage() {
           <SectionPanel title="Fuel Efficiency Trend" description="Actual vs standard Km/L" bodyClassName="h-72 pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={CHART_FUEL}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.02 258)" />
-                <XAxis dataKey="label" tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} />
-                <YAxis tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 11 }} domain={[2.5, 3.6]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="actual" stroke="var(--chart-2)" strokeWidth={2} />
                 <Line type="monotone" dataKey="standard" stroke="var(--chart-4)" strokeDasharray="4 4" />

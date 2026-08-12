@@ -48,12 +48,12 @@ const TONE_MAP: Record<string, Tone> = {
 };
 
 const TONE_CLASS: Record<Tone, string> = {
-  success: "border-success/35 bg-success/12 text-success",
-  info: "border-info/35 bg-info/12 text-info",
-  warning: "border-warning/35 bg-warning/12 text-warning",
-  critical: "border-critical/40 bg-critical/15 text-critical",
-  neutral: "border-border bg-muted/60 text-muted-foreground",
-  primary: "border-primary/40 bg-primary/12 text-primary",
+  success: "border-success/20 bg-success/10 text-success",
+  info: "border-info/20 bg-info/10 text-info",
+  warning: "border-warning/25 bg-warning/15 text-warning-foreground",
+  critical: "border-critical/20 bg-critical/10 text-critical",
+  neutral: "border-border bg-muted text-muted-foreground",
+  primary: "border-primary/20 bg-primary/10 text-primary",
 };
 
 export function StatusBadge({
@@ -71,12 +71,12 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] uppercase",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-[0.01em]",
         TONE_CLASS[resolved],
         className,
       )}
     >
-      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />}
       {status}
     </span>
   );

@@ -37,7 +37,7 @@ function ForgotPasswordPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold uppercase">Reset Password</h1>
+          <h1 className="text-[28px] font-semibold tracking-[-0.025em]">Reset Password</h1>
           <p className="mt-1 text-xs text-muted-foreground">
             Enter the email associated with your workspace account.
           </p>

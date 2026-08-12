@@ -48,18 +48,18 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex",
-        collapsed ? "w-[68px]" : "w-[248px]",
+        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar/90 backdrop-blur-xl transition-[width] duration-300 ease-out md:flex",
+        collapsed ? "w-[72px]" : "w-[248px]",
       )}
     >
       <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(0,113,227,0.35)]">
           K
         </span>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-[0.18em] text-sidebar-foreground uppercase">Karigo</p>
-            <p className="num truncate text-[10px] text-muted-foreground">TMS v1.0 · PTL-001</p>
+            <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-sidebar-foreground">Karigo</p>
+            <p className="num truncate text-[11px] text-muted-foreground">TMS · PTL-001</p>
           </div>
         )}
       </div>
@@ -69,9 +69,9 @@ export function AppSidebar({
           const items = NAV.filter((n) => n.group === group);
           if (!items.length) return null;
           return (
-            <div key={group} className="mb-3">
+            <div key={group} className="mb-4">
               {!collapsed && (
-                <p className="px-2 pb-1.5 text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                <p className="px-2.5 pb-1.5 text-[11px] font-medium tracking-[0.02em] text-muted-foreground">
                   {group}
                 </p>
               )}
@@ -84,25 +84,24 @@ export function AppSidebar({
                         to={item.to}
                         title={collapsed ? item.label : undefined}
                         className={cn(
-                          "group flex items-center gap-2.5 rounded-md px-2 py-2 text-[13px] font-medium transition-colors",
+                          "relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-colors",
                           active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_12%,transparent)]"
+                            : "text-sidebar-foreground/80 hover:bg-black/[0.03] hover:text-sidebar-foreground",
                         )}
                       >
                         <span className={cn("relative flex h-5 w-5 shrink-0 items-center justify-center", active && "text-primary")}>
-                          <item.icon className="h-4 w-4" />
+                          <item.icon className="h-4 w-4" strokeWidth={active ? 2.25 : 1.75} />
                           {collapsed && item.badge ? (
-                            <span className="absolute -top-1 -right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                            <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
                           ) : null}
                         </span>
                         {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
                         {!collapsed && item.badge ? (
-                          <span className="num shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                          <span className="num shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                             {item.badge}
                           </span>
                         ) : null}
-                        {active && <span className="absolute left-0 h-5 w-0.5 rounded-r bg-primary" />}
                       </Link>
                     </li>
                   );
@@ -116,10 +115,10 @@ export function AppSidebar({
       <div className="border-t border-sidebar-border p-2.5">
         <button
           onClick={onToggle}
-          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+          className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-black/[0.03] hover:text-foreground"
         >
-          <ChevronLeft className={cn("h-4 w-4 shrink-0 transition-transform", collapsed && "rotate-180")} />
-          {!collapsed && <span>Collapse sidebar</span>}
+          <ChevronLeft className={cn("h-4 w-4 shrink-0 transition-transform duration-300", collapsed && "rotate-180")} />
+          {!collapsed && <span>Collapse</span>}
         </button>
       </div>
     </aside>
