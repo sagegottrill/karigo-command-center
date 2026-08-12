@@ -48,12 +48,12 @@ const TONE_MAP: Record<string, Tone> = {
 };
 
 const TONE_CLASS: Record<Tone, string> = {
-  success: "border-success/20 bg-success/10 text-success",
-  info: "border-info/20 bg-info/10 text-info",
-  warning: "border-warning/25 bg-warning/15 text-warning-foreground",
-  critical: "border-critical/20 bg-critical/10 text-critical",
-  neutral: "border-border bg-muted text-muted-foreground",
-  primary: "border-primary/20 bg-primary/10 text-primary",
+  success: "bg-[#34c759]/12 text-[#248a3d]",
+  info: "bg-[#64d2ff]/18 text-[#0077a8]",
+  warning: "bg-[#ff9f0a]/16 text-[#9a6700]",
+  critical: "bg-[#ff3b30]/12 text-[#d70015]",
+  neutral: "bg-black/[0.05] text-[#6e6e73]",
+  primary: "bg-[#0071e3]/12 text-[#0071e3]",
 };
 
 export function StatusBadge({
@@ -71,7 +71,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-[0.01em]",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-[0.01em]",
         TONE_CLASS[resolved],
         className,
       )}

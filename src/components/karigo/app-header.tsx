@@ -45,26 +45,26 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   }, []);
 
   return (
-    <header className="glass sticky top-0 z-30 flex h-14 items-center gap-3 px-4">
+    <header className="glass sticky top-0 z-30 flex h-[52px] items-center gap-3 px-4">
       <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 rounded-full p-0" onClick={onToggleSidebar}>
-        <PanelLeft className="h-4 w-4" />
+        <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
       </Button>
 
       <div className="hidden min-w-0 items-center gap-2 lg:flex">
-        <span className="num rounded-full border border-border/80 bg-surface px-2.5 py-1 text-[11px] font-semibold text-foreground">
+        <span className="num rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold tracking-[-0.01em] text-foreground">
           {workspace.name}
         </span>
-        <span className="text-muted-foreground/50">/</span>
-        <Link to="/app" className="text-[12px] text-muted-foreground hover:text-foreground">Workspace</Link>
+        <span className="text-black/20">/</span>
+        <Link to="/app" className="text-[12px] font-medium text-muted-foreground hover:text-foreground">Workspace</Link>
         {active && (
           <>
-            <span className="text-muted-foreground/50">/</span>
-            <span className="truncate text-[12px] font-medium text-foreground">{active.label}</span>
+            <span className="text-black/20">/</span>
+            <span className="truncate text-[12px] font-semibold tracking-[-0.01em] text-foreground">{active.label}</span>
           </>
         )}
         {crumbTail.length > 1 && (
           <>
-            <span className="text-muted-foreground/50">/</span>
+            <span className="text-black/20">/</span>
             <span className="num truncate text-[12px] text-muted-foreground">{crumbTail.at(-1)}</span>
           </>
         )}
@@ -72,11 +72,11 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
       <button
         onClick={() => setOpen(true)}
-        className="mx-auto hidden h-9 w-full max-w-md items-center gap-2 rounded-full border border-border/80 bg-surface px-3.5 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors hover:border-primary/30 md:flex"
+        className="mx-auto hidden h-9 w-full max-w-md items-center gap-2 rounded-full bg-black/[0.04] px-3.5 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-black/[0.06] md:flex"
       >
-        <Search className="h-3.5 w-3.5" />
-        <span className="flex-1 text-left">Search trips, trucks, drivers…</span>
-        <kbd className="num rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+        <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="num rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm">⌘K</kbd>
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -87,7 +87,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
               description: online ? "3 records queued for synchronization." : "All records synchronized.",
             });
           }}
-          className="hidden items-center gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 py-1 text-[10px] font-semibold tracking-[0.02em] sm:flex"
+          className="hidden items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-[10px] font-semibold tracking-[0.01em] sm:flex"
         >
           {online ? (
             <><CircleDot className="h-3 w-3 text-success" /> <span className="text-success">Online</span></>
@@ -115,7 +115,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 rounded-full border border-border/80 bg-surface py-1 pr-2 pl-1 transition-colors hover:border-primary/30">
+            <button className="flex items-center gap-2 rounded-full bg-black/[0.04] py-1 pr-2 pl-1 transition-colors hover:bg-black/[0.06]">
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">OF</span>
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block truncate text-[12px] leading-tight font-semibold text-foreground">Okwudili Fortune</span>

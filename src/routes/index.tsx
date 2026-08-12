@@ -39,9 +39,9 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="glass sticky top-0 z-40">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex h-[52px] max-w-6xl items-center justify-between px-4">
           <a href="#top" className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground">K</span>
+            <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-primary text-[13px] font-semibold text-primary-foreground">K</span>
             <span className="text-[15px] font-semibold tracking-[-0.02em]">Karigo</span>
           </a>
           <nav className="hidden items-center gap-7 text-[13px] text-muted-foreground md:flex">

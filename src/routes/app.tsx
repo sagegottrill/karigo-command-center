@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import { AppSidebar } from "@/components/karigo/app-sidebar";
 import { AppHeader } from "@/components/karigo/app-header";
+import { PageReveal } from "@/components/karigo/page-reveal";
+import { appleSpring } from "@/lib/karigo/apple-motion";
 
 export const Route = createFileRoute("/app")({
   component: AppShell,
@@ -24,14 +27,20 @@ function AppShell() {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <motion.div
+        layout
+        transition={appleSpring.chrome}
+        className="flex min-w-0 flex-1 flex-col"
+      >
         <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />
-        <main className="min-w-0 flex-1 p-4 lg:p-6">
-          <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
-            <Outlet />
+        <main className="scroll-edge min-w-0 flex-1 overflow-auto p-5 lg:p-8">
+          <div className="mx-auto max-w-[1520px]">
+            <PageReveal>
+              <Outlet />
+            </PageReveal>
           </div>
         </main>
-      </div>
+      </motion.div>
     </div>
   );
 }
