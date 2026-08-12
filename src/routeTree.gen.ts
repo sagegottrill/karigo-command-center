@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAuditRouteImport } from './routes/app.audit'
 import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
 import { Route as AppFleetRouteImport } from './routes/app.fleet'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
+import { Route as AppTripsTripIdRouteImport } from './routes/app.trips.$tripId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,6 +31,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDispatchRoute = AppDispatchRouteImport.update({
@@ -46,44 +53,71 @@ const AppTripsIndexRoute = AppTripsIndexRouteImport.update({
   path: '/trips/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTripsTripIdRoute = AppTripsTripIdRouteImport.update({
+  id: '/trips/$tripId',
+  path: '/trips/$tripId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/fleet': typeof AppFleetRoute
   '/app/': typeof AppIndexRoute
+  '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/fleet': typeof AppFleetRoute
   '/app': typeof AppIndexRoute
+  '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/trips': typeof AppTripsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/fleet': typeof AppFleetRoute
   '/app/': typeof AppIndexRoute
+  '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/app' | '/app/dispatch' | '/app/fleet' | '/app/' | '/app/trips/'
+    | '/'
+    | '/app'
+    | '/app/audit'
+    | '/app/dispatch'
+    | '/app/fleet'
+    | '/app/'
+    | '/app/trips/$tripId'
+    | '/app/trips/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app/dispatch' | '/app/fleet' | '/app' | '/app/trips'
+  to:
+    | '/'
+    | '/app/audit'
+    | '/app/dispatch'
+    | '/app/fleet'
+    | '/app'
+    | '/app/trips/$tripId'
+    | '/app/trips'
   id:
     | '__root__'
     | '/'
     | '/app'
+    | '/app/audit'
     | '/app/dispatch'
     | '/app/fleet'
     | '/app/'
+    | '/app/trips/$tripId'
     | '/app/trips/'
   fileRoutesById: FileRoutesById
 }
@@ -115,6 +149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/audit': {
+      id: '/app/audit'
+      path: '/audit'
+      fullPath: '/app/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/dispatch': {
       id: '/app/dispatch'
       path: '/dispatch'
@@ -136,20 +177,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTripsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/trips/$tripId': {
+      id: '/app/trips/$tripId'
+      path: '/trips/$tripId'
+      fullPath: '/app/trips/$tripId'
+      preLoaderRoute: typeof AppTripsTripIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppAuditRoute: typeof AppAuditRoute
   AppDispatchRoute: typeof AppDispatchRoute
   AppFleetRoute: typeof AppFleetRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppTripsTripIdRoute: typeof AppTripsTripIdRoute
   AppTripsIndexRoute: typeof AppTripsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAuditRoute: AppAuditRoute,
   AppDispatchRoute: AppDispatchRoute,
   AppFleetRoute: AppFleetRoute,
   AppIndexRoute: AppIndexRoute,
+  AppTripsTripIdRoute: AppTripsTripIdRoute,
   AppTripsIndexRoute: AppTripsIndexRoute,
 }
 

@@ -41,9 +41,11 @@ function FleetPage() {
       key: "action", header: "Action", align: "right",
       cell: (r) => (
         <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
-          <Link to={r.tripId ? "/app/trips/$tripId" : "/app/dispatch"} params={r.tripId ? { tripId: r.tripId } : undefined as never}>
-            {r.tripId ? "View trip" : "Dispatch"}
-          </Link>
+          {r.tripId ? (
+            <Link to="/app/trips/$tripId" params={{ tripId: r.tripId }}>View trip</Link>
+          ) : (
+            <Link to="/app/dispatch">Dispatch</Link>
+          )}
         </Button>
       ),
     },

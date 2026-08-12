@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Check, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -21,16 +21,12 @@ export const Route = createFileRoute("/app/trips/$tripId")({
       { property: "og:description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
     ],
   }),
-  loader: ({ params }) => {
-    const trip = TRIPS.find((t) => t.id === params.tripId);
-    if (!trip) throw notFound();
-    return { trip };
-  },
   component: TripDetail,
 });
 
 function TripDetail() {
-  const { trip } = Route.useLoaderData();
+  const { tripId } = Route.useParams();
+  const trip = TRIPS.find((t) => t.id === tripId) ?? TRIPS[0]!;
   const timeline = tripService.timeline(trip);
   const thread = CONVERSATIONS.find((c) => c.tripId === trip.id) ?? CONVERSATIONS[0]!;
   const [messages, setMessages] = useState<Message[]>(thread.messages);
