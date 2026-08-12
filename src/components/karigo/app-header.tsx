@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell, ChevronDown, CircleDot, HelpCircle, LogOut, MessageSquare, PanelLeft,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { globalSearch } from "@/lib/karigo/services";
-import { NOTIFICATIONS, WORKSPACES } from "@/lib/karigo/mock-data";
+import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/karigo/mock-data";
 import { NAV } from "./app-sidebar";
 import { StatusBadge } from "./status-badge";
 import { toast } from "sonner";
@@ -23,14 +23,26 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const [query, setQuery] = useState("");
   const [online, setOnline] = useState(true);
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
+  const [role, setRole] = useState(ROLES.find((r) => r.key === "operations_manager") ?? ROLES[2]!);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hits = globalSearch(query);
   const groups = [...new Set(hits.map((h) => h.group))];
   const unread = NOTIFICATIONS.filter((n) => !n.read).length;
 
-  const active = NAV.find((n) => (n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to)));
+  const active = NAV.find((n) => (n.to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(n.to)));
   const crumbTail = pathname.split("/").filter(Boolean).slice(2);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/92 px-4 backdrop-blur">
@@ -107,12 +119,12 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary/15 text-[10px] font-bold text-primary">OF</span>
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block truncate text-[11px] leading-tight font-semibold text-foreground">Okwudili Fortune</span>
-                <span className="block truncate text-[10px] leading-tight text-muted-foreground">Operations Admin</span>
+                <span className="block truncate text-[10px] leading-tight text-muted-foreground">{role.name}</span>
               </span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuContent align="end" className="w-72">
             <DropdownMenuLabel className="flex items-center justify-between gap-2">
               <span>Workspace</span>
               <StatusBadge status="Online" />
@@ -128,6 +140,27 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
               >
                 <span className="truncate">{w.name}</span>
                 <span className="num shrink-0 text-[10px] text-muted-foreground">{w.id}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Demo role</DropdownMenuLabel>
+            {ROLES.slice(0, 8).map((r) => (
+              <DropdownMenuItem
+                key={r.key}
+                onClick={() => {
+                  setRole(r);
+                  toast.success(`Viewing as ${r.name}`, {
+                    description: "Prototype role lens — menus remain fully visible for demo.",
+                  });
+                  if (r.key === "executive") navigate({ to: "/app/god-view" });
+                  if (r.key === "accountant") navigate({ to: "/app/accounts" });
+                  if (r.key === "engineer" || r.key === "mechanic") navigate({ to: "/app/engineering" });
+                  if (r.key === "hr_manager") navigate({ to: "/app/drivers" });
+                  if (r.key === "security_officer") navigate({ to: "/app/gate" });
+                }}
+                className="text-xs"
+              >
+                {r.name}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />

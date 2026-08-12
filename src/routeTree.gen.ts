@@ -11,14 +11,24 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAccountsRouteImport } from './routes/app.accounts'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppAuditRouteImport } from './routes/app.audit'
 import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
+import { Route as AppEngineeringRouteImport } from './routes/app.engineering'
 import { Route as AppFleetRouteImport } from './routes/app.fleet'
+import { Route as AppFuelRouteImport } from './routes/app.fuel'
+import { Route as AppGateRouteImport } from './routes/app.gate'
+import { Route as AppGodViewRouteImport } from './routes/app.god-view'
+import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppMessagesRouteImport } from './routes/app.messages'
 import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
+import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
+import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
 import { Route as AppTripsTripIdRouteImport } from './routes/app.trips.$tripId'
 
@@ -32,6 +42,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -40,6 +55,11 @@ const LoginRoute = LoginRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountsRoute = AppAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminRoute = AppAdminRouteImport.update({
@@ -57,9 +77,34 @@ const AppDispatchRoute = AppDispatchRouteImport.update({
   path: '/dispatch',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEngineeringRoute = AppEngineeringRouteImport.update({
+  id: '/engineering',
+  path: '/engineering',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFleetRoute = AppFleetRouteImport.update({
   id: '/fleet',
   path: '/fleet',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFuelRoute = AppFuelRouteImport.update({
+  id: '/fuel',
+  path: '/fuel',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGateRoute = AppGateRouteImport.update({
+  id: '/gate',
+  path: '/gate',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGodViewRoute = AppGodViewRouteImport.update({
+  id: '/god-view',
+  path: '/god-view',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryRoute = AppInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMessagesRoute = AppMessagesRouteImport.update({
@@ -70,6 +115,21 @@ const AppMessagesRoute = AppMessagesRouteImport.update({
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
+  id: '/drivers/',
+  path: '/drivers/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDriversDriverIdRoute = AppDriversDriverIdRouteImport.update({
+  id: '/drivers/$driverId',
+  path: '/drivers/$driverId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTripsIndexRoute = AppTripsIndexRouteImport.update({
@@ -86,43 +146,73 @@ const AppTripsTripIdRoute = AppTripsTripIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
+  '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
+  '/app/fuel': typeof AppFuelRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/god-view': typeof AppGodViewRoute
+  '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/reports': typeof AppReportsRoute
   '/app/': typeof AppIndexRoute
+  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/app/drivers/': typeof AppDriversIndexRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
+  '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
+  '/app/fuel': typeof AppFuelRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/god-view': typeof AppGodViewRoute
+  '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/reports': typeof AppReportsRoute
   '/app': typeof AppIndexRoute
+  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/app/drivers': typeof AppDriversIndexRoute
   '/app/trips': typeof AppTripsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
   '/app/dispatch': typeof AppDispatchRoute
+  '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
+  '/app/fuel': typeof AppFuelRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/god-view': typeof AppGodViewRoute
+  '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/reports': typeof AppReportsRoute
   '/app/': typeof AppIndexRoute
+  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/app/drivers/': typeof AppDriversIndexRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,48 +220,79 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/forgot-password'
     | '/login'
+    | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
     | '/app/dispatch'
+    | '/app/engineering'
     | '/app/fleet'
+    | '/app/fuel'
+    | '/app/gate'
+    | '/app/god-view'
+    | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/reports'
     | '/app/'
+    | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/app/drivers/'
     | '/app/trips/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/login'
+    | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
     | '/app/dispatch'
+    | '/app/engineering'
     | '/app/fleet'
+    | '/app/fuel'
+    | '/app/gate'
+    | '/app/god-view'
+    | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/reports'
     | '/app'
+    | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/app/drivers'
     | '/app/trips'
   id:
     | '__root__'
     | '/'
     | '/app'
+    | '/forgot-password'
     | '/login'
+    | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
     | '/app/dispatch'
+    | '/app/engineering'
     | '/app/fleet'
+    | '/app/fuel'
+    | '/app/gate'
+    | '/app/god-view'
+    | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/reports'
     | '/app/'
+    | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/app/drivers/'
     | '/app/trips/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -191,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -203,6 +331,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/accounts': {
+      id: '/app/accounts'
+      path: '/accounts'
+      fullPath: '/app/accounts'
+      preLoaderRoute: typeof AppAccountsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/admin': {
@@ -226,11 +361,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDispatchRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/engineering': {
+      id: '/app/engineering'
+      path: '/engineering'
+      fullPath: '/app/engineering'
+      preLoaderRoute: typeof AppEngineeringRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/fleet': {
       id: '/app/fleet'
       path: '/fleet'
       fullPath: '/app/fleet'
       preLoaderRoute: typeof AppFleetRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fuel': {
+      id: '/app/fuel'
+      path: '/fuel'
+      fullPath: '/app/fuel'
+      preLoaderRoute: typeof AppFuelRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/gate': {
+      id: '/app/gate'
+      path: '/gate'
+      fullPath: '/app/gate'
+      preLoaderRoute: typeof AppGateRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/god-view': {
+      id: '/app/god-view'
+      path: '/god-view'
+      fullPath: '/app/god-view'
+      preLoaderRoute: typeof AppGodViewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/inventory': {
+      id: '/app/inventory'
+      path: '/inventory'
+      fullPath: '/app/inventory'
+      preLoaderRoute: typeof AppInventoryRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/messages': {
@@ -245,6 +415,27 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/app/notifications'
       preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/reports': {
+      id: '/app/reports'
+      path: '/reports'
+      fullPath: '/app/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/drivers/': {
+      id: '/app/drivers/'
+      path: '/drivers'
+      fullPath: '/app/drivers/'
+      preLoaderRoute: typeof AppDriversIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/drivers/$driverId': {
+      id: '/app/drivers/$driverId'
+      path: '/drivers/$driverId'
+      fullPath: '/app/drivers/$driverId'
+      preLoaderRoute: typeof AppDriversDriverIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/trips/': {
@@ -265,26 +456,44 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAccountsRoute: typeof AppAccountsRoute
   AppAdminRoute: typeof AppAdminRoute
   AppAuditRoute: typeof AppAuditRoute
   AppDispatchRoute: typeof AppDispatchRoute
+  AppEngineeringRoute: typeof AppEngineeringRoute
   AppFleetRoute: typeof AppFleetRoute
+  AppFuelRoute: typeof AppFuelRoute
+  AppGateRoute: typeof AppGateRoute
+  AppGodViewRoute: typeof AppGodViewRoute
+  AppInventoryRoute: typeof AppInventoryRoute
   AppMessagesRoute: typeof AppMessagesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppReportsRoute: typeof AppReportsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppDriversDriverIdRoute: typeof AppDriversDriverIdRoute
   AppTripsTripIdRoute: typeof AppTripsTripIdRoute
+  AppDriversIndexRoute: typeof AppDriversIndexRoute
   AppTripsIndexRoute: typeof AppTripsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAccountsRoute: AppAccountsRoute,
   AppAdminRoute: AppAdminRoute,
   AppAuditRoute: AppAuditRoute,
   AppDispatchRoute: AppDispatchRoute,
+  AppEngineeringRoute: AppEngineeringRoute,
   AppFleetRoute: AppFleetRoute,
+  AppFuelRoute: AppFuelRoute,
+  AppGateRoute: AppGateRoute,
+  AppGodViewRoute: AppGodViewRoute,
+  AppInventoryRoute: AppInventoryRoute,
   AppMessagesRoute: AppMessagesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppReportsRoute: AppReportsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppDriversDriverIdRoute: AppDriversDriverIdRoute,
   AppTripsTripIdRoute: AppTripsTripIdRoute,
+  AppDriversIndexRoute: AppDriversIndexRoute,
   AppTripsIndexRoute: AppTripsIndexRoute,
 }
 
@@ -293,6 +502,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

@@ -95,6 +95,12 @@ export const fuelService = {
     );
     return settle(true);
   },
+  reject: (id: string) => {
+    store.fuel = store.fuel.map((f) =>
+      f.id === id ? { ...f, status: "Rejected" as const, approvedLitres: 0 } : f,
+    );
+    return settle(true);
+  },
 };
 
 /* ------------------------------- engineering ------------------------------ */

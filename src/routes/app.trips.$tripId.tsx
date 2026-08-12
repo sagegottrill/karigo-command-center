@@ -1,15 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Send } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
+import { PageHeader, SectionPanel, FieldRow, EmptyState } from "@/components/karigo/page-header";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { MetricCard } from "@/components/karigo/metric-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TRIPS, CONVERSATIONS } from "@/lib/karigo/mock-data";
-import { tripService } from "@/lib/karigo/services";
-import type { Message } from "@/lib/karigo/types";
+import { CONVERSATIONS } from "@/lib/karigo/mock-data";
+import { messageService, tripService } from "@/lib/karigo/services";
+import type { Message, Trip } from "@/lib/karigo/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/trips/$tripId")({
@@ -26,15 +26,40 @@ export const Route = createFileRoute("/app/trips/$tripId")({
 
 function TripDetail() {
   const { tripId } = Route.useParams();
-  const trip = TRIPS.find((t) => t.id === tripId) ?? TRIPS[0]!;
-  const timeline = tripService.timeline(trip);
-  const thread = CONVERSATIONS.find((c) => c.tripId === trip.id) ?? CONVERSATIONS[0]!;
-  const [messages, setMessages] = useState<Message[]>(thread.messages);
+  const [trip, setTrip] = useState<Trip | null | undefined>(undefined);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [threadId, setThreadId] = useState<string | null>(null);
 
-  const send = () => {
+  useEffect(() => {
+    void tripService.get(tripId).then((t) => {
+      setTrip(t);
+      const thread = CONVERSATIONS.find((c) => c.tripId === (t?.id ?? tripId)) ?? CONVERSATIONS.find((c) => c.kind === "trip");
+      setMessages(thread ? [...thread.messages] : []);
+      setThreadId(thread?.id ?? null);
+    });
+  }, [tripId]);
+
+  if (trip === undefined) {
+    return <p className="text-xs text-muted-foreground">Loading trip…</p>;
+  }
+
+  if (!trip) {
+    return (
+      <EmptyState
+        title="Trip not found"
+        description={`No trip record matches ${tripId}.`}
+        action={<Button asChild size="sm" variant="outline" className="h-8 text-xs"><Link to="/app/trips">Back to trips</Link></Button>}
+      />
+    );
+  }
+
+  const timeline = tripService.timeline(trip);
+
+  const send = async () => {
     if (!draft.trim()) return;
-    setMessages([...messages, { id: `m${messages.length + 1}`, author: "You", role: "Operations Admin", body: draft, time: "now", self: true }]);
+    if (threadId) await messageService.send(threadId, draft);
+    setMessages((prev) => [...prev, { id: `m${prev.length + 1}`, author: "You", role: "Operations Admin", body: draft, time: "now", self: true }]);
     setDraft("");
     toast.success("Message sent to trip thread");
   };
@@ -78,41 +103,34 @@ function TripDetail() {
           <ol className="relative ml-2 border-l border-border pl-5">
             {timeline.map((s) => (
               <li key={s.label} className="relative pb-4 last:pb-0">
-                <span
-                  className={cn(
-                    "absolute top-0.5 -left-[26px] grid h-3.5 w-3.5 place-items-center rounded-full border",
-                    s.state === "done" && "border-success bg-success text-success-foreground",
-                    s.state === "current" && "border-primary bg-primary",
-                    s.state === "pending" && "border-border bg-background",
-                  )}
-                >
-                  {s.state === "done" && <Check className="h-2.5 w-2.5" />}
-                  {s.state === "current" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground" />}
+                <span className={cn(
+                  "absolute -left-[23px] top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full border",
+                  s.state === "done" && "border-success bg-success text-success-foreground",
+                  s.state === "current" && "border-primary bg-primary text-primary-foreground",
+                  s.state === "pending" && "border-border bg-background",
+                )}>
+                  {s.state === "done" ? <Check className="h-2 w-2" /> : s.state === "current" ? <span className="h-1.5 w-1.5 rounded-full bg-current" /> : null}
                 </span>
                 <p className={cn("text-xs font-medium", s.state === "pending" ? "text-muted-foreground" : "text-foreground")}>{s.label}</p>
-                {s.at && <p className="num text-[10px] text-muted-foreground">12 Aug 2026 · {s.at}</p>}
+                {s.at && <p className="num text-[10px] text-muted-foreground">{s.at}</p>}
               </li>
             ))}
           </ol>
         </SectionPanel>
 
-        <SectionPanel
-          title="Trip Operations Thread"
-          description={thread.participants.join(" · ")}
-          bodyClassName="flex h-[430px] flex-col p-0"
-        >
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <SectionPanel title={`${trip.id} Operations Thread`} description="Dispatcher · Driver · Fleet · Accounts · Management" bodyClassName="flex h-[360px] flex-col p-0">
+          <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {messages.map((m) => (
-              <div key={m.id} className={cn("max-w-[85%] rounded-lg border p-2.5", m.self ? "ml-auto border-primary/40 bg-primary/10" : "border-border bg-surface-raised")}>
-                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{m.author} · {m.role}</p>
-                <p className="mt-1 text-xs text-foreground">{m.body}</p>
+              <div key={m.id} className={cn("max-w-[90%] rounded-md border px-2.5 py-2", m.self ? "ml-auto border-primary/30 bg-primary/10" : "border-border bg-surface-raised")}>
+                <p className="text-[10px] font-semibold text-muted-foreground">{m.author} · {m.role}</p>
+                <p className="mt-0.5 text-xs text-foreground">{m.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{m.time}</p>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 border-t border-border p-3">
-            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Message the trip thread…" className="h-8 text-xs" />
-            <Button size="sm" className="h-8 w-8 p-0" onClick={send}><Send className="h-3.5 w-3.5" /></Button>
+          <div className="flex gap-2 border-t border-border p-3">
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} placeholder="Message trip thread…" className="h-8 text-xs" />
+            <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => void send()}><Send className="h-3.5 w-3.5" /></Button>
           </div>
         </SectionPanel>
       </div>

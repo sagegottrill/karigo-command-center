@@ -77,7 +77,7 @@ function LoginPage() {
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Checkbox defaultChecked /> Remember me
             </label>
-            <button type="button" className="text-xs text-primary hover:underline" onClick={() => toast("Password reset link sent")}>Forgot password?</button>
+            <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
           </div>
           <Button type="submit" className="h-9 w-full gap-1.5 text-xs"><Lock className="h-3.5 w-3.5" />Sign In</Button>
           <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
