@@ -1,0 +1,293 @@
+/**
+ * Karigo domain model.
+ * These interfaces mirror the eventual backend schema so that the mock
+ * service layer can be swapped for real API calls without UI changes.
+ */
+
+export type ID = string;
+
+export interface Tenant {
+  id: ID;
+  name: string;
+  workspaceId: string;
+  industry: string;
+  country: string;
+  locations: string[];
+  contactEmail: string;
+  contactPhone: string;
+}
+
+export type RoleKey =
+  | "super_admin"
+  | "executive"
+  | "operations_manager"
+  | "dispatcher"
+  | "fleet_manager"
+  | "engineer"
+  | "mechanic"
+  | "accountant"
+  | "hr_manager"
+  | "security_officer"
+  | "driver";
+
+export interface Role {
+  key: RoleKey;
+  name: string;
+  description: string;
+  modules: string[];
+  users: number;
+}
+
+export interface User {
+  id: ID;
+  name: string;
+  email: string;
+  role: RoleKey;
+  roleName: string;
+  department: string;
+  status: "Active" | "Suspended" | "Invited";
+  lastActive: string;
+  initials: string;
+}
+
+export type TruckStatus =
+  | "Available"
+  | "Assigned"
+  | "In Transit"
+  | "Maintenance"
+  | "Out of Service";
+
+export interface Truck {
+  id: ID;
+  registration: string;
+  type: string;
+  make: string;
+  year: number;
+  status: TruckStatus;
+  driverId: ID | null;
+  driverName: string | null;
+  location: string;
+  tripId: ID | null;
+  odometer: number;
+  standardEfficiency: number;
+  lat: number;
+  lng: number;
+}
+
+export type DriverStatus =
+  | "Available"
+  | "On Trip"
+  | "Off Duty"
+  | "Suspended";
+
+export type ComplianceStatus = "Valid" | "Expiring Soon" | "Expired";
+
+export interface Driver {
+  id: ID;
+  name: string;
+  employeeId: string;
+  phone: string;
+  department: string;
+  dateJoined: string;
+  licenseNumber: string;
+  licenseCategory: string;
+  licenseExpiry: string;
+  compliance: ComplianceStatus;
+  experienceYears: number;
+  status: DriverStatus;
+  assignedTruck: string | null;
+  currentTripId: ID | null;
+  tripsCompleted: number;
+  safetyScore: number;
+  initials: string;
+}
+
+export type TripStatus =
+  | "Scheduled"
+  | "En Route"
+  | "Loaded"
+  | "Offloading"
+  | "Returning"
+  | "Delayed"
+  | "Completed"
+  | "Stopped";
+
+export interface Trip {
+  id: ID;
+  customer: string;
+  cargo: string;
+  pickup: string;
+  dropoff: string;
+  truckId: ID;
+  truckReg: string;
+  driverId: ID;
+  driverName: string;
+  status: TripStatus;
+  priority: "Low" | "Normal" | "High" | "Critical";
+  distanceKm: number;
+  durationLabel: string;
+  scheduledDate: string;
+  startTime: string;
+  eta: string;
+  progress: number;
+  lat: number;
+  lng: number;
+  revenue: number;
+}
+
+export interface TimelineStep {
+  label: string;
+  state: "done" | "current" | "pending";
+  at?: string;
+}
+
+export interface FuelRequisition {
+  id: ID;
+  tripId: ID;
+  truckReg: string;
+  driverName: string;
+  requiredLitres: number;
+  approvedLitres: number | null;
+  expectedConsumption: number;
+  standardEfficiency: number;
+  odometer: number;
+  status: "Pending" | "Approved" | "Rejected";
+  date: string;
+  cost: number;
+}
+
+export type WorkOrderStatus =
+  | "Reported"
+  | "Diagnosing"
+  | "Awaiting Parts"
+  | "Repairing"
+  | "Testing"
+  | "Completed";
+
+export interface WorkOrder {
+  id: ID;
+  truckReg: string;
+  defect: string;
+  category: string;
+  priority: "Low" | "Medium" | "High" | "Critical";
+  mechanic: string;
+  status: WorkOrderStatus;
+  reportedBy: string;
+  reportedAt: string;
+  cost: number;
+}
+
+export interface InventoryItem {
+  id: ID;
+  name: string;
+  sku: string;
+  category: string;
+  stock: number;
+  reorderLevel: number;
+  unitCost: number;
+  location: string;
+  status: "In Stock" | "Low Stock" | "Out of Stock";
+}
+
+export interface InventoryRequisition {
+  id: ID;
+  workOrder: ID;
+  truckReg: string;
+  mechanic: string;
+  part: string;
+  quantity: number;
+  reason: string;
+  status: "Pending" | "Released" | "Rejected";
+  date: string;
+}
+
+export type ExpenseStatus =
+  | "Pending"
+  | "Approved"
+  | "Rejected"
+  | "Clarification";
+
+export interface Expense {
+  id: ID;
+  type: "Toll" | "Allowance" | "Fuel" | "Repairs" | "Logistics" | "Other";
+  requester: string;
+  amount: number;
+  standardRate: number;
+  tripId: ID;
+  status: ExpenseStatus;
+  approvalLevel: string;
+  date: string;
+  documents: string[];
+}
+
+export interface GateEntry {
+  id: ID;
+  time: string;
+  asset: string;
+  driver: string;
+  direction: "Incoming" | "Outgoing";
+  purpose: string;
+  yard: string;
+  cargo: string;
+  officer: string;
+  reference: string;
+}
+
+export interface Notification {
+  id: ID;
+  category: "Operations" | "Approvals" | "Compliance" | "Engineering" | "Security" | "System";
+  title: string;
+  body: string;
+  time: string;
+  read: boolean;
+  severity: "info" | "warning" | "critical" | "success";
+}
+
+export interface Message {
+  id: ID;
+  author: string;
+  role: string;
+  body: string;
+  time: string;
+  self?: boolean;
+}
+
+export interface Conversation {
+  id: ID;
+  kind: "direct" | "channel" | "trip";
+  name: string;
+  subtitle: string;
+  unread: number;
+  lastAt: string;
+  tripId?: ID;
+  participants: string[];
+  messages: Message[];
+}
+
+export interface AuditLog {
+  id: ID;
+  timestamp: string;
+  user: string;
+  module: string;
+  action: string;
+  record: string;
+  device: string;
+  ip: string;
+}
+
+export interface ActivityEvent {
+  id: ID;
+  reference: string;
+  module: string;
+  action: string;
+  user: string;
+  time: string;
+  tone: "info" | "success" | "warning" | "critical";
+}
+
+export interface AlertItem {
+  id: ID;
+  level: "Critical" | "Warning" | "Approval" | "System";
+  message: string;
+  reference: string;
+}
