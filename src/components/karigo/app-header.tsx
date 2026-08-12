@@ -54,6 +54,14 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
       </button>
 
+      <div className="flex h-9 items-center overflow-hidden rounded-[10px] bg-black px-2 md:hidden">
+        <img
+          src={`${import.meta.env.BASE_URL}karigo.png`}
+          alt="KARIGO"
+          className="h-6 w-auto max-w-[120px] object-contain object-left"
+        />
+      </div>
+
       <div className="hidden min-w-0 items-center gap-2 sm:flex">
         <span className="truncate rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold tracking-[-0.01em] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06]">
           {workspace.name}
