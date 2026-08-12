@@ -38,7 +38,7 @@ function DispatchPage() {
     customer: "", cargo: "", pickup: "", dropoff: "", date: "2026-08-13",
     priority: "Normal", truckId: "", driverId: "", notes: "",
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "truckId" | "driverId", string>>>({});
 
   const tripId = useMemo(() => `TRP-${String(Math.floor(880 + Math.random() * 90)).padStart(5, "0")}`, []);
   const availableTrucks = TRUCKS.filter((t) => t.status === "Available");
@@ -48,7 +48,7 @@ function DispatchPage() {
   const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
   const validate = () => {
-    const e: Record<string, string> = {};
+    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "truckId" | "driverId", string>> = {};
     if (step === 0) {
       if (!form.customer) e.customer = "Customer is required";
       if (!form.cargo) e.cargo = "Cargo description is required";
