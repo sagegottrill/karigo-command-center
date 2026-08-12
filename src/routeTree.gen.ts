@@ -10,33 +10,86 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
+import { Route as AppFleetRouteImport } from './routes/app.fleet'
+import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDispatchRoute = AppDispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFleetRoute = AppFleetRouteImport.update({
+  id: '/fleet',
+  path: '/fleet',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTripsIndexRoute = AppTripsIndexRouteImport.update({
+  id: '/trips/',
+  path: '/trips/',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/dispatch': typeof AppDispatchRoute
+  '/app/fleet': typeof AppFleetRoute
+  '/app/': typeof AppIndexRoute
+  '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/dispatch': typeof AppDispatchRoute
+  '/app/fleet': typeof AppFleetRoute
+  '/app': typeof AppIndexRoute
+  '/app/trips': typeof AppTripsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/dispatch': typeof AppDispatchRoute
+  '/app/fleet': typeof AppFleetRoute
+  '/app/': typeof AppIndexRoute
+  '/app/trips/': typeof AppTripsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/app' | '/app/dispatch' | '/app/fleet' | '/app/' | '/app/trips/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/app/dispatch' | '/app/fleet' | '/app' | '/app/trips'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/dispatch'
+    | '/app/fleet'
+    | '/app/'
+    | '/app/trips/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +101,63 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dispatch': {
+      id: '/app/dispatch'
+      path: '/dispatch'
+      fullPath: '/app/dispatch'
+      preLoaderRoute: typeof AppDispatchRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fleet': {
+      id: '/app/fleet'
+      path: '/fleet'
+      fullPath: '/app/fleet'
+      preLoaderRoute: typeof AppFleetRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/trips/': {
+      id: '/app/trips/'
+      path: '/trips'
+      fullPath: '/app/trips/'
+      preLoaderRoute: typeof AppTripsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppDispatchRoute: typeof AppDispatchRoute
+  AppFleetRoute: typeof AppFleetRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppTripsIndexRoute: typeof AppTripsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDispatchRoute: AppDispatchRoute,
+  AppFleetRoute: AppFleetRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppTripsIndexRoute: AppTripsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
