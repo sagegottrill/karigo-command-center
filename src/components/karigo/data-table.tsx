@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -106,39 +106,52 @@ export function DataTable<T extends { id: string }>({
           <EmptyState title={emptyTitle} description={emptyDescription} />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-left">
+        <div className="overflow-x-auto px-4 pb-1">
+          <table className="w-full min-w-[720px] border-separate border-spacing-0 text-left">
             <thead>
-              <tr className="border-b border-black/[0.06]">
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={cn(
-                      "px-4 py-3 text-[11px] font-medium tracking-[0.01em] text-muted-foreground first:pl-5 last:pr-5",
-                      col.align === "right" && "text-right",
-                    )}
-                  >
-                    {col.sortValue ? (
-                      <button
-                        className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-                        onClick={() => {
-                          if (sortKey === col.key) setDir(dir === "asc" ? "desc" : "asc");
-                          else {
-                            setSortKey(col.key);
-                            setDir("asc");
-                          }
-                        }}
-                      >
-                        {col.header}
-                        {sortKey === col.key ? (
-                          dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                        ) : null}
-                      </button>
-                    ) : (
-                      col.header
-                    )}
-                  </th>
-                ))}
+              <tr className="bg-[#efeff1]">
+                {columns.map((col, i) => {
+                  const isFirst = i === 0;
+                  const isLast = i === columns.length - 1;
+                  const active = sortKey === col.key;
+                  return (
+                    <th
+                      key={col.key}
+                      className={cn(
+                        "px-4 py-3 text-[12px] font-medium text-[#3a3a3c]",
+                        isFirst && "rounded-l-full pl-5",
+                        isLast && "rounded-r-full pr-5",
+                        col.align === "right" && "text-right",
+                      )}
+                    >
+                      {col.sortValue ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                          onClick={() => {
+                            if (sortKey === col.key) setDir(dir === "asc" ? "desc" : "asc");
+                            else {
+                              setSortKey(col.key);
+                              setDir("asc");
+                            }
+                          }}
+                        >
+                          {col.header}
+                          {active ? (
+                            dir === "asc" ? <ArrowUp className="h-3 w-3 opacity-70" /> : <ArrowDown className="h-3 w-3 opacity-70" />
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          {col.header}
+                          <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -147,15 +160,17 @@ export function DataTable<T extends { id: string }>({
                   key={row.id}
                   onClick={() => onRowClick?.(row)}
                   className={cn(
-                    "border-b border-black/[0.04] transition-colors last:border-0 hover:bg-black/[0.015]",
+                    "transition-colors hover:bg-black/[0.015]",
                     onRowClick && "cursor-pointer",
                   )}
                 >
-                  {columns.map((col) => (
+                  {columns.map((col, i) => (
                     <td
                       key={col.key}
                       className={cn(
-                        "px-4 py-3.5 align-middle text-[13px] text-foreground first:pl-5 last:pr-5",
+                        "border-b border-black/[0.04] px-4 py-3.5 align-middle text-[13px] text-foreground",
+                        i === 0 && "pl-5",
+                        i === columns.length - 1 && "pr-5",
                         col.align === "right" && "text-right",
                         col.className,
                       )}

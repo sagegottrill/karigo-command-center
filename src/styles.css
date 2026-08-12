@@ -255,9 +255,8 @@
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
 }
 
-/* Scroll edge instead of hard divider under floating chrome */
 @utility scroll-edge {
-  mask-image: linear-gradient(to bottom, transparent, #000 12px);
+  overflow: auto;
 }
 
 @utility label-sm {
@@ -272,4 +271,41 @@
   letter-spacing: -0.03em;
   line-height: 1.05;
   font-weight: 600;
+}
+
+/* Fast page swap — opacity only (no blur / layout) */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility page-enter {
+  animation: page-enter 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+/* Leaflet map chrome inside Command Center */
+.karigo-map-marker,
+.karigo-map-pill {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-container {
+  font: inherit;
+  background: #e8eef4;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px !important;
+  background: rgba(255, 255, 255, 0.85) !important;
 }

@@ -1,8 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { appleSpring } from "@/lib/karigo/apple-motion";
 
 export function MetricCard({
   label,
@@ -25,15 +23,10 @@ export function MetricCard({
   accent?: boolean;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
-
   return (
-    <motion.div
-      whileHover={reduce ? undefined : { y: -2 }}
-      whileTap={reduce ? undefined : { scale: 0.985 }}
-      transition={appleSpring.press}
+    <div
       className={cn(
-        "group relative overflow-hidden rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)]",
+        "group relative overflow-hidden rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)] transition-transform duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.985]",
         accent && "ring-1 ring-black/[0.04]",
         className,
       )}
@@ -48,7 +41,7 @@ export function MetricCard({
         )}
       </div>
       <div className="mt-2.5 flex items-baseline gap-1.5">
-        <span className="num text-[28px] leading-none font-semibold tracking-[-0.04em] text-foreground">{value}</span>
+        <span className="num max-w-full truncate text-[24px] leading-none font-semibold tracking-[-0.04em] text-foreground sm:text-[28px]">{value}</span>
         {unit && <span className="text-[12px] font-medium text-muted-foreground">{unit}</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -68,6 +61,6 @@ export function MetricCard({
         )}
         {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
       </div>
-    </motion.div>
+    </div>
   );
 }

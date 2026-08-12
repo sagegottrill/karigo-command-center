@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { AlertTriangle, ArrowUpRight, Fuel, Gauge, Truck, Wrench } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
+import { ChartFrame } from "@/components/karigo/chart-frame";
 import { MetricCard } from "@/components/karigo/metric-card";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
@@ -90,8 +91,8 @@ function GodViewPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <SectionPanel title="Fleet Utilisation" description="Daily utilisation vs 80% target" bodyClassName="h-72 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+        <SectionPanel title="Fleet Utilisation" description="Daily utilisation vs 80% target" bodyClassName="p-4">
+          <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={CHART_UTILISATION}>
               <defs>
                 <linearGradient id="utilFill" x1="0" y1="0" x2="0" y2="1">
@@ -106,11 +107,11 @@ function GodViewPage() {
               <Area type="monotone" dataKey="utilisation" stroke="var(--chart-1)" fill="url(#utilFill)" strokeWidth={2} />
               <Line type="monotone" dataKey="target" stroke="var(--chart-3)" strokeDasharray="4 4" dot={false} />
             </ComposedChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></ChartFrame>
         </SectionPanel>
 
-        <SectionPanel title="Trip Performance" description="Completed vs delayed" bodyClassName="h-72 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+        <SectionPanel title="Trip Performance" description="Completed vs delayed" bodyClassName="p-4">
+          <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <BarChart data={CHART_TRIP_PERFORMANCE} barGap={4} barCategoryGap="28%">
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -120,11 +121,11 @@ function GodViewPage() {
               <Bar dataKey="completed" fill="var(--chart-1)" radius={[6, 6, 6, 6]} maxBarSize={18} />
               <Bar dataKey="delayed" fill="var(--chart-5)" radius={[6, 6, 6, 6]} maxBarSize={18} />
             </BarChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></ChartFrame>
         </SectionPanel>
 
-        <SectionPanel title="Fuel Efficiency" description="Actual vs standard Km/L" bodyClassName="h-72 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+        <SectionPanel title="Fuel Efficiency" description="Actual vs standard Km/L" bodyClassName="p-4">
+          <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <LineChart data={CHART_FUEL}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -134,11 +135,11 @@ function GodViewPage() {
               <Line type="monotone" dataKey="actual" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="standard" stroke="var(--chart-4)" strokeDasharray="4 4" dot={false} />
             </LineChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></ChartFrame>
         </SectionPanel>
 
-        <SectionPanel title="Expense Breakdown" description="Fuel / repairs / tolls / allowances" bodyClassName="h-72 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+        <SectionPanel title="Expense Breakdown" description="Fuel / repairs / tolls / allowances" bodyClassName="p-4">
+          <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={CHART_EXPENSE_SPLIT} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
                 {CHART_EXPENSE_SPLIT.map((_, i) => (
@@ -148,13 +149,13 @@ function GodViewPage() {
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></ChartFrame>
         </SectionPanel>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="h-72 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+        <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="p-4">
+          <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <AreaChart data={CHART_COST_REVENUE}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -164,7 +165,7 @@ function GodViewPage() {
               <Area type="monotone" dataKey="revenue" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.18} strokeWidth={2} />
               <Area type="monotone" dataKey="cost" stroke="var(--chart-5)" fill="var(--chart-5)" fillOpacity={0.12} strokeWidth={2} />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></ChartFrame>
         </SectionPanel>
 
         <SectionPanel title="Operational Bottlenecks" description="Open issues" bodyClassName="space-y-2 p-3">

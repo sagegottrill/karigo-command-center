@@ -8,6 +8,7 @@ import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
+import { ChartFrame } from "@/components/karigo/chart-frame";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -141,8 +142,8 @@ function ReportsPage() {
         </TabsList>
 
         <TabsContent value="fleet" className="mt-4 grid gap-5 lg:grid-cols-2">
-          <SectionPanel title="Fleet Utilisation" description="Weekly pattern" bodyClassName="h-64 pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+          <SectionPanel title="Fleet Utilisation" description="Weekly pattern" bodyClassName="p-4">
+            <ChartFrame><ResponsiveContainer width="100%" height="100%">
               <BarChart data={CHART_UTILISATION} barCategoryGap="28%">
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -150,7 +151,7 @@ function ReportsPage() {
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
                 <Bar dataKey="utilisation" fill="var(--chart-1)" radius={[6, 6, 6, 6]} maxBarSize={18} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartFrame>
           </SectionPanel>
           <SectionPanel title="Vehicle Status Summary" bodyClassName="space-y-2">
             {(["Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as const).map((s) => (
@@ -163,8 +164,8 @@ function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="trips" className="mt-4 grid gap-5 lg:grid-cols-2">
-          <SectionPanel title="Completed vs Delayed" bodyClassName="h-64 pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+          <SectionPanel title="Completed vs Delayed" bodyClassName="p-4">
+            <ChartFrame><ResponsiveContainer width="100%" height="100%">
               <BarChart data={CHART_TRIP_PERFORMANCE} barGap={4} barCategoryGap="28%">
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -173,7 +174,7 @@ function ReportsPage() {
                 <Bar dataKey="completed" fill="var(--chart-1)" radius={[6, 6, 6, 6]} maxBarSize={18} />
                 <Bar dataKey="delayed" fill="var(--chart-5)" radius={[6, 6, 6, 6]} maxBarSize={18} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartFrame>
           </SectionPanel>
           <SectionPanel title="Distance Snapshot" bodyClassName="space-y-2">
             <div className="flex items-center justify-between rounded-[14px] border border-black/[0.04] bg-black/[0.02] px-3.5 py-2.5 text-xs">
@@ -191,8 +192,8 @@ function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="fuel" className="mt-4">
-          <SectionPanel title="Fuel Efficiency Trend" description="Actual vs standard Km/L" bodyClassName="h-72 pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+          <SectionPanel title="Fuel Efficiency Trend" description="Actual vs standard Km/L" bodyClassName="p-4">
+            <ChartFrame><ResponsiveContainer width="100%" height="100%">
               <LineChart data={CHART_FUEL}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -201,7 +202,7 @@ function ReportsPage() {
                 <Line type="monotone" dataKey="actual" stroke="var(--chart-2)" strokeWidth={2} />
                 <Line type="monotone" dataKey="standard" stroke="var(--chart-4)" strokeDasharray="4 4" />
               </LineChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartFrame>
           </SectionPanel>
         </TabsContent>
 

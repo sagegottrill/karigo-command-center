@@ -1,11 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { motion } from "motion/react";
 import {
   Activity, Boxes, ChevronLeft, Fuel, Gauge, LayoutDashboard, LineChart,
   MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { appleSpring } from "@/lib/karigo/apple-motion";
 
 export interface NavItem {
   label: string;
@@ -48,30 +46,25 @@ export function AppSidebar({
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 76 : 248 }}
-      transition={appleSpring.chrome}
-      className="sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] md:flex"
+    <aside
+      className={cn(
+        "sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] transition-[width] duration-300 ease-[var(--ease-apple)] md:flex",
+        collapsed ? "w-[76px]" : "w-[248px]",
+      )}
     >
       <div className={cn("flex h-[60px] items-center gap-2.5", collapsed ? "justify-center px-2" : "px-4")}>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#1d1d1f] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)]">
           K
         </span>
         {!collapsed && (
-          <motion.div
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={appleSpring.press}
-            className="min-w-0"
-          >
+          <div className="min-w-0">
             <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">Karigo</p>
             <p className="truncate text-[11px] text-muted-foreground">Petroline · PTL-001</p>
-          </motion.div>
+          </div>
         )}
       </div>
 
-      <nav className="scroll-edge flex-1 overflow-y-auto px-2.5 pb-4">
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-4">
         {GROUPS.map((group) => {
           const items = NAV.filter((n) => n.group === group);
           if (!items.length) return null;
@@ -98,14 +91,6 @@ export function AppSidebar({
                             : "text-[#3a3a3c] hover:bg-black/[0.045] hover:text-foreground",
                         )}
                       >
-                        {active && (
-                          <motion.span
-                            layoutId="nav-active"
-                            className="absolute inset-0 rounded-full bg-[#1d1d1f]"
-                            transition={appleSpring.chrome}
-                            style={{ zIndex: -1 }}
-                          />
-                        )}
                         <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
                           <item.icon className="h-[17px] w-[17px]" strokeWidth={active ? 2.2 : 1.7} />
                           {collapsed && item.badge ? (
@@ -135,6 +120,7 @@ export function AppSidebar({
 
       <div className="border-t border-black/[0.05] p-2.5">
         <button
+          type="button"
           onClick={onToggle}
           className={cn(
             "flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground active:scale-[0.98]",
@@ -150,6 +136,6 @@ export function AppSidebar({
           {!collapsed && <span>Collapse</span>}
         </button>
       </div>
-    </motion.aside>
+    </aside>
   );
 }
