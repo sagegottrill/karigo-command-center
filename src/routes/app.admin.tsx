@@ -13,9 +13,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/app/admin")({
   head: () => ({
     meta: [
-      { title: "Administration — Karigo TMS" },
+      { title: "Administration | Karigo" },
       { name: "description", content: "Organisation profile, users, roles, permissions and system configuration for the Karigo workspace." },
-      { property: "og:title", content: "Administration — Karigo TMS" },
+      { property: "og:title", content: "Administration | Karigo" },
       { property: "og:description", content: "Organisation, users, roles and system configuration." },
     ],
   }),
@@ -58,7 +58,7 @@ function AdminPage() {
           </SectionPanel>
           <SectionPanel title="Operating Locations" bodyClassName="space-y-2">
             {TENANT.locations.map((l) => (
-              <div key={l} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs">
+              <div key={l} className="flex items-center justify-between rounded-[14px] border border-black/[0.05] bg-white px-3 py-2 text-[12px]">
                 <span>{l}</span><StatusBadge status="Active" />
               </div>
             ))}
@@ -73,7 +73,7 @@ function AdminPage() {
 
         <TabsContent value="roles" className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {ROLES.map((r) => (
-            <div key={r.key} className="rounded-lg border border-border bg-surface p-4">
+            <div key={r.key} className="rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)]">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-foreground">{r.name}</p>
                 <span className="num text-[11px] text-muted-foreground">{r.users} users</span>
@@ -98,7 +98,7 @@ function AdminPage() {
           </SectionPanel>
           <SectionPanel title="Notification Settings" bodyClassName="space-y-2">
             {["Critical defect alerts", "Expense approval escalations", "Licence expiry warnings", "Gate movement digests", "Sync failure alerts"].map((n) => (
-              <div key={n} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs">
+              <div key={n} className="flex items-center justify-between rounded-[14px] border border-black/[0.05] bg-white px-3 py-2 text-[12px]">
                 <span>{n}</span><StatusBadge status="Active" />
               </div>
             ))}

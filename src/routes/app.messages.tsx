@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/messages")({
   head: () => ({
     meta: [
-      { title: "Messages — Karigo TMS" },
+      { title: "Messages | Karigo" },
       { name: "description", content: "Contextual communication: direct messages, department channels and trip-specific operations threads." },
-      { property: "og:title", content: "Messages — Karigo TMS" },
+      { property: "og:title", content: "Messages | Karigo" },
       { property: "og:description", content: "Direct messages, department channels and trip operations threads." },
     ],
   }),
@@ -45,24 +45,29 @@ function MessagesPage() {
 
   return (
     <>
-      <PageHeader title="Messages" description="Contextual communication tied to trips, departments and people." />
+      <PageHeader title="Messages" description="Messages linked to trips, teams and people." />
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
         <SectionPanel title="Conversations" bodyClassName="p-0">
-          <div className="max-h-[560px] overflow-y-auto">
+          <div className="max-h-[560px] space-y-0.5 overflow-y-auto p-2">
             {SECTIONS.map((s) => (
               <div key={s.key}>
-                <p className="px-4 py-2 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{s.label}</p>
+                <p className="px-3 py-2 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{s.label}</p>
                 {convos.filter((c) => c.kind === s.key).map((c) => (
                   <button
                     key={c.id}
                     onClick={() => { setActiveId(c.id); setConvos(convos.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x))); }}
-                    className={cn("grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-l-2 px-4 py-2.5 text-left transition-colors", activeId === c.id ? "border-primary bg-primary/8" : "border-transparent hover:bg-surface-raised")}
+                    className={cn(
+                      "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-2.5 text-left transition-colors",
+                      activeId === c.id
+                        ? "bg-black/[0.04] text-foreground"
+                        : "hover:bg-black/[0.03]",
+                    )}
                   >
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium text-foreground">{c.name}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{c.subtitle}</p>
                     </div>
-                    {c.unread > 0 && <span className="num rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">{c.unread}</span>}
+                    {c.unread > 0 && <span className="num rounded-full bg-[#1d1d1f] px-2 py-0.5 text-[10px] font-semibold text-white">{c.unread}</span>}
                   </button>
                 ))}
               </div>
@@ -73,16 +78,24 @@ function MessagesPage() {
         <SectionPanel title={active.name} description={active.subtitle} bodyClassName="flex h-[560px] flex-col p-0">
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
             {active.messages.map((m) => (
-              <div key={m.id} className={cn("max-w-[70%] rounded-lg border p-2.5", m.self ? "ml-auto border-primary/40 bg-primary/10" : "border-border bg-surface-raised")}>
+              <div
+                key={m.id}
+                className={cn(
+                  "max-w-[70%] rounded-[16px] px-3.5 py-2.5",
+                  m.self
+                    ? "ml-auto bg-[#1d1d1f]/8 text-foreground"
+                    : "border border-black/[0.04] bg-black/[0.03]",
+                )}
+              >
                 <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{m.author} · {m.role}</p>
                 <p className="mt-1 text-xs text-foreground">{m.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{m.time}</p>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 border-t border-border p-3">
-            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a message…" className="h-8 text-xs" />
-            <Button size="sm" className="h-8 w-8 p-0" onClick={send}><Send className="h-3.5 w-3.5" /></Button>
+          <div className="flex items-center gap-2 border-t border-black/[0.05] p-3">
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a message…" className="h-9 rounded-full border-black/[0.08] bg-black/[0.03] text-[13px]" />
+            <Button size="sm" className="h-9 w-9 rounded-full p-0" onClick={send}><Send className="h-3.5 w-3.5" /></Button>
           </div>
         </SectionPanel>
 

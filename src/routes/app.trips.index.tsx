@@ -6,31 +6,31 @@ import { MetricCard } from "@/components/karigo/metric-card";
 import { DataTable, type Column } from "@/components/karigo/data-table";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { TRIPS } from "@/lib/karigo/mock-data";
 import type { Trip } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/trips/")({
   head: () => ({
     meta: [
-      { title: "Trips — Karigo TMS" },
+      { title: "Trips | Karigo" },
       { name: "description", content: "All scheduled, active, delayed and completed trips with progress, ETA and assignment detail." },
-      { property: "og:title", content: "Trips — Karigo TMS" },
+      { property: "og:title", content: "Trips | Karigo" },
       { property: "og:description", content: "Scheduled, active, delayed and completed trips with progress and ETA." },
     ],
   }),
   component: TripsPage,
 });
 
-const FILTERS = ["All", "En Route", "Loaded", "Offloading", "Returning", "Delayed", "Scheduled", "Completed"];
+const FILTERS = ["All", "En Route", "Loaded", "Offloading", "Returning", "Delayed", "Scheduled", "Completed"] as const;
 
 function TripsPage() {
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const navigate = useNavigate();
   const rows = filter === "All" ? TRIPS : TRIPS.filter((t) => t.status === filter);
 
   const columns: Column<Trip>[] = [
-    { key: "id", header: "Trip", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold text-primary">{r.id}</span> },
+    { key: "id", header: "Trip", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold text-foreground">{r.id}</span> },
     { key: "route", header: "Route", sortValue: (r) => r.pickup, cell: (r) => `${r.pickup} → ${r.dropoff}` },
     { key: "customer", header: "Customer", sortValue: (r) => r.customer, cell: (r) => <span className="text-muted-foreground">{r.customer}</span> },
     { key: "truck", header: "Truck", cell: (r) => <span className="num">{r.truckReg}</span> },
@@ -43,7 +43,7 @@ function TripsPage() {
       cell: (r) => (
         <div className="flex items-center justify-end gap-2">
           <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${r.progress}%` }} />
+            <div className="h-full rounded-full bg-[#1d1d1f]" style={{ width: `${r.progress}%` }} />
           </div>
           <span className="num text-[11px] text-muted-foreground">{r.progress}%</span>
         </div>
@@ -57,7 +57,7 @@ function TripsPage() {
     <>
       <PageHeader
         title="Trips"
-        description="Every dispatch under execution, with live status, progress and exceptions."
+        description="Live trips with status, progress and delays."
         actions={<Button asChild size="sm" className="h-8 gap-1.5 text-xs"><Link to="/app/dispatch"><Plus className="h-3.5 w-3.5" />Create Dispatch</Link></Button>}
       />
 
@@ -76,22 +76,7 @@ function TripsPage() {
           pageSize={12}
           searchKeys={(r) => `${r.id} ${r.customer} ${r.pickup} ${r.dropoff} ${r.driverName} ${r.truckReg}`}
           onRowClick={(r) => navigate({ to: "/app/trips/$tripId", params: { tripId: r.id } })}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-1">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                    filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          }
+          toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
         />
       </SectionPanel>
     </>

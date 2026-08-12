@@ -8,16 +8,19 @@ import { DataTable, type Column } from "@/components/karigo/data-table";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { accountService, formatNaira, formatNairaFull } from "@/lib/karigo/services";
 import type { Expense } from "@/lib/karigo/types";
 import { cn } from "@/lib/utils";
 
+const FILTERS = ["All", "Pending", "Approved", "Rejected", "Clarification"] as const;
+
 export const Route = createFileRoute("/app/accounts")({
   head: () => ({
     meta: [
-      { title: "Accounts — Karigo TMS" },
+      { title: "Accounts | Karigo" },
       { name: "description", content: "Operational expense approvals, variance control and disbursement oversight." },
-      { property: "og:title", content: "Accounts — Karigo TMS" },
+      { property: "og:title", content: "Accounts | Karigo" },
       { property: "og:description", content: "Expense approvals and financial oversight." },
     ],
   }),
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/app/accounts")({
 
 function AccountsPage() {
   const [rows, setRows] = useState<Expense[]>([]);
-  const [filter, setFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Clarification">("All");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selected, setSelected] = useState<Expense | null>(null);
   const [tab, setTab] = useState("queue");
 
@@ -52,7 +55,7 @@ function AccountsPage() {
     { key: "type", header: "Type", sortValue: (r) => r.type, cell: (r) => <StatusBadge status={r.type} dot={false} tone="neutral" /> },
     { key: "requester", header: "Requester", cell: (r) => r.requester },
     { key: "amount", header: "Amount", align: "right", sortValue: (r) => r.amount, cell: (r) => <span className="num font-semibold">{formatNairaFull(r.amount)}</span> },
-    { key: "trip", header: "Trip", cell: (r) => <span className="num text-primary">{r.tripId}</span> },
+    { key: "trip", header: "Trip", cell: (r) => <span className="num font-semibold text-foreground">{r.tripId}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     { key: "approval", header: "Approval", cell: (r) => <span className="text-muted-foreground">{r.approvalLevel}</span> },
   ], []);
@@ -72,13 +75,13 @@ function AccountsPage() {
     <>
       <PageHeader
         title="Accounts & Approvals"
-        description="Multi-level expense control with variance visibility and disbursement tracking."
+        description="Approvals, variance checks and payout tracking."
         meta={<span className="num text-[11px] text-muted-foreground">{pending.length} pending · {formatNaira(pending.reduce((s, e) => s + e.amount, 0))} exposure</span>}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Pending Approvals" value={pending.length} accent />
-        <MetricCard label="Approved Today" value={approved.length} hint="prototype cycle" />
+        <MetricCard label="Approved Today" value={approved.length} hint="Today" />
         <MetricCard label="Rejected" value={rejected.length} />
         <MetricCard label="Total Disbursed" value={formatNaira(disbursed)} />
         <MetricCard label="Expense Variance" value={formatNaira(Math.abs(variance))} deltaTone={variance > 0 ? "down" : "up"} hint="vs standard rates" />
@@ -99,22 +102,7 @@ function AccountsPage() {
               searchKeys={(r) => `${r.id} ${r.type} ${r.requester} ${r.tripId}`}
               pageSize={12}
               onRowClick={(r) => { setSelected(r); setTab("detail"); }}
-              toolbar={
-                <div className="flex flex-wrap gap-1">
-                  {(["All", "Pending", "Approved", "Rejected", "Clarification"] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                        filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              }
+              toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
             />
           </SectionPanel>
         </TabsContent>
@@ -128,8 +116,8 @@ function AccountsPage() {
           >
             {selected ? (
               <>
-                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/8 p-4">
-                  <p className="text-[10px] font-semibold tracking-[0.12em] text-primary uppercase">Requested Amount</p>
+                <div className="mb-4 rounded-[18px] border border-black/[0.05] bg-black/[0.03] p-4">
+                  <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Requested Amount</p>
                   <p className="num mt-1 text-3xl font-semibold text-foreground">{formatNairaFull(selected.amount)}</p>
                 </div>
                 <FieldRow label="Requester" value={selected.requester} />
@@ -160,7 +148,7 @@ function AccountsPage() {
                   key={d}
                   type="button"
                   onClick={() => toast("Document preview", { description: d })}
-                  className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-xs hover:border-primary/40"
+                  className="flex w-full items-center gap-2 rounded-[14px] border border-black/[0.05] bg-white px-3 py-2 text-left text-[12px] hover:bg-black/[0.02]"
                 >
                   <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="num flex-1 truncate">{d}</span>
@@ -180,7 +168,7 @@ function AccountsPage() {
                     <span className={cn(
                       "mt-1 h-2 w-2 shrink-0 rounded-full",
                       h.state === "done" && "bg-success",
-                      h.state === "current" && "bg-primary",
+                      h.state === "current" && "bg-[#1d1d1f]",
                       h.state === "pending" && "bg-muted-foreground/40",
                     )} />
                     <div className="min-w-0">
@@ -208,7 +196,7 @@ function AccountsPage() {
         </TabsContent>
 
         <TabsContent value="approvals" className="mt-4">
-          <SectionPanel title="Pending Approvals Queue" description="Exception-first expense review" bodyClassName="p-0">
+          <SectionPanel title="Pending Approvals Queue" description="Needs a decision" bodyClassName="p-0">
             <DataTable
               rows={pending}
               columns={columns}

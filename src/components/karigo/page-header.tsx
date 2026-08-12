@@ -13,17 +13,17 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 pb-1 lg:flex lg:justify-between">
+    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 lg:flex lg:justify-between">
       <div className="min-w-0">
-        <h1 className="display-tight truncate text-[28px] text-foreground sm:text-[32px]">
+        <h1 className="truncate text-[28px] leading-[1.08] font-semibold tracking-[-0.035em] text-foreground sm:text-[34px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-2xl text-[15px] leading-[1.45] text-muted-foreground">{description}</p>
+          <p className="mt-1.5 max-w-2xl text-[14px] leading-[1.45] text-muted-foreground sm:text-[15px]">{description}</p>
         )}
         {meta && <div className="mt-3 flex flex-wrap items-center gap-2">{meta}</div>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2 pb-0.5">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2.5 pb-0.5">{actions}</div>}
     </header>
   );
 }
@@ -44,12 +44,17 @@ export function SectionPanel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn("panel overflow-hidden", className)}>
+    <section
+      className={cn(
+        "overflow-hidden rounded-[24px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)]",
+        className,
+      )}
+    >
       {(title || actions) && (
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.05] px-5 py-3.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.05] px-5 py-4">
           <div className="min-w-0">
             {title && (
-              <h2 className="truncate text-[15px] font-semibold tracking-[-0.015em] text-foreground">
+              <h2 className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
                 {title}
               </h2>
             )}
@@ -75,7 +80,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-black/10 bg-black/[0.015] px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-black/10 bg-black/[0.015] px-6 py-16 text-center">
       <p className="text-[15px] font-semibold tracking-[-0.015em] text-foreground">{title}</p>
       <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">{description}</p>
       {action && <div className="mt-3">{action}</div>}

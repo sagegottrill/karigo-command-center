@@ -25,9 +25,9 @@ function NotFoundComponent() {
         <div className="mt-6">
           <Link
             to="/app"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-full bg-[#1d1d1f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
           >
-            Back to command center
+            Back to overview
           </Link>
         </div>
       </div>
@@ -49,7 +49,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This screen didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong. Your latest changes have been saved locally.
+          Something went wrong. Try again in a moment.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -57,15 +57,15 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-full bg-[#1d1d1f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
           >
             Try again
           </button>
           <a
             href="/app"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-full border border-black/[0.1] bg-white px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/[0.03]"
           >
-            Command center
+            Go to overview
           </a>
         </div>
       </div>
@@ -78,13 +78,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Karigo — Transport Management System" },
+      { title: "Karigo" },
       {
         name: "description",
-        content:
-          "Karigo is an enterprise transport management system for fleet, dispatch, fuel, maintenance and expense control.",
+        content: "Karigo transport management for fleet, trips, fuel, workshop and expenses.",
       },
-      { name: "author", content: "Forah Technology" },
+      { name: "author", content: "Petroline Transport" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

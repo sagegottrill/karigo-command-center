@@ -6,16 +6,16 @@ import { MetricCard } from "@/components/karigo/metric-card";
 import { DataTable, type Column } from "@/components/karigo/data-table";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { TRUCKS } from "@/lib/karigo/mock-data";
 import type { Truck } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/fleet")({
   head: () => ({
     meta: [
-      { title: "Fleet & Dispatch — Karigo TMS" },
+      { title: "Fleet & Dispatch | Karigo" },
       { name: "description", content: "Fleet availability, assignment and vehicle status across the Petroline heavy transport fleet." },
-      { property: "og:title", content: "Fleet & Dispatch — Karigo TMS" },
+      { property: "og:title", content: "Fleet & Dispatch | Karigo" },
       { property: "og:description", content: "Fleet availability, assignment and vehicle status across the fleet." },
     ],
   }),
@@ -36,7 +36,7 @@ function FleetPage() {
     { key: "driver", header: "Driver", cell: (r) => r.driverName ?? <span className="text-muted-foreground">Unassigned</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     { key: "loc", header: "Location", sortValue: (r) => r.location, cell: (r) => r.location },
-    { key: "trip", header: "Trip", cell: (r) => (r.tripId ? <span className="num text-primary">{r.tripId}</span> : <span className="text-muted-foreground">—</span>) },
+    { key: "trip", header: "Trip", cell: (r) => (r.tripId ? <span className="num font-semibold text-foreground">{r.tripId}</span> : <span className="text-muted-foreground">—</span>) },
     {
       key: "action", header: "Action", align: "right",
       cell: (r) => (
@@ -78,22 +78,7 @@ function FleetPage() {
           columns={columns}
           searchKeys={(r) => `${r.id} ${r.registration} ${r.type} ${r.driverName ?? ""} ${r.location}`}
           pageSize={12}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-1">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                    filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          }
+          toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
         />
       </SectionPanel>
     </>

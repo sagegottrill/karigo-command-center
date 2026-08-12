@@ -4,7 +4,6 @@ import {
   Bell, ChevronDown, CircleDot, HelpCircle, LogOut, MessageSquare, PanelLeft,
   Search, Settings, User, WifiOff,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
@@ -15,7 +14,6 @@ import {
 import { globalSearch } from "@/lib/karigo/services";
 import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/karigo/mock-data";
 import { NAV } from "./app-sidebar";
-import { StatusBadge } from "./status-badge";
 import { toast } from "sonner";
 
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
@@ -30,8 +28,10 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const groups = [...new Set(hits.map((h) => h.group))];
   const unread = NOTIFICATIONS.filter((n) => !n.read).length;
 
-  const active = NAV.find((n) => (n.to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(n.to)));
-  const crumbTail = pathname.split("/").filter(Boolean).slice(2);
+  const active = NAV.find((n) =>
+    n.to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(n.to),
+  );
+  const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,137 +45,180 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   }, []);
 
   return (
-    <header className="glass sticky top-0 z-30 flex h-[52px] items-center gap-3 px-4">
-      <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 rounded-full p-0" onClick={onToggleSidebar}>
+    <header className="sticky top-0 z-30 flex h-[60px] items-center gap-3 border-b border-black/[0.05] bg-[#f5f5f7]/90 px-4 backdrop-blur-xl lg:px-6">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
+      >
         <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
-      </Button>
+      </button>
 
-      <div className="hidden min-w-0 items-center gap-2 lg:flex">
-        <span className="num rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold tracking-[-0.01em] text-foreground">
+      <div className="hidden min-w-0 items-center gap-2 sm:flex">
+        <span className="truncate rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold tracking-[-0.01em] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06]">
           {workspace.name}
         </span>
-        <span className="text-black/20">/</span>
-        <Link to="/app" className="text-[12px] font-medium text-muted-foreground hover:text-foreground">Workspace</Link>
         {active && (
           <>
-            <span className="text-black/20">/</span>
-            <span className="truncate text-[12px] font-semibold tracking-[-0.01em] text-foreground">{active.label}</span>
+            <span className="text-[12px] text-black/25">/</span>
+            <span className="truncate text-[13px] font-semibold tracking-[-0.015em] text-foreground">
+              {active.label}
+            </span>
           </>
         )}
-        {crumbTail.length > 1 && (
+        {detailId && detailId !== active?.to.split("/").pop() && (
           <>
-            <span className="text-black/20">/</span>
-            <span className="num truncate text-[12px] text-muted-foreground">{crumbTail.at(-1)}</span>
+            <span className="text-[12px] text-black/25">/</span>
+            <span className="num truncate text-[12px] text-muted-foreground">{detailId}</span>
           </>
         )}
       </div>
 
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="mx-auto hidden h-9 w-full max-w-md items-center gap-2 rounded-full bg-black/[0.04] px-3.5 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-black/[0.06] md:flex"
+        className="mx-auto hidden h-10 w-full max-w-md items-center gap-2.5 rounded-full bg-white px-4 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors duration-150 hover:bg-black/[0.02] hover:text-foreground md:flex"
       >
         <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span className="flex-1 text-left">Search</span>
-        <kbd className="num rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm">⌘K</kbd>
+        <span className="flex-1 text-left">Search trips, trucks, drivers…</span>
+        <kbd className="num rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          ⌘K
+        </kbd>
       </button>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <button
+          type="button"
           onClick={() => {
             setOnline(!online);
-            toast(online ? "Offline mode simulated" : "Connection restored", {
-              description: online ? "3 records queued for synchronization." : "All records synchronized.",
+            toast(online ? "You're offline" : "Back online", {
+              description: online ? "3 changes waiting to sync." : "Everything is up to date.",
             });
           }}
-          className="hidden items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-[10px] font-semibold tracking-[0.01em] sm:flex"
+          className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] sm:flex"
         >
           {online ? (
-            <><CircleDot className="h-3 w-3 text-success" /> <span className="text-success">Online</span></>
+            <>
+              <CircleDot className="h-3 w-3 text-[#34c759]" />
+              <span className="text-[#1d1d1f]">Online</span>
+            </>
           ) : (
-            <><WifiOff className="h-3 w-3 text-warning" /> <span className="text-warning-foreground">Offline — 3 pending</span></>
+            <>
+              <WifiOff className="h-3 w-3 text-[#ff9f0a]" />
+              <span className="text-[#1d1d1f]">Offline · 3</span>
+            </>
           )}
         </button>
 
-        <Button asChild variant="ghost" size="sm" className="relative h-8 w-8 rounded-full p-0">
-          <Link to="/app/notifications">
-            <Bell className="h-4 w-4" />
-            {unread > 0 && (
-              <span className="num absolute top-0.5 right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-critical px-1 text-[9px] font-bold text-critical-foreground">
-                {unread}
-              </span>
-            )}
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
-          <Link to="/app/messages"><MessageSquare className="h-4 w-4" /></Link>
-        </Button>
-        <Button variant="ghost" size="sm" className="hidden h-8 w-8 rounded-full p-0 sm:inline-flex" onClick={() => toast("Karigo help centre", { description: "Product documentation opens here." })}>
-          <HelpCircle className="h-4 w-4" />
-        </Button>
+        <Link
+          to="/app/notifications"
+          className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
+        >
+          <Bell className="h-4 w-4" strokeWidth={1.75} />
+          {unread > 0 && (
+            <span className="num absolute top-1 right-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[#ff3b30] px-1 text-[9px] font-bold text-white">
+              {unread}
+            </span>
+          )}
+        </Link>
+
+        <Link
+          to="/app/messages"
+          className="grid h-9 w-9 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
+        >
+          <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
+
+        <button
+          type="button"
+          className="hidden h-9 w-9 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97] sm:grid"
+          onClick={() => toast("Help", { description: "Guides and support will open here." })}
+        >
+          <HelpCircle className="h-4 w-4" strokeWidth={1.75} />
+        </button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 rounded-full bg-black/[0.04] py-1 pr-2 pl-1 transition-colors hover:bg-black/[0.06]">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">OF</span>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-full bg-white py-1 pr-2.5 pl-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.02] active:scale-[0.98]"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1d1d1f] text-[10px] font-semibold text-white">
+                OF
+              </span>
               <span className="hidden min-w-0 text-left sm:block">
-                <span className="block truncate text-[12px] leading-tight font-semibold text-foreground">Okwudili Fortune</span>
+                <span className="block truncate text-[12px] leading-tight font-semibold text-foreground">
+                  Okwudili Fortune
+                </span>
                 <span className="block truncate text-[10px] leading-tight text-muted-foreground">{role.name}</span>
               </span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel className="flex items-center justify-between gap-2">
-              <span>Workspace</span>
-              <StatusBadge status="Online" />
+          <DropdownMenuContent
+            align="end"
+            className="w-72 rounded-[18px] border-black/[0.06] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)]"
+          >
+            <DropdownMenuLabel className="px-2.5 py-2 text-[11px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+              Workspace
             </DropdownMenuLabel>
             {WORKSPACES.map((w) => (
               <DropdownMenuItem
                 key={w.id}
                 onClick={() => {
                   setWorkspace(w);
-                  toast.success(`Switched to ${w.name}`, { description: `Workspace ID ${w.id}` });
+                  toast.success(`Switched to ${w.name}`);
                 }}
-                className="flex items-center justify-between gap-2 text-xs"
+                className="flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-[13px]"
               >
                 <span className="truncate">{w.name}</span>
                 <span className="num shrink-0 text-[10px] text-muted-foreground">{w.id}</span>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Demo role</DropdownMenuLabel>
+            <DropdownMenuSeparator className="my-1.5 bg-black/[0.06]" />
+            <DropdownMenuLabel className="px-2.5 py-2 text-[11px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+              Switch role
+            </DropdownMenuLabel>
             {ROLES.slice(0, 8).map((r) => (
               <DropdownMenuItem
                 key={r.key}
                 onClick={() => {
                   setRole(r);
-                  toast.success(`Viewing as ${r.name}`, {
-                    description: "Prototype role lens — menus remain fully visible for demo.",
-                  });
+                  toast.success(`Signed in as ${r.name}`);
                   if (r.key === "executive") navigate({ to: "/app/god-view" });
                   if (r.key === "accountant") navigate({ to: "/app/accounts" });
                   if (r.key === "engineer" || r.key === "mechanic") navigate({ to: "/app/engineering" });
                   if (r.key === "hr_manager") navigate({ to: "/app/drivers" });
                   if (r.key === "security_officer") navigate({ to: "/app/gate" });
                 }}
-                className="text-xs"
+                className="rounded-xl px-2.5 py-2 text-[13px]"
               >
                 {r.name}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="text-xs"><Link to="/app/admin"><User className="mr-2 h-3.5 w-3.5" />Profile & permissions</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild className="text-xs"><Link to="/app/admin"><Settings className="mr-2 h-3.5 w-3.5" />System configuration</Link></DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="text-xs"><Link to="/login"><LogOut className="mr-2 h-3.5 w-3.5" />Sign out</Link></DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1.5 bg-black/[0.06]" />
+            <DropdownMenuItem asChild className="rounded-xl px-2.5 py-2 text-[13px]">
+              <Link to="/app/admin"><User className="mr-2 h-3.5 w-3.5" />Profile</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="rounded-xl px-2.5 py-2 text-[13px]">
+              <Link to="/app/admin"><Settings className="mr-2 h-3.5 w-3.5" />Settings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1.5 bg-black/[0.06]" />
+            <DropdownMenuItem asChild className="rounded-xl px-2.5 py-2 text-[13px]">
+              <Link to="/login"><LogOut className="mr-2 h-3.5 w-3.5" />Sign out</Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Search TRP-00842, TRK-104, driver, expense…" value={query} onValueChange={setQuery} />
+        <CommandInput
+          placeholder="Search TRP-00842, TRK-104, driver…"
+          value={query}
+          onValueChange={setQuery}
+        />
         <CommandList>
-          <CommandEmpty>No matching operational records.</CommandEmpty>
+          <CommandEmpty>No results.</CommandEmpty>
           {groups.map((g) => (
             <CommandGroup key={g} heading={g}>
               {hits.filter((h) => h.group === g).map((h, i) => (

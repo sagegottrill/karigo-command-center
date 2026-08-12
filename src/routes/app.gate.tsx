@@ -15,17 +15,19 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { DRIVERS, TRUCKS } from "@/lib/karigo/mock-data";
 import { gateService } from "@/lib/karigo/services";
 import type { GateEntry } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
+
+const FILTERS = ["Today", "Incoming", "Outgoing", "All"] as const;
 
 export const Route = createFileRoute("/app/gate")({
   head: () => ({
     meta: [
-      { title: "Gate & Security — Karigo TMS" },
+      { title: "Gate & Security | Karigo" },
       { name: "description", content: "Digital gate logbook for vehicle movements, visitors and asset transfers." },
-      { property: "og:title", content: "Gate & Security — Karigo TMS" },
+      { property: "og:title", content: "Gate & Security | Karigo" },
       { property: "og:description", content: "Digital gate logbook and security movements." },
     ],
   }),
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/app/gate")({
 
 function GatePage() {
   const [rows, setRows] = useState<GateEntry[]>([]);
-  const [filter, setFilter] = useState<"Today" | "Incoming" | "Outgoing" | "All">("Today");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Today");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     asset: "", driver: "", purpose: "Trip departure", direction: "Outgoing" as "Incoming" | "Outgoing",
@@ -92,7 +94,7 @@ function GatePage() {
     <>
       <PageHeader
         title="Gate & Security"
-        description="Digital replacement for the paper yard logbook — timestamped, attributable and searchable."
+        description="Yard in/out log with time, officer and purpose on every entry."
         meta={<StatusBadge status="Online" />}
         actions={
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setOpen(true)}>
@@ -115,22 +117,7 @@ function GatePage() {
           columns={columns}
           searchKeys={(r) => `${r.asset} ${r.driver} ${r.purpose} ${r.officer} ${r.reference} ${r.cargo}`}
           pageSize={12}
-          toolbar={
-            <div className="flex flex-wrap gap-1">
-              {(["Today", "Incoming", "Outgoing", "All"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                    filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          }
+          toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
         />
       </SectionPanel>
 
@@ -141,8 +128,8 @@ function GatePage() {
             <DialogDescription>Record vehicle or asset movement with a server-locked timestamp.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <div className="rounded-md border border-primary/30 bg-primary/8 px-3 py-2">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-primary uppercase">Server Timestamp</p>
+            <div className="rounded-[18px] border border-black/[0.05] bg-black/[0.03] px-3 py-2">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Server Timestamp</p>
               <p className="num mt-0.5 text-sm font-semibold text-foreground">12 Aug 2026 — 10:42:31</p>
             </div>
             <div className="grid grid-cols-2 gap-3">

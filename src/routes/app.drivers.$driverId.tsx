@@ -10,9 +10,9 @@ import type { Driver } from "@/lib/karigo/types";
 export const Route = createFileRoute("/app/drivers/$driverId")({
   head: () => ({
     meta: [
-      { title: "Driver Profile — Karigo TMS" },
+      { title: "Driver Profile | Karigo" },
       { name: "description", content: "Driver personal information, licence details and compliance status." },
-      { property: "og:title", content: "Driver Profile — Karigo TMS" },
+      { property: "og:title", content: "Driver Profile | Karigo" },
       { property: "og:description", content: "Driver personal information and compliance." },
     ],
   }),
@@ -62,7 +62,7 @@ function DriverProfilePage() {
       <div className="grid gap-5 lg:grid-cols-3">
         <SectionPanel title="Personal Information" bodyClassName="pt-1">
           <div className="mb-4 flex items-center gap-3">
-            <span className="grid h-14 w-14 place-items-center rounded-lg bg-primary/15 text-lg font-bold text-primary">{driver.initials}</span>
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-[#1d1d1f] text-lg font-bold text-white">{driver.initials}</span>
             <div>
               <p className="text-sm font-semibold">{driver.name}</p>
               <p className="num text-[11px] text-muted-foreground">{driver.employeeId}</p>
@@ -85,14 +85,14 @@ function DriverProfilePage() {
             label="Current trip"
             value={
               driver.currentTripId
-                ? <Link to="/app/trips/$tripId" params={{ tripId: driver.currentTripId }} className="text-primary hover:underline">{driver.currentTripId}</Link>
+                ? <Link to="/app/trips/$tripId" params={{ tripId: driver.currentTripId }} className="font-semibold text-foreground hover:underline">{driver.currentTripId}</Link>
                 : "—"
             }
           />
         </SectionPanel>
 
         <SectionPanel title="Compliance & Performance" bodyClassName="space-y-4">
-          <div className="rounded-lg border border-border bg-surface-raised p-4">
+          <div className="rounded-[18px] border border-black/[0.05] bg-black/[0.02] p-4">
             <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Licence Status</p>
             <div className="mt-2"><StatusBadge status={driver.compliance} /></div>
             <p className="num mt-2 text-xs text-muted-foreground">Expires {driver.licenseExpiry}</p>

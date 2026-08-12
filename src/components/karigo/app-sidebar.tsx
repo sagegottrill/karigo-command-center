@@ -16,24 +16,24 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { label: "Dashboard", to: "/app", icon: LayoutDashboard, group: "Operations" },
-  { label: "Fleet & Dispatch", to: "/app/fleet", icon: Truck, badge: 6, group: "Operations" },
-  { label: "Trips", to: "/app/trips", icon: Radar, badge: 42, group: "Operations" },
-  { label: "Fuel", to: "/app/fuel", icon: Fuel, badge: 5, group: "Operations" },
-  { label: "Engineering", to: "/app/engineering", icon: Wrench, badge: 7, group: "Maintenance" },
-  { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: 3, group: "Maintenance" },
-  { label: "Drivers & HR", to: "/app/drivers", icon: Users, group: "People" },
+  { label: "Overview", to: "/app", icon: LayoutDashboard, group: "Main" },
+  { label: "Fleet", to: "/app/fleet", icon: Truck, badge: 6, group: "Main" },
+  { label: "Trips", to: "/app/trips", icon: Radar, badge: 42, group: "Main" },
+  { label: "Fuel", to: "/app/fuel", icon: Fuel, badge: 5, group: "Main" },
+  { label: "Engineering", to: "/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
+  { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: 3, group: "Workshop" },
+  { label: "Drivers", to: "/app/drivers", icon: Users, group: "People" },
   { label: "Accounts", to: "/app/accounts", icon: Gauge, badge: 18, group: "Finance" },
-  { label: "Gate & Security", to: "/app/gate", icon: ShieldCheck, group: "Security" },
-  { label: "Messages", to: "/app/messages", icon: MessageSquare, badge: 11, group: "Collaboration" },
-  { label: "God View", to: "/app/god-view", icon: LineChart, group: "Intelligence" },
-  { label: "Reports", to: "/app/reports", icon: Activity, group: "Intelligence" },
-  { label: "Notifications", to: "/app/notifications", icon: Bell, badge: 4, group: "Intelligence" },
-  { label: "Audit Logs", to: "/app/audit", icon: ScrollText, group: "Governance" },
-  { label: "Administration", to: "/app/admin", icon: Settings, group: "Governance" },
+  { label: "Gate", to: "/app/gate", icon: ShieldCheck, group: "Yard" },
+  { label: "Messages", to: "/app/messages", icon: MessageSquare, badge: 11, group: "Inbox" },
+  { label: "God View", to: "/app/god-view", icon: LineChart, group: "Insights" },
+  { label: "Reports", to: "/app/reports", icon: Activity, group: "Insights" },
+  { label: "Notifications", to: "/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
+  { label: "Audit", to: "/app/audit", icon: ScrollText, group: "Admin" },
+  { label: "Settings", to: "/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Operations", "Maintenance", "People", "Finance", "Security", "Collaboration", "Intelligence", "Governance"];
+const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
 
 export function AppSidebar({
   collapsed,
@@ -50,12 +50,12 @@ export function AppSidebar({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 72 : 252 }}
+      animate={{ width: collapsed ? 76 : 248 }}
       transition={appleSpring.chrome}
-      className="glass-heavy sticky top-0 z-20 hidden h-screen shrink-0 flex-col md:flex"
+      className="sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] md:flex"
     >
-      <div className="flex h-14 items-center gap-2.5 px-3.5">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-primary text-[13px] font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(0,113,227,0.35)]">
+      <div className={cn("flex h-[60px] items-center gap-2.5", collapsed ? "justify-center px-2" : "px-4")}>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#1d1d1f] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)]">
           K
         </span>
         {!collapsed && (
@@ -65,22 +65,24 @@ export function AppSidebar({
             transition={appleSpring.press}
             className="min-w-0"
           >
-            <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-sidebar-foreground">Karigo</p>
-            <p className="num truncate text-[11px] text-muted-foreground">TMS · PTL-001</p>
+            <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">Karigo</p>
+            <p className="truncate text-[11px] text-muted-foreground">Petroline · PTL-001</p>
           </motion.div>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-3">
+      <nav className="scroll-edge flex-1 overflow-y-auto px-2.5 pb-4">
         {GROUPS.map((group) => {
           const items = NAV.filter((n) => n.group === group);
           if (!items.length) return null;
           return (
-            <div key={group} className="mb-3.5">
+            <div key={group} className="mb-4">
               {!collapsed && (
-                <p className="label-sm px-2.5 pb-1.5">{group}</p>
+                <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-[0.04em] text-muted-foreground/80 uppercase">
+                  {group}
+                </p>
               )}
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {items.map((item) => {
                   const active = isActive(item.to);
                   return (
@@ -89,29 +91,35 @@ export function AppSidebar({
                         to={item.to}
                         title={collapsed ? item.label : undefined}
                         className={cn(
-                          "relative flex items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-[13px] font-medium transition-colors duration-150",
+                          "relative flex items-center gap-2.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors duration-150 active:scale-[0.98]",
+                          collapsed && "justify-center px-0",
                           active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/75 hover:bg-black/[0.035] hover:text-sidebar-foreground",
+                            ? "bg-[#1d1d1f] text-white shadow-[0_1px_2px_rgba(0,0,0,0.14)]"
+                            : "text-[#3a3a3c] hover:bg-black/[0.045] hover:text-foreground",
                         )}
                       >
                         {active && (
                           <motion.span
                             layoutId="nav-active"
-                            className="absolute inset-0 rounded-[11px] bg-sidebar-accent"
+                            className="absolute inset-0 rounded-full bg-[#1d1d1f]"
                             transition={appleSpring.chrome}
                             style={{ zIndex: -1 }}
                           />
                         )}
-                        <span className={cn("relative flex h-5 w-5 shrink-0 items-center justify-center", active && "text-primary")}>
-                          <item.icon className="h-[17px] w-[17px]" strokeWidth={active ? 2.25 : 1.75} />
+                        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+                          <item.icon className="h-[17px] w-[17px]" strokeWidth={active ? 2.2 : 1.7} />
                           {collapsed && item.badge ? (
-                            <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                            <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-[#1d1d1f]" />
                           ) : null}
                         </span>
                         {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
                         {!collapsed && item.badge ? (
-                          <span className="num shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                          <span
+                            className={cn(
+                              "num shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                              active ? "bg-white/15 text-white" : "bg-black/[0.06] text-muted-foreground",
+                            )}
+                          >
                             {item.badge}
                           </span>
                         ) : null}
@@ -125,12 +133,20 @@ export function AppSidebar({
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border/80 p-2.5">
+      <div className="border-t border-black/[0.05] p-2.5">
         <button
           onClick={onToggle}
-          className="flex w-full items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-black/[0.035] hover:text-foreground"
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground active:scale-[0.98]",
+            collapsed && "justify-center px-0",
+          )}
         >
-          <ChevronLeft className={cn("h-4 w-4 shrink-0 transition-transform duration-300 ease-[var(--ease-apple)]", collapsed && "rotate-180")} />
+          <ChevronLeft
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform duration-300 ease-[var(--ease-apple)]",
+              collapsed && "rotate-180",
+            )}
+          />
           {!collapsed && <span>Collapse</span>}
         </button>
       </div>

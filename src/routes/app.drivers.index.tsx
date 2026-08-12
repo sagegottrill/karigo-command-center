@@ -7,16 +7,16 @@ import { DataTable, type Column } from "@/components/karigo/data-table";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { driverService } from "@/lib/karigo/services";
 import type { Driver } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/drivers/")({
   head: () => ({
     meta: [
-      { title: "Drivers & HR — Karigo TMS" },
+      { title: "Drivers & HR | Karigo" },
       { name: "description", content: "Driver availability, licence compliance and HR records for the transport workforce." },
-      { property: "og:title", content: "Drivers & HR — Karigo TMS" },
+      { property: "og:title", content: "Drivers & HR | Karigo" },
       { property: "og:description", content: "Driver availability, compliance and HR records." },
     ],
   }),
@@ -41,7 +41,7 @@ function DriversPage() {
       key: "driver", header: "Driver", sortValue: (r) => r.name,
       cell: (r) => (
         <span className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded bg-primary/15 text-[10px] font-bold text-primary">{r.initials}</span>
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-[#1d1d1f] text-[10px] font-bold text-white">{r.initials}</span>
           <span className="font-medium">{r.name}</span>
         </span>
       ),
@@ -52,7 +52,7 @@ function DriversPage() {
     {
       key: "trip", header: "Current Trip",
       cell: (r) => r.currentTripId
-        ? <Link to="/app/trips/$tripId" params={{ tripId: r.currentTripId }} className="num text-primary hover:underline" onClick={(e) => e.stopPropagation()}>{r.currentTripId}</Link>
+        ? <Link to="/app/trips/$tripId" params={{ tripId: r.currentTripId }} className="num font-semibold text-foreground hover:underline" onClick={(e) => e.stopPropagation()}>{r.currentTripId}</Link>
         : <span className="text-muted-foreground">—</span>,
     },
     { key: "compliance", header: "Compliance", sortValue: (r) => r.compliance, cell: (r) => <StatusBadge status={r.compliance} /> },
@@ -62,7 +62,7 @@ function DriversPage() {
     <>
       <PageHeader
         title="Drivers & HR"
-        description="Workforce availability, licence compliance and assignment state."
+        description="Drivers on duty, licences and who is assigned where."
         actions={
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => navigate({ to: "/app/drivers/$driverId", params: { driverId: rows[0]?.id ?? "DRV-001" } })}>
             Open sample profile
@@ -93,22 +93,7 @@ function DriversPage() {
               searchKeys={(r) => `${r.id} ${r.name} ${r.employeeId} ${r.licenseNumber} ${r.status}`}
               pageSize={12}
               onRowClick={(r) => navigate({ to: "/app/drivers/$driverId", params: { driverId: r.id } })}
-              toolbar={
-                <div className="flex flex-wrap gap-1">
-                  {FILTERS.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                        filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              }
+              toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
             />
           </SectionPanel>
         </TabsContent>
@@ -119,7 +104,7 @@ function DriversPage() {
               key={d.id}
               to="/app/drivers/$driverId"
               params={{ driverId: d.id }}
-              className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-primary/40"
+              className="rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)] transition-colors hover:border-black/[0.1]"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm">{d.name}</span>

@@ -17,17 +17,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { TRUCKS } from "@/lib/karigo/mock-data";
 import { engineeringService, formatNaira } from "@/lib/karigo/services";
 import type { WorkOrder } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/engineering")({
   head: () => ({
     meta: [
-      { title: "Engineering — Karigo TMS" },
+      { title: "Engineering | Karigo" },
       { name: "description", content: "Workshop queue, defect reporting, work orders and critical repair tracking." },
-      { property: "og:title", content: "Engineering — Karigo TMS" },
+      { property: "og:title", content: "Engineering | Karigo" },
       { property: "og:description", content: "Workshop queue, defects and work orders." },
     ],
   }),
@@ -137,29 +137,14 @@ function EngineeringPage() {
               columns={columns}
               searchKeys={(r) => `${r.id} ${r.truckReg} ${r.defect} ${r.mechanic} ${r.category}`}
               pageSize={12}
-              toolbar={
-                <div className="flex flex-wrap gap-1">
-                  {FILTERS.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                        filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              }
+              toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
             />
           </SectionPanel>
         </TabsContent>
 
         <TabsContent value="defects" className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.filter((w) => ["Reported", "Diagnosing"].includes(w.status)).map((w) => (
-            <div key={w.id} className="rounded-lg border border-border bg-surface p-4">
+            <div key={w.id} className="rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)]">
               <div className="flex items-center justify-between gap-2">
                 <span className="num text-xs font-semibold">{w.id}</span>
                 <StatusBadge status={w.priority} dot={false} />
@@ -234,15 +219,15 @@ function EngineeringPage() {
               type="button"
               onClick={() => {
                 setPhotoName(`defect-${Date.now()}.jpg`);
-                toast.success("Photo attached (simulated)");
+                toast.success("Photo attached");
               }}
-              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-surface-raised/40 px-4 py-8 text-center transition-colors hover:border-primary/40"
+              className="flex flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-black/10 bg-black/[0.015] px-4 py-8 text-center transition-colors hover:border-black/20"
             >
-              {photoName ? <Camera className="h-5 w-5 text-primary" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+              {photoName ? <Camera className="h-5 w-5 text-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
               <span className="text-xs font-medium text-foreground">
                 {photoName ? photoName : "Drag photo here or Upload Image"}
               </span>
-              <span className="text-[10px] text-muted-foreground">Prototype upload simulation</span>
+              <span className="text-[10px] text-muted-foreground">JPG or PNG, up to 5 MB</span>
             </button>
           </div>
           <DialogFooter>

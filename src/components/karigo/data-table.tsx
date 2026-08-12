@@ -24,7 +24,7 @@ export function DataTable<T extends { id: string }>({
   toolbar,
   exportLabel = "Export CSV",
   emptyTitle = "No records found",
-  emptyDescription = "Adjust your filters or search terms to see operational records.",
+  emptyDescription = "Try a different filter or search.",
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -67,11 +67,11 @@ export function DataTable<T extends { id: string }>({
 
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.05] px-5 py-3.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {searchKeys && (
             <div className="relative w-full max-w-64 min-w-0">
-              <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={1.75} />
               <Input
                 value={query}
                 onChange={(e) => {
@@ -79,42 +79,42 @@ export function DataTable<T extends { id: string }>({
                   setPage(0);
                 }}
                 placeholder="Filter records..."
-                className="h-8 bg-background pl-8 text-xs"
+                className="h-9 rounded-full border-black/[0.08] bg-black/[0.03] pl-9 text-[12px] shadow-none"
               />
             </div>
           )}
           {toolbar}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="num hidden text-[11px] text-muted-foreground sm:inline">
+          <span className="num hidden text-[12px] text-muted-foreground sm:inline">
             {filtered.length} records
           </span>
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1.5 text-xs"
+            className="h-9 gap-1.5 rounded-full border-black/[0.1] bg-white px-3.5 text-[12px]"
             onClick={() => toast.success(`${exportLabel} queued`, { description: `${filtered.length} records prepared for download.` })}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
             Export
           </Button>
         </div>
       </div>
 
       {view.length === 0 ? (
-        <div className="p-4">
+        <div className="p-5">
           <EmptyState title={emptyTitle} description={emptyDescription} />
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+          <table className="w-full min-w-[720px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-border bg-surface-raised/60">
+              <tr className="border-b border-black/[0.06]">
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     className={cn(
-                      "px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.01em] text-muted-foreground",
+                      "px-4 py-3 text-[11px] font-medium tracking-[0.01em] text-muted-foreground first:pl-5 last:pr-5",
                       col.align === "right" && "text-right",
                     )}
                   >
@@ -147,14 +147,18 @@ export function DataTable<T extends { id: string }>({
                   key={row.id}
                   onClick={() => onRowClick?.(row)}
                   className={cn(
-                    "border-b border-border/60 transition-colors last:border-0 hover:bg-surface-raised/70",
+                    "border-b border-black/[0.04] transition-colors last:border-0 hover:bg-black/[0.015]",
                     onRowClick && "cursor-pointer",
                   )}
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={cn("px-4 py-2.5 align-middle text-xs text-foreground", col.align === "right" && "text-right", col.className)}
+                      className={cn(
+                        "px-4 py-3.5 align-middle text-[13px] text-foreground first:pl-5 last:pr-5",
+                        col.align === "right" && "text-right",
+                        col.className,
+                      )}
                     >
                       {col.cell(row)}
                     </td>
@@ -166,16 +170,16 @@ export function DataTable<T extends { id: string }>({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
-        <span className="num text-[11px] text-muted-foreground">
-          Page {current + 1} of {pageCount}
+      <div className="flex items-center justify-between gap-3 border-t border-black/[0.05] px-5 py-3">
+        <span className="num text-[12px] text-muted-foreground">
+          {current * pageSize + 1}-{Math.min((current + 1) * pageSize, filtered.length)} of {filtered.length}
         </span>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={current === 0} onClick={() => setPage(current - 1)}>
-            <ChevronLeft className="h-3.5 w-3.5" />
+          <Button size="sm" variant="outline" className="h-8 w-8 rounded-full p-0" disabled={current === 0} onClick={() => setPage(current - 1)}>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
-            <ChevronRight className="h-3.5 w-3.5" />
+          <Button size="sm" variant="outline" className="h-8 w-8 rounded-full p-0" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

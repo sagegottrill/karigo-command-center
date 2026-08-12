@@ -16,16 +16,18 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { inventoryService, formatNaira, engineeringService } from "@/lib/karigo/services";
 import type { InventoryItem, InventoryRequisition, WorkOrder } from "@/lib/karigo/types";
-import { cn } from "@/lib/utils";
+
+const FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
 
 export const Route = createFileRoute("/app/inventory")({
   head: () => ({
     meta: [
-      { title: "Inventory — Karigo TMS" },
+      { title: "Inventory | Karigo" },
       { name: "description", content: "Workshop store stock levels, spare parts requisitions and controlled releases." },
-      { property: "og:title", content: "Inventory — Karigo TMS" },
+      { property: "og:title", content: "Inventory | Karigo" },
       { property: "og:description", content: "Workshop store stock and spare parts releases." },
     ],
   }),
@@ -36,7 +38,7 @@ function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [reqs, setReqs] = useState<InventoryRequisition[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [filter, setFilter] = useState<"All" | "In Stock" | "Low Stock" | "Out of Stock">("All");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [form, setForm] = useState({ workOrder: "", partId: "", quantity: "1", reason: "Scheduled repair" });
 
@@ -73,7 +75,7 @@ function InventoryPage() {
 
   const reqColumns: Column<InventoryRequisition>[] = useMemo(() => [
     { key: "id", header: "Requisition", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold">{r.id}</span> },
-    { key: "wo", header: "Work Order", cell: (r) => <span className="num text-primary">{r.workOrder}</span> },
+    { key: "wo", header: "Work Order", cell: (r) => <span className="num font-semibold text-foreground">{r.workOrder}</span> },
     { key: "truck", header: "Truck", cell: (r) => <span className="num">{r.truckReg}</span> },
     { key: "part", header: "Part", cell: (r) => r.part },
     { key: "qty", header: "Qty", align: "right", cell: (r) => <span className="num">{r.quantity}</span> },
@@ -137,22 +139,7 @@ function InventoryPage() {
               columns={columns}
               searchKeys={(r) => `${r.name} ${r.sku} ${r.category} ${r.location}`}
               pageSize={12}
-              toolbar={
-                <div className="flex flex-wrap gap-1">
-                  {(["All", "In Stock", "Low Stock", "Out of Stock"] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                        filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              }
+              toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
             />
           </SectionPanel>
         </TabsContent>
@@ -213,7 +200,7 @@ function InventoryPage() {
               <Input value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} className="h-9 text-xs" />
             </div>
             {selectedPart && selectedWo && (
-              <div className="rounded-md border border-border bg-surface-raised p-3">
+              <div className="rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3">
                 <FieldRow label="Work Order" value={selectedWo.id} />
                 <FieldRow label="Part" value={selectedPart.name} />
                 <FieldRow label="Quantity" value={form.quantity} />

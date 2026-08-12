@@ -25,7 +25,7 @@ function AppShell() {
   }, []);
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full bg-[#f5f5f7]">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <motion.div
         layout
@@ -33,8 +33,8 @@ function AppShell() {
         className="flex min-w-0 flex-1 flex-col"
       >
         <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />
-        <main className="scroll-edge min-w-0 flex-1 overflow-auto p-5 lg:p-8">
-          <div className="mx-auto max-w-[1520px]">
+        <main className="scroll-edge min-w-0 flex-1 overflow-auto px-4 py-5 sm:px-5 lg:px-8 lg:py-7">
+          <div className="mx-auto max-w-[1480px]">
             <PageReveal>
               <Outlet />
             </PageReveal>

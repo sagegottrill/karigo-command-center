@@ -18,10 +18,10 @@ import { formatNaira } from "@/lib/karigo/services";
 export const Route = createFileRoute("/app/god-view")({
   head: () => ({
     meta: [
-      { title: "God View — Karigo TMS" },
-      { name: "description", content: "Executive intelligence: revenue, utilisation, fuel efficiency, bottlenecks and cost exposure." },
-      { property: "og:title", content: "God View — Karigo TMS" },
-      { property: "og:description", content: "Executive operational and financial intelligence." },
+      { title: "God View | Karigo" },
+      { name: "description", content: "Revenue, utilisation, fuel and open issues." },
+      { property: "og:title", content: "God View | Karigo" },
+      { property: "og:description", content: "Revenue, utilisation, fuel and open issues." },
     ],
   }),
   component: GodViewPage,
@@ -30,12 +30,12 @@ export const Route = createFileRoute("/app/god-view")({
 const PIE_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 const tooltipStyle = {
-  background: "rgba(255,255,255,0.92)",
-  border: "1px solid rgba(0,0,0,0.08)",
-  borderRadius: 12,
-  fontSize: 11,
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid rgba(0,0,0,0.06)",
+  borderRadius: 14,
+  fontSize: 12,
   color: "#1d1d1f",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  boxShadow: "0 12px 32px rgba(0,0,0,0.08)",
 };
 
 function GodViewPage() {
@@ -60,7 +60,7 @@ function GodViewPage() {
     <>
       <PageHeader
         title="Management God View"
-        description="Executive command intelligence — financial exposure, fleet productivity and operational bottlenecks."
+        description="Costs, fleet use and the issues that need a decision today."
         meta={
           <>
             <StatusBadge status="Online" />
@@ -99,10 +99,10 @@ function GodViewPage() {
                   <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} domain={[40, 100]} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} domain={[40, 100]} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
               <Area type="monotone" dataKey="utilisation" stroke="var(--chart-1)" fill="url(#utilFill)" strokeWidth={2} />
               <Line type="monotone" dataKey="target" stroke="var(--chart-3)" strokeDasharray="4 4" dot={false} />
             </ComposedChart>
@@ -111,14 +111,14 @@ function GodViewPage() {
 
         <SectionPanel title="Trip Performance" description="Completed vs delayed" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={CHART_TRIP_PERFORMANCE}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
-              <Tooltip contentStyle={tooltipStyle} />
+            <BarChart data={CHART_TRIP_PERFORMANCE} barGap={4} barCategoryGap="28%">
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="completed" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="delayed" fill="var(--chart-5)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="completed" fill="var(--chart-1)" radius={[6, 6, 6, 6]} maxBarSize={18} />
+              <Bar dataKey="delayed" fill="var(--chart-5)" radius={[6, 6, 6, 6]} maxBarSize={18} />
             </BarChart>
           </ResponsiveContainer>
         </SectionPanel>
@@ -126,10 +126,10 @@ function GodViewPage() {
         <SectionPanel title="Fuel Efficiency" description="Actual vs standard Km/L" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={CHART_FUEL}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="actual" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="standard" stroke="var(--chart-4)" strokeDasharray="4 4" dot={false} />
@@ -156,10 +156,10 @@ function GodViewPage() {
         <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="h-72 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={CHART_COST_REVENUE}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-              <XAxis dataKey="label" tick={{ fill: "#86868b", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#86868b", fontSize: 11 }} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Area type="monotone" dataKey="revenue" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.18} strokeWidth={2} />
               <Area type="monotone" dataKey="cost" stroke="var(--chart-5)" fill="var(--chart-5)" fillOpacity={0.12} strokeWidth={2} />
@@ -167,12 +167,12 @@ function GodViewPage() {
           </ResponsiveContainer>
         </SectionPanel>
 
-        <SectionPanel title="Operational Bottlenecks" description="Exception-first executive queue" bodyClassName="space-y-2 p-3">
+        <SectionPanel title="Operational Bottlenecks" description="Open issues" bodyClassName="space-y-2 p-3">
           {bottlenecks.map((b) => (
             <Link
               key={b.label}
               to={b.to}
-              className="flex items-center gap-3 rounded-md border border-border bg-surface-raised/40 px-3 py-2.5 transition-colors hover:border-primary/40"
+              className="flex items-center gap-3 rounded-[16px] border border-black/[0.04] bg-black/[0.02] px-3.5 py-3 transition-colors hover:bg-black/[0.04]"
             >
               <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
               <div className="min-w-0 flex-1">
@@ -188,7 +188,7 @@ function GodViewPage() {
               <Link to="/app/reports">Open full reports catalogue</Link>
             </Button>
           </div>
-          <div className="rounded-md border border-border p-3">
+          <div className="rounded-[16px] border border-black/[0.04] bg-black/[0.02] p-3.5">
             <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Critical alert</p>
             <p className="mt-1 text-xs text-foreground">{ALERTS[0]?.message}</p>
           </div>

@@ -53,7 +53,7 @@ const TONE_CLASS: Record<Tone, string> = {
   warning: "bg-[#ff9f0a]/16 text-[#9a6700]",
   critical: "bg-[#ff3b30]/12 text-[#d70015]",
   neutral: "bg-black/[0.05] text-[#6e6e73]",
-  primary: "bg-[#0071e3]/12 text-[#0071e3]",
+  primary: "bg-[#1d1d1f]/10 text-[#1d1d1f]",
 };
 
 export function StatusBadge({

@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/trips/$tripId")({
   head: ({ params }) => ({
     meta: [
-      { title: `Trip ${params.tripId} — Karigo TMS` },
+      { title: `Trip ${params.tripId} | Karigo` },
       { name: "description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
-      { property: "og:title", content: `Trip ${params.tripId} — Karigo TMS` },
+      { property: "og:title", content: `Trip ${params.tripId} | Karigo` },
       { property: "og:description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
     ],
   }),
@@ -100,14 +100,14 @@ function TripDetail() {
         </SectionPanel>
 
         <SectionPanel title="Trip Timeline" bodyClassName="pt-2">
-          <ol className="relative ml-2 border-l border-border pl-5">
+          <ol className="relative ml-2 border-l border-black/10 pl-5">
             {timeline.map((s) => (
               <li key={s.label} className="relative pb-4 last:pb-0">
                 <span className={cn(
                   "absolute -left-[23px] top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full border",
                   s.state === "done" && "border-success bg-success text-success-foreground",
-                  s.state === "current" && "border-primary bg-primary text-primary-foreground",
-                  s.state === "pending" && "border-border bg-background",
+                  s.state === "current" && "border-[#1d1d1f] bg-[#1d1d1f] text-white",
+                  s.state === "pending" && "border-black/15 bg-white",
                 )}>
                   {s.state === "done" ? <Check className="h-2 w-2" /> : s.state === "current" ? <span className="h-1.5 w-1.5 rounded-full bg-current" /> : null}
                 </span>
@@ -121,14 +121,14 @@ function TripDetail() {
         <SectionPanel title={`${trip.id} Operations Thread`} description="Dispatcher · Driver · Fleet · Accounts · Management" bodyClassName="flex h-[360px] flex-col p-0">
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {messages.map((m) => (
-              <div key={m.id} className={cn("max-w-[90%] rounded-md border px-2.5 py-2", m.self ? "ml-auto border-primary/30 bg-primary/10" : "border-border bg-surface-raised")}>
+              <div key={m.id} className={cn("max-w-[90%] rounded-[16px] px-3 py-2", m.self ? "ml-auto bg-[#1d1d1f]/8 text-foreground" : "bg-black/[0.04]")}>
                 <p className="text-[10px] font-semibold text-muted-foreground">{m.author} · {m.role}</p>
                 <p className="mt-0.5 text-xs text-foreground">{m.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{m.time}</p>
               </div>
             ))}
           </div>
-          <div className="flex gap-2 border-t border-border p-3">
+          <div className="flex gap-2 border-t border-black/[0.05] p-3">
             <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} placeholder="Message trip thread…" className="h-8 text-xs" />
             <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => void send()}><Send className="h-3.5 w-3.5" /></Button>
           </div>

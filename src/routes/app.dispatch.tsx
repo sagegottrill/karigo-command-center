@@ -18,9 +18,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/dispatch")({
   head: () => ({
     meta: [
-      { title: "Create Dispatch — Karigo TMS" },
+      { title: "Create Dispatch | Karigo" },
       { name: "description", content: "Guided enterprise dispatch: trip details, vehicle, driver, route and review before release." },
-      { property: "og:title", content: "Create Dispatch — Karigo TMS" },
+      { property: "og:title", content: "Create Dispatch | Karigo" },
       { property: "og:description", content: "Guided enterprise dispatch across trip, vehicle, driver, route and review." },
     ],
   }),
@@ -86,37 +86,45 @@ function DispatchPage() {
     <>
       <PageHeader
         title="Create Dispatch"
-        description="Five-step guided workflow — validated before release to the field."
+        description="Create a trip in five steps, then release it to the field."
         meta={<><StatusBadge status="Scheduled" /><span className="num text-[11px] text-muted-foreground">Draft {tripId}</span></>}
       />
 
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <ol className="flex flex-wrap gap-1.5">
         {STEPS.map((label, i) => (
           <li
             key={label}
             className={cn(
-              "flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
-              i === step ? "border-primary/50 bg-primary/10 text-primary"
-                : i < step ? "border-success/40 bg-success/8 text-success" : "border-border text-muted-foreground",
+              "flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors",
+              i === step
+                ? "bg-[#1d1d1f] text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]"
+                : i < step
+                  ? "bg-[#34c759]/12 text-[#248a3d]"
+                  : "bg-black/[0.04] text-muted-foreground",
             )}
           >
-            <span className="num grid h-5 w-5 shrink-0 place-items-center rounded-full border border-current text-[10px] font-semibold">
+            <span
+              className={cn(
+                "num grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
+                i === step ? "bg-white/15" : i < step ? "bg-[#34c759]/20" : "bg-black/[0.06]",
+              )}
+            >
               {i < step ? <Check className="h-3 w-3" /> : i + 1}
             </span>
-            <span className="truncate font-medium">{label}</span>
+            <span className="truncate">{label}</span>
           </li>
         ))}
       </ol>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <SectionPanel title={`Step ${step + 1} — ${STEPS[step]}`} bodyClassName="space-y-4">
+        <SectionPanel title={`Step ${step + 1}: ${STEPS[step]}`} bodyClassName="space-y-4">
           {step === 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Trip ID</Label>
-                <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+                <div className="flex items-center gap-2 rounded-[14px] border border-black/[0.05] bg-black/[0.03] px-3 py-2">
                   <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="num text-xs text-muted-foreground">{tripId} — system generated</span>
+                  <span className="num text-xs text-muted-foreground">{tripId}</span>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -180,9 +188,9 @@ function DispatchPage() {
                       disabled={!selectable}
                       onClick={() => setForm({ ...form, truckId: t.id })}
                       className={cn(
-                        "flex items-center justify-between gap-3 rounded-md border p-3 text-left transition-colors",
-                        form.truckId === t.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
-                        !selectable && "cursor-not-allowed opacity-45 hover:border-border",
+                        "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
+                        form.truckId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
+                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
                       )}
                     >
                       <div className="min-w-0">
@@ -210,13 +218,13 @@ function DispatchPage() {
                       disabled={!selectable}
                       onClick={() => setForm({ ...form, driverId: d.id })}
                       className={cn(
-                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border p-3 text-left transition-colors",
-                        form.driverId === d.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
-                        !selectable && "cursor-not-allowed opacity-45 hover:border-border",
+                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
+                        form.driverId === d.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
+                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-[11px] font-semibold text-foreground">{d.initials}</span>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-[11px] font-semibold text-foreground">{d.initials}</span>
                         <div className="min-w-0">
                           <p className="truncate text-xs font-semibold text-foreground">{d.name}</p>
                           <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "—"}</p>
@@ -251,19 +259,19 @@ function DispatchPage() {
                   { label: "Estimated Distance", value: `${distance} km` },
                   { label: "Estimated Duration", value: duration },
                 ].map((m) => (
-                  <div key={m.label} className="rounded-md border border-border bg-muted/40 p-3">
+                  <div key={m.label} className="rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3.5">
                     <div className="flex items-center gap-1.5">
                       <Lock className="h-3 w-3 text-muted-foreground" />
                       <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{m.label}</p>
                     </div>
                     <p className="num mt-1.5 text-2xl font-semibold text-foreground">{m.value}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">System generated — locked field</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">Assigned automatically</p>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center gap-2 rounded-md border border-border bg-surface-raised p-3 text-xs text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                Route preview will render from the mapping provider once distance services are connected.
+              <div className="flex items-center gap-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                Route map shows here once the mapping service is connected.
               </div>
             </div>
           )}
@@ -289,7 +297,7 @@ function DispatchPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="flex items-center justify-between gap-3 border-t border-black/[0.05] pt-4">
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
               <ArrowLeft className="h-3.5 w-3.5" />Back
             </Button>

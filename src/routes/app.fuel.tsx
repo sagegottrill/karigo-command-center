@@ -8,16 +8,19 @@ import { DataTable, type Column } from "@/components/karigo/data-table";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterPills } from "@/components/karigo/filter-pills";
 import { fuelService, formatNaira } from "@/lib/karigo/services";
 import type { FuelRequisition } from "@/lib/karigo/types";
 import { cn } from "@/lib/utils";
 
+const FILTERS = ["All", "Pending", "Approved", "Rejected"] as const;
+
 export const Route = createFileRoute("/app/fuel")({
   head: () => ({
     meta: [
-      { title: "Fuel — Karigo TMS" },
+      { title: "Fuel | Karigo" },
       { name: "description", content: "Fuel allocation, requisitions, efficiency and variance control across the fleet." },
-      { property: "og:title", content: "Fuel — Karigo TMS" },
+      { property: "og:title", content: "Fuel | Karigo" },
       { property: "og:description", content: "Fuel allocation, requisitions and efficiency control." },
     ],
   }),
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/app/fuel")({
 
 function FuelPage() {
   const [rows, setRows] = useState<FuelRequisition[]>([]);
-  const [filter, setFilter] = useState<"All" | "Pending" | "Approved" | "Rejected">("All");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selected, setSelected] = useState<FuelRequisition | null>(null);
 
   const refresh = () => fuelService.list().then((list) => {
@@ -46,7 +49,7 @@ function FuelPage() {
 
   const columns: Column<FuelRequisition>[] = useMemo(() => [
     { key: "id", header: "Requisition", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold">{r.id}</span> },
-    { key: "trip", header: "Trip", sortValue: (r) => r.tripId, cell: (r) => <span className="num text-primary">{r.tripId}</span> },
+    { key: "trip", header: "Trip", sortValue: (r) => r.tripId, cell: (r) => <span className="num font-semibold text-foreground">{r.tripId}</span> },
     { key: "truck", header: "Truck", cell: (r) => <span className="num">{r.truckReg}</span> },
     { key: "driver", header: "Driver", cell: (r) => r.driverName },
     { key: "req", header: "Required", align: "right", sortValue: (r) => r.requiredLitres, cell: (r) => <span className="num">{r.requiredLitres} L</span> },
@@ -71,7 +74,7 @@ function FuelPage() {
     <>
       <PageHeader
         title="Fuel Management"
-        description="Allocation control, requisition approvals and efficiency variance against fleet standards."
+        description="Fuel requests, approvals and how usage compares to the standard."
         meta={<StatusBadge status="Online" />}
         actions={
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => toast.success("Fuel requisition draft opened")}>
@@ -103,28 +106,13 @@ function FuelPage() {
               searchKeys={(r) => `${r.id} ${r.tripId} ${r.truckReg} ${r.driverName}`}
               pageSize={10}
               onRowClick={setSelected}
-              toolbar={
-                <div className="flex flex-wrap gap-1">
-                  {(["All", "Pending", "Approved", "Rejected"] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-                        filter === f ? "border-primary/50 bg-primary/12 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              }
+              toolbar={<FilterPills options={FILTERS} value={filter} onChange={setFilter} />}
             />
           </SectionPanel>
         </TabsContent>
 
         <TabsContent value="detail" className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-          <SectionPanel title={selected?.id ?? "Select a requisition"} description="Efficiency-locked allocation review" bodyClassName="pt-1">
+          <SectionPanel title={selected?.id ?? "Select a requisition"} description="Efficiency review" bodyClassName="pt-1">
             {selected ? (
               <>
                 <FieldRow label="Trip" value={selected.tripId} />
@@ -142,12 +130,12 @@ function FuelPage() {
               <p className="py-8 text-center text-xs text-muted-foreground">Select a requisition from the list.</p>
             )}
           </SectionPanel>
-          <SectionPanel title="Allocation Guardrails" description="System-generated efficiency lock" bodyClassName="space-y-4">
-            <div className="rounded-lg border border-primary/30 bg-primary/8 p-4">
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-primary uppercase">Expected Efficiency</p>
+          <SectionPanel title="Allocation limits" description="Based on trip distance and fleet Km/L" bodyClassName="space-y-4">
+            <div className="rounded-[18px] border border-black/[0.05] bg-black/[0.03] p-4">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Expected Efficiency</p>
               <p className="num mt-1 text-3xl font-semibold text-foreground">{selected?.standardEfficiency ?? 3.2} <span className="text-sm text-muted-foreground">Km/L</span></p>
             </div>
-            <div className="rounded-lg border border-border bg-surface-raised p-4">
+            <div className="rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)]">
               <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Expected Fuel</p>
               <p className="num mt-1 text-3xl font-semibold text-foreground">{selected?.expectedConsumption ?? "—"} <span className="text-sm text-muted-foreground">L</span></p>
             </div>
@@ -165,12 +153,12 @@ function FuelPage() {
         </TabsContent>
 
         <TabsContent value="consumption" className="mt-4">
-          <SectionPanel title="Consumption Snapshot" description="Prototype variance view by requisition">
+          <SectionPanel title="Consumption" description="Expected vs requested for this requisition">
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {rows.slice(0, 9).map((r) => {
                 const delta = r.requiredLitres - r.expectedConsumption;
                 return (
-                  <div key={r.id} className="rounded-md border border-border bg-surface-raised/50 p-3">
+                  <div key={r.id} className="rounded-[18px] border border-black/[0.05] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
                     <div className="flex items-center justify-between gap-2">
                       <span className="num text-xs font-semibold">{r.id}</span>
                       <StatusBadge status={r.status} />
