@@ -5,8 +5,7 @@ import {
   ChevronsUpDown, Download, MessageSquare, Phone, Plus, Truck, Wrench,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, PolarAngleAxis, RadialBar, RadialBarChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { StatusBadge } from "@/components/karigo/status-badge";
 import { FilterPills } from "@/components/karigo/filter-pills";
@@ -81,7 +80,6 @@ function Dashboard() {
   const tripsDelayed = TRIPS.filter((t) => t.status === "Delayed").length;
   const approvals = EXPENSES.filter((e) => e.status === "Pending" || e.status === "Clarification").length;
   const revenue = 272_980_190;
-  const gauge = [{ name: "rev", value: 78, fill: "#a8c5e2" }];
 
   const rows = useMemo(() => {
     if (filter === "All Trips") return TRIPS;
@@ -193,14 +191,11 @@ function Dashboard() {
       </div>
 
       {/*
-        Visualizations — responsive rules:
-        - mobile: 1 column
-        - lg: 2 columns (stats full / side stack)
-        - xl: 3 columns with room
+        Trip stats left · Analytic + Fleet stacked right (no empty stretch)
       */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-stretch">
         {/* Trip Statistics */}
-        <section className={cn(card, "p-4 sm:p-5 lg:col-span-2 xl:col-span-6")}>
+        <section className={cn(card, "flex flex-col p-4 sm:p-5 xl:col-span-7")}>
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Trip Statistics</h2>
@@ -212,7 +207,7 @@ function Dashboard() {
               <span className="rounded-full bg-black/[0.04] px-2.5 py-1 font-medium text-foreground">Daily</span>
             </div>
           </div>
-          <div className="h-[240px] w-full sm:h-[260px]">
+          <div className="h-[240px] w-full sm:h-[280px] xl:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={DAILY_STATS} barGap={4} barCategoryGap="28%">
                 <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.05)" />
@@ -226,65 +221,76 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Analytic View — never squeezed beside 2 others on tablet */}
-        <section className={cn(card, "p-4 sm:p-5 xl:col-span-3")}>
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Analytic View</h2>
-            <span className="rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium">Monthly</span>
-          </div>
-          <div className="relative mx-auto w-full max-w-[240px]">
-            <div className="h-[170px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart
-                  cx="50%"
-                  cy="100%"
-                  innerRadius="78%"
-                  outerRadius="118%"
-                  startAngle={180}
-                  endAngle={0}
-                  data={gauge}
-                >
-                  <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                  <RadialBar background={{ fill: "#eef2f6" }} dataKey="value" cornerRadius={12}>
-                    {gauge.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
-                  </RadialBar>
-                </RadialBarChart>
-              </ResponsiveContainer>
+        {/* Right column — Analytic stacked on Fleet so neither stretches empty */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-5 xl:grid-cols-1 xl:content-stretch">
+          {/* Analytic View */}
+          <section className={cn(card, "flex flex-col p-4 sm:p-5")}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Analytic View</h2>
+              <span className="rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium">Monthly</span>
             </div>
-            <div className="pointer-events-none absolute inset-x-0 bottom-1 text-center">
-              <p className="text-[11px] text-muted-foreground">Operating revenue</p>
-              <p className="num text-[22px] font-semibold tracking-[-0.03em] sm:text-[24px]">{formatNaira(revenue)}</p>
-              <p className="mt-0.5 flex items-center justify-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
-                +2.45% <ArrowUpRight className="h-3.5 w-3.5" />
-              </p>
-            </div>
-          </div>
-        </section>
 
-        {/* Fleet on road */}
-        <section className={cn(card, "relative overflow-hidden p-4 sm:p-5 xl:col-span-3")}>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(183,207,230,0.45),transparent_55%)]" />
-          <div className="relative flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[12px] font-medium text-muted-foreground">Fleet on road</p>
-              <p className="num mt-1 text-[36px] leading-none font-semibold tracking-[-0.04em]">{trucksOnRoad}</p>
-              <p className="mt-2 flex items-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
-                +1.51% <ArrowUpRight className="h-3.5 w-3.5" />
-              </p>
-              <p className="mt-3 text-[12px] text-muted-foreground">{totalTrucks} trucks · {driversFree} drivers free</p>
-            </div>
-            <img
-              src="https://images.unsplash.com/photo-1601584115197-04ecc1da0d0d?auto=format&fit=crop&w=420&q=80"
-              alt="Heavy transport truck"
-              className="h-20 w-28 shrink-0 object-contain drop-shadow-xl sm:h-24 sm:w-36"
-            />
-          </div>
-        </section>
+            <div className="mt-2 flex items-center gap-3">
+              <svg viewBox="0 0 200 112" className="h-[112px] w-[160px] shrink-0 sm:h-[120px] sm:w-[170px]" aria-hidden>
+                <path d="M 18 100 A 82 82 0 0 1 182 100" fill="none" stroke="#eef2f6" strokeWidth="16" strokeLinecap="round" />
+                <path d="M 18 100 A 82 82 0 0 1 173.5 48.8" fill="none" stroke="#1d1d1f" strokeWidth="16" strokeLinecap="round" />
+                <path d="M 18 100 A 82 82 0 0 1 173.5 48.8" fill="none" stroke="#a8c5e2" strokeWidth="6" strokeLinecap="round" opacity="0.55" />
+                <text x="100" y="78" textAnchor="middle" fill="#6e6e73" style={{ fontSize: 10 }}>Of target</text>
+                <text x="100" y="98" textAnchor="middle" fill="#1d1d1f" style={{ fontSize: 24, fontWeight: 600, fontFamily: "ui-monospace, SF Mono, Menlo, monospace", letterSpacing: "-0.04em" }}>78%</text>
+              </svg>
 
-        {/* Tracking Trip — full width under charts on tablet, own column on xl */}
-        <section className={cn(card, "flex flex-col overflow-hidden lg:col-span-2 xl:col-span-12 xl:grid xl:grid-cols-[1fr_1.2fr_1fr]")}>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Operating revenue</p>
+                <p className="num mt-1 text-[22px] leading-none font-semibold tracking-[-0.04em] sm:text-[24px]">
+                  {formatNaira(revenue)}
+                </p>
+                <p className="mt-1.5 inline-flex items-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
+                  +2.45% <ArrowUpRight className="h-3.5 w-3.5" />
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
+                  <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
+                    <p className="text-[10px] text-muted-foreground">Target</p>
+                    <p className="num text-[12px] font-semibold">₦350M</p>
+                  </div>
+                  <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
+                    <p className="text-[10px] text-muted-foreground">Left</p>
+                    <p className="num text-[12px] font-semibold">₦77M</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Fleet on road */}
+          <section className={cn(card, "relative flex flex-col overflow-hidden p-0")}>
+            <div className="absolute inset-0 bg-[linear-gradient(165deg,#f7fafc_0%,#e8f0f8_55%,#dbe7f3_100%)]" />
+            <div className="relative z-[1] flex items-start justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
+              <div className="min-w-0">
+                <p className="text-[12px] font-medium text-muted-foreground">Fleet on road</p>
+                <p className="num mt-1 text-[32px] leading-none font-semibold tracking-[-0.04em]">{trucksOnRoad}</p>
+                <p className="mt-1.5 flex items-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
+                  +1.51% <ArrowUpRight className="h-3.5 w-3.5" />
+                </p>
+                <p className="mt-1.5 text-[12px] text-muted-foreground">
+                  {totalTrucks} trucks · {driversFree} drivers free
+                </p>
+              </div>
+              <span className="rounded-full bg-[#34c759]/15 px-2.5 py-1 text-[11px] font-semibold text-[#248a3d]">
+                On-Route
+              </span>
+            </div>
+            <div className="relative z-[1] flex items-end justify-center px-2 pb-0 pt-1">
+              <img
+                src={`${import.meta.env.BASE_URL}images/fleet-truck.png`}
+                alt="Heavy transport truck"
+                className="h-[130px] w-full object-contain object-bottom drop-shadow-[0_14px_24px_rgba(0,0,0,0.2)] sm:h-[140px]"
+              />
+            </div>
+          </section>
+        </div>
+
+        {/* Tracking Trip */}
+        <section className={cn(card, "flex flex-col overflow-hidden xl:col-span-12 xl:grid xl:grid-cols-[1fr_1.2fr_1fr]")}>
           <div className="border-b border-black/[0.05] p-4 sm:p-5 xl:border-r xl:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Tracking Trip</h2>
