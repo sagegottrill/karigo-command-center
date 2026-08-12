@@ -52,16 +52,24 @@ export function AppSidebar({
         collapsed ? "w-[76px]" : "w-[248px]",
       )}
     >
-      <div className={cn("flex h-[60px] items-center gap-2.5", collapsed ? "justify-center px-2" : "px-4")}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#1d1d1f] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)]">
-          K
-        </span>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">Karigo</p>
-            <p className="truncate text-[11px] text-muted-foreground">Petroline · PTL-001</p>
-          </div>
-        )}
+      <div className={cn("flex h-[60px] items-center", collapsed ? "justify-center px-2" : "px-3")}>
+        <div
+          className={cn(
+            "flex items-center justify-center overflow-hidden rounded-[12px] bg-[#0a0a0a]",
+            collapsed ? "h-10 w-10 p-1" : "h-10 px-2.5",
+          )}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}karigo.png`}
+            alt="KARIGO"
+            className={cn(
+              "object-left",
+              collapsed
+                ? "h-full w-full object-cover"
+                : "h-7 w-auto max-w-[140px] object-contain",
+            )}
+          />
+        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2.5 pb-4">

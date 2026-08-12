@@ -11,10 +11,10 @@ import { WORKSPACES } from "@/lib/karigo/mock-data";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in | Karigo" },
-      { name: "description", content: "Sign in to your Karigo workspace." },
-      { property: "og:title", content: "Sign in | Karigo" },
-      { property: "og:description", content: "Sign in to your Karigo workspace." },
+      { title: "Sign in | KARIGO" },
+      { name: "description", content: "Sign in to your KARIGO workspace." },
+      { property: "og:title", content: "Sign in | KARIGO" },
+      { property: "og:description", content: "Sign in to your KARIGO workspace." },
     ],
   }),
   component: LoginPage,
@@ -29,19 +29,22 @@ function LoginPage() {
       <div className="relative hidden overflow-hidden border-r border-black/[0.06] bg-white lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,113,227,0.1),transparent_60%)]" />
         <div className="relative flex h-full flex-col justify-between p-12">
-          <span className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-[12px] bg-[#1d1d1f] text-[13px] font-semibold text-white">K</span>
-            <span className="text-[15px] font-semibold tracking-[-0.02em]">Karigo</span>
-          </span>
+          <div className="inline-flex items-center rounded-[14px] bg-[#0a0a0a] px-3 py-2">
+            <img
+              src={`${import.meta.env.BASE_URL}karigo.png`}
+              alt="KARIGO"
+              className="h-8 w-auto max-w-[160px] object-contain object-left"
+            />
+          </div>
           <div>
             <h1 className="max-w-md text-[36px] leading-[1.1] font-semibold tracking-[-0.03em]">
               Run fleet ops from one place
             </h1>
             <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-muted-foreground">
-              Trips, fuel, workshop, expenses and gate logs for teams like Petroline.
+              Trips, fuel, workshop, expenses and gate logs — all in one place.
             </p>
           </div>
-          <p className="num text-[12px] text-muted-foreground">Petroline Transport · PTL-001</p>
+          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground">KARIGO</p>
         </div>
       </div>
 
