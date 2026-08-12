@@ -42,7 +42,7 @@ function AdminPage() {
 
       <Tabs defaultValue="org">
         <TabsList className="h-9">
-          {[["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["config", "System Configuration"]].map(([v, l]) => (
+          {([["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["config", "System Configuration"]] as const).map(([v, l]) => (
             <TabsTrigger key={v} value={v} className="text-xs">{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -88,7 +88,7 @@ function AdminPage() {
 
         <TabsContent value="config" className="mt-4 grid gap-5 lg:grid-cols-2">
           <SectionPanel title="Operational Thresholds" bodyClassName="space-y-3">
-            {[["Standard fuel rate (₦/L)", "1,195"], ["Standard efficiency (Km/L)", "3.2"], ["Approval threshold — Level 2 (₦)", "250,000"], ["Approval threshold — Level 3 (₦)", "750,000"], ["Trip delay tolerance (mins)", "45"]].map(([l, v]) => (
+            {([["Standard fuel rate (₦/L)", "1,195"], ["Standard efficiency (Km/L)", "3.2"], ["Approval threshold — Level 2 (₦)", "250,000"], ["Approval threshold — Level 3 (₦)", "750,000"], ["Trip delay tolerance (mins)", "45"]] as const).map(([l, v]) => (
               <div key={l} className="space-y-1.5">
                 <Label className="text-xs">{l}</Label>
                 <Input defaultValue={v} className="num h-8 text-xs" />
