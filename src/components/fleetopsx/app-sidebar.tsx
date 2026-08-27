@@ -89,7 +89,7 @@ export function AppSidebar({
         )}
       >
         <img
-          src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+          src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
           alt="FLEETOPSX"
           className={cn(
             "object-contain object-left",

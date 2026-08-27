@@ -57,7 +57,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
       <div className="flex h-9 items-center overflow-hidden rounded-[10px] bg-black px-2 md:hidden">
         <img
-          src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+          src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
           alt="FLEETOPSX"
           className="h-6 w-auto max-w-[120px] object-contain object-left"
         />

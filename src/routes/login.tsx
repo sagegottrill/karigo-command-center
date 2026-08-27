@@ -32,7 +32,7 @@ function LoginPage() {
         <div className="relative flex h-full flex-col justify-between p-12">
           <div className="inline-flex items-center rounded-[14px] bg-[#0a0a0a] px-3 py-2">
             <img
-              src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+              src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
               alt="FLEETOPSX"
               className="h-8 w-auto max-w-[160px] object-contain object-left"
             />
