@@ -11,9 +11,11 @@ import type {
   ExpenseStatus,
   GateEntry,
   InventoryItem,
+  ProcurementRequest,
   Trip,
   TimelineStep,
-  Truck,
+  TruckHead,
+  TruckTail,
 } from "./types";
 
 const LATENCY = 0;
@@ -22,16 +24,18 @@ const settle = <T,>(value: T): Promise<T> =>
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
-  list: () => settle([...store.trucks]),
-  get: (id: string) => settle(store.trucks.find((t) => t.id === id) ?? null),
+  listHeads: () => settle([...store.truckHeads]),
+  listTails: () => settle([...store.truckTails]),
+  getHead: (id: string) => settle(store.truckHeads.find((t) => t.id === id) ?? null),
+  getTail: (id: string) => settle(store.truckTails.find((t) => t.id === id) ?? null),
   summary: () =>
     settle({
-      total: store.trucks.length,
-      available: store.trucks.filter((t) => t.status === "Available").length,
-      assigned: store.trucks.filter((t) => t.status === "Assigned").length,
-      inTransit: store.trucks.filter((t) => t.status === "In Transit").length,
-      maintenance: store.trucks.filter((t) => t.status === "Maintenance").length,
-      outOfService: store.trucks.filter((t) => t.status === "Out of Service").length,
+      total: store.truckHeads.length,
+      available: store.truckHeads.filter((t) => t.status === "Available").length,
+      assigned: store.truckHeads.filter((t) => t.status === "Assigned").length,
+      inTransit: store.truckHeads.filter((t) => t.status === "In Transit").length,
+      maintenance: store.truckHeads.filter((t) => t.status === "Maintenance").length,
+      outOfService: store.truckHeads.filter((t) => t.status === "Out of Service").length,
     }),
 };
 
@@ -138,7 +142,16 @@ export const engineeringService = {
 export const inventoryService = {
   list: () => settle([...store.inventory]),
   requisitions: () => settle([...store.inventoryRequisitions]),
-  release: (itemId: string, qty: number) => {
+  release: (itemId: string, qty: number, reqId?: string) => {
+    if (!reqId) return Promise.reject(new Error("Release requires a valid requisition ID."));
+    const req = store.inventoryRequisitions.find((r) => r.id === reqId);
+    if (!req) return Promise.reject(new Error("Requisition not found."));
+    if (req.status !== "Pending") return Promise.reject(new Error("Requisition is already processed."));
+    
+    // Check if WO is active (not completed)
+    const wo = store.workOrders.find(w => w.id === req.workOrder);
+    if (!wo || wo.status === "Completed") return Promise.reject(new Error("Requisition is not linked to an active repair order."));
+
     store.inventory = store.inventory.map((i) => {
       if (i.id !== itemId) return i;
       const stock = Math.max(0, i.stock - qty);
@@ -148,8 +161,109 @@ export const inventoryService = {
         status: (stock === 0 ? "Out of Stock" : stock <= i.reorderLevel ? "Low Stock" : "In Stock") as InventoryItem["status"],
       };
     });
+
+    store.inventoryRequisitions = store.inventoryRequisitions.map((r) => 
+      r.id === reqId ? { ...r, status: "Released" } : r
+    );
+
     return settle(true);
   },
+  updateReorderLevel: (itemId: string, level: number) => {
+    store.inventory = store.inventory.map((i) => {
+      if (i.id !== itemId) return i;
+      return {
+        ...i,
+        reorderLevel: level,
+        status: (i.stock === 0 ? "Out of Stock" : i.stock <= level ? "Low Stock" : "In Stock") as InventoryItem["status"],
+      };
+    });
+    return settle(true);
+  },
+};
+
+/* ------------------------------- procurement ------------------------------ */
+export const procurementService = {
+  list: () => settle([...store.procurement]),
+  markProcured: (id: string) => {
+    store.procurement = store.procurement.map((p) => (p.id === id ? { ...p, status: "Procured" } : p));
+    // TODO: replace with real backend call (auto-notify engineering and fleet mgr)
+    store.notifications = [
+      {
+        id: `NTF-${Date.now()}`,
+        category: "Engineering",
+        title: "Part Procured",
+        body: `Procurement request ${id} marked as Procured.`,
+        time: "Just now",
+        read: false,
+        severity: "success",
+      },
+      ...store.notifications,
+    ];
+    return settle(true);
+  },
+};
+
+/* ------------------------------- compliance ------------------------------- */
+export const complianceService = {
+  getVehicleDocs: () => settle(
+    store.truckHeads.map(t => {
+      // Dummy logic to generate expirations
+      const daysToReg = (t.id.charCodeAt(4) * 3) % 180;
+      const daysToIns = (t.id.charCodeAt(5) * 7) % 365;
+      const daysToRoad = (t.id.charCodeAt(6) * 5) % 90;
+      return {
+        id: t.id,
+        reg: t.registration,
+        documents: {
+          registration: daysToReg,
+          insurance: daysToIns,
+          roadworthiness: daysToRoad,
+        }
+      };
+    })
+  ),
+  getDriverDocs: () => settle(
+    store.drivers.map(d => {
+      // Mock logic to compute days to expiry based on string "14 Feb 2026"
+      // we'll just parse the year to get a dummy diff or use static random
+      const diff = (d.id.charCodeAt(4) * 11) % 180;
+      return {
+        id: d.id,
+        name: d.name,
+        licenseCategory: d.licenseCategory,
+        daysToExpiry: d.compliance === "Expired" ? -5 : d.compliance === "Expiring Soon" ? 14 : Math.max(30, diff),
+      };
+    })
+  )
+};
+
+/* ------------------------------ depreciation ------------------------------ */
+export const depreciationService = {
+  getAssetDepreciation: () => settle(
+    [...store.truckHeads, ...store.truckTails].map((t) => {
+      // Mock data logic
+      const isHead = t.id.startsWith("TRH-");
+      const purchaseYear = isHead ? (t as TruckHead).year : 2018 + (t.id.charCodeAt(5) % 6);
+      const purchasePrice = isHead ? 45000000 + (t.id.charCodeAt(5) * 100000) : 12000000 + (t.id.charCodeAt(5) * 50000);
+      const lifespan = isHead ? 10 : 15;
+      
+      const currentYear = new Date().getFullYear();
+      const age = currentYear - purchaseYear;
+      const depreciatedValue = Math.max(0, purchasePrice - (purchasePrice / lifespan) * age);
+      const remainingYears = lifespan - age;
+
+      return {
+        id: t.id,
+        reg: t.registration,
+        type: isHead ? "Head" : "Tail",
+        purchaseYear,
+        purchasePrice,
+        lifespan,
+        currentValue: depreciatedValue,
+        remainingYears,
+      };
+    })
+  )
 };
 
 /* --------------------------------- accounts ------------------------------- */
@@ -224,13 +338,15 @@ export const dashboardService = {
 
 /* -------------------------- in-memory mutable store ----------------------- */
 const store = {
-  trucks: [...db.TRUCKS] as Truck[],
+  truckHeads: [...db.TRUCK_HEADS] as TruckHead[],
+  truckTails: [...db.TRUCK_TAILS] as TruckTail[],
   drivers: [...db.DRIVERS] as Driver[],
   trips: [...db.TRIPS] as Trip[],
   fuel: [...db.FUEL_REQUISITIONS],
   workOrders: [...db.WORK_ORDERS],
   inventory: [...db.INVENTORY],
   inventoryRequisitions: [...db.INVENTORY_REQUISITIONS],
+  procurement: [...db.PROCUREMENT_REQUESTS],
   expenses: [...db.EXPENSES] as Expense[],
   gate: [...db.GATE_ENTRIES],
   conversations: db.CONVERSATIONS.map((c) => ({ ...c, messages: [...c.messages] })),
@@ -255,10 +371,16 @@ export function globalSearch(query: string): SearchHit[] {
   store.trips.filter((t) => `${t.id} ${t.customer} ${t.pickup} ${t.dropoff}`.toLowerCase().includes(q))
     .slice(0, 5)
     .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} → ${t.dropoff} · ${t.status}`, to: "/app/trips/$tripId", params: { tripId: t.id } }));
-  store.trucks.filter((t) => `${t.id} ${t.registration} ${t.type}`.toLowerCase().includes(q))
+  
+  store.truckHeads.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Trucks", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/app/fleet" }));
-  store.drivers.filter((d) => `${d.id} ${d.name} ${d.employeeId}`.toLowerCase().includes(q))
+    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} · ${t.registration}`, meta: `${t.make} · ${t.status}`, to: "/app/fleet" }));
+  
+  store.truckTails.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
+    .slice(0, 5)
+    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/app/fleet" }));
+
+  store.drivers.filter((d) => `${d.id} ${d.name} ${d.employeeId} ${d.licenseNumber} ${d.assignedTruck || ""}`.toLowerCase().includes(q))
     .slice(0, 5)
     .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} · ${d.name}`, meta: `${d.status} · ${d.compliance}`, to: "/app/drivers/$driverId", params: { driverId: d.id } }));
   store.expenses.filter((e) => `${e.id} ${e.requester} ${e.type}`.toLowerCase().includes(q))

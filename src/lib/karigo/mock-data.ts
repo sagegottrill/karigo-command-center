@@ -10,10 +10,12 @@ import type {
   InventoryItem,
   InventoryRequisition,
   Notification,
+  ProcurementRequest,
   Role,
   Tenant,
   Trip,
-  Truck,
+  TruckHead,
+  TruckTail,
   User,
   WorkOrder,
 } from "./types";
@@ -29,6 +31,10 @@ function rng(seed: number) {
 const r = rng(20260812);
 const pick = <T,>(arr: readonly T[]) => arr[Math.floor(r() * arr.length)]!;
 const int = (min: number, max: number) => Math.floor(min + r() * (max - min + 1));
+
+// Mock Current User Role for RBAC Testing
+export const CURRENT_ROLE = "Operations Admin";
+
 const pad = (n: number, w = 3) => String(n).padStart(w, "0");
 
 export const TENANT: Tenant = {
@@ -122,26 +128,42 @@ export const DRIVERS: Driver[] = Array.from({ length: 34 }, (_, i) => {
   };
 });
 
-export const TRUCKS: Truck[] = Array.from({ length: 28 }, (_, i) => {
+export const TRUCK_HEADS: TruckHead[] = Array.from({ length: 28 }, (_, i) => {
   const city = pick(CITIES);
   const [lat, lng] = COORDS[city]!;
-  const status = pick<Truck["status"]>([
+  const status = pick<TruckHead["status"]>([
     "Available", "Available", "Assigned", "In Transit", "In Transit",
     "Maintenance", "Out of Service",
   ]);
   return {
-    id: `TRK-${pad(101 + i)}`,
+    id: `TRH-${pad(101 + i)}`,
+    number: `H${pad(101 + i)}`,
     registration: `${pick(["LAG", "ABJ", "PHC", "KAN"])}-${int(100, 999)}-${pick(["XA", "ZB", "QT", "MK", "RV"])}`,
-    type: pick(TRUCK_TYPES),
     make: pick(MAKES),
     year: int(2015, 2024),
     status,
-    driverId: null,
-    driverName: null,
     location: city,
-    tripId: null,
     odometer: int(48000, 480000),
     standardEfficiency: Number((2.6 + r() * 1.2).toFixed(1)),
+    lat: lat + (r() - 0.5) * 1.4,
+    lng: lng + (r() - 0.5) * 1.4,
+  };
+});
+
+export const TRUCK_TAILS: TruckTail[] = Array.from({ length: 35 }, (_, i) => {
+  const city = pick(CITIES);
+  const [lat, lng] = COORDS[city]!;
+  const status = pick<TruckTail["status"]>([
+    "Available", "Available", "Assigned", "In Transit", "In Transit",
+    "Maintenance", "Out of Service",
+  ]);
+  return {
+    id: `TRT-${pad(101 + i)}`,
+    number: `T${pad(101 + i)}`,
+    registration: `TRL-${int(100, 999)}-${pick(["XA", "ZB", "QT"])}`,
+    type: pick(TRUCK_TYPES),
+    status,
+    location: city,
     lat: lat + (r() - 0.5) * 1.4,
     lng: lng + (r() - 0.5) * 1.4,
   };
@@ -153,7 +175,8 @@ const TRIP_STATUSES: Trip["status"][] = [
 ];
 
 export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
-  const truck = TRUCKS[i % TRUCKS.length]!;
+  const head = TRUCK_HEADS[i % TRUCK_HEADS.length]!;
+  const tail = TRUCK_TAILS[i % TRUCK_TAILS.length]!;
   const driver = DRIVERS[i % DRIVERS.length]!;
   let pickupCity = pick(CITIES);
   let dropCity = pick(CITIES);
@@ -163,11 +186,8 @@ export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
   const [lat, lng] = COORDS[pickupCity]!;
   const id = `TRP-${pad(820 + i, 5)}`;
   if (status !== "Completed" && status !== "Scheduled") {
-    truck.tripId = id;
-    truck.driverId = driver.id;
-    truck.driverName = driver.name;
     driver.currentTripId = id;
-    driver.assignedTruck = truck.id;
+    driver.assignedTruck = `${head.id} + ${tail.id}`;
   }
   return {
     id,
@@ -175,8 +195,9 @@ export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
     cargo: pick(CARGO),
     pickup: pickupCity,
     dropoff: dropCity,
-    truckId: truck.id,
-    truckReg: truck.registration,
+    headId: head.id,
+    tailId: tail.id,
+    truckReg: `${head.registration} / ${tail.registration}`,
     driverId: driver.id,
     driverName: driver.name,
     status,
@@ -234,7 +255,7 @@ const MECHANICS = ["Idris Bako", "Chuka Nwosu", "Sola Adebayo", "Aminu Tijjani",
 
 export const WORK_ORDERS: WorkOrder[] = Array.from({ length: 27 }, (_, i) => ({
   id: `WO-${pad(920 + i, 5)}`,
-  truckReg: TRUCKS[i % TRUCKS.length]!.registration,
+  truckReg: TRUCK_HEADS[i % TRUCK_HEADS.length]!.registration,
   defect: pick(DEFECTS),
   category: pick(["Brakes", "Engine", "Transmission", "Electrical", "Tyres", "Body"]),
   priority: pick(["Low", "Medium", "High", "Critical"]),
@@ -288,6 +309,15 @@ export const INVENTORY_REQUISITIONS: InventoryRequisition[] = Array.from({ lengt
   date: `${int(1, 12)} Aug 2026`,
 }));
 
+export const PROCUREMENT_REQUESTS: ProcurementRequest[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `PRQ-${pad(100 + i, 5)}`,
+  partName: pick(PARTS)[0]!,
+  quantity: int(2, 20),
+  linkedId: WORK_ORDERS[i % WORK_ORDERS.length]!.id,
+  status: pick(["Requested", "Sourcing", "Procured", "Requested"]),
+  date: `${int(1, 12)} Aug 2026`,
+}));
+
 export const EXPENSES: Expense[] = Array.from({ length: 34 }, (_, i) => {
   const amount = int(45, 1800) * 1000;
   return {
@@ -316,7 +346,7 @@ EXPENSES[21] = {
 export const GATE_ENTRIES: GateEntry[] = Array.from({ length: 26 }, (_, i) => ({
   id: `GTE-${pad(300 + i, 5)}`,
   time: `12 Aug 2026 — ${pad(int(5, 20), 2)}:${pad(int(0, 59), 2)}:${pad(int(0, 59), 2)}`,
-  asset: TRUCKS[i % TRUCKS.length]!.registration,
+  asset: TRUCK_HEADS[i % TRUCK_HEADS.length]!.registration,
   driver: DRIVERS[i % DRIVERS.length]!.name,
   direction: i % 2 === 0 ? "Incoming" : "Outgoing",
   purpose: pick(["Loading", "Offloading", "Maintenance", "Parking", "Inspection", "Visitor"]),

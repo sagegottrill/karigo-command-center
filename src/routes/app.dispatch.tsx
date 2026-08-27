@@ -11,11 +11,20 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DRIVERS, TRUCKS } from "@/lib/karigo/mock-data";
+import { DRIVERS, TRUCK_HEADS, TRUCK_TAILS } from "@/lib/karigo/mock-data";
 import { tripService } from "@/lib/karigo/services";
 import { cn } from "@/lib/utils";
 
+import { redirect } from "@tanstack/react-router";
+import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+
 export const Route = createFileRoute("/app/dispatch")({
+  beforeLoad: () => {
+    const allowed = ["Super Admin", "Operations Admin", "Transport Manager", "Dispatcher"];
+    if (!allowed.includes(CURRENT_ROLE)) {
+      throw redirect({ to: "/app/unauthorized" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Create Dispatch | Karigo" },
@@ -27,7 +36,7 @@ export const Route = createFileRoute("/app/dispatch")({
   component: DispatchPage,
 });
 
-const STEPS = ["Trip Information", "Vehicle", "Driver", "Route", "Review"];
+const STEPS = ["Trip Information", "Head", "Tail", "Driver", "Route", "Review"];
 const CUSTOMERS = ["NNPC Retail", "Dangote Cement", "TotalEnergies NG", "Lafarge Africa", "Seplat Energy", "Chevron Nigeria"];
 const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Warri", "Onitsha", "Kaduna", "Enugu"];
 
@@ -36,27 +45,30 @@ function DispatchPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     customer: "", cargo: "", pickup: "", dropoff: "", date: "2026-08-13",
-    priority: "Normal", truckId: "", driverId: "", notes: "",
+    priority: "Normal", headId: "", tailId: "", driverId: "", notes: "",
   });
-  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "truckId" | "driverId", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId", string>>>({});
 
   const tripId = useMemo(() => `TRP-${String(Math.floor(880 + Math.random() * 90)).padStart(5, "0")}`, []);
-  const availableTrucks = TRUCKS.filter((t) => t.status === "Available");
-  const truck = TRUCKS.find((t) => t.id === form.truckId);
+  const availableHeads = TRUCK_HEADS.filter((t) => t.status === "Available");
+  const availableTails = TRUCK_TAILS.filter((t) => t.status === "Available");
+  const head = TRUCK_HEADS.find((t) => t.id === form.headId);
+  const tail = TRUCK_TAILS.find((t) => t.id === form.tailId);
   const driver = DRIVERS.find((d) => d.id === form.driverId);
   const distance = form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0;
   const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
   const validate = () => {
-    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "truckId" | "driverId", string>> = {};
+    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId", string>> = {};
     if (step === 0) {
       if (!form.customer) e.customer = "Customer is required";
       if (!form.cargo) e.cargo = "Cargo description is required";
       if (!form.pickup) e.pickup = "Pickup location is required";
       if (!form.dropoff) e.dropoff = "Drop-off location is required";
     }
-    if (step === 1 && !form.truckId) e.truckId = "Select an available truck";
-    if (step === 2 && !form.driverId) e.driverId = "Select a compliant driver";
+    if (step === 1 && !form.headId) e.headId = "Select an available truck head";
+    if (step === 2 && !form.tailId) e.tailId = "Select an available truck tail";
+    if (step === 3 && !form.driverId) e.driverId = "Select a compliant driver";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -66,19 +78,19 @@ function DispatchPage() {
       toast.error("Missing information", { description: "Complete the highlighted fields to continue." });
       return;
     }
-    setStep((s) => Math.min(s + 1, 4));
+    setStep((s) => Math.min(s + 1, 5));
   };
 
   const submit = async () => {
-    if (!truck || !driver) return;
+    if (!head || !tail || !driver) return;
     const trip = await tripService.create({
       customer: form.customer, cargo: form.cargo, pickup: form.pickup, dropoff: form.dropoff,
-      truckId: truck.id, truckReg: truck.registration, driverId: driver.id, driverName: driver.name,
+      headId: head.id, tailId: tail.id, truckReg: `${head.registration} / ${tail.registration}`, driverId: driver.id, driverName: driver.name,
       status: "Scheduled", priority: form.priority as never, distanceKm: distance,
       durationLabel: duration, scheduledDate: form.date, startTime: "06:00",
-      lat: truck.lat, lng: truck.lng, revenue: distance * 4200,
+      lat: head.lat, lng: head.lng, revenue: distance * 4200,
     });
-    toast.success(`Dispatch ${trip.id} created`, { description: `${truck.registration} · ${driver.name}` });
+    toast.success(`Dispatch ${trip.id} created`, { description: `${head.registration} + ${tail.registration} · ${driver.name}` });
     navigate({ to: "/app/trips/$tripId", params: { tripId: trip.id } });
   };
 
@@ -177,37 +189,70 @@ function DispatchPage() {
           {step === 1 && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Only vehicles with status <span className="text-success">Available</span> can be selected. Assigned, maintenance and out-of-service units are locked by the system.
+                Only heads with status <span className="text-success">Available</span> can be selected. Assigned, maintenance and out-of-service units are locked by the system.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {TRUCKS.slice(0, 12).map((t) => {
+                {TRUCK_HEADS.slice(0, 12).map((t) => {
                   const selectable = t.status === "Available";
                   return (
                     <button
                       key={t.id}
                       disabled={!selectable}
-                      onClick={() => setForm({ ...form, truckId: t.id })}
+                      onClick={() => setForm({ ...form, headId: t.id })}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
-                        form.truckId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
+                        form.headId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
                         !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
                       )}
                     >
                       <div className="min-w-0">
                         <p className="num text-xs font-semibold text-foreground">{t.id} · {t.registration}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{t.type} · {t.make} · {t.location}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{t.make} · {t.location}</p>
                       </div>
                       <StatusBadge status={t.status} />
                     </button>
                   );
                 })}
               </div>
-              {errors.truckId && <p className="text-[11px] text-critical">{errors.truckId}</p>}
-              <p className="num text-[11px] text-muted-foreground">{availableTrucks.length} of {TRUCKS.length} units available for dispatch.</p>
+              {errors.headId && <p className="text-[11px] text-critical">{errors.headId}</p>}
+              <p className="num text-[11px] text-muted-foreground">{availableHeads.length} of {TRUCK_HEADS.length} units available for dispatch.</p>
             </div>
           )}
 
           {step === 2 && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Only tails with status <span className="text-success">Available</span> can be selected.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {TRUCK_TAILS.slice(0, 12).map((t) => {
+                  const selectable = t.status === "Available";
+                  return (
+                    <button
+                      key={t.id}
+                      disabled={!selectable}
+                      onClick={() => setForm({ ...form, tailId: t.id })}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
+                        form.tailId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
+                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <p className="num text-xs font-semibold text-foreground">{t.id} · {t.registration}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{t.type} · {t.location}</p>
+                      </div>
+                      <StatusBadge status={t.status} />
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.tailId && <p className="text-[11px] text-critical">{errors.tailId}</p>}
+              <p className="num text-[11px] text-muted-foreground">{availableTails.length} of {TRUCK_TAILS.length} tails available for dispatch.</p>
+            </div>
+          )}
+
+          {step === 3 && (
             <div className="space-y-3">
               <div className="grid gap-2">
                 {DRIVERS.slice(0, 10).map((d) => {
@@ -242,7 +287,7 @@ function DispatchPage() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -276,7 +321,7 @@ function DispatchPage() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Trip</p>
@@ -288,7 +333,7 @@ function DispatchPage() {
               </div>
               <div>
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
-                <FieldRow label="Truck" value={truck ? `${truck.id} · ${truck.registration}` : "—"} />
+                <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
                 <FieldRow label="Driver" value={driver?.name ?? "—"} />
                 <FieldRow label="Route" value={`${form.pickup} → ${form.dropoff}`} />
                 <FieldRow label="Distance" value={`${distance} km`} />
@@ -301,7 +346,7 @@ function DispatchPage() {
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
               <ArrowLeft className="h-3.5 w-3.5" />Back
             </Button>
-            {step < 4 ? (
+            {step < 5 ? (
               <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={next}>Continue<ArrowRight className="h-3.5 w-3.5" /></Button>
             ) : (
               <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={submit}><Check className="h-3.5 w-3.5" />Create Dispatch</Button>
@@ -314,14 +359,14 @@ function DispatchPage() {
             <FieldRow label="Trip ID" value={tripId} />
             <FieldRow label="Customer" value={form.customer || "—"} />
             <FieldRow label="Route" value={form.pickup && form.dropoff ? `${form.pickup} → ${form.dropoff}` : "—"} />
-            <FieldRow label="Truck" value={truck?.registration ?? "—"} />
+            <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
             <FieldRow label="Driver" value={driver?.name ?? "—"} />
             <FieldRow label="Distance" value={distance ? `${distance} km` : "—"} />
           </SectionPanel>
 
           <SectionPanel title="Compliance Gate" bodyClassName="space-y-2.5">
             {[
-              { label: "Vehicle roadworthiness", ok: !!truck },
+              { label: "Vehicle roadworthiness", ok: !!head && !!tail },
               { label: "Driver licence validity", ok: driver?.compliance === "Valid" },
               { label: "Insurance cover", ok: true },
               { label: "Route risk assessment", ok: !!form.pickup && !!form.dropoff },

@@ -22,7 +22,16 @@ import type { InventoryItem, InventoryRequisition, WorkOrder } from "@/lib/karig
 
 const FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
 
+import { redirect } from "@tanstack/react-router";
+import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+
 export const Route = createFileRoute("/app/inventory")({
+  beforeLoad: () => {
+    const allowed = ["Super Admin", "Operations Admin", "Engineering Manager", "Procurement Officer"];
+    if (!allowed.includes(CURRENT_ROLE)) {
+      throw redirect({ to: "/app/unauthorized" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Inventory | Karigo" },
@@ -40,7 +49,7 @@ function InventoryPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [releaseOpen, setReleaseOpen] = useState(false);
-  const [form, setForm] = useState({ workOrder: "", partId: "", quantity: "1", reason: "Scheduled repair" });
+  const [form, setForm] = useState({ reqId: "", reason: "Scheduled repair" });
 
   const refresh = async () => {
     const [i, r, w] = await Promise.all([
@@ -60,15 +69,28 @@ function InventoryPage() {
   const pending = reqs.filter((r) => r.status === "Pending").length;
   const value = items.reduce((s, i) => s + i.stock * i.unitCost, 0);
   const view = filter === "All" ? items : items.filter((i) => i.status === filter);
-  const selectedPart = items.find((i) => i.id === form.partId);
-  const selectedWo = workOrders.find((w) => w.id === form.workOrder);
+  const selectedReq = reqs.find((r) => r.id === form.reqId);
+  const selectedPart = items.find((i) => i.name === selectedReq?.part);
+  const selectedWo = workOrders.find((w) => w.id === selectedReq?.workOrder);
 
   const columns: Column<InventoryItem>[] = useMemo(() => [
     { key: "name", header: "Item", sortValue: (r) => r.name, cell: (r) => <span className="font-medium">{r.name}</span> },
     { key: "sku", header: "SKU", sortValue: (r) => r.sku, cell: (r) => <span className="num">{r.sku}</span> },
     { key: "cat", header: "Category", cell: (r) => <span className="text-muted-foreground">{r.category}</span> },
     { key: "stock", header: "Stock", align: "right", sortValue: (r) => r.stock, cell: (r) => <span className="num font-semibold">{r.stock}</span> },
-    { key: "reorder", header: "Reorder Level", align: "right", sortValue: (r) => r.reorderLevel, cell: (r) => <span className="num text-muted-foreground">{r.reorderLevel}</span> },
+    { key: "reorder", header: "Reorder Level", align: "right", sortValue: (r) => r.reorderLevel, cell: (r) => (
+      <Input
+        type="number"
+        className="h-7 w-16 text-right num text-xs ml-auto"
+        defaultValue={r.reorderLevel}
+        onBlur={(e) => {
+          const val = Number(e.target.value);
+          if (!isNaN(val) && val >= 0 && val !== r.reorderLevel) {
+            void inventoryService.updateReorderLevel(r.id, val).then(() => refresh());
+          }
+        }}
+      />
+    ) },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     { key: "loc", header: "Location", cell: (r) => r.location },
   ], []);
@@ -84,26 +106,33 @@ function InventoryPage() {
   ], []);
 
   const release = async () => {
-    if (!form.workOrder) {
-      toast.error("Parts cannot be released without an active Work Order.");
+    if (!form.reqId || !selectedReq) {
+      toast.error("Select a pending requisition.");
       return;
     }
-    if (!form.partId || !selectedPart) {
-      toast.error("Select a spare part to release.");
+    if (!selectedWo) {
+      toast.error("Requisition is not linked to an active Work Order.");
       return;
     }
-    const qty = Number(form.quantity);
-    if (!qty || qty < 1) {
-      toast.error("Quantity must be at least 1.");
+    if (!selectedPart) {
+      toast.error("Part not found in inventory.");
       return;
     }
-    await inventoryService.release(form.partId, qty);
-    toast.success("Parts released", {
-      description: `${selectedPart.name} × ${qty} against ${form.workOrder}`,
-    });
-    setReleaseOpen(false);
-    setForm({ workOrder: "", partId: "", quantity: "1", reason: "Scheduled repair" });
-    await refresh();
+    if (selectedPart.stock < selectedReq.quantity) {
+      toast.error("Insufficient stock for this requisition.");
+      return;
+    }
+    try {
+      await inventoryService.release(selectedPart.id, selectedReq.quantity, form.reqId);
+      toast.success("Parts released", {
+        description: `${selectedPart.name} × ${selectedReq.quantity} against ${selectedWo.id}`,
+      });
+      setReleaseOpen(false);
+      setForm({ reqId: "", reason: "Scheduled repair" });
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to release parts.");
+    }
   };
 
   return (
@@ -160,50 +189,41 @@ function InventoryPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="uppercase tracking-wide">Release Parts</DialogTitle>
-            <DialogDescription>Parts cannot be released without an active Work Order.</DialogDescription>
+            <DialogDescription>Select a pending requisition to release parts.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">Work Order</Label>
-              <Select value={form.workOrder} onValueChange={(v) => setForm((f) => ({ ...f, workOrder: v }))}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select active WO" /></SelectTrigger>
+              <Label className="text-xs">Requisition</Label>
+              <Select value={form.reqId} onValueChange={(v) => setForm((f) => ({ ...f, reqId: v }))}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select pending requisition" /></SelectTrigger>
                 <SelectContent>
-                  {workOrders.map((w) => (
-                    <SelectItem key={w.id} value={w.id} className="text-xs">{w.id} · {w.truckReg} · {w.status}</SelectItem>
+                  {reqs.filter(r => r.status === "Pending").map((r) => (
+                    <SelectItem key={r.id} value={r.id} className="text-xs">{r.id} · {r.part} ({r.quantity})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Part</Label>
-              <Select value={form.partId} onValueChange={(v) => setForm((f) => ({ ...f, partId: v }))}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select part" /></SelectTrigger>
-                <SelectContent>
-                  {items.filter((i) => i.stock > 0).slice(0, 30).map((i) => (
-                    <SelectItem key={i.id} value={i.id} className="text-xs">{i.name} · {i.sku} ({i.stock})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Quantity</Label>
-                <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} className="num h-9 text-xs" />
+                <Label className="text-xs">Work Order</Label>
+                <Input readOnly value={selectedReq?.workOrder ?? "—"} className="num h-9 text-xs bg-black/[0.02]" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Truck</Label>
-                <Input readOnly value={selectedWo?.truckReg ?? "—"} className="num h-9 text-xs" />
+                <Label className="text-xs">Quantity to Release</Label>
+                <Input readOnly value={selectedReq?.quantity ?? "—"} className="num h-9 text-xs bg-black/[0.02]" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Reason</Label>
               <Input value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} className="h-9 text-xs" />
             </div>
-            {selectedPart && selectedWo && (
+            {selectedPart && selectedReq && (
               <div className="rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3">
-                <FieldRow label="Work Order" value={selectedWo.id} />
+                <FieldRow label="Requisition" value={selectedReq.id} />
                 <FieldRow label="Part" value={selectedPart.name} />
-                <FieldRow label="Quantity" value={form.quantity} />
+                <FieldRow label="Required Qty" value={String(selectedReq.quantity)} />
+                <FieldRow label="Current Stock" value={String(selectedPart.stock)} />
               </div>
             )}
           </div>

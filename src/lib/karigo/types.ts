@@ -57,22 +57,31 @@ export type TruckStatus =
   | "Maintenance"
   | "Out of Service";
 
-export interface Truck {
+export interface TruckHead {
   id: ID;
+  number: string;
   registration: string;
-  type: string;
   make: string;
   year: number;
   status: TruckStatus;
-  driverId: ID | null;
-  driverName: string | null;
   location: string;
-  tripId: ID | null;
   odometer: number;
   standardEfficiency: number;
   lat: number;
   lng: number;
 }
+
+export interface TruckTail {
+  id: ID;
+  number: string;
+  registration: string;
+  type: string;
+  status: TruckStatus;
+  location: string;
+  lat: number;
+  lng: number;
+}
+
 
 export type DriverStatus =
   | "Available"
@@ -118,8 +127,9 @@ export interface Trip {
   cargo: string;
   pickup: string;
   dropoff: string;
-  truckId: ID;
-  truckReg: string;
+  headId: ID;
+  tailId: ID;
+  truckReg: string; // composed string e.g., HeadReg + TailReg or just display
   driverId: ID;
   driverName: string;
   status: TripStatus;
@@ -198,6 +208,15 @@ export interface InventoryRequisition {
   quantity: number;
   reason: string;
   status: "Pending" | "Released" | "Rejected";
+  date: string;
+}
+
+export interface ProcurementRequest {
+  id: ID;
+  partName: string;
+  quantity: number;
+  linkedId: ID; // WO or TruckReg
+  status: "Requested" | "Sourcing" | "Procured";
   date: string;
 }
 

@@ -12,10 +12,23 @@ import { FilterPills } from "@/components/karigo/filter-pills";
 import { accountService, formatNaira, formatNairaFull } from "@/lib/karigo/services";
 import type { Expense } from "@/lib/karigo/types";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const FILTERS = ["All", "Pending", "Approved", "Rejected", "Clarification"] as const;
+const EXPENSE_CATEGORIES = ["Brake Pad", "Tire/Rim", "Police", "Medical", "Other"];
+import { redirect } from "@tanstack/react-router";
+import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
 
 export const Route = createFileRoute("/app/accounts")({
+  beforeLoad: () => {
+    const allowed = ["Super Admin", "Operations Admin", "Accountant"];
+    if (!allowed.includes(CURRENT_ROLE)) {
+      throw redirect({ to: "/app/unauthorized" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Accounts | Karigo" },
@@ -32,6 +45,8 @@ function AccountsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selected, setSelected] = useState<Expense | null>(null);
   const [tab, setTab] = useState("queue");
+  const [logOpen, setLogOpen] = useState(false);
+  const [logForm, setLogForm] = useState({ category: "", amount: "", notes: "" });
 
   const refresh = () => accountService.list().then((list) => {
     setRows(list);
@@ -77,6 +92,11 @@ function AccountsPage() {
         title="Accounts & Approvals"
         description="Approvals, variance checks and payout tracking."
         meta={<span className="num text-[11px] text-muted-foreground">{pending.length} pending · {formatNaira(pending.reduce((s, e) => s + e.amount, 0))} exposure</span>}
+        actions={
+          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setLogOpen(true)}>
+            <FileText className="h-3.5 w-3.5" />Log Expense
+          </Button>
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -209,6 +229,51 @@ function AccountsPage() {
           </SectionPanel>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log Expense</DialogTitle>
+            <DialogDescription>Submit a new operational or repair expense.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Expense Category</Label>
+              <Select value={logForm.category} onValueChange={(v) => setLogForm((f) => ({ ...f, category: v }))}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Amount (₦)</Label>
+              <Input 
+                type="number" 
+                value={logForm.amount} 
+                onChange={(e) => setLogForm((f) => ({ ...f, amount: e.target.value }))} 
+                className="h-9 text-xs num" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Notes / Tag</Label>
+              <Input 
+                value="Indirect Cost" 
+                readOnly 
+                className="h-9 text-xs text-muted-foreground bg-black/[0.02]" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setLogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 text-xs" onClick={() => {
+              toast.success("Expense Submitted", { description: "Routed for Accounts approval." });
+              setLogOpen(false);
+              setLogForm({ category: "", amount: "", notes: "" });
+            }}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

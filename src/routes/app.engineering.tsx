@@ -21,8 +21,16 @@ import { FilterPills } from "@/components/karigo/filter-pills";
 import { TRUCKS } from "@/lib/karigo/mock-data";
 import { engineeringService, formatNaira } from "@/lib/karigo/services";
 import type { WorkOrder } from "@/lib/karigo/types";
+import { redirect } from "@tanstack/react-router";
+import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
 
 export const Route = createFileRoute("/app/engineering")({
+  beforeLoad: () => {
+    const allowed = ["Super Admin", "Operations Admin", "Engineering Manager"];
+    if (!allowed.includes(CURRENT_ROLE)) {
+      throw redirect({ to: "/app/unauthorized" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Engineering | Karigo" },
