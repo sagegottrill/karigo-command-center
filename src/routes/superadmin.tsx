@@ -5,7 +5,7 @@ import { Plus, Server, Users, CreditCard, Settings, Activity } from "lucide-reac
 import { DataTable } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { Column } from "@/components/fleetopsx/data-table";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/superadmin")({
@@ -61,50 +61,56 @@ const MOCK_TENANTS: Tenant[] = [
   },
 ];
 
-const columns: ColumnDef<Tenant>[] = [
+const columns: Column<Tenant>[] = [
   {
-    accessorKey: "name",
+    key: "name",
     header: "Tenant Name",
-    cell: ({ row }) => (
+    sortValue: (r) => r.name,
+    cell: (r) => (
       <div className="flex flex-col">
-        <span className="font-semibold">{row.original.name}</span>
-        <span className="text-xs text-muted-foreground">ID: {row.original.id}</span>
+        <span className="font-semibold">{r.name}</span>
+        <span className="text-xs text-muted-foreground">ID: {r.id}</span>
       </div>
     ),
   },
   {
-    accessorKey: "domain",
+    key: "domain",
     header: "Tenant Domain",
-    cell: ({ row }) => (
+    sortValue: (r) => r.domain,
+    cell: (r) => (
       <span className="font-mono text-xs bg-muted px-2 py-1 rounded-md">
-        {row.original.domain}.fleetopsx.com
+        {r.domain}.fleetopsx.com
       </span>
     ),
   },
   {
-    accessorKey: "status",
+    key: "status",
     header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    sortValue: (r) => r.status,
+    cell: (r) => <StatusBadge status={r.status} />,
   },
   {
-    accessorKey: "activeTrucks",
+    key: "activeTrucks",
     header: "Active Fleet",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.activeTrucks.toLocaleString()}</span>
+    sortValue: (r) => r.activeTrucks,
+    cell: (r) => (
+      <span className="font-medium">{r.activeTrucks.toLocaleString()}</span>
     ),
   },
   {
-    accessorKey: "totalOrders",
+    key: "totalOrders",
     header: "Total Orders",
-    cell: ({ row }) => (
-      <span className="font-medium text-muted-foreground">{row.original.totalOrders.toLocaleString()}</span>
+    sortValue: (r) => r.totalOrders,
+    cell: (r) => (
+      <span className="font-medium text-muted-foreground">{r.totalOrders.toLocaleString()}</span>
     ),
   },
   {
-    id: "actions",
-    cell: ({ row }) => (
+    key: "actions",
+    header: "",
+    cell: (r) => (
       <div className="flex justify-end gap-2">
-        <Link to={`/pwa/${row.original.domain}`} target="_blank">
+        <Link to={`/pwa/${r.domain}`} target="_blank">
           <Button variant="outline" size="sm">View PWA</Button>
         </Link>
         <Link to="/app">
@@ -188,8 +194,8 @@ function SuperAdminLayout() {
           <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
             <DataTable 
               columns={columns} 
-              data={MOCK_TENANTS} 
-              searchKey="name" 
+              rows={MOCK_TENANTS} 
+              searchKeys={(r) => r.name} 
             />
           </div>
         </div>
