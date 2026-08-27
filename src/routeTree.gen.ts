@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAccountsRouteImport } from './routes/app.accounts'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
@@ -55,6 +56,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuperadminRoute = SuperadminRouteImport.update({
+  id: '/superadmin',
+  path: '/superadmin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/forgot-password'
     | '/login'
+    | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/forgot-password'
     | '/login'
+    | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  SuperadminRoute: typeof SuperadminRoute
   PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
 
@@ -385,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/superadmin': {
+      id: '/superadmin'
+      path: '/superadmin'
+      fullPath: '/superadmin'
+      preLoaderRoute: typeof SuperadminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -608,6 +628,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  SuperadminRoute: SuperadminRoute,
   PwaTenantIdRoute: PwaTenantIdRoute,
 }
 export const routeTree = rootRouteImport

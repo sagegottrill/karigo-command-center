@@ -214,9 +214,10 @@ function LandingPage() {
               FleetOpsX
             </span>
           </div>
-          <p className="text-[13px] text-zinc-500 font-medium">
-            © {new Date().getFullYear()} FleetOpsX. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4 text-[13px] text-zinc-500 font-medium">
+            <Link to="/superadmin" className="hover:text-zinc-300 transition-colors">Platform Admin</Link>
+            <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
+          </div>
         </div>
       </footer>
     </div>
