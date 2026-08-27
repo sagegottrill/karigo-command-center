@@ -212,7 +212,8 @@ function LandingPage() {
               FleetOpsX
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[13px] text-slate-500 font-medium">
+          <div className="flex items-center gap-4 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
+            <Link to="/pwa/petroline" target="_blank" className="hover:text-slate-900 transition-colors text-blue-600">Demo Customer Portal</Link>
             <Link to="/superadmin" className="hover:text-slate-900 transition-colors">Platform Admin</Link>
             <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
           </div>

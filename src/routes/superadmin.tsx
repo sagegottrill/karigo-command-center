@@ -102,9 +102,14 @@ const columns: ColumnDef<Tenant>[] = [
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => (
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm">Manage</Button>
+        <Link to={`/pwa/${row.original.domain}`} target="_blank">
+          <Button variant="outline" size="sm">View PWA</Button>
+        </Link>
+        <Link to="/app">
+          <Button variant="default" size="sm">Login As</Button>
+        </Link>
       </div>
     ),
   },

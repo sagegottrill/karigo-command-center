@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity, Boxes, ChevronLeft, Fuel, Gauge, LayoutDashboard, LineChart,
-  MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell,
+  MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell, Smartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
@@ -152,7 +152,18 @@ export function AppSidebar({
         })}
       </nav>
 
-      <div className="border-t border-black/[0.05] p-2.5">
+      <div className="border-t border-black/[0.05] p-2.5 space-y-1">
+        <Link
+          to="/pwa/petroline"
+          target="_blank"
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-[12px] font-medium text-blue-600 transition-colors hover:bg-blue-50 active:scale-[0.98]",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <Smartphone className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>View Customer App</span>}
+        </Link>
         <button
           type="button"
           onClick={onToggle}
