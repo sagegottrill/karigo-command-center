@@ -5,6 +5,7 @@ import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
