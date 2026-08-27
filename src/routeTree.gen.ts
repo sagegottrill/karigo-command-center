@@ -31,6 +31,7 @@ import { Route as AppNotificationsRouteImport } from './routes/app.notifications
 import { Route as AppProcurementRouteImport } from './routes/app.procurement'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
+import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
@@ -146,6 +147,11 @@ const AppUnauthorizedRoute = AppUnauthorizedRouteImport.update({
   path: '/unauthorized',
   getParentRoute: () => AppRoute,
 } as any)
+const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
+  id: '/pwa/$tenantId',
+  path: '/pwa/$tenantId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
   id: '/drivers/',
   path: '/drivers/',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app/': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app/': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/pwa/$tenantId'
     | '/app/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/pwa/$tenantId'
     | '/app'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/pwa/$tenantId'
     | '/app/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -342,6 +354,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -500,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUnauthorizedRouteImport
       parentRoute: typeof AppRoute
     }
+    '/pwa/$tenantId': {
+      id: '/pwa/$tenantId'
+      path: '/pwa/$tenantId'
+      fullPath: '/pwa/$tenantId'
+      preLoaderRoute: typeof PwaTenantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/drivers/': {
       id: '/app/drivers/'
       path: '/drivers'
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  PwaTenantIdRoute: PwaTenantIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
