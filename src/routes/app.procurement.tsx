@@ -2,19 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { procurementService } from "@/lib/karigo/services";
-import type { ProcurementRequest } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { procurementService } from "@/lib/fleetopsx/services";
+import type { ProcurementRequest } from "@/lib/fleetopsx/types";
 
 const FILTERS = ["All", "Requested", "Sourcing", "Procured"] as const;
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/procurement")({
   beforeLoad: () => {
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/app/procurement")({
   },
   head: () => ({
     meta: [
-      { title: "Procurement | Karigo" },
+      { title: "Procurement | FleetOpsX" },
       { name: "description", content: "Manage procurement requests for spare parts from Engineering." },
     ],
   }),

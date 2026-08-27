@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DRIVERS, TRUCK_HEADS, TRUCK_TAILS } from "@/lib/karigo/mock-data";
-import { tripService } from "@/lib/karigo/services";
+import { DRIVERS, TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
+import { tripService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/dispatch")({
   beforeLoad: () => {
@@ -27,9 +27,9 @@ export const Route = createFileRoute("/app/dispatch")({
   },
   head: () => ({
     meta: [
-      { title: "Create Dispatch | Karigo" },
+      { title: "Create Dispatch | FleetOpsX" },
       { name: "description", content: "Guided enterprise dispatch: trip details, vehicle, driver, route and review before release." },
-      { property: "og:title", content: "Create Dispatch | Karigo" },
+      { property: "og:title", content: "Create Dispatch | FleetOpsX" },
       { property: "og:description", content: "Guided enterprise dispatch across trip, vehicle, driver, route and review." },
     ],
   }),

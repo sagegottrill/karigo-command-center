@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Layers, Maximize2, Navigation } from "lucide-react";
-import type { Trip } from "@/lib/karigo/types";
+import type { Trip } from "@/lib/fleetopsx/types";
 import { StatusBadge } from "./status-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

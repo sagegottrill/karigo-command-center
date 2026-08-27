@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { AUDIT_LOGS } from "@/lib/karigo/mock-data";
-import type { AuditLog } from "@/lib/karigo/types";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { AUDIT_LOGS } from "@/lib/fleetopsx/mock-data";
+import type { AuditLog } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/audit")({
   head: () => ({
     meta: [
-      { title: "Audit Logs | Karigo" },
-      { name: "description", content: "Immutable record of who changed what, when and from which device across every Karigo module." },
-      { property: "og:title", content: "Audit Logs | Karigo" },
-      { property: "og:description", content: "Immutable record of every operational action across Karigo modules." },
+      { title: "Audit Logs | FleetOpsX" },
+      { name: "description", content: "Immutable record of who changed what, when and from which device across every FleetOpsX module." },
+      { property: "og:title", content: "Audit Logs | FleetOpsX" },
+      { property: "og:description", content: "Immutable record of every operational action across FleetOpsX modules." },
     ],
   }),
   component: AuditPage,

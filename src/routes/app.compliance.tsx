@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FileCheck } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { complianceService } from "@/lib/karigo/services";
+import { complianceService } from "@/lib/fleetopsx/services";
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/compliance")({
   beforeLoad: () => {
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/app/compliance")({
   },
   head: () => ({
     meta: [
-      { title: "Compliance | Karigo" },
+      { title: "Compliance | FleetOpsX" },
       { name: "description", content: "Vehicle and driver documents compliance dashboard." },
     ],
   }),

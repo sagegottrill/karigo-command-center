@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * KARIGO × APPLE DESIGN SYSTEM
+ * FLEETOPSX × APPLE DESIGN SYSTEM
  * Materials, optical type, critically-damped motion, restraint.
  * Heavier materials = structure. Lighter materials = interaction.
  */
@@ -294,8 +294,8 @@
 }
 
 /* Leaflet map chrome inside Command Center */
-.karigo-map-marker,
-.karigo-map-pill {
+.fleetopsx-map-marker,
+.fleetopsx-map-pill {
   background: transparent !important;
   border: none !important;
 }

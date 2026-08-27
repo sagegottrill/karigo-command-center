@@ -11,8 +11,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { globalSearch, authService } from "@/lib/karigo/services";
-import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/karigo/mock-data";
+import { globalSearch, authService } from "@/lib/fleetopsx/services";
+import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 
@@ -57,8 +57,8 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
       <div className="flex h-9 items-center overflow-hidden rounded-[10px] bg-black px-2 md:hidden">
         <img
-          src={`${import.meta.env.BASE_URL}karigo.png`}
-          alt="KARIGO"
+          src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+          alt="FLEETOPSX"
           className="h-6 w-auto max-w-[120px] object-contain object-left"
         />
       </div>

@@ -1,21 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ROLES, TENANT, USERS } from "@/lib/karigo/mock-data";
-import type { User } from "@/lib/karigo/types";
+import { ROLES, TENANT, USERS } from "@/lib/fleetopsx/mock-data";
+import type { User } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/admin")({
   head: () => ({
     meta: [
-      { title: "Administration | Karigo" },
-      { name: "description", content: "Organisation profile, users, roles, permissions and system configuration for the Karigo workspace." },
-      { property: "og:title", content: "Administration | Karigo" },
+      { title: "Administration | FleetOpsX" },
+      { name: "description", content: "Organisation profile, users, roles, permissions and system configuration for the FleetOpsX workspace." },
+      { property: "og:title", content: "Administration | FleetOpsX" },
       { property: "og:description", content: "Organisation, users, roles and system configuration." },
     ],
   }),

@@ -2,22 +2,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Send } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow, EmptyState } from "@/components/karigo/page-header";
-import { StatusBadge } from "@/components/karigo/status-badge";
-import { MetricCard } from "@/components/karigo/metric-card";
+import { PageHeader, SectionPanel, FieldRow, EmptyState } from "@/components/fleetopsx/page-header";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONVERSATIONS } from "@/lib/karigo/mock-data";
-import { messageService, tripService } from "@/lib/karigo/services";
-import type { Message, Trip } from "@/lib/karigo/types";
+import { CONVERSATIONS } from "@/lib/fleetopsx/mock-data";
+import { messageService, tripService } from "@/lib/fleetopsx/services";
+import type { Message, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/trips/$tripId")({
   head: ({ params }) => ({
     meta: [
-      { title: `Trip ${params.tripId} | Karigo` },
+      { title: `Trip ${params.tripId} | FleetOpsX` },
       { name: "description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
-      { property: "og:title", content: `Trip ${params.tripId} | Karigo` },
+      { property: "og:title", content: `Trip ${params.tripId} | FleetOpsX` },
       { property: "og:description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
     ],
   }),

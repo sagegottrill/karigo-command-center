@@ -1,22 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { driverService } from "@/lib/karigo/services";
-import type { Driver } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { driverService } from "@/lib/fleetopsx/services";
+import type { Driver } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/drivers/")({
   head: () => ({
     meta: [
-      { title: "Drivers & HR | Karigo" },
+      { title: "Drivers & HR | FleetOpsX" },
       { name: "description", content: "Driver availability, licence compliance and HR records for the transport workforce." },
-      { property: "og:title", content: "Drivers & HR | Karigo" },
+      { property: "og:title", content: "Drivers & HR | FleetOpsX" },
       { property: "og:description", content: "Driver availability, compliance and HR records." },
     ],
   }),

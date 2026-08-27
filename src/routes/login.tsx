@@ -6,16 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WORKSPACES, ROLES } from "@/lib/karigo/mock-data";
-import { authService } from "@/lib/karigo/services";
+import { WORKSPACES, ROLES } from "@/lib/fleetopsx/mock-data";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in | KARIGO" },
-      { name: "description", content: "Sign in to your KARIGO workspace." },
-      { property: "og:title", content: "Sign in | KARIGO" },
-      { property: "og:description", content: "Sign in to your KARIGO workspace." },
+      { title: "Sign in | FLEETOPSX" },
+      { name: "description", content: "Sign in to your FLEETOPSX workspace." },
+      { property: "og:title", content: "Sign in | FLEETOPSX" },
+      { property: "og:description", content: "Sign in to your FLEETOPSX workspace." },
     ],
   }),
   component: LoginPage,
@@ -32,8 +32,8 @@ function LoginPage() {
         <div className="relative flex h-full flex-col justify-between p-12">
           <div className="inline-flex items-center rounded-[14px] bg-[#0a0a0a] px-3 py-2">
             <img
-              src={`${import.meta.env.BASE_URL}karigo.png`}
-              alt="KARIGO"
+              src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+              alt="FLEETOPSX"
               className="h-8 w-auto max-w-[160px] object-contain object-left"
             />
           </div>
@@ -45,7 +45,7 @@ function LoginPage() {
               Trips, fuel, workshop, expenses and gate logs — all in one place.
             </p>
           </div>
-          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground">KARIGO</p>
+          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground">FLEETOPSX</p>
         </div>
       </div>
 

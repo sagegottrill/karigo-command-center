@@ -2,20 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONVERSATIONS, TRIPS } from "@/lib/karigo/mock-data";
-import type { Conversation, Message } from "@/lib/karigo/types";
+import { CONVERSATIONS, TRIPS } from "@/lib/fleetopsx/mock-data";
+import type { Conversation, Message } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/messages")({
   head: () => ({
     meta: [
-      { title: "Messages | Karigo" },
+      { title: "Messages | FleetOpsX" },
       { name: "description", content: "Contextual communication: direct messages, department channels and trip-specific operations threads." },
-      { property: "og:title", content: "Messages | Karigo" },
+      { property: "og:title", content: "Messages | FleetOpsX" },
       { property: "og:description", content: "Direct messages, department channels and trip operations threads." },
     ],
   }),

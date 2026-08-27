@@ -2,15 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, FileText, MessageSquareWarning, X } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { accountService, formatNaira, formatNairaFull } from "@/lib/karigo/services";
-import type { Expense } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { accountService, formatNaira, formatNairaFull } from "@/lib/fleetopsx/services";
+import type { Expense } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 const FILTERS = ["All", "Pending", "Approved", "Rejected", "Clarification"] as const;
 const EXPENSE_CATEGORIES = ["Brake Pad", "Tire/Rim", "Police", "Medical", "Other"];
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/accounts")({
   beforeLoad: () => {
@@ -31,9 +31,9 @@ export const Route = createFileRoute("/app/accounts")({
   },
   head: () => ({
     meta: [
-      { title: "Accounts | Karigo" },
+      { title: "Accounts | FleetOpsX" },
       { name: "description", content: "Operational expense approvals, variance control and disbursement oversight." },
-      { property: "og:title", content: "Accounts | Karigo" },
+      { property: "og:title", content: "Accounts | FleetOpsX" },
       { property: "og:description", content: "Expense approvals and financial oversight." },
     ],
   }),

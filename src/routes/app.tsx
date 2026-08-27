@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
-import { AppSidebar } from "@/components/karigo/app-sidebar";
-import { AppHeader } from "@/components/karigo/app-header";
-import { PageReveal } from "@/components/karigo/page-reveal";
+import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
+import { AppHeader } from "@/components/fleetopsx/app-header";
+import { PageReveal } from "@/components/fleetopsx/page-reveal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app")({

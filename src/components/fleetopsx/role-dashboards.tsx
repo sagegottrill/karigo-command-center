@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { TRIPS, TRUCKS, EXPENSES, GATE_ENTRIES, DRIVERS, ALERTS, WORK_ORDERS, INVENTORY, PROCUREMENT_REQUESTS } from "@/lib/karigo/mock-data";
-import { formatNaira } from "@/lib/karigo/services";
+import { TRIPS, TRUCKS, EXPENSES, GATE_ENTRIES, DRIVERS, ALERTS, WORK_ORDERS, INVENTORY, PROCUREMENT_REQUESTS } from "@/lib/fleetopsx/mock-data";
+import { formatNaira } from "@/lib/fleetopsx/services";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
 import { Button } from "@/components/ui/button";

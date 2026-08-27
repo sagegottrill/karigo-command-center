@@ -1,21 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Calculator } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { depreciationService, formatNaira } from "@/lib/karigo/services";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { depreciationService, formatNaira } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["All", "Head", "Tail"] as const;
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/depreciation")({
   beforeLoad: () => {
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/app/depreciation")({
   },
   head: () => ({
     meta: [
-      { title: "Depreciation | Karigo" },
+      { title: "Depreciation | FleetOpsX" },
       { name: "description", content: "Asset depreciation and end-of-life tracking." },
     ],
   }),

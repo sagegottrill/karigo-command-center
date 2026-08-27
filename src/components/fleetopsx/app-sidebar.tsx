@@ -4,8 +4,8 @@ import {
   MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { authService } from "@/lib/karigo/services";
-import { ROLES } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/fleetopsx/services";
+import { ROLES } from "@/lib/fleetopsx/mock-data";
 
 export interface NavItem {
   label: string;
@@ -89,8 +89,8 @@ export function AppSidebar({
         )}
       >
         <img
-          src={`${import.meta.env.BASE_URL}karigo.png`}
-          alt="KARIGO"
+          src={`${import.meta.env.BASE_URL}fleetopsx.png`}
+          alt="FLEETOPSX"
           className={cn(
             "object-contain object-left",
             collapsed ? "h-9 w-9 object-cover" : "h-9 w-auto max-w-[168px]",

@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Reset password | Karigo" },
-      { name: "description", content: "Reset your Karigo password." },
-      { property: "og:title", content: "Reset password | Karigo" },
-      { property: "og:description", content: "Reset your Karigo password." },
+      { title: "Reset password | FleetOpsX" },
+      { name: "description", content: "Reset your FleetOpsX password." },
+      { property: "og:title", content: "Reset password | FleetOpsX" },
+      { property: "og:description", content: "Reset your FleetOpsX password." },
     ],
   }),
   component: ForgotPasswordPage,

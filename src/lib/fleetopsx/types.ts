@@ -1,5 +1,5 @@
 /**
- * Karigo domain model.
+ * FleetOpsX domain model.
  * These interfaces mirror the eventual backend schema so that the mock
  * service layer can be swapped for real API calls without UI changes.
  */

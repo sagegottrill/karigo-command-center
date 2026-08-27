@@ -1,20 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { NOTIFICATIONS } from "@/lib/karigo/mock-data";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { NOTIFICATIONS } from "@/lib/fleetopsx/mock-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/notifications")({
   head: () => ({
     meta: [
-      { title: "Notifications | Karigo" },
+      { title: "Notifications | FleetOpsX" },
       { name: "description", content: "Operations, approvals, compliance, engineering and security notifications in one categorised centre." },
-      { property: "og:title", content: "Notifications | Karigo" },
-      { property: "og:description", content: "Categorised operational notification centre for the Karigo workspace." },
+      { property: "og:title", content: "Notifications | FleetOpsX" },
+      { property: "og:description", content: "Categorised operational notification centre for the FleetOpsX workspace." },
     ],
   }),
   component: NotificationsPage,

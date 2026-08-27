@@ -7,18 +7,18 @@ import {
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { StatusBadge } from "@/components/karigo/status-badge";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { CommandCenterMap } from "@/components/karigo/command-center-map";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { CommandCenterMap } from "@/components/fleetopsx/command-center-map";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DRIVERS, EXPENSES, FEATURED_TRIP_ID, TRIPS, TRUCKS } from "@/lib/karigo/mock-data";
-import { formatNaira, tripService } from "@/lib/karigo/services";
+import { DRIVERS, EXPENSES, FEATURED_TRIP_ID, TRIPS, TRUCKS } from "@/lib/fleetopsx/mock-data";
+import { formatNaira, tripService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 import { 
   TransportManagerDashboard, 
   FleetManagerDashboard, 
@@ -28,14 +28,14 @@ import {
   HRDashboard, 
   EngineerDashboard, 
   ProcurementDashboard 
-} from "@/components/karigo/role-dashboards";
+} from "@/components/fleetopsx/role-dashboards";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
     meta: [
-      { title: "Overview | Karigo" },
+      { title: "Overview | FleetOpsX" },
       { name: "description", content: "Fleet overview for Petroline Transport." },
-      { property: "og:title", content: "Overview | Karigo" },
+      { property: "og:title", content: "Overview | FleetOpsX" },
       { property: "og:description", content: "Fleet overview for Petroline Transport." },
     ],
   }),

@@ -1,18 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader, SectionPanel, FieldRow, EmptyState } from "@/components/karigo/page-header";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow, EmptyState } from "@/components/fleetopsx/page-header";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
-import { driverService } from "@/lib/karigo/services";
-import type { Driver } from "@/lib/karigo/types";
+import { driverService } from "@/lib/fleetopsx/services";
+import type { Driver } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/drivers/$driverId")({
   head: () => ({
     meta: [
-      { title: "Driver Profile | Karigo" },
+      { title: "Driver Profile | FleetOpsX" },
       { name: "description", content: "Driver personal information, licence details and compliance status." },
-      { property: "og:title", content: "Driver Profile | Karigo" },
+      { property: "og:title", content: "Driver Profile | FleetOpsX" },
       { property: "og:description", content: "Driver personal information and compliance." },
     ],
   }),

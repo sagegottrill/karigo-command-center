@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,19 +15,19 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { DRIVERS, TRUCKS } from "@/lib/karigo/mock-data";
-import { gateService } from "@/lib/karigo/services";
-import type { GateEntry } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { DRIVERS, TRUCKS } from "@/lib/fleetopsx/mock-data";
+import { gateService } from "@/lib/fleetopsx/services";
+import type { GateEntry } from "@/lib/fleetopsx/types";
 
 const FILTERS = ["Today", "Incoming", "Outgoing", "All"] as const;
 
 export const Route = createFileRoute("/app/gate")({
   head: () => ({
     meta: [
-      { title: "Gate & Security | Karigo" },
+      { title: "Gate & Security | FleetOpsX" },
       { name: "description", content: "Digital gate logbook for vehicle movements, visitors and asset transfers." },
-      { property: "og:title", content: "Gate & Security | Karigo" },
+      { property: "og:title", content: "Gate & Security | FleetOpsX" },
       { property: "og:description", content: "Digital gate logbook and security movements." },
     ],
   }),

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Camera, Plus, Upload, Wrench } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +17,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { TRUCKS } from "@/lib/karigo/mock-data";
-import { engineeringService, formatNaira } from "@/lib/karigo/services";
-import type { WorkOrder } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { TRUCKS } from "@/lib/fleetopsx/mock-data";
+import { engineeringService, formatNaira } from "@/lib/fleetopsx/services";
+import type { WorkOrder } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/engineering")({
   beforeLoad: () => {
@@ -33,9 +33,9 @@ export const Route = createFileRoute("/app/engineering")({
   },
   head: () => ({
     meta: [
-      { title: "Engineering | Karigo" },
+      { title: "Engineering | FleetOpsX" },
       { name: "description", content: "Workshop queue, defect reporting, work orders and critical repair tracking." },
-      { property: "og:title", content: "Engineering | Karigo" },
+      { property: "og:title", content: "Engineering | FleetOpsX" },
       { property: "og:description", content: "Workshop queue, defects and work orders." },
     ],
   }),

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Minus, MoreVertical, Plus } from "lucide-react";
-import type { Trip } from "@/lib/karigo/types";
+import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import "leaflet/dist/leaflet.css";
 
@@ -171,7 +171,7 @@ export function CommandCenterMap({
         const color = STATUS_COLOR[t.status] ?? "#86868b";
         const isSel = selected?.id === t.id;
         const icon = L.divIcon({
-          className: "karigo-map-marker",
+          className: "fleetopsx-map-marker",
           html: statusDot(color, isSel || t.status === "En Route"),
           iconSize: [12, 12],
           iconAnchor: [6, 6],
@@ -185,7 +185,7 @@ export function CommandCenterMap({
         if (!trip) return;
         const color = STATUS_COLOR[status]!;
         const icon = L.divIcon({
-          className: "karigo-map-pill",
+          className: "fleetopsx-map-pill",
           html: statusPill(status, color),
           iconSize: [120, 36],
           iconAnchor: [60, 18],

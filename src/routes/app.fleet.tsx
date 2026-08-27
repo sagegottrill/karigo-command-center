@@ -1,17 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/karigo/mock-data";
-import type { TruckHead, TruckTail } from "@/lib/karigo/types";
+import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
+import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/fleet")({
   beforeLoad: () => {
@@ -22,9 +22,9 @@ export const Route = createFileRoute("/app/fleet")({
   },
   head: () => ({
     meta: [
-      { title: "Fleet & Dispatch | Karigo" },
+      { title: "Fleet & Dispatch | FleetOpsX" },
       { name: "description", content: "Fleet availability, assignment and vehicle status across the Petroline heavy transport fleet." },
-      { property: "og:title", content: "Fleet & Dispatch | Karigo" },
+      { property: "og:title", content: "Fleet & Dispatch | FleetOpsX" },
       { property: "og:description", content: "Fleet availability, assignment and vehicle status across the fleet." },
     ],
   }),

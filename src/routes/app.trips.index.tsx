@@ -1,21 +1,21 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { TRIPS } from "@/lib/karigo/mock-data";
-import type { Trip } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { TRIPS } from "@/lib/fleetopsx/mock-data";
+import type { Trip } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/trips/")({
   head: () => ({
     meta: [
-      { title: "Trips | Karigo" },
+      { title: "Trips | FleetOpsX" },
       { name: "description", content: "All scheduled, active, delayed and completed trips with progress, ETA and assignment detail." },
-      { property: "og:title", content: "Trips | Karigo" },
+      { property: "og:title", content: "Trips | FleetOpsX" },
       { property: "og:description", content: "Scheduled, active, delayed and completed trips with progress and ETA." },
     ],
   }),

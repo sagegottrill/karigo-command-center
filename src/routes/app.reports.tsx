@@ -7,23 +7,23 @@ import { toast } from "sonner";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { ChartFrame } from "@/components/karigo/chart-frame";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { ChartFrame } from "@/components/fleetopsx/chart-frame";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CHART_FUEL, CHART_TRIP_PERFORMANCE, CHART_UTILISATION,
   DRIVERS, EXPENSES, TRIPS, TRUCKS, WORK_ORDERS,
-} from "@/lib/karigo/mock-data";
-import { formatNaira } from "@/lib/karigo/services";
+} from "@/lib/fleetopsx/mock-data";
+import { formatNaira } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/reports")({
   head: () => ({
     meta: [
-      { title: "Reports | Karigo" },
+      { title: "Reports | FleetOpsX" },
       { name: "description", content: "Reports for fleet, trips, fuel and accounts." },
-      { property: "og:title", content: "Reports | Karigo" },
+      { property: "og:title", content: "Reports | FleetOpsX" },
       { property: "og:description", content: "Reports for fleet, trips, fuel and accounts." },
     ],
   }),

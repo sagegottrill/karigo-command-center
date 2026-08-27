@@ -2,7 +2,7 @@
  * Mock service layer.
  * Every screen reads through these functions, never from mock-data directly.
  * Replacing the bodies with real API calls is the only change needed once the
- * Karigo backend exists.
+ * FleetOpsX backend exists.
  */
 import * as db from "./mock-data";
 import type {
@@ -49,13 +49,13 @@ export const driverService = {
 export const authService = {
   getRole: () => {
     if (typeof window === "undefined") return "Super Admin";
-    return sessionStorage.getItem("karigo_role") || "Super Admin";
+    return sessionStorage.getItem("fleetopsx_role") || "Super Admin";
   },
   setRole: (role: string) => {
-    sessionStorage.setItem("karigo_role", role);
+    sessionStorage.setItem("fleetopsx_role", role);
   },
   logout: () => {
-    sessionStorage.removeItem("karigo_role");
+    sessionStorage.removeItem("fleetopsx_role");
   }
 };
 

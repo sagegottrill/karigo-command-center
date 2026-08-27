@@ -2,15 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Fuel, Check, X } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { fuelService, formatNaira } from "@/lib/karigo/services";
-import type { FuelRequisition } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { fuelService, formatNaira } from "@/lib/fleetopsx/services";
+import type { FuelRequisition } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["All", "Pending", "Approved", "Rejected"] as const;
@@ -18,9 +18,9 @@ const FILTERS = ["All", "Pending", "Approved", "Rejected"] as const;
 export const Route = createFileRoute("/app/fuel")({
   head: () => ({
     meta: [
-      { title: "Fuel | Karigo" },
+      { title: "Fuel | FleetOpsX" },
       { name: "description", content: "Fuel allocation, requisitions, efficiency and variance control across the fleet." },
-      { property: "og:title", content: "Fuel | Karigo" },
+      { property: "og:title", content: "Fuel | FleetOpsX" },
       { property: "og:description", content: "Fuel allocation, requisitions and efficiency control." },
     ],
   }),

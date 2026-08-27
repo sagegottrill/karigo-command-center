@@ -4,24 +4,24 @@ import {
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { AlertTriangle, ArrowUpRight, Fuel, Gauge, Truck, Wrench } from "lucide-react";
-import { PageHeader, SectionPanel } from "@/components/karigo/page-header";
-import { ChartFrame } from "@/components/karigo/chart-frame";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { ChartFrame } from "@/components/fleetopsx/chart-frame";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CHART_COST_REVENUE, CHART_EXPENSE_SPLIT, CHART_FUEL, CHART_TRIP_PERFORMANCE, CHART_UTILISATION,
   ALERTS, DRIVERS, EXPENSES, INVENTORY, TRIPS, WORK_ORDERS,
-} from "@/lib/karigo/mock-data";
-import { formatNaira } from "@/lib/karigo/services";
+} from "@/lib/fleetopsx/mock-data";
+import { formatNaira } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/god-view")({
   head: () => ({
     meta: [
-      { title: "God View | Karigo" },
+      { title: "God View | FleetOpsX" },
       { name: "description", content: "Revenue, utilisation, fuel and open issues." },
-      { property: "og:title", content: "God View | Karigo" },
+      { property: "og:title", content: "God View | FleetOpsX" },
       { property: "og:description", content: "Revenue, utilisation, fuel and open issues." },
     ],
   }),

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Boxes, PackageOpen } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/karigo/page-header";
-import { MetricCard } from "@/components/karigo/metric-card";
-import { DataTable, type Column } from "@/components/karigo/data-table";
-import { StatusBadge } from "@/components/karigo/status-badge";
+import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
+import { MetricCard } from "@/components/fleetopsx/metric-card";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,14 +16,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilterPills } from "@/components/karigo/filter-pills";
-import { inventoryService, formatNaira, engineeringService } from "@/lib/karigo/services";
-import type { InventoryItem, InventoryRequisition, WorkOrder } from "@/lib/karigo/types";
+import { FilterPills } from "@/components/fleetopsx/filter-pills";
+import { inventoryService, formatNaira, engineeringService } from "@/lib/fleetopsx/services";
+import type { InventoryItem, InventoryRequisition, WorkOrder } from "@/lib/fleetopsx/types";
 
 const FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
 
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/karigo/services";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/inventory")({
   beforeLoad: () => {
@@ -34,9 +34,9 @@ export const Route = createFileRoute("/app/inventory")({
   },
   head: () => ({
     meta: [
-      { title: "Inventory | Karigo" },
+      { title: "Inventory | FleetOpsX" },
       { name: "description", content: "Workshop store stock levels, spare parts requisitions and controlled releases." },
-      { property: "og:title", content: "Inventory | Karigo" },
+      { property: "og:title", content: "Inventory | FleetOpsX" },
       { property: "og:description", content: "Workshop store stock and spare parts releases." },
     ],
   }),
