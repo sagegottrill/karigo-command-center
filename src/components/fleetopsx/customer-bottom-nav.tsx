@@ -12,11 +12,11 @@ export function CustomerBottomNav({ activeTab, onTabChange }: CustomerBottomNavP
   const tabs = [
     { id: "order", label: "Order", icon: PlusCircle },
     { id: "map", label: "Track", icon: MapPin },
-    { id: "help", label: "Help", icon: HelpCircle },
+    { id: "help", label: "Support", icon: HelpCircle },
   ] as const;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex h-16 border-t border-black/[0.05] bg-white pb-safe pt-1">
+    <div className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-[90%] max-w-sm h-[68px] items-center justify-around rounded-[34px] border border-white/20 bg-black/70 backdrop-blur-2xl shadow-2xl pb-safe-offset">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -24,16 +24,23 @@ export function CustomerBottomNav({ activeTab, onTabChange }: CustomerBottomNavP
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className="flex flex-1 flex-col items-center justify-center space-y-1 touch-manipulation"
+            className="group relative flex flex-1 flex-col items-center justify-center space-y-1 h-full touch-manipulation"
           >
+            {/* Active Indicator Glow */}
+            {isActive && (
+              <div className="absolute top-0 h-1 w-8 rounded-b-full bg-white opacity-80" />
+            )}
             <Icon
-              className={cn("h-6 w-6 transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
+              className={cn(
+                "h-[22px] w-[22px] transition-all duration-300",
+                isActive ? "text-white scale-110" : "text-zinc-400 scale-100"
+              )}
               strokeWidth={isActive ? 2.5 : 2}
             />
             <span
               className={cn(
-                "text-[10px] font-medium transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground"
+                "text-[10px] font-semibold tracking-wide transition-colors duration-300",
+                isActive ? "text-white" : "text-zinc-400"
               )}
             >
               {tab.label}

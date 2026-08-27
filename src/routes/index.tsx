@@ -1,217 +1,222 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ArrowRight, Boxes, ClipboardCheck, Fuel, Gauge, Radar, ShieldCheck, Truck, Users, Wrench,
+  ArrowRight,
+  Boxes,
+  ClipboardCheck,
+  Fuel,
+  Gauge,
+  Radar,
+  ShieldCheck,
+  Truck,
+  Users,
+  Wrench,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FleetOpsX — Digital Command Center for Transport Operations" },
-      { name: "description", content: "Enterprise Transport Management System for fleet, dispatch, fuel, engineering, accounts and gate security." },
-      { property: "og:title", content: "FleetOpsX — Digital Command Center for Transport Operations" },
-      { property: "og:description", content: "Centralize heavy transport operations with accountable, enterprise-grade control." },
+      { title: "FleetOpsX — The Operating System for Logistics" },
+      {
+        name: "description",
+        content:
+          "Enterprise Transport Management System for fleet, dispatch, fuel, engineering, accounts and gate security.",
+      },
     ],
   }),
   component: LandingPage,
 });
 
 const FEATURES = [
-  { icon: Truck, title: "Fleet Management", body: "Live availability, assignment state and yard visibility across the entire heavy fleet." },
-  { icon: Radar, title: "Dispatch", body: "Guided trip creation with vehicle, driver, route and compliance checks before release." },
-  { icon: Fuel, title: "Fuel Control", body: "Efficiency-locked requisitions that stop operational leakage at the pump." },
-  { icon: Wrench, title: "Engineering", body: "Defect intake, workshop queues and maintenance cost accountability." },
-  { icon: Users, title: "HR & Drivers", body: "Licence compliance, availability and assignment history in one register." },
-  { icon: ClipboardCheck, title: "Accounts", body: "Multi-level expense approvals with variance and disbursement control." },
-  { icon: ShieldCheck, title: "Gate Security", body: "Digital yard logbook with server timestamps and attributable officers." },
-  { icon: Gauge, title: "Executive Intelligence", body: "God View analytics for utilisation, cost, bottlenecks and trip performance." },
-];
-
-const BENEFITS = [
-  "Eliminate manual processes",
-  "Improve accountability",
-  "Reduce operational leakage",
-  "Improve fleet utilization",
-  "Centralize operations",
+  {
+    icon: Truck,
+    title: "Fleet Management",
+    body: "Live availability, assignment state and yard visibility across the entire heavy fleet.",
+  },
+  {
+    icon: Radar,
+    title: "Dispatch",
+    body: "Guided trip creation with vehicle, driver, route and compliance checks before release.",
+  },
+  {
+    icon: Fuel,
+    title: "Fuel Control",
+    body: "Efficiency-locked requisitions that stop operational leakage at the pump.",
+  },
+  {
+    icon: Wrench,
+    title: "Engineering",
+    body: "Defect intake, workshop queues and maintenance cost accountability.",
+  },
+  {
+    icon: Users,
+    title: "HR & Drivers",
+    body: "Licence compliance, availability and assignment history in one register.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Accounts",
+    body: "Multi-level expense approvals with variance and disbursement control.",
+  },
 ];
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="glass sticky top-0 z-40">
-        <div className="mx-auto flex h-[52px] max-w-6xl items-center justify-between px-4">
+    <div className="min-h-screen bg-[#000000] text-zinc-50 selection:bg-white/20">
+      {/* Dynamic Background Glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-white/5 blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-zinc-800/20 blur-[150px]" />
+      </div>
+
+      <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-black/50 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
           <a href="#top" className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-primary text-[13px] font-semibold text-primary-foreground">K</span>
-            <span className="text-[15px] font-semibold tracking-[-0.02em]">FleetOpsX</span>
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-white text-[13px] font-bold text-black">
+              F
+            </div>
+            <span className="text-[15px] font-bold tracking-tight text-white">
+              FleetOpsX
+            </span>
           </a>
-          <nav className="hidden items-center gap-7 text-[13px] text-muted-foreground md:flex">
-            <a href="#features" className="hover:text-foreground">Features</a>
-            <a href="#benefits" className="hover:text-foreground">Enterprise</a>
-            <a href="#preview" className="hover:text-foreground">Product</a>
-            <a href="#contact" className="hover:text-foreground">Contact</a>
+          <nav className="hidden items-center gap-8 text-[13px] font-medium text-zinc-400 md:flex">
+            <a href="#features" className="hover:text-white transition-colors">
+              Features
+            </a>
+            <a href="#benefits" className="hover:text-white transition-colors">
+              Enterprise
+            </a>
           </nav>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm" className="h-9 rounded-full text-[13px]">
-              <Link to="/login">Sign in</Link>
-            </Button>
-            <Button asChild size="sm" className="h-9 rounded-full px-4 text-[13px]">
-              <a href="#demo">Request a Demo</a>
-            </Button>
+          <div className="flex items-center gap-4">
+            <Link to="/login" className="text-[13px] font-medium text-zinc-300 hover:text-white transition-colors hidden sm:block">
+              Log in
+            </Link>
+            <Link to="/login">
+              <Button className="h-8 rounded-full bg-white text-black hover:bg-zinc-200 px-4 text-[13px] font-semibold transition-all">
+                Get Started
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
 
-      <main id="top">
-        <section className="relative overflow-hidden border-b border-border/70">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_10%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_55%)]" />
-          <div className="relative mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:py-28">
-            <div>
-              <p className="text-[13px] font-medium text-primary">FleetOpsX TMS · Forah Technology</p>
-              <h1 className="mt-3 max-w-xl text-[44px] leading-[1.05] font-semibold tracking-[-0.035em] sm:text-[56px]">
-                The digital command center for modern transport operations
-              </h1>
-              <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-                FleetOpsX centralizes fleet, dispatch, fuel, engineering, inventory, accounts and gate security into one accountable enterprise environment.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Button asChild size="lg" className="h-12 gap-2 rounded-full px-6 text-[15px]">
-                  <a href="#demo">Request a Demo <ArrowRight className="h-4 w-4" /></a>
-                </Button>
-                <Button asChild size="lg" variant="outline" className="h-12 rounded-full px-6 text-[15px]">
-                  <Link to="/login">Explore Platform</Link>
-                </Button>
-              </div>
-              <p className="num mt-6 text-[12px] text-muted-foreground">Multi-tenant SaaS · Prototype v1.0</p>
-            </div>
+      <main className="relative z-10 flex flex-col items-center">
+        {/* Hero Section */}
+        <section
+          id="top"
+          className="relative flex min-h-[90vh] w-full max-w-7xl flex-col items-center justify-center px-6 text-center pt-20 pb-32"
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-zinc-300 mb-8 hover:bg-white/10 transition-colors cursor-pointer">
+            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            Introducing the Multi-Tenant Platform <ArrowRight className="h-3 w-3" />
+          </div>
+          
+          <h1 className="max-w-5xl text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[80px] leading-[1.1] text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
+            The operating system <br className="hidden sm:block" /> for heavy logistics.
+          </h1>
+          
+          <p className="mt-8 max-w-2xl text-lg text-zinc-400 leading-relaxed font-medium">
+            Centralize your entire transport operation with accountable,
+            enterprise-grade control. Manage fleets, dispatch, fuel, and expenses in one multi-tenant workspace.
+          </p>
+          
+          <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
+            <Link to="/login">
+              <Button size="lg" className="h-12 rounded-full bg-white text-black hover:bg-zinc-200 px-8 text-sm font-bold shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all">
+                Start your workspace <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <a href="#features">
+              <Button size="lg" variant="outline" className="h-12 rounded-full border-white/10 bg-transparent text-white hover:bg-white/5 px-8 text-sm font-bold transition-all">
+                Explore Features
+              </Button>
+            </a>
+          </div>
 
-            <div id="preview" className="relative">
-              <div className="panel overflow-hidden">
-                <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-6 w-6 place-items-center rounded-lg bg-primary text-[10px] font-semibold text-primary-foreground">K</span>
-                    <span className="text-[13px] font-semibold tracking-[-0.01em]">Command Center</span>
-                  </div>
-                  <span className="num text-[11px] font-medium text-success">Online · PTL-001</span>
+          {/* Abstract Dashboard Mockup */}
+          <div className="mt-20 w-full max-w-5xl rounded-[24px] border border-white/10 bg-black/40 p-2 shadow-2xl backdrop-blur-3xl overflow-hidden relative group">
+             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10 pointer-events-none" />
+             <div className="w-full aspect-[16/9] rounded-[18px] bg-zinc-900 border border-white/5 relative overflow-hidden flex flex-col">
+                {/* Mock Header */}
+                <div className="h-12 border-b border-white/5 flex items-center px-4 gap-4">
+                   <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                      <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                   </div>
+                   <div className="h-6 w-48 rounded bg-white/5 ml-4" />
                 </div>
-                <div className="grid grid-cols-3 gap-2 border-b border-border/70 bg-muted/40 p-3">
-                  {[
-                    ["42", "Active Trips"],
-                    ["68", "Trucks"],
-                    ["18", "Approvals"],
-                  ].map(([v, l]) => (
-                    <div key={l} className="rounded-xl border border-border/70 bg-surface px-2.5 py-2">
-                      <p className="num text-lg font-semibold tracking-[-0.02em] text-foreground">{v}</p>
-                      <p className="text-[10px] text-muted-foreground">{l}</p>
+                {/* Mock Content */}
+                <div className="flex-1 p-6 flex gap-6">
+                   <div className="w-64 flex flex-col gap-3">
+                     {[...Array(6)].map((_, i) => (
+                       <div key={i} className="h-10 rounded-lg bg-white/5 w-full" />
+                     ))}
+                   </div>
+                   <div className="flex-1 flex flex-col gap-6">
+                      <div className="flex gap-4">
+                         {[...Array(3)].map((_, i) => (
+                           <div key={i} className="flex-1 h-32 rounded-xl bg-white/5 border border-white/5" />
+                         ))}
+                      </div>
+                      <div className="flex-1 rounded-xl bg-white/5 border border-white/5" />
+                   </div>
+                </div>
+             </div>
+          </div>
+        </section>
+
+        {/* Bento Box Features */}
+        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-white/5">
+          <div className="mb-16">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Everything you need to <span className="text-zinc-500">scale.</span>
+            </h2>
+            <p className="mt-4 text-lg text-zinc-400">
+              Stop stitching together generic tools. Use a platform built for logistics.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature, idx) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={idx}
+                  className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 hover:bg-white/[0.07] transition-colors"
+                >
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white mb-6 group-hover:scale-110 transition-transform duration-500">
+                      <Icon className="h-6 w-6" strokeWidth={1.5} />
                     </div>
-                  ))}
+                    <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-zinc-400 leading-relaxed">
+                      {feature.body}
+                    </p>
+                  </div>
+                  {/* Subtle hover gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
-                <div className="relative h-48 bg-[radial-gradient(circle_at_40%_45%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_55%),linear-gradient(160deg,#f8fafc,#e8eef6)]">
-                  <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(color-mix(in_oklab,var(--border)_90%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_oklab,var(--border)_90%,transparent)_1px,transparent_1px)] [background-size:28px_28px]" />
-                  {[
-                    ["12%", "28%", "En Route"],
-                    ["48%", "52%", "Loaded"],
-                    ["72%", "34%", "Delayed"],
-                    ["34%", "68%", "Returning"],
-                  ].map(([l, t, s]) => (
-                    <span
-                      key={s + l}
-                      className="absolute flex items-center gap-1.5 rounded-full border border-border/80 bg-white/90 px-2 py-0.5 text-[10px] font-medium tracking-[0.01em] shadow-sm backdrop-blur"
-                      style={{ left: l, top: t }}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="border-b border-border/70 py-20">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="max-w-2xl">
-              <p className="text-[13px] font-medium text-primary">Platform capabilities</p>
-              <h2 className="mt-2 text-[36px] font-semibold tracking-[-0.03em]">Built for operational control</h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                Every module reinforces the same operating loop: See → Understand → Decide → Act → Track → Audit.
-              </p>
-            </div>
-            <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {FEATURES.map((f) => (
-                <div key={f.title} className="rounded-2xl border border-border/80 bg-surface p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-transform duration-200 hover:-translate-y-0.5">
-                  <f.icon className="h-4 w-4 text-primary" />
-                  <h3 className="mt-3 text-[15px] font-semibold tracking-[-0.01em] text-foreground">{f.title}</h3>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{f.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="benefits" className="border-b border-border/70 bg-muted/40 py-20">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-2 lg:items-center">
-            <div>
-              <p className="text-[13px] font-medium text-primary">Enterprise benefits</p>
-              <h2 className="mt-2 text-[36px] font-semibold tracking-[-0.03em]">Bring transport operations under control</h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                Replace fragmented spreadsheets, WhatsApp threads and paper approvals with one accountable command environment.
-              </p>
-              <ul className="mt-6 space-y-2.5">
-                {BENEFITS.map((b) => (
-                  <li key={b} className="flex items-center gap-2 text-[15px] text-foreground">
-                    <Boxes className="h-3.5 w-3.5 text-primary" />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                ["Audit trail", "Every action attributed"],
-                ["Role-based access", "11 enterprise roles"],
-                ["Fuel variance", "Efficiency lock"],
-                ["Gate timestamps", "Server locked"],
-              ].map(([t, d]) => (
-                <div key={t} className="rounded-2xl border border-border/80 bg-surface p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-                  <p className="text-[15px] font-semibold tracking-[-0.01em]">{t}</p>
-                  <p className="mt-1 text-[13px] text-muted-foreground">{d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="demo" className="py-20">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="panel relative overflow-hidden px-6 py-14 text-center sm:px-12">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_55%)]" />
-              <div className="relative">
-                <h2 className="text-[36px] font-semibold tracking-[-0.03em]">Bring your transport operations under control</h2>
-                <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-                  Request a guided walkthrough of the FleetOpsX Command Center prototype for Petroline Transport and future SaaS tenants.
-                </p>
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                  <Button asChild size="lg" className="h-12 rounded-full px-6 text-[15px]">
-                    <Link to="/login">Open Command Center</Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="h-12 rounded-full px-6 text-[15px]">
-                    <a href="mailto:demo@forah.tech">Contact Forah Technology</a>
-                  </Button>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
       </main>
 
-      <footer id="contact" className="border-t border-border/70 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 text-[12px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-lg bg-primary text-[10px] font-semibold text-primary-foreground">K</span>
-            FleetOpsX by Forah Technology
-          </span>
-          <span className="num">Prototype · Frontend only · Pre-backend integration</span>
+      <footer className="border-t border-white/5 py-12">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row text-center sm:text-left">
+          <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+            <div className="grid h-6 w-6 place-items-center rounded bg-white text-[10px] font-bold text-black">
+              F
+            </div>
+            <span className="text-[13px] font-semibold text-white">
+              FleetOpsX
+            </span>
+          </div>
+          <p className="text-[13px] text-zinc-500 font-medium">
+            © {new Date().getFullYear()} FleetOpsX. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
