@@ -23,11 +23,13 @@ export type RoleKey =
   | "operations_manager"
   | "dispatcher"
   | "fleet_manager"
+  | "fuel_manager"
   | "engineer"
   | "mechanic"
   | "accountant"
   | "hr_manager"
   | "security_officer"
+  | "procurement_manager"
   | "driver";
 
 export interface Role {

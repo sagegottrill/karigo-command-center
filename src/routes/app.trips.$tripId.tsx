@@ -73,7 +73,12 @@ function TripDetail() {
         actions={
           <>
             <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Link to="/app/trips"><ArrowLeft className="h-3.5 w-3.5" />All trips</Link></Button>
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => toast.success("Trip status advanced", { description: `${trip.id} updated by Operations Admin.` })}>
+            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => {
+              void tripService.updateStatus(trip.id).then(status => {
+                toast.success("Trip status advanced", { description: `${trip.id} updated to ${status}.` });
+                void tripService.get(trip.id).then(setTrip);
+              });
+            }}>
               <Check className="h-3.5 w-3.5" />Advance status
             </Button>
           </>

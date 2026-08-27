@@ -14,12 +14,12 @@ import type { ProcurementRequest } from "@/lib/karigo/types";
 const FILTERS = ["All", "Requested", "Sourcing", "Procured"] as const;
 
 import { redirect } from "@tanstack/react-router";
-import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/app/procurement")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Admin", "Procurement Officer", "Engineering Manager"];
-    if (!allowed.includes(CURRENT_ROLE)) {
+    const allowed = ["Super Admin", "Operations Manager", "Procurement Manager", "Engineer"];
+    if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
   },

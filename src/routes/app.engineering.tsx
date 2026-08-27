@@ -22,12 +22,12 @@ import { TRUCKS } from "@/lib/karigo/mock-data";
 import { engineeringService, formatNaira } from "@/lib/karigo/services";
 import type { WorkOrder } from "@/lib/karigo/types";
 import { redirect } from "@tanstack/react-router";
-import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/app/engineering")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Admin", "Engineering Manager"];
-    if (!allowed.includes(CURRENT_ROLE)) {
+    const allowed = ["Super Admin", "Operations Manager", "Engineer", "Mechanic", "Fleet Manager"];
+    if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
   },
@@ -53,6 +53,8 @@ function EngineeringPage() {
   const [form, setForm] = useState({
     truckReg: "", category: "", defect: "", priority: "Medium", location: "Lagos Yard",
   });
+  const [logOpen, setLogOpen] = useState(false);
+  const [logForm, setLogForm] = useState({ truckReg: "", defect: "", category: "", amount: "" });
 
   const refresh = () => engineeringService.listWorkOrders().then(setRows);
   useEffect(() => { void refresh(); }, []);
@@ -62,6 +64,7 @@ function EngineeringPage() {
   const awaitingParts = rows.filter((w) => w.status === "Awaiting Parts").length;
   const critical = rows.filter((w) => w.priority === "Critical" && w.status !== "Completed").length;
   const completed = rows.filter((w) => w.status === "Completed").length;
+  const active = rows.filter((w) => w.status !== "Completed");
 
   const view = filter === "All" ? rows : rows.filter((w) => w.status === filter);
 
@@ -115,12 +118,18 @@ function EngineeringPage() {
   return (
     <>
       <PageHeader
-        title="Engineering & Workshop"
-        description="Defect intake, work-order queue and critical repair oversight."
+        title="Engineering / Workshop"
+        description="Workshop queue, defects and work orders."
+        meta={<span className="num text-[11px] text-muted-foreground">{active.length} active work orders</span>}
         actions={
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setOpen(true)}>
-            <Plus className="h-3.5 w-3.5" />Report Defect
-          </Button>
+          <>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-white text-black hover:bg-black/[0.02]" onClick={() => setLogOpen(true)}>
+              <Wrench className="h-3.5 w-3.5" />Log Repair Cost
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5 text-xs bg-[#c93b3b] text-white hover:bg-[#a62f2f]" onClick={() => setOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />Report Defect
+            </Button>
+          </>
         }
       />
 
@@ -241,6 +250,54 @@ function EngineeringPage() {
           <DialogFooter>
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>Cancel</Button>
             <Button size="sm" className="h-8 text-xs" onClick={() => void submitDefect()}>Submit Defect</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log Repair Cost</DialogTitle>
+            <DialogDescription>Mark a truck 'Not Ready', log the repair cost, and automatically create an expense or procurement request.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Truck</Label>
+              <Select value={logForm.truckReg} onValueChange={(v) => setLogForm((f) => ({ ...f, truckReg: v }))}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select truck" /></SelectTrigger>
+                <SelectContent>
+                  {TRUCKS.map((t) => <SelectItem key={t.id} value={t.registration} className="text-xs">{t.registration}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Defect Description</Label>
+              <Input value={logForm.defect} onChange={(e) => setLogForm((f) => ({ ...f, defect: e.target.value }))} className="h-9 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cost Category</Label>
+              <Select value={logForm.category} onValueChange={(v) => setLogForm((f) => ({ ...f, category: v }))}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Amount (₦)</Label>
+              <Input type="number" value={logForm.amount} onChange={(e) => setLogForm((f) => ({ ...f, amount: e.target.value }))} className="h-9 text-xs num" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setLogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-8 text-xs" onClick={() => {
+              void engineeringService.logRepair(logForm.truckReg, logForm.defect, logForm.category, Number(logForm.amount)).then(() => {
+                toast.success("Repair Logged", { description: "Truck marked out of service and expense/procurement created." });
+                setLogOpen(false);
+                setLogForm({ truckReg: "", defect: "", category: "", amount: "" });
+                refresh();
+              });
+            }}>Submit</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

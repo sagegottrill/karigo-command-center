@@ -16,12 +16,12 @@ import { tripService } from "@/lib/karigo/services";
 import { cn } from "@/lib/utils";
 
 import { redirect } from "@tanstack/react-router";
-import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/app/dispatch")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Admin", "Transport Manager", "Dispatcher"];
-    if (!allowed.includes(CURRENT_ROLE)) {
+    const allowed = ["Super Admin", "Operations Manager", "Dispatcher"];
+    if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
   },

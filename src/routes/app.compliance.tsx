@@ -12,12 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { complianceService } from "@/lib/karigo/services";
 
 import { redirect } from "@tanstack/react-router";
-import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/app/compliance")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Admin", "Compliance Officer", "Fleet Manager"];
-    if (!allowed.includes(CURRENT_ROLE)) {
+    const allowed = ["Super Admin", "Operations Manager", "HR Manager", "Executive"];
+    if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
   },

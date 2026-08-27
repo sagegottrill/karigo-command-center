@@ -45,15 +45,68 @@ export const driverService = {
   get: (id: string) => settle(store.drivers.find((d) => d.id === id) ?? null),
 };
 
+/* --------------------------------- auth ----------------------------------- */
+export const authService = {
+  getRole: () => {
+    if (typeof window === "undefined") return "Super Admin";
+    return sessionStorage.getItem("karigo_role") || "Super Admin";
+  },
+  setRole: (role: string) => {
+    sessionStorage.setItem("karigo_role", role);
+  },
+  logout: () => {
+    sessionStorage.removeItem("karigo_role");
+  }
+};
+
 /* ---------------------------------- trips --------------------------------- */
 export const tripService = {
   list: () => settle([...store.trips]),
   get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
   create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;
-    const trip: Trip = { ...input, id, progress: 4, eta: "—" };
+    const trip: Trip = { ...input, id, progress: 4, eta: "—", status: "Scheduled" };
     store.trips = [trip, ...store.trips];
+    
+    // Assign assets
+    if (input.headId) {
+      store.truckHeads = store.truckHeads.map(t => t.id === input.headId ? { ...t, status: "Assigned" } : t);
+    }
+    if (input.tailId) {
+      store.truckTails = store.truckTails.map(t => t.id === input.tailId ? { ...t, status: "Assigned" } : t);
+    }
+    if (input.driverId) {
+      store.drivers = store.drivers.map(d => d.id === input.driverId ? { ...d, status: "On Trip" } : d);
+    }
+    
     return settle(trip);
+  },
+  updateStatus: (id: string) => {
+    const flow = ["Scheduled", "Loaded", "En Route", "Offloading", "Returning", "Completed"] as const;
+    let nextStatus = "Completed";
+    store.trips = store.trips.map(t => {
+      if (t.id === id) {
+        nextStatus = flow[Math.min(flow.indexOf(t.status as any) + 1, flow.length - 1)];
+        return { ...t, status: nextStatus as any };
+      }
+      return t;
+    });
+    
+    if (nextStatus === "Returning") {
+      store.notifications = [
+        {
+          id: `NTF-${Date.now()}`,
+          category: "Operations",
+          title: "Trip Returning",
+          body: `Trip ${id} has been marked as returning.`,
+          time: "Just now",
+          read: false,
+          severity: "info",
+        },
+        ...store.notifications,
+      ];
+    }
+    return settle(nextStatus);
   },
   timeline: (trip: Trip): TimelineStep[] => {
     const order = [
@@ -94,9 +147,28 @@ export const tripService = {
 export const fuelService = {
   list: () => settle([...store.fuel]),
   approve: (id: string) => {
-    store.fuel = store.fuel.map((f) =>
-      f.id === id ? { ...f, status: "Approved" as const, approvedLitres: f.expectedConsumption } : f,
-    );
+    store.fuel = store.fuel.map((f) => {
+      if (f.id === id) {
+        // Generate an expense in accounts
+        store.expenses = [
+          {
+            id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
+            type: "Direct Cost",
+            amount: f.cost,
+            standardRate: f.cost * 0.9,
+            requester: f.driverName,
+            tripId: f.tripId,
+            status: "Approved",
+            approvalLevel: "Fleet Manager",
+            date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            documents: ["fuel_receipt.pdf"],
+          },
+          ...store.expenses,
+        ];
+        return { ...f, status: "Approved" as const, approvedLitres: f.expectedConsumption };
+      }
+      return f;
+    });
     return settle(true);
   },
   reject: (id: string) => {
@@ -136,6 +208,53 @@ export const engineeringService = {
     );
     return settle(true);
   },
+  logRepair: (truckReg: string, defect: string, category: string, amount: number) => {
+    // 1. Create a Work Order
+    const id = `ENG-${String(480 + store.workOrders.length).padStart(5, "0")}`;
+    store.workOrders = [
+      {
+        id, truckReg, defect, category, priority: "High", mechanic: "Unassigned", status: "Reported",
+        reportedBy: "System", reportedAt: new Date().toLocaleDateString(), cost: amount,
+      },
+      ...store.workOrders,
+    ];
+    
+    // 2. Mark the truck as Out of Service
+    const head = store.truckHeads.find(t => t.registration === truckReg);
+    if (head) {
+      store.truckHeads = store.truckHeads.map(t => t.id === head.id ? { ...t, status: "Out of Service" } : t);
+    }
+    const tail = store.truckTails.find(t => t.registration === truckReg);
+    if (tail) {
+      store.truckTails = store.truckTails.map(t => t.id === tail.id ? { ...t, status: "Out of Service" } : t);
+    }
+
+    // 3. Create Expense in Accounts
+    store.expenses = [
+      {
+        id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
+        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "—",
+        status: "Pending", approvalLevel: "Operations Manager", date: new Date().toLocaleDateString(),
+        documents: [],
+      },
+      ...store.expenses,
+    ];
+
+    // 4. Check Inventory and generate Procurement Request if out of stock
+    const part = store.inventory.find(i => i.name.toLowerCase().includes(category.toLowerCase()));
+    if (part && part.stock === 0) {
+      store.procurement = [
+        {
+          id: `PRC-${String(100 + store.procurement.length).padStart(3, "0")}`,
+          part: part.name, quantity: 1, truckReg, priority: "High", status: "Requested",
+          requestedBy: "Engineering", date: new Date().toLocaleDateString(),
+        },
+        ...store.procurement,
+      ];
+    }
+    
+    return settle(id);
+  }
 };
 
 /* -------------------------------- inventory ------------------------------- */
@@ -185,14 +304,24 @@ export const inventoryService = {
 export const procurementService = {
   list: () => settle([...store.procurement]),
   markProcured: (id: string) => {
+    const pr = store.procurement.find(p => p.id === id);
+    if (!pr) return settle(false);
+
     store.procurement = store.procurement.map((p) => (p.id === id ? { ...p, status: "Procured" } : p));
-    // TODO: replace with real backend call (auto-notify engineering and fleet mgr)
+    
+    // Automatically advance engineering work order if waiting on parts
+    const wo = store.workOrders.find(w => w.truckReg === pr.truckReg && w.status === "Awaiting Parts");
+    if (wo) {
+      store.workOrders = store.workOrders.map(w => w.id === wo.id ? { ...w, status: "Repairing" } : w);
+    }
+    
+    // Auto-notify engineering and fleet mgr
     store.notifications = [
       {
         id: `NTF-${Date.now()}`,
         category: "Engineering",
         title: "Part Procured",
-        body: `Procurement request ${id} marked as Procured.`,
+        body: `Procurement request ${id} (${pr.part}) marked as Procured.`,
         time: "Just now",
         read: false,
         severity: "success",
@@ -282,6 +411,33 @@ export const gateService = {
   create: (entry: Omit<GateEntry, "id">) => {
     const id = `GTE-${String(330 + store.gate.length).padStart(5, "0")}`;
     store.gate = [{ ...entry, id }, ...store.gate];
+    
+    if (entry.purpose === "Trip return") {
+      // Find the truck in trips to get the trip ID and driver
+      const truckReg = entry.asset;
+      const head = store.truckHeads.find(t => t.registration === truckReg);
+      if (head) {
+        store.truckHeads = store.truckHeads.map(t => t.id === head.id ? { ...t, status: "Available" } : t);
+      }
+      
+      const tail = store.truckTails.find(t => t.registration === truckReg);
+      if (tail) {
+        store.truckTails = store.truckTails.map(t => t.id === tail.id ? { ...t, status: "Available" } : t);
+      }
+      
+      // We don't have driver name mapped directly to driver ID in gate entry, but we can try
+      const driver = store.drivers.find(d => d.name === entry.driver);
+      if (driver) {
+        store.drivers = store.drivers.map(d => d.id === driver.id ? { ...d, status: "Available" } : d);
+      }
+      
+      // Update the trip to Completed
+      const trip = store.trips.find(t => t.truckReg.includes(truckReg) && t.status !== "Completed");
+      if (trip) {
+        store.trips = store.trips.map(t => t.id === trip.id ? { ...t, status: "Completed" } : t);
+      }
+    }
+    
     return settle(id);
   },
 };

@@ -4,6 +4,8 @@ import {
   MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authService } from "@/lib/karigo/services";
+import { ROLES } from "@/lib/karigo/mock-data";
 
 export interface NavItem {
   label: string;
@@ -45,6 +47,34 @@ export function AppSidebar({
   const isActive = (to: string) =>
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
 
+  const roleName = authService.getRole();
+  const activeRole = ROLES.find(r => r.name === roleName);
+  const allowedModules = activeRole?.modules || [];
+
+  const allowedNav = NAV.filter(item => {
+    if (allowedModules.includes("All modules")) return true;
+    if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; // always show overview
+    
+    // Map NAV label to role modules
+    const label = item.label;
+    if (label === "Fleet" || label === "Dispatch") return allowedModules.includes("Fleet & Dispatch");
+    if (label === "Trips") return allowedModules.includes("Trips");
+    if (label === "Fuel") return allowedModules.includes("Fuel");
+    if (label === "Engineering") return allowedModules.includes("Engineering");
+    if (label === "Inventory") return allowedModules.includes("Inventory");
+    if (label === "Procurement") return allowedModules.includes("Procurement");
+    if (label === "Drivers") return allowedModules.includes("Drivers & HR") || allowedModules.includes("Drivers");
+    if (label === "Accounts") return allowedModules.includes("Accounts");
+    if (label === "Gate") return allowedModules.includes("Gate & Security");
+    if (label === "Messages") return allowedModules.includes("Messages");
+    if (label === "God View") return allowedModules.includes("God View");
+    if (label === "Reports") return allowedModules.includes("Reports");
+    if (label === "Notifications") return true; // everyone gets notifications
+    if (label === "Audit" || label === "Settings") return allowedModules.includes("All modules");
+    
+    return false;
+  });
+
   return (
     <aside
       className={cn(
@@ -70,7 +100,7 @@ export function AppSidebar({
 
       <nav className="flex-1 overflow-y-auto px-2.5 pb-4">
         {GROUPS.map((group) => {
-          const items = NAV.filter((n) => n.group === group);
+          const items = allowedNav.filter((n) => n.group === group);
           if (!items.length) return null;
           return (
             <div key={group} className="mb-4">

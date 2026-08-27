@@ -18,6 +18,17 @@ import { DRIVERS, EXPENSES, FEATURED_TRIP_ID, TRIPS, TRUCKS } from "@/lib/karigo
 import { formatNaira, tripService } from "@/lib/karigo/services";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { authService } from "@/lib/karigo/services";
+import { 
+  TransportManagerDashboard, 
+  FleetManagerDashboard, 
+  FuelManagerDashboard, 
+  AccountantDashboard, 
+  GateDashboard, 
+  HRDashboard, 
+  EngineerDashboard, 
+  ProcurementDashboard 
+} from "@/components/karigo/role-dashboards";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
@@ -59,6 +70,27 @@ const tooltipStyle = {
 };
 
 function Dashboard() {
+  const role = authService.getRole();
+
+  // If the role is Super Admin or Executive, they get the original God View / Dashboard
+  if (role === "Super Admin" || role === "Executive") {
+    return <ManagementDashboard />;
+  }
+  
+  if (role === "Operations Manager") return <TransportManagerDashboard />;
+  if (role === "Fleet Manager") return <FleetManagerDashboard />;
+  if (role === "Fuel Manager") return <FuelManagerDashboard />;
+  if (role === "Accountant") return <AccountantDashboard />;
+  if (role === "Security Officer") return <GateDashboard />;
+  if (role === "HR Manager") return <HRDashboard />;
+  if (role === "Engineer" || role === "Mechanic") return <EngineerDashboard />;
+  if (role === "Procurement Manager") return <ProcurementDashboard />;
+  
+  // Fallback
+  return <div className="p-8">No dashboard available for this role.</div>;
+}
+
+function ManagementDashboard() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All Trips");
   const [page, setPage] = useState(0);

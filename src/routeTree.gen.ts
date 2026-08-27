@@ -17,6 +17,8 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAccountsRouteImport } from './routes/app.accounts'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppAuditRouteImport } from './routes/app.audit'
+import { Route as AppComplianceRouteImport } from './routes/app.compliance'
+import { Route as AppDepreciationRouteImport } from './routes/app.depreciation'
 import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
 import { Route as AppEngineeringRouteImport } from './routes/app.engineering'
 import { Route as AppFleetRouteImport } from './routes/app.fleet'
@@ -26,7 +28,9 @@ import { Route as AppGodViewRouteImport } from './routes/app.god-view'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppMessagesRouteImport } from './routes/app.messages'
 import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
+import { Route as AppProcurementRouteImport } from './routes/app.procurement'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
@@ -70,6 +74,16 @@ const AppAdminRoute = AppAdminRouteImport.update({
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppComplianceRoute = AppComplianceRouteImport.update({
+  id: '/compliance',
+  path: '/compliance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDepreciationRoute = AppDepreciationRouteImport.update({
+  id: '/depreciation',
+  path: '/depreciation',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDispatchRoute = AppDispatchRouteImport.update({
@@ -117,9 +131,19 @@ const AppNotificationsRoute = AppNotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProcurementRoute = AppProcurementRouteImport.update({
+  id: '/procurement',
+  path: '/procurement',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUnauthorizedRoute = AppUnauthorizedRouteImport.update({
+  id: '/unauthorized',
+  path: '/unauthorized',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
@@ -151,6 +175,8 @@ export interface FileRoutesByFullPath {
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
+  '/app/compliance': typeof AppComplianceRoute
+  '/app/depreciation': typeof AppDepreciationRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
@@ -160,7 +186,9 @@ export interface FileRoutesByFullPath {
   '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/unauthorized': typeof AppUnauthorizedRoute
   '/app/': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -174,6 +202,8 @@ export interface FileRoutesByTo {
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
+  '/app/compliance': typeof AppComplianceRoute
+  '/app/depreciation': typeof AppDepreciationRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
@@ -183,7 +213,9 @@ export interface FileRoutesByTo {
   '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/unauthorized': typeof AppUnauthorizedRoute
   '/app': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -199,6 +231,8 @@ export interface FileRoutesById {
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
   '/app/audit': typeof AppAuditRoute
+  '/app/compliance': typeof AppComplianceRoute
+  '/app/depreciation': typeof AppDepreciationRoute
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
@@ -208,7 +242,9 @@ export interface FileRoutesById {
   '/app/inventory': typeof AppInventoryRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/notifications': typeof AppNotificationsRoute
+  '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/unauthorized': typeof AppUnauthorizedRoute
   '/app/': typeof AppIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
@@ -225,6 +261,8 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
+    | '/app/compliance'
+    | '/app/depreciation'
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
@@ -234,7 +272,9 @@ export interface FileRouteTypes {
     | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/procurement'
     | '/app/reports'
+    | '/app/unauthorized'
     | '/app/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -248,6 +288,8 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
+    | '/app/compliance'
+    | '/app/depreciation'
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
@@ -257,7 +299,9 @@ export interface FileRouteTypes {
     | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/procurement'
     | '/app/reports'
+    | '/app/unauthorized'
     | '/app'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -272,6 +316,8 @@ export interface FileRouteTypes {
     | '/app/accounts'
     | '/app/admin'
     | '/app/audit'
+    | '/app/compliance'
+    | '/app/depreciation'
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
@@ -281,7 +327,9 @@ export interface FileRouteTypes {
     | '/app/inventory'
     | '/app/messages'
     | '/app/notifications'
+    | '/app/procurement'
     | '/app/reports'
+    | '/app/unauthorized'
     | '/app/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
@@ -354,6 +402,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuditRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/compliance': {
+      id: '/app/compliance'
+      path: '/compliance'
+      fullPath: '/app/compliance'
+      preLoaderRoute: typeof AppComplianceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/depreciation': {
+      id: '/app/depreciation'
+      path: '/depreciation'
+      fullPath: '/app/depreciation'
+      preLoaderRoute: typeof AppDepreciationRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/dispatch': {
       id: '/app/dispatch'
       path: '/dispatch'
@@ -417,11 +479,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotificationsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/procurement': {
+      id: '/app/procurement'
+      path: '/procurement'
+      fullPath: '/app/procurement'
+      preLoaderRoute: typeof AppProcurementRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/reports': {
       id: '/app/reports'
       path: '/reports'
       fullPath: '/app/reports'
       preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/unauthorized': {
+      id: '/app/unauthorized'
+      path: '/unauthorized'
+      fullPath: '/app/unauthorized'
+      preLoaderRoute: typeof AppUnauthorizedRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/drivers/': {
@@ -459,6 +535,8 @@ interface AppRouteChildren {
   AppAccountsRoute: typeof AppAccountsRoute
   AppAdminRoute: typeof AppAdminRoute
   AppAuditRoute: typeof AppAuditRoute
+  AppComplianceRoute: typeof AppComplianceRoute
+  AppDepreciationRoute: typeof AppDepreciationRoute
   AppDispatchRoute: typeof AppDispatchRoute
   AppEngineeringRoute: typeof AppEngineeringRoute
   AppFleetRoute: typeof AppFleetRoute
@@ -468,7 +546,9 @@ interface AppRouteChildren {
   AppInventoryRoute: typeof AppInventoryRoute
   AppMessagesRoute: typeof AppMessagesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppProcurementRoute: typeof AppProcurementRoute
   AppReportsRoute: typeof AppReportsRoute
+  AppUnauthorizedRoute: typeof AppUnauthorizedRoute
   AppIndexRoute: typeof AppIndexRoute
   AppDriversDriverIdRoute: typeof AppDriversDriverIdRoute
   AppTripsTripIdRoute: typeof AppTripsTripIdRoute
@@ -480,6 +560,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountsRoute: AppAccountsRoute,
   AppAdminRoute: AppAdminRoute,
   AppAuditRoute: AppAuditRoute,
+  AppComplianceRoute: AppComplianceRoute,
+  AppDepreciationRoute: AppDepreciationRoute,
   AppDispatchRoute: AppDispatchRoute,
   AppEngineeringRoute: AppEngineeringRoute,
   AppFleetRoute: AppFleetRoute,
@@ -489,7 +571,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppInventoryRoute: AppInventoryRoute,
   AppMessagesRoute: AppMessagesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppProcurementRoute: AppProcurementRoute,
   AppReportsRoute: AppReportsRoute,
+  AppUnauthorizedRoute: AppUnauthorizedRoute,
   AppIndexRoute: AppIndexRoute,
   AppDriversDriverIdRoute: AppDriversDriverIdRoute,
   AppTripsTripIdRoute: AppTripsTripIdRoute,

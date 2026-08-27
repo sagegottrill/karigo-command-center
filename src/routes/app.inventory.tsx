@@ -23,12 +23,12 @@ import type { InventoryItem, InventoryRequisition, WorkOrder } from "@/lib/karig
 const FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
 
 import { redirect } from "@tanstack/react-router";
-import { CURRENT_ROLE } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/app/inventory")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Admin", "Engineering Manager", "Procurement Officer"];
-    if (!allowed.includes(CURRENT_ROLE)) {
+    const allowed = ["Super Admin", "Operations Manager", "Procurement Manager", "Engineer", "Mechanic"];
+    if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
   },

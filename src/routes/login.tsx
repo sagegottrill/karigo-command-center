@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WORKSPACES } from "@/lib/karigo/mock-data";
+import { WORKSPACES, ROLES } from "@/lib/karigo/mock-data";
+import { authService } from "@/lib/karigo/services";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -53,7 +54,10 @@ function LoginPage() {
           className="w-full max-w-sm space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
-            toast.success("Welcome back");
+            const formData = new FormData(e.currentTarget);
+            const selectedRole = formData.get("role") as string;
+            authService.setRole(selectedRole || "Super Admin");
+            toast.success("Welcome back", { description: `Signed in as ${selectedRole}` });
             navigate({ to: "/app" });
           }}
         >
@@ -69,12 +73,13 @@ function LoginPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[13px]">Email</Label>
-            <Input type="email" required defaultValue="okwudili.fortune@petroline.ng" className="h-11 rounded-xl text-[13px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[13px]">Password</Label>
-            <Input type="password" required defaultValue="karigo-demo" className="h-11 rounded-xl text-[13px]" />
+            <Label className="text-[13px]">Identity / Role (Mock Login)</Label>
+            <Select defaultValue={ROLES[2]?.name} name="role">
+              <SelectTrigger className="h-11 rounded-xl text-[13px]"><SelectValue placeholder="Select identity" /></SelectTrigger>
+              <SelectContent>
+                {ROLES.map((r) => <SelectItem key={r.key} value={r.name} className="text-[13px]">{r.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-[13px] text-muted-foreground">

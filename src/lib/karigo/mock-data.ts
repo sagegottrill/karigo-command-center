@@ -169,6 +169,11 @@ export const TRUCK_TAILS: TruckTail[] = Array.from({ length: 35 }, (_, i) => {
   };
 });
 
+export const TRUCKS = [
+  ...TRUCK_HEADS.map(t => ({ ...t, type: "Head" as const })),
+  ...TRUCK_TAILS.map(t => ({ ...t, type: "Tail" as const }))
+];
+
 const TRIP_STATUSES: Trip["status"][] = [
   "En Route", "En Route", "Loaded", "Offloading", "Returning", "Delayed",
   "Completed", "Completed", "Scheduled", "Stopped",
@@ -548,11 +553,13 @@ export const ROLES: Role[] = [
   { key: "operations_manager", name: "Operations Manager", description: "Dispatch, fleet, trips and live operations.", modules: ["Dashboard", "Fleet & Dispatch", "Trips", "Drivers"], users: 4 },
   { key: "dispatcher", name: "Dispatcher", description: "Creates dispatches and manages trip execution.", modules: ["Fleet & Dispatch", "Trips", "Messages"], users: 7 },
   { key: "fleet_manager", name: "Fleet Manager", description: "Vehicle assignment, availability and utilisation.", modules: ["Fleet & Dispatch", "Engineering"], users: 3 },
+  { key: "fuel_manager", name: "Fuel Manager", description: "Fuel requisitions, efficiency reviews, and allocations.", modules: ["Fuel"], users: 2 },
   { key: "engineer", name: "Engineer", description: "Defects, work orders and maintenance planning.", modules: ["Engineering", "Inventory"], users: 5 },
   { key: "mechanic", name: "Mechanic", description: "Executes repairs and requests spare parts.", modules: ["Engineering", "Inventory"], users: 12 },
   { key: "accountant", name: "Accountant", description: "Expense control, approvals, financial reporting.", modules: ["Accounts", "Reports"], users: 4 },
   { key: "hr_manager", name: "HR Manager", description: "Driver records, compliance and availability.", modules: ["Drivers & HR", "Reports"], users: 2 },
   { key: "security_officer", name: "Security Officer", description: "Gate operations, vehicle and asset movement.", modules: ["Gate & Security"], users: 9 },
+  { key: "procurement_manager", name: "Procurement Manager", description: "Manages spare parts sourcing and inventory thresholds.", modules: ["Inventory", "Procurement"], users: 2 },
   { key: "driver", name: "Driver", description: "Trip instructions, defect reporting, messaging.", modules: ["Trips", "Engineering", "Messages"], users: 34 },
 ];
 
