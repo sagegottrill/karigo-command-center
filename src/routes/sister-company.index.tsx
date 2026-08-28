@@ -1,0 +1,48 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { tripService } from "@/lib/fleetopsx/services";
+import type { Trip } from "@/lib/fleetopsx/types";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
+import { PageHeader } from "@/components/fleetopsx/page-header";
+
+export const Route = createFileRoute("/sister-company/")({
+  component: SisterCompanyDashboard,
+});
+
+function SisterCompanyDashboard() {
+  const [requests, setRequests] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    tripService.list().then((allTrips) => {
+      // Show trips belonging to Sister Company
+      setRequests(allTrips.filter((t) => t.customer === "Sister Company"));
+    });
+  }, []);
+
+  const columns: Column<Trip>[] = [
+    { key: "id", header: "Request ID", cell: (r) => <span className="font-medium text-xs">{r.id}</span> },
+    { key: "customerConsignee", header: "Consignee", cell: (r) => <span className="text-xs">{r.customerConsignee || "—"}</span> },
+    { key: "pickup", header: "Pickup", cell: (r) => <span className="text-xs">{r.pickup}</span> },
+    { key: "dropoff", header: "Destination", cell: (r) => <span className="text-xs">{r.dropoff}</span> },
+    { key: "tailType", header: "Tail Type", cell: (r) => <span className="text-xs">{r.tailType || "—"}</span> },
+    { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Track your transport requests and their current statuses."
+      />
+      <div className="rounded-xl border bg-card shadow-sm p-4">
+        <DataTable
+          rows={requests}
+          columns={columns}
+          pageSize={10}
+          searchKeys={(r) => `${r.id} ${r.customerConsignee} ${r.dropoff}`}
+        />
+      </div>
+    </div>
+  );
+}

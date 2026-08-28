@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CustomerBottomNav, type CustomerTab } from "./customer-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LiveOperationsMap } from "./live-map";
-import { MapPin, ArrowRight, PhoneCall, CheckCircle2, User, Package, Calendar, Truck } from "lucide-react";
+import { ArrowRight, Box, Calendar, CheckCircle2, ChevronRight, MapPin, Package, PhoneCall, Truck, User, Activity } from "lucide-react";
+import { Link, useParams } from "@tanstack/react-router";
+import { orderService, tripService } from "@/lib/fleetopsx/services";
+import type { Trip } from "@/lib/fleetopsx/types";
 
 export function CustomerPortal({ tenantId }: { tenantId?: string }) {
   const [activeTab, setActiveTab] = useState<CustomerTab>("order");
@@ -35,9 +38,8 @@ export function CustomerPortal({ tenantId }: { tenantId?: string }) {
 
       {/* Main Content */}
       <main className="flex-1 relative z-10">
-        {activeTab === "order" && <OrderFormView onComplete={() => setActiveTab("map")} />}
+        {activeTab === "order" && <OrderFormView onTabChange={setActiveTab} tenantId={tenantId} />}
         {activeTab === "map" && <CustomerMapView />}
-        {activeTab === "help" && <HelpView />}
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
@@ -48,39 +50,59 @@ export function CustomerPortal({ tenantId }: { tenantId?: string }) {
   );
 }
 
-function OrderFormView({ onComplete }: { onComplete: () => void }) {
+function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerTab) => void, tenantId?: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      
-      // Auto transition to map after a few seconds
-      setTimeout(() => {
-         onComplete();
-      }, 3000);
-    }, 1500);
+    
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    
+    // Send to backend store
+    await orderService.submitCustomerOrder({
+      customer: `PWA User (${tenantId})`,
+      pickup: formData.get("pickup") as string,
+      dropoff: formData.get("destination") as string,
+      cargo: `${formData.get("volume")} of ${formData.get("cargoType")}`,
+      date: formData.get("date") as string,
+    });
+
+    setIsSubmitting(false);
+    setShowSuccess(true);
   };
 
-  if (isSuccess) {
+  if (showSuccess) {
     return (
-      <div className="mx-auto max-w-md p-5 flex flex-col items-center justify-center h-[70vh] text-center animate-in fade-in zoom-in duration-500">
-        <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-sm border border-green-200">
-           <CheckCircle2 className="h-10 w-10 text-green-600" />
-        </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-3">Order Confirmed</h2>
-        <p className="text-slate-500 text-[15px] max-w-[260px] leading-relaxed">
-          Your transport request has been received. Our dispatch team is assigning a vehicle.
-        </p>
-        <div className="mt-8">
-           <div className="h-1 w-32 bg-slate-200 rounded-full overflow-hidden">
-              <div className="h-full bg-slate-900 animate-[progress_3s_ease-in-out_forwards]" />
-           </div>
+      <div className="mx-auto max-w-md p-5 pt-12 animate-in fade-in zoom-in-95 duration-500">
+        <div className="rounded-[24px] border border-slate-200/60 bg-white p-8 shadow-xl text-center relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50/80 mb-6">
+            <CheckCircle2 className="h-10 w-10 text-blue-600" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">Order Confirmed</h2>
+          <p className="text-[15px] text-slate-500 leading-relaxed mb-8">
+            Your transport request has been sent directly to the dispatch center. We'll assign a vehicle shortly.
+          </p>
+          <div className="space-y-3">
+            <Button 
+              className="w-full h-14 rounded-xl bg-slate-900 text-white font-bold text-[15px] hover:bg-slate-800 transition-all shadow-md"
+              onClick={() => onTabChange("map")}
+            >
+              Track Active Orders
+            </Button>
+            <Button 
+              variant="outline"
+              className="w-full h-14 rounded-xl border-slate-200 text-slate-700 font-bold text-[15px] hover:bg-slate-50 transition-all"
+              onClick={() => {
+                setShowSuccess(false);
+                (document.getElementById("orderForm") as HTMLFormElement)?.reset();
+              }}
+            >
+              Place Another Order
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -110,6 +132,7 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
                <MapPin className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                <Input 
                  id="pickup" 
+                 name="pickup"
                  required
                  placeholder="e.g. Apapa Depot, Lagos" 
                  className="h-12 bg-slate-50 border-slate-200 pl-10 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
@@ -122,7 +145,8 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
             <div className="relative">
                <MapPin className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                <Input 
-                 id="destination" 
+                 id="destination"
+                 name="destination" 
                  required
                  placeholder="e.g. Wuse Zone 5, Abuja" 
                  className="h-12 bg-slate-50 border-slate-200 pl-10 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
@@ -144,7 +168,8 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-2.5">
               <Label htmlFor="cargoType" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cargo Type</Label>
               <select 
-                id="cargoType" 
+                id="cargoType"
+                name="cargoType" 
                 required
                 className="w-full h-12 bg-slate-50 border border-slate-200 px-3 text-[14px] text-slate-900 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all appearance-none shadow-sm"
               >
@@ -159,6 +184,7 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
               <Label htmlFor="volume" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Volume / Weight</Label>
               <Input 
                 id="volume" 
+                name="volume"
                 required
                 placeholder="33,000 Liters" 
                 className="h-12 bg-slate-50 border-slate-200 px-4 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
@@ -178,7 +204,8 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
           <div className="space-y-2.5">
              <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Requested Pickup Date</Label>
              <Input 
-                id="date" 
+                id="date"
+                name="date" 
                 type="date"
                 required
                 className="h-12 bg-slate-50 border-slate-200 px-4 text-[15px] text-slate-900 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all block w-full shadow-sm" 
@@ -231,10 +258,21 @@ function OrderFormView({ onComplete }: { onComplete: () => void }) {
 }
 
 function CustomerMapView() {
+  const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    tripService.list().then(trips => {
+      // Find trips that are active (dispatched, not requested, not completed)
+      // For this demo, we'll just show any active trip in the system
+      const active = trips.filter(t => t.status !== "Requested" && t.status !== "Completed" && t.status !== "Scheduled");
+      setActiveTrips(active);
+    });
+  }, []);
+
   return (
     <div className="relative h-[calc(100vh-4rem)] w-full sm:h-[calc(100vh-4rem)] bg-slate-100 animate-in fade-in duration-500">
       <div className="absolute inset-0">
-         <LiveOperationsMap trips={[]} />
+         <LiveOperationsMap trips={activeTrips} />
       </div>
       
       {/* Light gradient overlay so map isn't too overpowering at the bottom */}
@@ -242,16 +280,48 @@ function CustomerMapView() {
 
       <div className="absolute bottom-6 left-4 right-4 z-[400] mx-auto max-w-sm">
         <div className="rounded-[24px] border border-slate-200/60 bg-white p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-slate-300 animate-pulse" />
-              <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
-            </div>
-            <p className="text-xs font-medium text-slate-400">No active trips</p>
-          </div>
-          
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Awaiting Order</h2>
-          <p className="text-[14px] text-slate-500 mt-1">Submit a transport request to begin live tracking.</p>
+          {activeTrips.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
+                </div>
+                <p className="text-xs font-medium text-emerald-600">Active Delivery</p>
+              </div>
+              
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 truncate">
+                {activeTrips[0]?.cargo}
+              </h2>
+              <div className="flex items-center gap-1.5 mt-2 text-slate-500 text-sm">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="truncate">{activeTrips[0]?.dropoff}</span>
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Truck</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-0.5">{activeTrips[0]?.truckReg?.split('/')[0]?.trim() || "Unknown"}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Driver</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-0.5">{activeTrips[0]?.driverName}</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-slate-300 animate-pulse" />
+                  <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
+                </div>
+                <p className="text-xs font-medium text-slate-400">No active trips</p>
+              </div>
+              
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Awaiting Order</h2>
+              <p className="text-[14px] text-slate-500 mt-1">Submit a transport request to begin live tracking.</p>
+            </>
+          )}
         </div>
       </div>
     </div>

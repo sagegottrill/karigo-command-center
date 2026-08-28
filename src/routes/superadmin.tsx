@@ -1,67 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { Button } from "@/components/ui/button";
-import { Plus, Server, Users, CreditCard, Settings, Activity } from "lucide-react";
+import { Plus, Server, Users, CreditCard, Settings, Activity, Building } from "lucide-react";
 import { DataTable } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
 import type { Column } from "@/components/fleetopsx/data-table";
 import { Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { tenantService } from "@/lib/fleetopsx/services";
+import type { PlatformTenant } from "@/lib/fleetopsx/types";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/superadmin")({
   component: SuperAdminLayout,
 });
 
-type Tenant = {
-  id: string;
-  name: string;
-  domain: string;
-  status: "Active" | "Suspended" | "Onboarding";
-  activeTrucks: number;
-  totalOrders: number;
-  joinedAt: string;
-};
 
-const MOCK_TENANTS: Tenant[] = [
-  {
-    id: "tnt_001",
-    name: "Petroline Logistics",
-    domain: "petroline",
-    status: "Active",
-    activeTrucks: 142,
-    totalOrders: 12450,
-    joinedAt: "2024-01-15",
-  },
-  {
-    id: "tnt_002",
-    name: "Dangote Transport",
-    domain: "dangote",
-    status: "Active",
-    activeTrucks: 850,
-    totalOrders: 89000,
-    joinedAt: "2023-11-02",
-  },
-  {
-    id: "tnt_003",
-    name: "Oando Haulage",
-    domain: "oando",
-    status: "Suspended",
-    activeTrucks: 0,
-    totalOrders: 530,
-    joinedAt: "2024-05-20",
-  },
-  {
-    id: "tnt_004",
-    name: "Bua Group Freight",
-    domain: "bua",
-    status: "Onboarding",
-    activeTrucks: 12,
-    totalOrders: 0,
-    joinedAt: "2024-08-01",
-  },
-];
 
-const columns: Column<Tenant>[] = [
+const columns: Column<PlatformTenant>[] = [
   {
     key: "name",
     header: "Tenant Name",
@@ -122,6 +82,27 @@ const columns: Column<Tenant>[] = [
 ];
 
 function SuperAdminLayout() {
+  const [tenants, setTenants] = useState<PlatformTenant[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newTenant, setNewTenant] = useState({ name: "", domain: "" });
+
+  const loadTenants = () => {
+    tenantService.list().then(setTenants);
+  };
+
+  useEffect(() => {
+    loadTenants();
+  }, []);
+
+  const handleCreateTenant = async () => {
+    if (!newTenant.name || !newTenant.domain) return;
+    await tenantService.create(newTenant.name, newTenant.domain);
+    toast.success("Tenant created successfully");
+    setIsDialogOpen(false);
+    setNewTenant({ name: "", domain: "" });
+    loadTenants();
+  };
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Super Admin Sidebar */}
@@ -156,37 +137,78 @@ function SuperAdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-muted/20">
-        <PageHeader 
-          title="Tenants Overview" 
-          description="Manage all companies operating on the FleetOpsX multi-tenant infrastructure."
-        >
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Provision New Tenant
-          </Button>
-        </PageHeader>
+      <main className="flex-1 overflow-auto bg-muted/20">
+        <div className="p-8 space-y-8 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <PageHeader 
+              title="Tenant Management" 
+              description="Manage organizations, multi-tenant billing, and platform-wide settings."
+            />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" /> Onboard Tenant
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Onboard New Tenant</DialogTitle>
+                  <DialogDescription>
+                    Create a new workspace instance for a customer organization.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input
+                      id="name"
+                      value={newTenant.name}
+                      onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
+                      placeholder="e.g. Kiuth Logistics"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="domain" className="text-right">Domain</Label>
+                    <div className="col-span-3 flex items-center gap-2">
+                      <Input
+                        id="domain"
+                        value={newTenant.domain}
+                        onChange={(e) => setNewTenant({ ...newTenant, domain: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                        placeholder="kiuth"
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">.fleetopsx.com</span>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateTenant}>Create Workspace</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-        <div className="flex-1 overflow-auto p-6 space-y-6">
           {/* High-level metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard 
-              title="Total Tenants"
-              value="4"
-              trend={{ value: 25, label: "from last month", isPositive: true }}
+              title="Total Tenants" 
+              value={tenants.length.toString()} 
+              trend="+1 this month"
+              icon={<Building className="h-5 w-5 text-blue-500" />}
             />
             <MetricCard 
               title="Active Vehicles"
-              value="1,004"
+              value={tenants.reduce((sum, t) => sum + t.activeTrucks, 0).toLocaleString()}
               trend={{ value: 12, label: "from last month", isPositive: true }}
             />
             <MetricCard 
               title="Platform Orders"
-              value="101,980"
+              value={tenants.reduce((sum, t) => sum + t.totalOrders, 0).toLocaleString()}
               trend={{ value: 8, label: "from last month", isPositive: true }}
             />
             <MetricCard 
-              title="System Uptime"
-              value="99.99%"
+              title="Active Tenants"
+              value={tenants.filter(t => t.status === "Active").length.toString()}
               trend={{ value: 0, label: "trailing 30 days", isPositive: true }}
             />
           </div>
@@ -194,7 +216,7 @@ function SuperAdminLayout() {
           <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
             <DataTable 
               columns={columns} 
-              rows={MOCK_TENANTS} 
+              rows={tenants} 
               searchKeys={(r) => r.name} 
             />
           </div>

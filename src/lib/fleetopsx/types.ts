@@ -17,20 +17,35 @@ export interface Tenant {
   contactPhone: string;
 }
 
+export interface PlatformTenant {
+  id: string;
+  name: string;
+  domain: string;
+  status: "Active" | "Suspended" | "Onboarding";
+  activeTrucks: number;
+  totalOrders: number;
+  joinedAt: string;
+}
+
+export interface Company {
+  id: ID;
+  name: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  status: "Active" | "Inactive";
+}
+
 export type RoleKey =
-  | "super_admin"
-  | "executive"
-  | "operations_manager"
-  | "dispatcher"
-  | "fleet_manager"
-  | "fuel_manager"
-  | "engineer"
-  | "mechanic"
-  | "accountant"
-  | "hr_manager"
-  | "security_officer"
-  | "procurement_manager"
-  | "driver";
+  | "Transport Manager"
+  | "Fleet Operations"
+  | "Engineering"
+  | "Parts & Store"
+  | "Accounts"
+  | "HR"
+  | "Security"
+  | "Driver"
+  | "Sister Company";
 
 export interface Role {
   key: RoleKey;
@@ -44,12 +59,15 @@ export interface User {
   id: ID;
   name: string;
   email: string;
+  username?: string;
   role: RoleKey;
   roleName: string;
   department: string;
-  status: "Active" | "Suspended" | "Invited";
+  status: "Active" | "Suspended" | "Invited" | "Deleted";
+  passwordResetRequired?: boolean;
   lastActive: string;
   initials: string;
+  companyId?: string;
 }
 
 export type TruckStatus =
@@ -62,6 +80,7 @@ export type TruckStatus =
 export interface TruckHead {
   id: ID;
   number: string;
+  capNumber?: string;
   registration: string;
   make: string;
   year: number;
@@ -97,6 +116,7 @@ export interface Driver {
   id: ID;
   name: string;
   employeeId: string;
+  salaryNumber?: string;
   phone: string;
   department: string;
   dateJoined: string;
@@ -114,6 +134,8 @@ export interface Driver {
 }
 
 export type TripStatus =
+  | "Requested"
+  | "Awaiting Approval"
   | "Scheduled"
   | "En Route"
   | "Loaded"
@@ -126,14 +148,27 @@ export type TripStatus =
 export interface Trip {
   id: ID;
   customer: string;
+  customerConsignee?: string;
   cargo: string;
   pickup: string;
+  loadingSite?: string[];
+  loadingRoutingType?: "Single" | "Multiple";
   dropoff: string;
-  headId: ID;
-  tailId: ID;
-  truckReg: string; // composed string e.g., HeadReg + TailReg or just display
-  driverId: ID;
-  driverName: string;
+  headId?: ID;
+  tailId?: ID;
+  tailType?: string;
+  tailNumber?: string;
+  truckReg?: string; // composed string e.g., HeadReg + TailReg or just display
+  driverId?: ID;
+  driverName?: string;
+  directCosts?: {
+    tripAllowance: number;
+    returnWaybill: number;
+    motorBoy: number;
+    ticket: number;
+    extraAllowance: number;
+    lubricantType: "Diesel" | "Gas";
+  };
   status: TripStatus;
   priority: "Low" | "Normal" | "High" | "Critical";
   distanceKm: number;

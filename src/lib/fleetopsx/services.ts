@@ -16,11 +16,45 @@ import type {
   TimelineStep,
   TruckHead,
   TruckTail,
+  Company,
 } from "./types";
 
 const LATENCY = 0;
 const settle = <T,>(value: T): Promise<T> =>
   LATENCY ? new Promise((res) => setTimeout(() => res(value), LATENCY)) : Promise.resolve(value);
+
+/* -------------------------------- tenants --------------------------------- */
+export const tenantService = {
+  list: () => settle([...store.platformTenants]),
+  create: (name: string, domain: string) => {
+    const id = `tnt_${String(100 + store.platformTenants.length).padStart(3, "0")}`;
+    const newTenant = {
+      id,
+      name,
+      domain,
+      status: "Onboarding" as const,
+      activeTrucks: 0,
+      totalOrders: 0,
+      joinedAt: new Date().toISOString().split("T")[0]!,
+    };
+    store.platformTenants = [...store.platformTenants, newTenant];
+    return settle(newTenant);
+  },
+};
+
+export const companyService = {
+  list: () => settle([...store.companies]),
+  create: (input: Omit<Company, "id" | "status">) => {
+    const id = `COM-${String(100 + store.companies.length).padStart(3, "0")}`;
+    const newCompany: Company = {
+      ...input,
+      id,
+      status: "Active",
+    };
+    store.companies = [newCompany, ...store.companies];
+    return settle(newCompany);
+  },
+};
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
@@ -47,14 +81,35 @@ export const driverService = {
 
 /* --------------------------------- auth ----------------------------------- */
 export const authService = {
+  login: (username: string) => {
+    const user = store.users.find(u => u.username === username || u.email === username);
+    if (!user) return settle(null);
+    if (user.status === "Suspended" || user.status === "Deleted") return settle(null);
+    
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("fleetopsx_user_id", user.id);
+      sessionStorage.setItem("fleetopsx_role", user.role);
+    }
+    return settle(user);
+  },
+  getCurrentUser: () => {
+    if (typeof window === "undefined") return null;
+    const id = sessionStorage.getItem("fleetopsx_user_id");
+    return store.users.find(u => u.id === id) || null;
+  },
+  completeFirstTimeLogin: (userId: string) => {
+    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
+    return settle(true);
+  },
   getRole: () => {
-    if (typeof window === "undefined") return "Super Admin";
-    return sessionStorage.getItem("fleetopsx_role") || "Super Admin";
+    if (typeof window === "undefined") return "Transport Manager";
+    return sessionStorage.getItem("fleetopsx_role") || "Transport Manager";
   },
   setRole: (role: string) => {
     sessionStorage.setItem("fleetopsx_role", role);
   },
   logout: () => {
+    sessionStorage.removeItem("fleetopsx_user_id");
     sessionStorage.removeItem("fleetopsx_role");
   }
 };
@@ -141,6 +196,37 @@ export const tripService = {
       return step;
     });
   },
+};
+
+/* --------------------------------- orders --------------------------------- */
+export const orderService = {
+  submitCustomerOrder: (payload: { customerConsignee: string; pickup: string; dropoff: string; cargo: string; tailType: string; loadingRoutingType: "Single"|"Multiple"; loadingSite: string[] }) => {
+    const id = `TRP-${String(850 + store.trips.length).padStart(5, "0")}`;
+    const newOrder: Trip = {
+      id,
+      customer: "Sister Company",
+      customerConsignee: payload.customerConsignee,
+      cargo: payload.cargo,
+      pickup: payload.pickup,
+      loadingSite: payload.loadingSite,
+      loadingRoutingType: payload.loadingRoutingType,
+      tailType: payload.tailType,
+      dropoff: payload.dropoff,
+      status: "Requested",
+      priority: "Normal",
+      distanceKm: 0,
+      durationLabel: "-",
+      scheduledDate: new Date().toLocaleDateString(),
+      startTime: "-",
+      eta: "-",
+      progress: 0,
+      lat: 6.524,
+      lng: 3.379,
+      revenue: 0,
+    };
+    store.trips = [newOrder, ...store.trips];
+    return settle(newOrder);
+  }
 };
 
 /* ----------------------------------- fuel --------------------------------- */
@@ -486,6 +572,38 @@ export const adminService = {
   tenant: () => settle(db.TENANT),
   users: () => settle([...store.users]),
   roles: () => settle(db.ROLES),
+  createUser: (payload: { firstName: string; surname: string; role: string; username: string; department: string; companyId?: string }) => {
+    const id = `USR-${String(100 + store.users.length).padStart(4, "0")}`;
+    const name = `${payload.firstName} ${payload.surname}`;
+    const newUser: import("./types").User = {
+      id,
+      name,
+      email: `${payload.username}@petroline.ng`,
+      username: payload.username,
+      role: payload.role as any,
+      roleName: payload.role,
+      department: payload.department,
+      status: "Active",
+      passwordResetRequired: true,
+      lastActive: "Just now",
+      initials: `${payload.firstName[0] || ""}${payload.surname[0] || ""}`,
+      companyId: payload.companyId,
+    };
+    store.users = [newUser, ...store.users];
+    return settle(newUser);
+  },
+  resetPassword: (id: string) => {
+    store.users = store.users.map(u => u.id === id ? { ...u, passwordResetRequired: true } : u);
+    return settle(true);
+  },
+  suspendUser: (id: string) => {
+    store.users = store.users.map(u => u.id === id ? { ...u, status: "Suspended" } : u);
+    return settle(true);
+  },
+  deleteUser: (id: string) => {
+    store.users = store.users.map(u => u.id === id ? { ...u, status: "Deleted" } : u);
+    return settle(true);
+  },
 };
 export const dashboardService = {
   activity: () => settle(db.ACTIVITY),
@@ -494,6 +612,8 @@ export const dashboardService = {
 
 /* -------------------------- in-memory mutable store ----------------------- */
 const store = {
+  platformTenants: [...db.PLATFORM_TENANTS],
+  companies: [...db.COMPANIES],
   truckHeads: [...db.TRUCK_HEADS] as TruckHead[],
   truckTails: [...db.TRUCK_TAILS] as TruckTail[],
   drivers: [...db.DRIVERS] as Driver[],

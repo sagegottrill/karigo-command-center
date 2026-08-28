@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DRIVERS, TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
-import { tripService } from "@/lib/fleetopsx/services";
+import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
+import { tripService, driverService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
+import type { Trip, Driver } from "@/lib/fleetopsx/types";
 
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/app/dispatch")({
   component: DispatchPage,
 });
 
-const STEPS = ["Trip Information", "Head", "Tail", "Driver", "Route", "Review"];
+const STEPS = ["Load Request", "Head", "Tail Config", "Assign Driver", "Costs", "Review"];
 const CUSTOMERS = ["NNPC Retail", "Dangote Cement", "TotalEnergies NG", "Lafarge Africa", "Seplat Energy", "Chevron Nigeria"];
 const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Warri", "Onitsha", "Kaduna", "Enugu"];
 
@@ -45,21 +46,55 @@ function DispatchPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     customer: "", cargo: "", pickup: "", dropoff: "", date: "2026-08-13",
-    priority: "Normal", headId: "", tailId: "", driverId: "", notes: "",
+    priority: "Normal", headId: "", tailId: "", tailCalibration: "", driverId: "", 
+    manualDriver: false, manualSalaryNumber: "", manualDriverName: "",
+    costs: {
+      tripAllowance: 0,
+      returnWaybill: 0,
+      motorBoy: 0,
+      ticket: 0,
+      extraAllowance: 0,
+      lubricantType: "Diesel",
+    },
+    notes: "",
   });
-  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>>>({});
+  const [pendingOrders, setPendingOrders] = useState<Trip[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+
+  // On mount, load pending orders and drivers
+  useState(() => {
+    tripService.list().then(trips => {
+      setPendingOrders(trips.filter(t => t.status === "Requested"));
+    });
+    driverService.list().then(d => setDrivers(d));
+  });
+
+  const handleSelectPendingOrder = (orderId: string) => {
+    const order = pendingOrders.find(o => o.id === orderId);
+    if (!order) return;
+    setForm(f => ({
+      ...f,
+      customer: order.customer,
+      cargo: order.cargo,
+      pickup: order.pickup,
+      dropoff: order.dropoff,
+      date: order.scheduledDate || f.date,
+    }));
+    toast.info("Order loaded", { description: "Dispatch form populated from incoming order." });
+  };
 
   const tripId = useMemo(() => `TRP-${String(Math.floor(880 + Math.random() * 90)).padStart(5, "0")}`, []);
   const availableHeads = TRUCK_HEADS.filter((t) => t.status === "Available");
   const availableTails = TRUCK_TAILS.filter((t) => t.status === "Available");
   const head = TRUCK_HEADS.find((t) => t.id === form.headId);
   const tail = TRUCK_TAILS.find((t) => t.id === form.tailId);
-  const driver = DRIVERS.find((d) => d.id === form.driverId);
+  const driver = drivers.find((d) => d.id === form.driverId);
   const distance = form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0;
   const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
   const validate = () => {
-    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId", string>> = {};
+    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration", string>> = {};
     if (step === 0) {
       if (!form.customer) e.customer = "Customer is required";
       if (!form.cargo) e.cargo = "Cargo description is required";
@@ -67,8 +102,17 @@ function DispatchPage() {
       if (!form.dropoff) e.dropoff = "Drop-off location is required";
     }
     if (step === 1 && !form.headId) e.headId = "Select an available truck head";
-    if (step === 2 && !form.tailId) e.tailId = "Select an available truck tail";
-    if (step === 3 && !form.driverId) e.driverId = "Select a compliant driver";
+    if (step === 2) {
+      if (!form.tailId) e.tailId = "Select an available truck tail";
+      if (!form.tailCalibration) e.tailCalibration = "Calibration value is required";
+    }
+    if (step === 3) {
+      if (form.manualDriver) {
+        if (!form.manualSalaryNumber || !form.manualDriverName) e.manualDriver = "Please provide both Salary Number and Driver Name";
+      } else {
+        if (!form.driverId) e.driverId = "Select a compliant driver";
+      }
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -82,16 +126,22 @@ function DispatchPage() {
   };
 
   const submit = async () => {
-    if (!head || !tail || !driver) return;
+    if (!head || !tail) return;
+    if (!form.manualDriver && !driver) return;
+    const tripDriverId = form.manualDriver ? form.manualSalaryNumber : driver!.id;
+    const tripDriverName = form.manualDriver ? form.manualDriverName : driver!.name;
+
     const trip = await tripService.create({
       customer: form.customer, cargo: form.cargo, pickup: form.pickup, dropoff: form.dropoff,
-      headId: head.id, tailId: tail.id, truckReg: `${head.registration} / ${tail.registration}`, driverId: driver.id, driverName: driver.name,
-      status: "Scheduled", priority: form.priority as never, distanceKm: distance,
+      headId: head.id, tailId: tail.id, truckReg: `${head.registration} / ${tail.registration}`, 
+      driverId: tripDriverId, driverName: tripDriverName,
+      status: "Awaiting Approval", priority: form.priority as never, distanceKm: distance,
       durationLabel: duration, scheduledDate: form.date, startTime: "06:00",
       lat: head.lat, lng: head.lng, revenue: distance * 4200,
+      directCosts: form.costs,
     });
-    toast.success(`Dispatch ${trip.id} created`, { description: `${head.registration} + ${tail.registration} · ${driver.name}` });
-    navigate({ to: "/app/trips/$tripId", params: { tripId: trip.id } });
+    toast.success(`Dispatch ${trip.id} sent for approval`, { description: `Routed to Transport Manager.` });
+    navigate({ to: "/app" });
   };
 
   return (
@@ -140,6 +190,21 @@ function DispatchPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-xs">Load from Incoming Order</Label>
+                <Select onValueChange={handleSelectPendingOrder}>
+                  <SelectTrigger className="h-9 text-xs border-blue-200 bg-blue-50/30">
+                    <SelectValue placeholder={pendingOrders.length > 0 ? "Select pending order to auto-fill..." : "No pending orders"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pendingOrders.map((o) => (
+                      <SelectItem key={o.id} value={o.id} className="text-xs">
+                        <span className="font-semibold">{o.customer}</span> — {o.cargo} to {o.dropoff}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-xs">Priority</Label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
@@ -161,18 +226,12 @@ function DispatchPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Pickup location</Label>
-                <Select value={form.pickup} onValueChange={(v) => setForm({ ...form, pickup: v })}>
-                  <SelectTrigger className={cn("h-9 text-xs", errors.pickup && "border-critical")}><SelectValue placeholder="Select origin" /></SelectTrigger>
-                  <SelectContent>{CITIES.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <Input value={form.pickup} onChange={(e) => setForm({ ...form, pickup: e.target.value })} placeholder="e.g. Apapa Depot, Lagos" className={cn("h-9 text-xs", errors.pickup && "border-critical")} />
                 {errors.pickup && <p className="text-[11px] text-critical">{errors.pickup}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Drop-off location</Label>
-                <Select value={form.dropoff} onValueChange={(v) => setForm({ ...form, dropoff: v })}>
-                  <SelectTrigger className={cn("h-9 text-xs", errors.dropoff && "border-critical")}><SelectValue placeholder="Select destination" /></SelectTrigger>
-                  <SelectContent>{CITIES.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <Input value={form.dropoff} onChange={(e) => setForm({ ...form, dropoff: e.target.value })} placeholder="e.g. Wuse Zone 1, Abuja" className={cn("h-9 text-xs", errors.dropoff && "border-critical")} />
                 {errors.dropoff && <p className="text-[11px] text-critical">{errors.dropoff}</p>}
               </div>
               <div className="space-y-1.5">
@@ -189,7 +248,7 @@ function DispatchPage() {
           {step === 1 && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Only heads with status <span className="text-success">Available</span> can be selected. Assigned, maintenance and out-of-service units are locked by the system.
+                Search head by Cap Number or Plate Number. Only Available status heads are selectable.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {TRUCK_HEADS.slice(0, 12).map((t) => {
@@ -200,16 +259,18 @@ function DispatchPage() {
                       disabled={!selectable}
                       onClick={() => setForm({ ...form, headId: t.id })}
                       className={cn(
-                        "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
+                        "flex flex-col gap-2 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.headId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
                         !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
                       )}
                     >
-                      <div className="min-w-0">
-                        <p className="num text-xs font-semibold text-foreground">{t.id} · {t.registration}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{t.make} · {t.location}</p>
+                      <div className="flex w-full items-center justify-between min-w-0">
+                        <p className="num text-xs font-semibold text-foreground">CAP NO: {t.capNumber}</p>
+                        <StatusBadge status={t.status} />
                       </div>
-                      <StatusBadge status={t.status} />
+                      <div className="w-full">
+                        <p className="truncate text-[11px] text-muted-foreground">PLATE: {t.registration} · {t.make}</p>
+                      </div>
                     </button>
                   );
                 })}
@@ -220,9 +281,9 @@ function DispatchPage() {
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Only tails with status <span className="text-success">Available</span> can be selected.
+                Select Tail and input Calibration configuration.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {TRUCK_TAILS.slice(0, 12).map((t) => {
@@ -248,30 +309,37 @@ function DispatchPage() {
                 })}
               </div>
               {errors.tailId && <p className="text-[11px] text-critical">{errors.tailId}</p>}
-              <p className="num text-[11px] text-muted-foreground">{availableTails.length} of {TRUCK_TAILS.length} tails available for dispatch.</p>
+              <div className="space-y-1.5 sm:w-1/2">
+                <Label className="text-xs">Tail Calibration (Litres/Tons)</Label>
+                <Input value={form.tailCalibration} onChange={(e) => setForm({ ...form, tailCalibration: e.target.value })} placeholder="e.g. 45,000L" className={cn("h-9 text-xs", errors.tailCalibration && "border-critical")} />
+                {errors.tailCalibration && <p className="text-[11px] text-critical">{errors.tailCalibration}</p>}
+              </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Search driver by Salary Number. Active drivers will be listed below.
+              </p>
               <div className="grid gap-2">
                 {DRIVERS.slice(0, 10).map((d) => {
                   const selectable = d.status === "Available" && d.compliance !== "Expired";
                   return (
                     <button
                       key={d.id}
-                      disabled={!selectable}
-                      onClick={() => setForm({ ...form, driverId: d.id })}
+                      disabled={!selectable || form.manualDriver}
+                      onClick={() => setForm({ ...form, driverId: d.id, manualDriver: false })}
                       className={cn(
                         "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
-                        form.driverId === d.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
-                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
+                        form.driverId === d.id && !form.manualDriver ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
+                        (!selectable || form.manualDriver) && "cursor-not-allowed opacity-45 hover:bg-white",
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-[11px] font-semibold text-foreground">{d.initials}</span>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-foreground">{d.name}</p>
+                          <p className="truncate text-xs font-semibold text-foreground">SAL: {d.salaryNumber} — {d.name}</p>
                           <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "—"}</p>
                         </div>
                       </div>
@@ -283,40 +351,77 @@ function DispatchPage() {
                   );
                 })}
               </div>
-              {errors.driverId && <p className="text-[11px] text-critical">{errors.driverId}</p>}
+              
+              <div className="mt-4 border-t border-black/[0.05] pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className={cn("w-full text-xs font-semibold justify-center h-9", form.manualDriver && "bg-black/[0.04] ring-1 ring-black/10 border-transparent")}
+                  onClick={() => setForm({ ...form, manualDriver: !form.manualDriver, driverId: "" })}
+                >
+                  Driver not listed? Add manually
+                </Button>
+                
+                {form.manualDriver && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Salary Number</Label>
+                      <Input 
+                        className="h-9 text-xs" 
+                        value={form.manualSalaryNumber} 
+                        onChange={(e) => setForm({ ...form, manualSalaryNumber: e.target.value })} 
+                        placeholder="e.g. SAL-1001" 
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Driver Name</Label>
+                      <Input 
+                        className="h-9 text-xs" 
+                        value={form.manualDriverName} 
+                        onChange={(e) => setForm({ ...form, manualDriverName: e.target.value })} 
+                        placeholder="e.g. John Doe" 
+                      />
+                    </div>
+                    {errors.manualDriver && <p className="text-[11px] text-critical sm:col-span-2">{errors.manualDriver}</p>}
+                  </div>
+                )}
+              </div>
+              
+              {errors.driverId && !form.manualDriver && <p className="text-[11px] text-critical">{errors.driverId}</p>}
             </div>
           )}
 
           {step === 4 && (
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Pickup</Label>
-                  <Input value={form.pickup} onChange={(e) => setForm({ ...form, pickup: e.target.value })} className="h-9 text-xs" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Destination</Label>
-                  <Input value={form.dropoff} onChange={(e) => setForm({ ...form, dropoff: e.target.value })} className="h-9 text-xs" />
-                </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Trip Allowance (₦)</Label>
+                <Input type="number" value={form.costs.tripAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, tripAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  { label: "Estimated Distance", value: `${distance} km` },
-                  { label: "Estimated Duration", value: duration },
-                ].map((m) => (
-                  <div key={m.label} className="rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3.5">
-                    <div className="flex items-center gap-1.5">
-                      <Lock className="h-3 w-3 text-muted-foreground" />
-                      <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{m.label}</p>
-                    </div>
-                    <p className="num mt-1.5 text-2xl font-semibold text-foreground">{m.value}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">Assigned automatically</p>
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Return Waybill (₦)</Label>
+                <Input type="number" value={form.costs.returnWaybill} onChange={(e) => setForm({ ...form, costs: { ...form.costs, returnWaybill: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
-              <div className="flex items-center gap-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-3.5 text-xs text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                Route map shows here once the mapping service is connected.
+              <div className="space-y-1.5">
+                <Label className="text-xs">Motor Boy (₦)</Label>
+                <Input type="number" value={form.costs.motorBoy} onChange={(e) => setForm({ ...form, costs: { ...form.costs, motorBoy: Number(e.target.value) } })} className="h-9 text-xs num" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ticket (₦)</Label>
+                <Input type="number" value={form.costs.ticket} onChange={(e) => setForm({ ...form, costs: { ...form.costs, ticket: Number(e.target.value) } })} className="h-9 text-xs num" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Extra Allowance (₦)</Label>
+                <Input type="number" value={form.costs.extraAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, extraAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Lubricant Type</Label>
+                <Select value={form.costs.lubricantType} onValueChange={(v) => setForm({ ...form, costs: { ...form.costs, lubricantType: v as any } })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Diesel" className="text-xs">Diesel</SelectItem>
+                    <SelectItem value="Gas" className="text-xs">Gas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -334,10 +439,9 @@ function DispatchPage() {
               <div>
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
                 <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
-                <FieldRow label="Driver" value={driver?.name ?? "—"} />
-                <FieldRow label="Route" value={`${form.pickup} → ${form.dropoff}`} />
-                <FieldRow label="Distance" value={`${distance} km`} />
-                <FieldRow label="Duration" value={duration} />
+                <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "—")} />
+                <FieldRow label="Total Direct Costs" value={`₦${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
+                <FieldRow label="Lubricant" value={form.costs.lubricantType} />
               </div>
             </div>
           )}
@@ -349,7 +453,7 @@ function DispatchPage() {
             {step < 5 ? (
               <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={next}>Continue<ArrowRight className="h-3.5 w-3.5" /></Button>
             ) : (
-              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={submit}><Check className="h-3.5 w-3.5" />Create Dispatch</Button>
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={submit}><Check className="h-3.5 w-3.5" />Send for Approval</Button>
             )}
           </div>
         </SectionPanel>
@@ -359,15 +463,16 @@ function DispatchPage() {
             <FieldRow label="Trip ID" value={tripId} />
             <FieldRow label="Customer" value={form.customer || "—"} />
             <FieldRow label="Route" value={form.pickup && form.dropoff ? `${form.pickup} → ${form.dropoff}` : "—"} />
-            <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
-            <FieldRow label="Driver" value={driver?.name ?? "—"} />
-            <FieldRow label="Distance" value={distance ? `${distance} km` : "—"} />
+            <FieldRow label="Head (Cap No)" value={head ? `${head.capNumber} (${head.registration})` : "—"} />
+            <FieldRow label="Tail Config" value={tail ? `${tail.registration} (${form.tailCalibration})` : "—"} />
+            <FieldRow label="Driver (Salary No)" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver ? `${driver.salaryNumber} (${driver.name})` : "—")} />
+            <FieldRow label="Total Costs" value={`₦${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
           </SectionPanel>
 
           <SectionPanel title="Compliance Gate" bodyClassName="space-y-2.5">
             {[
               { label: "Vehicle roadworthiness", ok: !!head && !!tail },
-              { label: "Driver licence validity", ok: driver?.compliance === "Valid" },
+              { label: "Driver licence validity", ok: form.manualDriver ? true : driver?.compliance === "Valid" },
               { label: "Insurance cover", ok: true },
               { label: "Route risk assessment", ok: !!form.pickup && !!form.dropoff },
             ].map((c) => (

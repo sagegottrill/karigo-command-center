@@ -13,6 +13,8 @@ import type {
   ProcurementRequest,
   Role,
   Tenant,
+  PlatformTenant,
+  Company,
   Trip,
   TruckHead,
   TruckTail,
@@ -47,6 +49,51 @@ export const TENANT: Tenant = {
   contactEmail: "operations@petroline.ng",
   contactPhone: "+234 802 118 4420",
 };
+
+export const PLATFORM_TENANTS: PlatformTenant[] = [
+  {
+    id: "tnt_001",
+    name: "Petroline Logistics",
+    domain: "petroline",
+    status: "Active",
+    activeTrucks: 142,
+    totalOrders: 12450,
+    joinedAt: "2024-01-15",
+  },
+  {
+    id: "tnt_002",
+    name: "Dangote Transport",
+    domain: "dangote",
+    status: "Active",
+    activeTrucks: 850,
+    totalOrders: 89000,
+    joinedAt: "2023-11-02",
+  },
+  {
+    id: "tnt_003",
+    name: "Oando Haulage",
+    domain: "oando",
+    status: "Suspended",
+    activeTrucks: 0,
+    totalOrders: 530,
+    joinedAt: "2024-05-20",
+  },
+  {
+    id: "tnt_004",
+    name: "Bua Group Freight",
+    domain: "bua",
+    status: "Onboarding",
+    activeTrucks: 12,
+    totalOrders: 0,
+    joinedAt: "2024-08-01",
+  },
+];
+
+export const COMPANIES: Company[] = [
+  { id: "COM-001", name: "Saba Steel", contactPerson: "John Doe", phone: "+234 800 000 0001", email: "logistics@sabasteel.com", status: "Active" },
+  { id: "COM-002", name: "NNPC Retail", contactPerson: "Jane Smith", phone: "+234 800 000 0002", email: "dispatch@nnpc.com", status: "Active" },
+  { id: "COM-003", name: "Dangote Cement", contactPerson: "Mike Johnson", phone: "+234 800 000 0003", email: "transport@dangote.com", status: "Active" },
+];
 
 export const WORKSPACES = [
   { id: "PTL-001", name: "Petroline Transport", role: "Operations Admin" },
@@ -111,6 +158,7 @@ export const DRIVERS: Driver[] = Array.from({ length: 34 }, (_, i) => {
     id: `DRV-${pad(i + 1)}`,
     name,
     employeeId: `PTL-EMP-${pad(1200 + i, 4)}`,
+    salaryNumber: `SAL-${pad(1000 + i, 4)}`,
     phone: `+234 8${int(0, 9)}${int(10, 99)} ${int(100, 999)} ${int(1000, 9999)}`,
     department: "Transport Operations",
     dateJoined: `${int(1, 28)} ${pick(["Jan", "Mar", "Jun", "Aug", "Oct"])} 20${int(18, 24)}`,
@@ -138,6 +186,7 @@ export const TRUCK_HEADS: TruckHead[] = Array.from({ length: 28 }, (_, i) => {
   return {
     id: `TRH-${pad(101 + i)}`,
     number: `H${pad(101 + i)}`,
+    capNumber: `CAP-${pad(101 + i)}`,
     registration: `${pick(["LAG", "ABJ", "PHC", "KAN"])}-${int(100, 999)}-${pick(["XA", "ZB", "QT", "MK", "RV"])}`,
     make: pick(MAKES),
     year: int(2015, 2024),
@@ -202,9 +251,19 @@ export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
     dropoff: dropCity,
     headId: head.id,
     tailId: tail.id,
+    tailType: tail.type,
+    tailNumber: tail.number,
     truckReg: `${head.registration} / ${tail.registration}`,
     driverId: driver.id,
     driverName: driver.name,
+    directCosts: {
+      tripAllowance: int(5, 15) * 1000,
+      returnWaybill: int(1, 5) * 1000,
+      motorBoy: int(2, 6) * 1000,
+      ticket: int(1, 3) * 1000,
+      extraAllowance: int(0, 10) * 1000,
+      lubricantType: pick(["Diesel", "Gas"]),
+    },
     status,
     priority: pick(["Normal", "Normal", "High", "Critical", "Low"]),
     distanceKm: distance,
@@ -217,6 +276,26 @@ export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
     lng: lng + (r() - 0.5) * 2,
     revenue: int(850, 6400) * 1000,
   };
+});
+
+// Seed one manual Requested order from a PWA customer for demo purposes
+TRIPS.unshift({
+  id: "TRP-00810",
+  customer: "Dangote (PWA)",
+  cargo: "600 Bags Cement",
+  pickup: "Obajana Plant, Kogi",
+  dropoff: "Lekki, Lagos",
+  status: "Requested",
+  priority: "Normal",
+  distanceKm: 550,
+  durationLabel: "-",
+  scheduledDate: "13 Aug 2026",
+  startTime: "-",
+  eta: "-",
+  progress: 0,
+  lat: 7.915,
+  lng: 6.079,
+  revenue: 0,
 });
 
 export const FEATURED_TRIP_ID = "TRP-00842";
@@ -525,42 +604,40 @@ export const ALERTS: AlertItem[] = [
 ];
 
 export const USERS: User[] = [
-  ["Okwudili Fortune", "super_admin", "Super Admin", "Executive"],
-  ["Tunde Balogun", "operations_manager", "Operations Manager", "Operations"],
-  ["Adaeze Nwoke", "dispatcher", "Dispatcher", "Operations"],
-  ["Musa Danjuma", "fleet_manager", "Fleet Manager", "Operations"],
-  ["Chuka Nwosu", "engineer", "Engineer", "Engineering"],
-  ["Idris Bako", "mechanic", "Mechanic", "Engineering"],
-  ["Grace Ile", "accountant", "Accountant", "Accounts"],
-  ["Bisi Adeleke", "hr_manager", "HR Manager", "Human Resources"],
-  ["Sgt. Peter Obi", "security_officer", "Security Officer", "Security"],
-  ["Ngozi Umeh", "executive", "Executive", "Executive"],
+  ["Okwudili Fortune", "Transport Manager", "Transport Manager", "Executive"],
+  ["Tunde Balogun", "Fleet Operations", "Fleet Operations", "Operations"],
+  ["Adaeze Nwoke", "Fleet Operations", "Dispatcher", "Operations"],
+  ["Musa Danjuma", "Sister Company", "Sister Company Rep", "External"],
+  ["Chuka Nwosu", "Engineering", "Engineer", "Engineering"],
+  ["Idris Bako", "Parts & Store", "Store Manager", "Engineering"],
+  ["Grace Ile", "Accounts", "Accountant", "Accounts"],
+  ["Bisi Adeleke", "HR", "HR Manager", "Human Resources"],
+  ["Sgt. Peter Obi", "Security", "Security Officer", "Security"],
+  ["Ngozi Umeh", "Fleet Operations", "Fleet Operations", "Operations"],
 ].map(([name, role, roleName, department], i) => ({
   id: `USR-${pad(i + 1, 4)}`,
   name: name as string,
   email: `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
+  username: `${(name as string).split(" ")[0]!.charAt(0).toLowerCase()}${(name as string).split(" ")[1]!.toLowerCase()}`,
   role: role as User["role"],
   roleName: roleName as string,
   department: department as string,
   status: i === 8 ? "Invited" : "Active",
+  passwordResetRequired: i === 1,
   lastActive: `${int(1, 59)} min ago`,
   initials: (name as string).split(" ").map((p) => p[0]).join("").slice(0, 2),
 }));
 
 export const ROLES: Role[] = [
-  { key: "super_admin", name: "Super Admin", description: "Full platform and tenant configuration control.", modules: ["All modules"], users: 1 },
-  { key: "executive", name: "Executive", description: "God-view analytics, approvals oversight, reports.", modules: ["God View", "Reports", "Accounts"], users: 3 },
-  { key: "operations_manager", name: "Operations Manager", description: "Dispatch, fleet, trips and live operations.", modules: ["Dashboard", "Fleet & Dispatch", "Trips", "Drivers"], users: 4 },
-  { key: "dispatcher", name: "Dispatcher", description: "Creates dispatches and manages trip execution.", modules: ["Fleet & Dispatch", "Trips", "Messages"], users: 7 },
-  { key: "fleet_manager", name: "Fleet Manager", description: "Vehicle assignment, availability and utilisation.", modules: ["Fleet & Dispatch", "Engineering"], users: 3 },
-  { key: "fuel_manager", name: "Fuel Manager", description: "Fuel requisitions, efficiency reviews, and allocations.", modules: ["Fuel"], users: 2 },
-  { key: "engineer", name: "Engineer", description: "Defects, work orders and maintenance planning.", modules: ["Engineering", "Inventory"], users: 5 },
-  { key: "mechanic", name: "Mechanic", description: "Executes repairs and requests spare parts.", modules: ["Engineering", "Inventory"], users: 12 },
-  { key: "accountant", name: "Accountant", description: "Expense control, approvals, financial reporting.", modules: ["Accounts", "Reports"], users: 4 },
-  { key: "hr_manager", name: "HR Manager", description: "Driver records, compliance and availability.", modules: ["Drivers & HR", "Reports"], users: 2 },
-  { key: "security_officer", name: "Security Officer", description: "Gate operations, vehicle and asset movement.", modules: ["Gate & Security"], users: 9 },
-  { key: "procurement_manager", name: "Procurement Manager", description: "Manages spare parts sourcing and inventory thresholds.", modules: ["Inventory", "Procurement"], users: 2 },
-  { key: "driver", name: "Driver", description: "Trip instructions, defect reporting, messaging.", modules: ["Trips", "Engineering", "Messages"], users: 34 },
+  { key: "Transport Manager", name: "Transport Manager", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },
+  { key: "Fleet Operations", name: "Fleet Operations", description: "Responsible for dispatching vehicles and assigning trips.", modules: ["Fleet & Dispatch"], users: 7 },
+  { key: "Engineering", name: "Engineering", description: "Manages the workshop and vehicle defect reports.", modules: ["Engineering"], users: 5 },
+  { key: "Parts & Store", name: "Parts & Store", description: "Handles all workshop inventory and spare parts.", modules: ["Inventory"], users: 3 },
+  { key: "Accounts", name: "Accounts", description: "Handles operational financials and trip invoicing.", modules: ["Accounts", "Reports"], users: 4 },
+  { key: "HR", name: "HR", description: "Manages staff files and verifies driver licenses.", modules: ["Drivers & HR"], users: 2 },
+  { key: "Security", name: "Security", description: "Uses the system strictly to scan and verify digital gate passes.", modules: ["Gate & Security"], users: 9 },
+  { key: "Driver", name: "Driver", description: "Mobile app for trip assignments, fuel receipts, and PODs.", modules: ["Trips"], users: 34 },
+  { key: "Sister Company", name: "Sister Company", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
 ];
 
 export const CHART_UTILISATION = [

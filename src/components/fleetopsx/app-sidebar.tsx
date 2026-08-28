@@ -19,7 +19,6 @@ export const NAV: NavItem[] = [
   { label: "Overview", to: "/app", icon: LayoutDashboard, group: "Main" },
   { label: "Fleet", to: "/app/fleet", icon: Truck, badge: 6, group: "Main" },
   { label: "Trips", to: "/app/trips", icon: Radar, badge: 42, group: "Main" },
-  { label: "Fuel", to: "/app/fuel", icon: Fuel, badge: 5, group: "Main" },
   { label: "Engineering", to: "/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
   { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: 3, group: "Workshop" },
   { label: "Drivers", to: "/app/drivers", icon: Users, group: "People" },
@@ -59,7 +58,6 @@ export function AppSidebar({
     const label = item.label;
     if (label === "Fleet" || label === "Dispatch") return allowedModules.includes("Fleet & Dispatch");
     if (label === "Trips") return allowedModules.includes("Trips");
-    if (label === "Fuel") return allowedModules.includes("Fuel");
     if (label === "Engineering") return allowedModules.includes("Engineering");
     if (label === "Inventory") return allowedModules.includes("Inventory");
     if (label === "Procurement") return allowedModules.includes("Procurement");

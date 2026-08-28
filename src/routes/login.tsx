@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WORKSPACES, ROLES } from "@/lib/fleetopsx/mock-data";
+import { WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/login")({
@@ -24,6 +24,47 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!.id);
+  const [username, setUsername] = useState("tbalogun");
+  const [password, setPassword] = useState("password");
+  const [resetting, setResetting] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [userContext, setUserContext] = useState<any>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = await authService.login(username);
+    if (!user) {
+      toast.error("Invalid credentials or suspended account.");
+      return;
+    }
+    if (user.passwordResetRequired) {
+      setUserContext(user);
+      setResetting(true);
+      toast.info("Security Policy", { description: "You must change your default password to continue." });
+      return;
+    }
+    toast.success("Welcome back", { description: `Signed in as ${user.roleName}` });
+    if (user.role === "Sister Company") {
+      navigate({ to: "/sister-company" });
+    } else {
+      navigate({ to: "/app" });
+    }
+  };
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    await authService.completeFirstTimeLogin(userContext.id);
+    toast.success("Password updated successfully.");
+    if (userContext.role === "Sister Company") {
+      navigate({ to: "/sister-company" });
+    } else {
+      navigate({ to: "/app" });
+    }
+  };
 
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
@@ -50,45 +91,68 @@ function LoginPage() {
       </div>
 
       <div className="flex items-center justify-center p-6">
-        <form
-          className="w-full max-w-sm space-y-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const selectedRole = formData.get("role") as string;
-            authService.setRole(selectedRole || "Super Admin");
-            toast.success("Welcome back", { description: `Signed in as ${selectedRole}` });
-            navigate({ to: "/app" });
-          }}
-        >
-          <div>
-            <h2 className="text-[28px] font-semibold tracking-[-0.025em]">Sign in</h2>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">Use your work email to continue.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[13px]">Workspace</Label>
-            <Select value={workspace} onValueChange={setWorkspace}>
-              <SelectTrigger className="h-11 rounded-xl text-[13px]"><SelectValue /></SelectTrigger>
-              <SelectContent>{WORKSPACES.map((w) => <SelectItem key={w.id} value={w.id} className="text-[13px]">{w.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[13px]">Identity / Role (Mock Login)</Label>
-            <Select defaultValue={ROLES[2]?.name} name="role">
-              <SelectTrigger className="h-11 rounded-xl text-[13px]"><SelectValue placeholder="Select identity" /></SelectTrigger>
-              <SelectContent>
-                {ROLES.map((r) => <SelectItem key={r.key} value={r.name} className="text-[13px]">{r.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
-              <Checkbox defaultChecked /> Keep me signed in
-            </label>
-            <Link to="/forgot-password" className="text-[13px] text-foreground underline-offset-2 hover:underline">Forgot password?</Link>
-          </div>
-          <Button type="submit" className="h-11 w-full rounded-full text-[14px]">Sign in</Button>
-        </form>
+        {resetting ? (
+          <form className="w-full max-w-sm space-y-5" onSubmit={handleReset}>
+            <div>
+              <h2 className="text-[28px] font-semibold tracking-[-0.025em]">Set New Password</h2>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">
+                First-time login requires a password update to secure your account.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">New Password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="h-11 rounded-xl text-[13px]"
+              />
+            </div>
+            <Button type="submit" className="h-11 w-full rounded-full text-[14px]">Update & Continue</Button>
+          </form>
+        ) : (
+          <form className="w-full max-w-sm space-y-5" onSubmit={handleLogin}>
+            <div>
+              <h2 className="text-[28px] font-semibold tracking-[-0.025em]">Sign in</h2>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">Use your work email or username to continue.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Workspace</Label>
+              <Select value={workspace} onValueChange={setWorkspace}>
+                <SelectTrigger className="h-11 rounded-xl text-[13px]"><SelectValue /></SelectTrigger>
+                <SelectContent>{WORKSPACES.map((w) => <SelectItem key={w.id} value={w.id} className="text-[13px]">{w.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Username</Label>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g. tbalogun"
+                className="h-11 rounded-xl text-[13px]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="h-11 rounded-xl text-[13px]"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                <Checkbox defaultChecked /> Keep me signed in
+              </label>
+              <Link to="/forgot-password" className="text-[13px] text-foreground underline-offset-2 hover:underline">Forgot password?</Link>
+            </div>
+            <Button type="submit" className="h-11 w-full rounded-full text-[14px]">Sign in</Button>
+          </form>
+        )}
       </div>
     </div>
   );
