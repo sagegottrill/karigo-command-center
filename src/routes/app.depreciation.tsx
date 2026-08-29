@@ -19,7 +19,7 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/depreciation")({
   beforeLoad: () => {
-    const allowed = ["Super Admin", "Operations Manager", "Accountant", "Executive"];
+    const allowed = ["Transport Manager", "Accounts"];
     if (!allowed.includes(authService.getRole())) {
       throw redirect({ to: "/app/unauthorized" });
     }
