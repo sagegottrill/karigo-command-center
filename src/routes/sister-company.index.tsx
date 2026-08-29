@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/sister-company/")({
 });
 
 function SisterCompanyDashboard() {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<Trip[]>([]);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ function SisterCompanyDashboard() {
           columns={columns}
           pageSize={10}
           searchKeys={(r) => `${r.id} ${r.customerConsignee} ${r.dropoff}`}
+          onRowClick={(r) => navigate({ to: "/sister-company/$requestId", params: { requestId: r.id } })}
         />
       </div>
     </div>

@@ -34,6 +34,7 @@ import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
 import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
 import { Route as SisterCompanyIndexRouteImport } from './routes/sister-company.index'
+import { Route as SisterCompanyRequestIdRouteImport } from './routes/sister-company.$requestId'
 import { Route as SisterCompanyRequestRouteImport } from './routes/sister-company.request'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
@@ -165,6 +166,11 @@ const SisterCompanyIndexRoute = SisterCompanyIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SisterCompanyRoute,
 } as any)
+const SisterCompanyRequestIdRoute = SisterCompanyRequestIdRouteImport.update({
+  id: '/$requestId',
+  path: '/$requestId',
+  getParentRoute: () => SisterCompanyRoute,
+} as any)
 const SisterCompanyRequestRoute = SisterCompanyRequestRouteImport.update({
   id: '/request',
   path: '/request',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
   '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
   '/sister-company/': typeof SisterCompanyIndexRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
   '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app': typeof AppIndexRoute
   '/sister-company': typeof SisterCompanyIndexRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
   '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
   '/sister-company/': typeof SisterCompanyIndexRoute
@@ -312,6 +321,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/$requestId'
     | '/sister-company/request'
     | '/app/'
     | '/sister-company/'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/$requestId'
     | '/sister-company/request'
     | '/app'
     | '/sister-company'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/$requestId'
     | '/sister-company/request'
     | '/app/'
     | '/sister-company/'
@@ -570,6 +582,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SisterCompanyIndexRouteImport
       parentRoute: typeof SisterCompanyRoute
     }
+    '/sister-company/$requestId': {
+      id: '/sister-company/$requestId'
+      path: '/$requestId'
+      fullPath: '/sister-company/$requestId'
+      preLoaderRoute: typeof SisterCompanyRequestIdRouteImport
+      parentRoute: typeof SisterCompanyRoute
+    }
     '/sister-company/request': {
       id: '/sister-company/request'
       path: '/request'
@@ -659,11 +678,13 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface SisterCompanyRouteChildren {
+  SisterCompanyRequestIdRoute: typeof SisterCompanyRequestIdRoute
   SisterCompanyRequestRoute: typeof SisterCompanyRequestRoute
   SisterCompanyIndexRoute: typeof SisterCompanyIndexRoute
 }
 
 const SisterCompanyRouteChildren: SisterCompanyRouteChildren = {
+  SisterCompanyRequestIdRoute: SisterCompanyRequestIdRoute,
   SisterCompanyRequestRoute: SisterCompanyRequestRoute,
   SisterCompanyIndexRoute: SisterCompanyIndexRoute,
 }
