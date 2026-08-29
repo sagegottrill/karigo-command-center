@@ -70,7 +70,7 @@ const columns: Column<PlatformTenant>[] = [
     header: "",
     cell: (r) => (
       <div className="flex justify-end gap-2">
-        <Link to={`/pwa/${r.domain}`} target="_blank">
+        <Link to="/pwa/$tenantId" params={{ tenantId: r.domain }} target="_blank">
           <Button variant="outline" size="sm">View PWA</Button>
         </Link>
         <Link to="/app">
@@ -114,16 +114,16 @@ function SuperAdminLayout() {
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          <Link className="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary font-medium rounded-md">
+          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary font-medium rounded-md">
             <Users className="h-4 w-4" /> Tenants
           </Link>
-          <Link className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
             <CreditCard className="h-4 w-4" /> Billing & Revenue
           </Link>
-          <Link className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
             <Activity className="h-4 w-4" /> System Health
           </Link>
-          <Link className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
             <Settings className="h-4 w-4" /> Global Config
           </Link>
         </nav>
