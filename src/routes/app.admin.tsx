@@ -15,7 +15,7 @@ import { ROLES, TENANT, LOGIN_REPORTS } from "@/lib/fleetopsx/mock-data";
 import type { User, RoleKey, Trip, Company, LoginReport } from "@/lib/fleetopsx/types";
 import { adminService, tripService, companyService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
-import { MoreHorizontal, Plus, Ban, KeyRound, Trash2, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal, Plus, Ban, KeyRound, Trash2, CheckCircle2, Edit2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/admin")({
   beforeLoad: () => {
@@ -37,8 +37,10 @@ function AdminPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const [newUser, setNewUser] = useState({ firstName: "", surname: "", username: "", role: "", defaultPassword: "", companyId: "" });
+  const [editUser, setEditUser] = useState<Partial<User>>({});
   const [newCompany, setNewCompany] = useState({ name: "", contactPerson: "", phone: "", email: "" });
 
   useEffect(() => {
@@ -86,6 +88,14 @@ function AdminPage() {
     adminService.users().then(setUsers);
   };
 
+  const handleEditUserSubmit = async () => {
+    if (!editUser.id) return;
+    await adminService.editUser(editUser.id, editUser);
+    toast.success("User updated successfully");
+    setIsEditUserOpen(false);
+    adminService.users().then(setUsers);
+  };
+
   const userColumns: Column<User>[] = [
     { key: "name", header: "User", sortValue: (r) => r.name, cell: (r) => (
       <div className="flex flex-col">
@@ -98,6 +108,9 @@ function AdminPage() {
     { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
     { key: "actions", header: "", cell: (r) => (
       <div className="flex justify-end gap-2">
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => { setEditUser(r); setIsEditUserOpen(true); }} title="Edit User">
+          <Edit2 className="h-3.5 w-3.5" />
+        </Button>
         <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleAction(r.id, "reset")} title="Reset Password">
           <KeyRound className="h-3.5 w-3.5 text-blue-500" />
         </Button>
@@ -243,6 +256,43 @@ function AdminPage() {
             }
           >
             <DataTable rows={users} columns={userColumns} pageSize={10} searchKeys={(r) => `${r.name} ${r.email} ${r.roleName}`} />
+            
+            {/* Edit User Dialog */}
+            <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit User</DialogTitle>
+                  <DialogDescription>Modify role, department, or company assignment.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-1.5"><Label className="text-xs">Full Name</Label><Input className="h-9 text-xs" value={editUser.name || ""} onChange={e => setEditUser({...editUser, name: e.target.value})} /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Department</Label><Input className="h-9 text-xs" value={editUser.department || ""} onChange={e => setEditUser({...editUser, department: e.target.value})} /></div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Assigned Role</Label>
+                    <Select value={editUser.role || ""} onValueChange={(v) => setEditUser({...editUser, role: v as RoleKey})}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select role" /></SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map(r => <SelectItem key={r.key} value={r.key} className="text-xs">{r.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editUser.role === "Sister Companies (External)" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Sister Company Profile</Label>
+                      <Select value={editUser.companyId || "none"} onValueChange={(v) => setEditUser({...editUser, companyId: v === "none" ? undefined : v})}>
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs">None</SelectItem>
+                          {companies.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter><Button onClick={handleEditUserSubmit}>Save Changes</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+
           </SectionPanel>
         </TabsContent>
 

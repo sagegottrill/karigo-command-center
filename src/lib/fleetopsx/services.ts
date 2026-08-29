@@ -42,13 +42,14 @@ function isolate<T>(items: T[]): T[] {
 /* -------------------------------- tenants --------------------------------- */
 export const tenantService = {
   list: () => settle([...store.platformTenants]),
-  create: (name: string, domain: string) => {
+  create: (name: string, domain: string, logo?: string) => {
     const id = `tnt_${String(100 + store.platformTenants.length).padStart(3, "0")}`;
     const newTenant = {
       id,
       name,
       domain,
-      status: "Onboarding" as const,
+      logo,
+      status: "Active" as const, // For demo, immediately active
       activeTrucks: 0,
       totalOrders: 0,
       joinedAt: new Date().toISOString().split("T")[0]!,
@@ -56,6 +57,10 @@ export const tenantService = {
     store.platformTenants = [...store.platformTenants, newTenant];
     return settle(newTenant);
   },
+  updateTenant: (id: string, updates: Partial<PlatformTenant>) => {
+    store.platformTenants = store.platformTenants.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    return settle(true);
+  }
 };
 
 export const companyService = {
@@ -98,6 +103,13 @@ export const driverService = {
 /* --------------------------------- auth ----------------------------------- */
 export const authService = {
   login: (username: string) => {
+    // Check tenant status first
+    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
+    if (slug !== "localhost" && slug !== "fleetopsx") {
+      const tenant = store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug);
+      if (tenant && tenant.status === "Suspended") return settle(null);
+    }
+
     const user = store.users.find(u => u.username === username || u.email === username);
     if (!user) return settle(null);
     if (user.status === "Suspended" || user.status === "Deleted") return settle(null);
@@ -607,6 +619,10 @@ export const adminService = {
     };
     store.users = [newUser, ...store.users];
     return settle(newUser);
+  },
+  editUser: (id: string, payload: Partial<import("./types").User>) => {
+    store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleName: payload.role || u.roleName } : u);
+    return settle(true);
   },
   resetPassword: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, passwordResetRequired: true } : u);

@@ -11,9 +11,11 @@ import { useState, useEffect } from "react";
 import { tenantService } from "@/lib/fleetopsx/services";
 import type { PlatformTenant } from "@/lib/fleetopsx/types";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { MoreHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/superadmin")({
   component: SuperAdminLayout,
@@ -68,23 +70,44 @@ const columns: Column<PlatformTenant>[] = [
   {
     key: "actions",
     header: "",
-    cell: (r) => (
-      <div className="flex justify-end gap-2">
-        <Link to="/pwa/$tenantId" params={{ tenantId: r.domain }} target="_blank">
-          <Button variant="outline" size="sm">View PWA</Button>
-        </Link>
-        <Link to="/app">
-          <Button variant="default" size="sm">Login As</Button>
-        </Link>
-      </div>
-    ),
+    cell: (r) => {
+      const handleStatus = async (status: "Active" | "Suspended") => {
+        await tenantService.updateTenant(r.id, { status });
+        toast.success(`Tenant marked as ${status}`);
+        // Quick page refresh hack for mock UI state update
+        window.location.reload();
+      };
+
+      return (
+        <div className="flex justify-end gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {r.status === "Active" ? (
+                <DropdownMenuItem className="text-critical" onClick={() => handleStatus("Suspended")}>Suspend Tenant</DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem className="text-success" onClick={() => handleStatus("Active")}>Activate Tenant</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <a href={`http://${r.domain}.fleetopsx.com/pwa/${r.domain}`} target="_blank" rel="noreferrer">
+            <Button variant="outline" size="sm">View PWA</Button>
+          </a>
+          <a href={`http://${r.domain}.fleetopsx.com/login`} target="_blank" rel="noreferrer">
+            <Button variant="default" size="sm">Login As</Button>
+          </a>
+        </div>
+      );
+    },
   },
 ];
 
 function SuperAdminLayout() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTenant, setNewTenant] = useState({ name: "", domain: "" });
+  const [newTenant, setNewTenant] = useState({ name: "", domain: "", logo: "" });
 
   const loadTenants = () => {
     tenantService.list().then(setTenants);
@@ -96,10 +119,10 @@ function SuperAdminLayout() {
 
   const handleCreateTenant = async () => {
     if (!newTenant.name || !newTenant.domain) return;
-    await tenantService.create(newTenant.name, newTenant.domain);
+    await tenantService.create(newTenant.name, newTenant.domain, newTenant.logo);
     toast.success("Tenant created successfully");
     setIsDialogOpen(false);
-    setNewTenant({ name: "", domain: "" });
+    setNewTenant({ name: "", domain: "", logo: "" });
     loadTenants();
   };
 
@@ -179,6 +202,16 @@ function SuperAdminLayout() {
                       />
                       <span className="text-sm text-muted-foreground whitespace-nowrap">.fleetopsx.com</span>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="logo" className="text-right">Logo URL</Label>
+                    <Input
+                      id="logo"
+                      value={newTenant.logo}
+                      onChange={(e) => setNewTenant({ ...newTenant, logo: e.target.value })}
+                      placeholder="e.g. /petrolline.png"
+                      className="col-span-3"
+                    />
                   </div>
                 </div>
                 <DialogFooter>
