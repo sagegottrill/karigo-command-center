@@ -72,28 +72,24 @@ const tooltipStyle = {
 function Dashboard() {
   const role = authService.getRole();
 
-  // If the role is Super Admin or Executive, they get the original God View / Dashboard
-  if (role === "Super Admin" || role === "Executive") {
-    return <ManagementDashboard />;
-  }
-  
-  if (role === "Operations Manager") return <TransportManagerDashboard />;
-  if (role === "Fleet Manager") return <FleetManagerDashboard />;
-  if (role === "Fuel Manager") return <FuelManagerDashboard />;
-  if (role === "Accountant") return <AccountantDashboard />;
-  if (role === "Security Officer") return <GateDashboard />;
-  if (role === "HR Manager") return <HRDashboard />;
-  if (role === "Engineer" || role === "Mechanic") return <EngineerDashboard />;
-  if (role === "Procurement Manager") return <ProcurementDashboard />;
+  if (role === "Transport Manager") return <ManagementDashboard />;
+  if (role === "Fleet Operations") return <FleetManagerDashboard />;
+  if (role === "Diesel") return <FuelManagerDashboard />;
+  if (role === "Accounts") return <AccountantDashboard />;
+  if (role === "Security") return <GateDashboard />;
+  if (role === "HR") return <HRDashboard />;
+  if (role === "Engineering") return <EngineerDashboard />;
+  if (role === "Parts & Store") return <ProcurementDashboard />;
   
   // Fallback
-  return <div className="p-8">No dashboard available for this role.</div>;
+  return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground">No dashboard available for this role.</div>;
 }
 
 function ManagementDashboard() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All Trips");
   const [page, setPage] = useState(0);
+  const currentUser = authService.getCurrentUser();
 
   const featured = TRIPS.find((t) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0]!;
   const timeline = tripService.timeline(featured);
@@ -137,7 +133,7 @@ function ManagementDashboard() {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[30px] leading-[1.08] font-semibold tracking-[-0.035em] text-foreground sm:text-[36px] lg:text-[40px]">
-            Hello Okwudili,{" "}
+            Hello {currentUser?.name?.split(" ")[0] || "User"},{" "}
             <span className="text-muted-foreground">{greeting}</span>
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
