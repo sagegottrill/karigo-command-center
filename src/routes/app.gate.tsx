@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +25,12 @@ import type { GateEntry } from "@/lib/fleetopsx/types";
 const FILTERS = ["Today", "Incoming", "Outgoing", "All"] as const;
 
 export const Route = createFileRoute("/app/gate")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager", "Security"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Gate & Security | FleetOpsX" },

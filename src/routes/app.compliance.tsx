@@ -18,7 +18,7 @@ export const Route = createFileRoute("/app/compliance")({
   beforeLoad: () => {
     const allowed = ["Transport Manager", "HR"];
     if (!allowed.includes(authService.getRole())) {
-      throw redirect({ to: "/app/unauthorized" });
+      throw redirect({ to: "/app" });
     }
   },
   head: () => ({

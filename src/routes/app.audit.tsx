@@ -1,10 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { AUDIT_LOGS } from "@/lib/fleetopsx/mock-data";
 import type { AuditLog } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/audit")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Audit Logs | FleetOpsX" },

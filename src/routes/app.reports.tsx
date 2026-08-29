@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { useState } from "react";
 import {
   Activity, Download, FileBarChart, Fuel, Truck, Users, Wrench,
@@ -19,6 +21,12 @@ import { formatNaira } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/reports")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager", "Accounts"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Reports | FleetOpsX" },

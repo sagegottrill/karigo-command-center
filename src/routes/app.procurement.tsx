@@ -20,7 +20,7 @@ export const Route = createFileRoute("/app/procurement")({
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Engineering", "Parts & Store"];
     if (!allowed.includes(authService.getRole())) {
-      throw redirect({ to: "/app/unauthorized" });
+      throw redirect({ to: "/app" });
     }
   },
   head: () => ({

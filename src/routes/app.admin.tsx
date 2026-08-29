@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { useState, useEffect } from "react";
 import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
@@ -16,6 +18,12 @@ import { toast } from "sonner";
 import { MoreHorizontal, Plus, Ban, KeyRound, Trash2, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/admin")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Administration | FleetOpsX" },

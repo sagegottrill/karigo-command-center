@@ -6,7 +6,7 @@ import { LogOut, Truck } from "lucide-react";
 export const Route = createFileRoute("/sister-company")({
   beforeLoad: () => {
     const role = authService.getRole();
-    if (role !== "Sister Company") {
+    if (role !== "Sister Companies (External)") {
       throw redirect({ to: "/login" });
     }
   },

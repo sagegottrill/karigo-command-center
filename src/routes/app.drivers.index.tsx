@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
@@ -12,6 +14,12 @@ import { driverService } from "@/lib/fleetopsx/services";
 import type { Driver } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/drivers/")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager", "HR", "Fleet Operations"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Drivers & HR | FleetOpsX" },

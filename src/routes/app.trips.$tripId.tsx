@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { redirect } from "@tanstack/react-router";
+import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +15,12 @@ import type { Message, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/trips/$tripId")({
+  beforeLoad: () => {
+    const allowed = ["Transport Manager", "Fleet Operations"];
+    if (!allowed.includes(authService.getRole())) {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: ({ params }) => ({
     meta: [
       { title: `Trip ${params.tripId} | FleetOpsX` },
