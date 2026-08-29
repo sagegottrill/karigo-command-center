@@ -10,14 +10,19 @@ import { WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({
-    meta: [
-      { title: "Sign in | FLEETOPSX" },
-      { name: "description", content: "Sign in to your FLEETOPSX workspace." },
-      { property: "og:title", content: "Sign in | FLEETOPSX" },
-      { property: "og:description", content: "Sign in to your FLEETOPSX workspace." },
-    ],
-  }),
+  head: ({ routeContext }) => {
+    // @ts-ignore - Route context is passed but type might not be fully inferred here depending on router version
+    const tenantName = routeContext?.tenantName || "Workspace";
+    
+    return {
+      meta: [
+        { title: `Sign in | ${tenantName}` },
+        { name: "description", content: `Sign in to your ${tenantName} workspace.` },
+        { property: "og:title", content: `Sign in | ${tenantName}` },
+        { property: "og:description", content: `Sign in to your ${tenantName} workspace.` },
+      ],
+    };
+  },
   component: LoginPage,
 });
 

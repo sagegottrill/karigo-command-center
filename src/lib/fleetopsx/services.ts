@@ -23,6 +23,22 @@ const LATENCY = 0;
 const settle = <T,>(value: T): Promise<T> =>
   LATENCY ? new Promise((res) => setTimeout(() => res(value), LATENCY)) : Promise.resolve(value);
 
+import { getTenantSlug } from "./hostname";
+
+/** 
+ * Simulates strict database tenant isolation. 
+ * In production, the backend automatically scopes all queries to the active tenant.
+ */
+function isolate<T>(items: T[]): T[] {
+  if (typeof window === "undefined") return items;
+  const slug = getTenantSlug();
+  // We simulate that all mock data in db belongs to 'petrolline'. 
+  // Any other tenant will see an empty array (true isolation).
+  if (slug === "petrolline") return items;
+  if (slug === "localhost" || slug === "fleetopsx") return items; // dev fallback
+  return [];
+}
+
 /* -------------------------------- tenants --------------------------------- */
 export const tenantService = {
   list: () => settle([...store.platformTenants]),
@@ -58,24 +74,24 @@ export const companyService = {
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
-  listHeads: () => settle([...store.truckHeads]),
-  listTails: () => settle([...store.truckTails]),
+  listHeads: () => settle(isolate([...store.truckHeads])),
+  listTails: () => settle(isolate([...store.truckTails])),
   getHead: (id: string) => settle(store.truckHeads.find((t) => t.id === id) ?? null),
   getTail: (id: string) => settle(store.truckTails.find((t) => t.id === id) ?? null),
   summary: () =>
     settle({
-      total: store.truckHeads.length,
-      available: store.truckHeads.filter((t) => t.status === "Available").length,
-      assigned: store.truckHeads.filter((t) => t.status === "Assigned").length,
-      inTransit: store.truckHeads.filter((t) => t.status === "In Transit").length,
-      maintenance: store.truckHeads.filter((t) => t.status === "Maintenance").length,
-      outOfService: store.truckHeads.filter((t) => t.status === "Out of Service").length,
+      total: isolate(store.truckHeads).length,
+      available: isolate(store.truckHeads).filter((t) => t.status === "Available").length,
+      assigned: isolate(store.truckHeads).filter((t) => t.status === "Assigned").length,
+      inTransit: isolate(store.truckHeads).filter((t) => t.status === "In Transit").length,
+      maintenance: isolate(store.truckHeads).filter((t) => t.status === "Maintenance").length,
+      outOfService: isolate(store.truckHeads).filter((t) => t.status === "Out of Service").length,
     }),
 };
 
 /* --------------------------------- drivers -------------------------------- */
 export const driverService = {
-  list: () => settle([...store.drivers]),
+  list: () => settle(isolate([...store.drivers])),
   get: (id: string) => settle(store.drivers.find((d) => d.id === id) ?? null),
 };
 
@@ -116,7 +132,7 @@ export const authService = {
 
 /* ---------------------------------- trips --------------------------------- */
 export const tripService = {
-  list: () => settle([...store.trips]),
+  list: () => settle(isolate([...store.trips])),
   get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
   create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;

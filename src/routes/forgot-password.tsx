@@ -6,18 +6,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/forgot-password")({
-  head: () => ({
-    meta: [
-      { title: "Reset password | FleetOpsX" },
-      { name: "description", content: "Reset your FleetOpsX password." },
-      { property: "og:title", content: "Reset password | FleetOpsX" },
-      { property: "og:description", content: "Reset your FleetOpsX password." },
-    ],
-  }),
+  head: ({ routeContext }) => {
+    // @ts-ignore
+    const tenantName = routeContext?.tenantName || "Workspace";
+    
+    return {
+      meta: [
+        { title: `Reset password | ${tenantName}` },
+        { name: "description", content: `Reset your ${tenantName} password.` },
+        { property: "og:title", content: `Reset password | ${tenantName}` },
+        { property: "og:description", content: `Reset your ${tenantName} password.` },
+      ],
+    };
+  },
   component: ForgotPasswordPage,
 });
 
+import { Route as RootRoute } from "./__root";
+
 function ForgotPasswordPage() {
+  const { tenantName } = RootRoute.useRouteContext();
   const [sent, setSent] = useState(false);
 
   return (
@@ -36,9 +44,9 @@ function ForgotPasswordPage() {
           Back to sign in
         </Link>
         <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.025em]">Reset password</h1>
+          <h1 className="text-[28px] font-semibold tracking-[-0.025em]">{tenantName}</h1>
           <p className="mt-1.5 text-[13px] text-muted-foreground">
-            Enter the email on your account and we will send a link.
+            Enter the email on your account and we will send a reset link.
           </p>
         </div>
         <div className="space-y-1.5">

@@ -72,26 +72,31 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string; tenantLogo?: string }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "FLEETOPSX" },
-      {
-        name: "description",
-        content: "Transport management for fleet, trips, fuel, workshop and expenses.",
-      },
-      { name: "author", content: "FleetOpsX Platform" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/manifest.json" },
-      { rel: "icon", href: "/fleetopsx.svg", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
-    ],
-  }),
+  head: ({ routeContext }) => {
+    const title = routeContext.tenantName ? `${routeContext.tenantName} | Workspace` : "Workspace";
+    const iconUrl = routeContext.tenantLogo ? routeContext.tenantLogo : "/fleetopsx.svg";
+
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title },
+        {
+          name: "description",
+          content: "Transport management for fleet, trips, fuel, workshop and expenses.",
+        },
+        { name: "author", content: routeContext.tenantName || "Platform" },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "manifest", href: "/manifest.json" },
+        { rel: "icon", href: iconUrl, type: "image/svg+xml" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

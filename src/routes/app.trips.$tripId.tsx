@@ -21,14 +21,18 @@ export const Route = createFileRoute("/app/trips/$tripId")({
       throw redirect({ to: "/app" });
     }
   },
-  head: ({ params }) => ({
-    meta: [
-      { title: `Trip ${params.tripId} | FleetOpsX` },
-      { name: "description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
-      { property: "og:title", content: `Trip ${params.tripId} | FleetOpsX` },
-      { property: "og:description", content: `Execution detail, timeline and operations thread for trip ${params.tripId}.` },
-    ],
-  }),
+  head: ({ match, routeContext }) => {
+    const params = match.params as { tripId: string };
+    // @ts-ignore
+    const tenantName = routeContext?.tenantName || "Workspace";
+    return {
+      meta: [
+        { title: `Trip ${params.tripId} | ${tenantName}` },
+        { name: "description", content: `View details for trip ${params.tripId}` },
+        { property: "og:title", content: `Trip ${params.tripId} | ${tenantName}` },
+      ],
+    };
+  },
   component: TripDetail,
 });
 
