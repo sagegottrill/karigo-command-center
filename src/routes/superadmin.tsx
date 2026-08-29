@@ -191,25 +191,32 @@ function SuperAdminLayout() {
           {/* High-level metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard 
-              title="Total Tenants" 
+              label="Total Tenants" 
               value={tenants.length.toString()} 
-              trend="+1 this month"
-              icon={<Building className="h-5 w-5 text-blue-500" />}
+              delta="+1 this month"
+              deltaTone="up"
+              icon={Building}
             />
             <MetricCard 
-              title="Active Vehicles"
+              label="Active Vehicles"
               value={tenants.reduce((sum, t) => sum + t.activeTrucks, 0).toLocaleString()}
-              trend={{ value: 12, label: "from last month", isPositive: true }}
+              delta="+12"
+              deltaTone="up"
+              hint="from last month"
             />
             <MetricCard 
-              title="Platform Orders"
+              label="Platform Orders"
               value={tenants.reduce((sum, t) => sum + t.totalOrders, 0).toLocaleString()}
-              trend={{ value: 8, label: "from last month", isPositive: true }}
+              delta="+8"
+              deltaTone="up"
+              hint="from last month"
             />
             <MetricCard 
-              title="Active Tenants"
+              label="Active Tenants"
               value={tenants.filter(t => t.status === "Active").length.toString()}
-              trend={{ value: 0, label: "trailing 30 days", isPositive: true }}
+              delta="0"
+              deltaTone="neutral"
+              hint="trailing 30 days"
             />
           </div>
 
