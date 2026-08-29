@@ -15,7 +15,7 @@ import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
-import { Route as RootRoute } from "../routes/__root";
+import { Route as RootRoute } from "../../routes/__root";
 
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const [open, setOpen] = useState(false);

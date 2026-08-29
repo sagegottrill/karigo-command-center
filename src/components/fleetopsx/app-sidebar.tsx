@@ -34,7 +34,7 @@ export const NAV: NavItem[] = [
 
 const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
 
-import { Route as RootRoute } from "../routes/__root";
+import { Route as RootRoute } from "../../routes/__root";
 
 export function AppSidebar({
   collapsed,
