@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ROLES, TENANT } from "@/lib/fleetopsx/mock-data";
-import type { User, RoleKey, Trip, Company } from "@/lib/fleetopsx/types";
+import { ROLES, TENANT, LOGIN_REPORTS } from "@/lib/fleetopsx/mock-data";
+import type { User, RoleKey, Trip, Company, LoginReport } from "@/lib/fleetopsx/types";
 import { adminService, tripService, companyService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { MoreHorizontal, Plus, Ban, KeyRound, Trash2, CheckCircle2 } from "lucide-react";
@@ -30,7 +30,7 @@ function AdminPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ firstName: "", surname: "", username: "", role: "", department: "Operations", companyId: "" });
+  const [newUser, setNewUser] = useState({ firstName: "", surname: "", username: "", role: "", defaultPassword: "", companyId: "" });
   const [newCompany, setNewCompany] = useState({ name: "", contactPerson: "", phone: "", email: "" });
 
   useEffect(() => {
@@ -40,13 +40,13 @@ function AdminPage() {
   }, []);
 
   const handleCreateUser = async () => {
-    if (!newUser.firstName || !newUser.surname || !newUser.username || !newUser.role) {
+    if (!newUser.firstName || !newUser.surname || !newUser.username || !newUser.role || !newUser.defaultPassword) {
       toast.error("Please fill all required fields");
       return;
     }
     await adminService.createUser({
       ...newUser,
-      companyId: newUser.role === "Sister Company" ? newUser.companyId : undefined,
+      companyId: newUser.role === "Sister Companies (External)" ? newUser.companyId : undefined,
     });
     toast.success("User created. Default password requires reset on login.");
     setIsAddUserOpen(false);
@@ -140,6 +140,15 @@ function AdminPage() {
     { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
   ];
 
+  const loginColumns: Column<LoginReport>[] = [
+    { key: "name", header: "User", cell: (r) => <span className="font-medium">{r.name}</span> },
+    { key: "role", header: "Role", cell: (r) => <span className="text-xs">{r.role}</span> },
+    { key: "time", header: "Timestamp", cell: (r) => <span className="text-xs text-muted-foreground">{r.timestamp}</span> },
+    { key: "device", header: "Device", cell: (r) => <span className="text-xs">{r.device}</span> },
+    { key: "ip", header: "IP Address", cell: (r) => <span className="font-mono text-xs">{r.ip}</span> },
+    { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} tone={r.status === "Success" ? "success" : "critical"} /> },
+  ];
+
   return (
     <>
       <PageHeader
@@ -150,7 +159,7 @@ function AdminPage() {
 
       <Tabs defaultValue="approvals">
         <TabsList className="h-9">
-          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["companies", "Sister Companies"], ["config", "System Configuration"]] as const).map(([v, l]) => (
+          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["logins", "Login Reports"], ["companies", "Sister Companies"], ["config", "System Configuration"]] as const).map(([v, l]) => (
             <TabsTrigger key={v} value={v} className="text-xs">{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -198,6 +207,7 @@ function AdminPage() {
                       <div className="space-y-1.5"><Label className="text-xs">Surname</Label><Input className="h-9 text-xs" value={newUser.surname} onChange={e => setNewUser({...newUser, surname: e.target.value})} /></div>
                     </div>
                     <div className="space-y-1.5"><Label className="text-xs">Username</Label><Input className="h-9 text-xs" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} /></div>
+                    <div className="space-y-1.5"><Label className="text-xs">Default Password (Temporary)</Label><Input type="password" placeholder="e.g. Temp123!" className="h-9 text-xs" value={newUser.defaultPassword} onChange={e => setNewUser({...newUser, defaultPassword: e.target.value})} /></div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Assigned Role</Label>
                       <Select value={newUser.role} onValueChange={(v) => setNewUser({...newUser, role: v})}>
@@ -207,7 +217,7 @@ function AdminPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {newUser.role === "Sister Company" && (
+                    {newUser.role === "Sister Companies (External)" && (
                       <div className="space-y-1.5">
                         <Label className="text-xs">Sister Company Profile</Label>
                         <Select value={newUser.companyId} onValueChange={(v) => setNewUser({...newUser, companyId: v})}>
@@ -241,6 +251,16 @@ function AdminPage() {
               </div>
             </div>
           ))}
+        </TabsContent>
+
+        <TabsContent value="logins" className="mt-4">
+          <SectionPanel 
+            title="Login Activity Report" 
+            description="Audit log of all user authentication events in your tenant." 
+            bodyClassName="p-0"
+          >
+            <DataTable rows={LOGIN_REPORTS} columns={loginColumns} pageSize={10} searchKeys={(r) => `${r.name} ${r.role} ${r.device}`} />
+          </SectionPanel>
         </TabsContent>
 
         <TabsContent value="companies" className="mt-4">

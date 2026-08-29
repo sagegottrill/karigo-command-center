@@ -70,7 +70,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -95,6 +95,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
+  beforeLoad: () => {
+    let tenantSlug = "petrolline"; // default fallback for SSR / localhost
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      const parts = hostname.split(".");
+      if (parts.length > 2) {
+        const sub = parts[0];
+        if (sub && sub !== "www" && sub !== "api") {
+          tenantSlug = sub;
+        }
+      }
+    }
+    return { tenantSlug };
+  },
 });
 
 function RootShell({ children }: { children: ReactNode }) {

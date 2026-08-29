@@ -43,6 +43,7 @@ export const TENANT: Tenant = {
   id: "TEN-001",
   name: "Petroline Transport",
   workspaceId: "PTL-001",
+  tenantSlug: "petrolline",
   industry: "Heavy Haulage / Oil & Gas Logistics",
   country: "Nigeria",
   locations: ["Lagos HQ", "Abuja Depot", "Port Harcourt Yard", "Kano Terminal"],
@@ -55,6 +56,7 @@ export const PLATFORM_TENANTS: PlatformTenant[] = [
     id: "tnt_001",
     name: "Petroline Logistics",
     domain: "petroline",
+    tenantSlug: "petrolline",
     status: "Active",
     activeTrucks: 142,
     totalOrders: 12450,
@@ -607,7 +609,7 @@ export const USERS: User[] = [
   ["Okwudili Fortune", "Transport Manager", "Transport Manager", "Executive"],
   ["Tunde Balogun", "Fleet Operations", "Fleet Operations", "Operations"],
   ["Adaeze Nwoke", "Fleet Operations", "Dispatcher", "Operations"],
-  ["Musa Danjuma", "Sister Company", "Sister Company Rep", "External"],
+  ["Musa Danjuma", "Sister Companies (External)", "Sister Company Rep", "External"],
   ["Chuka Nwosu", "Engineering", "Engineer", "Engineering"],
   ["Idris Bako", "Parts & Store", "Store Manager", "Engineering"],
   ["Grace Ile", "Accounts", "Accountant", "Accounts"],
@@ -631,13 +633,14 @@ export const USERS: User[] = [
 export const ROLES: Role[] = [
   { key: "Transport Manager", name: "Transport Manager", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },
   { key: "Fleet Operations", name: "Fleet Operations", description: "Responsible for dispatching vehicles and assigning trips.", modules: ["Fleet & Dispatch"], users: 7 },
+  { key: "Diesel", name: "Diesel Department", description: "Manages all fuel-related workflows and consumption.", modules: ["Fuel"], users: 4 },
   { key: "Engineering", name: "Engineering", description: "Manages the workshop and vehicle defect reports.", modules: ["Engineering"], users: 5 },
   { key: "Parts & Store", name: "Parts & Store", description: "Handles all workshop inventory and spare parts.", modules: ["Inventory"], users: 3 },
   { key: "Accounts", name: "Accounts", description: "Handles operational financials and trip invoicing.", modules: ["Accounts", "Reports"], users: 4 },
   { key: "HR", name: "HR", description: "Manages staff files and verifies driver licenses.", modules: ["Drivers & HR"], users: 2 },
   { key: "Security", name: "Security", description: "Uses the system strictly to scan and verify digital gate passes.", modules: ["Gate & Security"], users: 9 },
   { key: "Driver", name: "Driver", description: "Mobile app for trip assignments, fuel receipts, and PODs.", modules: ["Trips"], users: 34 },
-  { key: "Sister Company", name: "Sister Company", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
+  { key: "Sister Companies (External)", name: "Sister Company", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
 ];
 
 export const CHART_UTILISATION = [
@@ -684,3 +687,15 @@ export const CHART_COST_REVENUE = [
   { label: "Jul", revenue: 288, cost: 186 },
   { label: "Aug", revenue: 312, cost: 194 },
 ];
+
+import type { LoginReport } from "./types";
+export const LOGIN_REPORTS: LoginReport[] = USERS.map((u, i) => ({
+  id: `LOG-${pad(i + 1, 5)}`,
+  userId: u.id,
+  name: u.name,
+  role: u.role,
+  timestamp: `12 Aug 2026 ${pad(int(6, 11), 2)}:${pad(int(0, 59), 2)}`,
+  device: pick(["Web", "Web", "Mobile (Android)", "Mobile (iOS)"]),
+  ip: `102.${int(10, 250)}.${int(1, 250)}.${int(2, 250)}`,
+  status: "Success",
+}));

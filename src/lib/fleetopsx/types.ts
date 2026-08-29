@@ -10,6 +10,7 @@ export interface Tenant {
   id: ID;
   name: string;
   workspaceId: string;
+  tenantSlug?: string;
   industry: string;
   country: string;
   locations: string[];
@@ -21,6 +22,7 @@ export interface PlatformTenant {
   id: string;
   name: string;
   domain: string;
+  tenantSlug?: string;
   status: "Active" | "Suspended" | "Onboarding";
   activeTrucks: number;
   totalOrders: number;
@@ -39,13 +41,14 @@ export interface Company {
 export type RoleKey =
   | "Transport Manager"
   | "Fleet Operations"
+  | "Diesel"
   | "Engineering"
   | "Parts & Store"
   | "Accounts"
   | "HR"
   | "Security"
   | "Driver"
-  | "Sister Company";
+  | "Sister Companies (External)";
 
 export interface Role {
   key: RoleKey;
@@ -346,4 +349,15 @@ export interface AlertItem {
   level: "Critical" | "Warning" | "Approval" | "System";
   message: string;
   reference: string;
+}
+
+export interface LoginReport {
+  id: ID;
+  userId: ID;
+  name: string;
+  role: string;
+  timestamp: string;
+  device: string;
+  ip: string;
+  status: "Success" | "Failed";
 }
