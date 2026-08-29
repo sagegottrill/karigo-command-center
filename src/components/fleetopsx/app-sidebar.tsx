@@ -34,6 +34,8 @@ export const NAV: NavItem[] = [
 
 const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
 
+import { Route as RootRoute } from "../routes/__root";
+
 export function AppSidebar({
   collapsed,
   onToggle,
@@ -42,6 +44,7 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { tenantName } = RootRoute.useRouteContext();
 
   const isActive = (to: string) =>
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
@@ -82,21 +85,21 @@ export function AppSidebar({
     >
       <div
         className={cn(
-          "flex h-[60px] shrink-0 items-center bg-black",
+          "flex h-[60px] shrink-0 items-center gap-3 bg-white border-b border-black/[0.05]",
           collapsed ? "justify-center px-2" : "px-3",
         )}
       >
-        <img
-          src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
-          alt="FLEETOPSX"
-          className={cn(
-            "object-contain object-left",
-            collapsed ? "h-9 w-9 object-cover" : "h-9 w-auto max-w-[168px]",
-          )}
-        />
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm">
+          {tenantName.charAt(0)}
+        </div>
+        {!collapsed && (
+          <span className="truncate text-[14px] font-bold tracking-tight text-[#1d1d1f]">
+            {tenantName}
+          </span>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-4">
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-4 pt-4">
         {GROUPS.map((group) => {
           const items = allowedNav.filter((n) => n.group === group);
           if (!items.length) return null;

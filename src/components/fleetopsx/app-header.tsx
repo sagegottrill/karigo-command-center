@@ -15,12 +15,14 @@ import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
+import { Route as RootRoute } from "../routes/__root";
 
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [online, setOnline] = useState(true);
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
+  const { tenantName } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
   const roleName = authService.getRole();
   const role = ROLES.find(r => r.name === roleName) ?? ROLES[0]!;
@@ -56,12 +58,11 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
       </button>
 
-      <div className="flex h-9 items-center overflow-hidden rounded-[10px] bg-black px-2 md:hidden">
-        <img
-          src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
-          alt="FLEETOPSX"
-          className="h-6 w-auto max-w-[120px] object-contain object-left"
-        />
+      <div className="flex h-9 items-center gap-2 overflow-hidden rounded-[10px] bg-white px-2 md:hidden">
+        <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
+          {tenantName.charAt(0)}
+        </div>
+        <span className="text-[13px] font-bold text-[#1d1d1f]">{tenantName}</span>
       </div>
 
       <div className="hidden min-w-0 items-center gap-2 sm:flex">

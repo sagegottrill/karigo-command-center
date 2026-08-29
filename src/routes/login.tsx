@@ -21,7 +21,10 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+import { Route as RootRoute } from "./__root";
+
 function LoginPage() {
+  const { tenantName } = RootRoute.useRouteContext();
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!.id);
   const [username, setUsername] = useState("tbalogun");
@@ -71,12 +74,13 @@ function LoginPage() {
       <div className="relative hidden overflow-hidden border-r border-black/[0.06] bg-white lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,113,227,0.1),transparent_60%)]" />
         <div className="relative flex h-full flex-col justify-between p-12">
-          <div className="inline-flex items-center rounded-[14px] bg-[#0a0a0a] px-3 py-2">
-            <img
-              src={`${import.meta.env.BASE_URL}fleetopsx.svg`}
-              alt="FLEETOPSX"
-              className="h-8 w-auto max-w-[160px] object-contain object-left"
-            />
+          <div className="inline-flex items-center gap-3 rounded-[14px] px-3 py-2">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#1d1d1f] text-lg font-bold text-white shadow-lg">
+              {tenantName.charAt(0)}
+            </div>
+            <span className="text-xl font-bold tracking-tight text-[#1d1d1f]">
+              {tenantName}
+            </span>
           </div>
           <div>
             <h1 className="max-w-md text-[36px] leading-[1.1] font-semibold tracking-[-0.03em]">
@@ -86,7 +90,7 @@ function LoginPage() {
               Trips, fuel, workshop, expenses and gate logs — all in one place.
             </p>
           </div>
-          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground">FLEETOPSX</p>
+          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{tenantName} PORTAL</p>
         </div>
       </div>
 

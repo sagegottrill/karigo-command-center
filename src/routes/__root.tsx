@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { PLATFORM_TENANTS, TENANT } from "@/lib/fleetopsx/mock-data";
 
 function NotFoundComponent() {
   return (
@@ -20,7 +21,7 @@ function NotFoundComponent() {
         <h1 className="num text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          This module or record does not exist in the FleetOpsX workspace.
+          This module or record does not exist in this workspace.
         </p>
         <div className="mt-6">
           <Link
@@ -70,7 +71,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string }>()({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -78,9 +79,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       { title: "FLEETOPSX" },
       {
         name: "description",
-        content: "FLEETOPSX transport management for fleet, trips, fuel, workshop and expenses.",
+        content: "Transport management for fleet, trips, fuel, workshop and expenses.",
       },
-      { name: "author", content: "FLEETOPSX" },
+      { name: "author", content: "FleetOpsX Platform" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -107,7 +108,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
         }
       }
     }
-    return { tenantSlug };
+    
+    // Find the tenant name from the platform mock data
+    const platformTenant = PLATFORM_TENANTS.find(t => t.tenantSlug === tenantSlug);
+    const tenantName = platformTenant?.name || TENANT.name;
+
+    return { tenantSlug, tenantName };
   },
 });
 
