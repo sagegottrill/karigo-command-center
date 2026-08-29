@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ClipboardCheck,
   Fuel,
@@ -11,6 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: ({ context }) => {
+    // If a tenant subdomain is detected, skip the marketing page and go straight to login
+    if (context.tenantSlug) {
+      throw redirect({ to: "/login" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "FleetOpsX — The Operating System for Logistics" },
