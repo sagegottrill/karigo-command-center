@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SisterCompanyRouteImport } from './routes/sister-company'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAccountsRouteImport } from './routes/app.accounts'
@@ -23,7 +24,6 @@ import { Route as AppDepreciationRouteImport } from './routes/app.depreciation'
 import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
 import { Route as AppEngineeringRouteImport } from './routes/app.engineering'
 import { Route as AppFleetRouteImport } from './routes/app.fleet'
-import { Route as AppFuelRouteImport } from './routes/app.fuel'
 import { Route as AppGateRouteImport } from './routes/app.gate'
 import { Route as AppGodViewRouteImport } from './routes/app.god-view'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
@@ -33,6 +33,8 @@ import { Route as AppProcurementRouteImport } from './routes/app.procurement'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
 import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
+import { Route as SisterCompanyIndexRouteImport } from './routes/sister-company.index'
+import { Route as SisterCompanyRequestRouteImport } from './routes/sister-company.request'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
@@ -56,6 +58,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SisterCompanyRoute = SisterCompanyRouteImport.update({
+  id: '/sister-company',
+  path: '/sister-company',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperadminRoute = SuperadminRouteImport.update({
@@ -108,11 +115,6 @@ const AppFleetRoute = AppFleetRouteImport.update({
   path: '/fleet',
   getParentRoute: () => AppRoute,
 } as any)
-const AppFuelRoute = AppFuelRouteImport.update({
-  id: '/fuel',
-  path: '/fuel',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppGateRoute = AppGateRouteImport.update({
   id: '/gate',
   path: '/gate',
@@ -158,6 +160,16 @@ const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
   path: '/pwa/$tenantId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SisterCompanyIndexRoute = SisterCompanyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SisterCompanyRoute,
+} as any)
+const SisterCompanyRequestRoute = SisterCompanyRequestRouteImport.update({
+  id: '/request',
+  path: '/request',
+  getParentRoute: () => SisterCompanyRoute,
+} as any)
 const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
   id: '/drivers/',
   path: '/drivers/',
@@ -184,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/sister-company': typeof SisterCompanyRouteWithChildren
   '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
@@ -193,7 +206,6 @@ export interface FileRoutesByFullPath {
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
-  '/app/fuel': typeof AppFuelRoute
   '/app/gate': typeof AppGateRoute
   '/app/god-view': typeof AppGodViewRoute
   '/app/inventory': typeof AppInventoryRoute
@@ -203,7 +215,9 @@ export interface FileRoutesByFullPath {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
+  '/sister-company/': typeof SisterCompanyIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers/': typeof AppDriversIndexRoute
@@ -222,7 +236,6 @@ export interface FileRoutesByTo {
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
-  '/app/fuel': typeof AppFuelRoute
   '/app/gate': typeof AppGateRoute
   '/app/god-view': typeof AppGodViewRoute
   '/app/inventory': typeof AppInventoryRoute
@@ -232,7 +245,9 @@ export interface FileRoutesByTo {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app': typeof AppIndexRoute
+  '/sister-company': typeof SisterCompanyIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers': typeof AppDriversIndexRoute
@@ -244,6 +259,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/sister-company': typeof SisterCompanyRouteWithChildren
   '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
@@ -253,7 +269,6 @@ export interface FileRoutesById {
   '/app/dispatch': typeof AppDispatchRoute
   '/app/engineering': typeof AppEngineeringRoute
   '/app/fleet': typeof AppFleetRoute
-  '/app/fuel': typeof AppFuelRoute
   '/app/gate': typeof AppGateRoute
   '/app/god-view': typeof AppGodViewRoute
   '/app/inventory': typeof AppInventoryRoute
@@ -263,7 +278,9 @@ export interface FileRoutesById {
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
+  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
+  '/sister-company/': typeof SisterCompanyIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers/': typeof AppDriversIndexRoute
@@ -276,6 +293,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/forgot-password'
     | '/login'
+    | '/sister-company'
     | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
@@ -285,7 +303,6 @@ export interface FileRouteTypes {
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
-    | '/app/fuel'
     | '/app/gate'
     | '/app/god-view'
     | '/app/inventory'
@@ -295,7 +312,9 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/request'
     | '/app/'
+    | '/sister-company/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers/'
@@ -314,7 +333,6 @@ export interface FileRouteTypes {
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
-    | '/app/fuel'
     | '/app/gate'
     | '/app/god-view'
     | '/app/inventory'
@@ -324,7 +342,9 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/request'
     | '/app'
+    | '/sister-company'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers'
@@ -335,6 +355,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/forgot-password'
     | '/login'
+    | '/sister-company'
     | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
@@ -344,7 +365,6 @@ export interface FileRouteTypes {
     | '/app/dispatch'
     | '/app/engineering'
     | '/app/fleet'
-    | '/app/fuel'
     | '/app/gate'
     | '/app/god-view'
     | '/app/inventory'
@@ -354,7 +374,9 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/unauthorized'
     | '/pwa/$tenantId'
+    | '/sister-company/request'
     | '/app/'
+    | '/sister-company/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers/'
@@ -366,6 +388,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  SisterCompanyRoute: typeof SisterCompanyRouteWithChildren
   SuperadminRoute: typeof SuperadminRoute
   PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
@@ -398,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sister-company': {
+      id: '/sister-company'
+      path: '/sister-company'
+      fullPath: '/sister-company'
+      preLoaderRoute: typeof SisterCompanyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/superadmin': {
@@ -470,13 +500,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFleetRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/fuel': {
-      id: '/app/fuel'
-      path: '/fuel'
-      fullPath: '/app/fuel'
-      preLoaderRoute: typeof AppFuelRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/gate': {
       id: '/app/gate'
       path: '/gate'
@@ -540,6 +563,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PwaTenantIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sister-company/': {
+      id: '/sister-company/'
+      path: '/'
+      fullPath: '/sister-company/'
+      preLoaderRoute: typeof SisterCompanyIndexRouteImport
+      parentRoute: typeof SisterCompanyRoute
+    }
+    '/sister-company/request': {
+      id: '/sister-company/request'
+      path: '/request'
+      fullPath: '/sister-company/request'
+      preLoaderRoute: typeof SisterCompanyRequestRouteImport
+      parentRoute: typeof SisterCompanyRoute
+    }
     '/app/drivers/': {
       id: '/app/drivers/'
       path: '/drivers'
@@ -580,7 +617,6 @@ interface AppRouteChildren {
   AppDispatchRoute: typeof AppDispatchRoute
   AppEngineeringRoute: typeof AppEngineeringRoute
   AppFleetRoute: typeof AppFleetRoute
-  AppFuelRoute: typeof AppFuelRoute
   AppGateRoute: typeof AppGateRoute
   AppGodViewRoute: typeof AppGodViewRoute
   AppInventoryRoute: typeof AppInventoryRoute
@@ -605,7 +641,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDispatchRoute: AppDispatchRoute,
   AppEngineeringRoute: AppEngineeringRoute,
   AppFleetRoute: AppFleetRoute,
-  AppFuelRoute: AppFuelRoute,
   AppGateRoute: AppGateRoute,
   AppGodViewRoute: AppGodViewRoute,
   AppInventoryRoute: AppInventoryRoute,
@@ -623,11 +658,26 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface SisterCompanyRouteChildren {
+  SisterCompanyRequestRoute: typeof SisterCompanyRequestRoute
+  SisterCompanyIndexRoute: typeof SisterCompanyIndexRoute
+}
+
+const SisterCompanyRouteChildren: SisterCompanyRouteChildren = {
+  SisterCompanyRequestRoute: SisterCompanyRequestRoute,
+  SisterCompanyIndexRoute: SisterCompanyIndexRoute,
+}
+
+const SisterCompanyRouteWithChildren = SisterCompanyRoute._addFileChildren(
+  SisterCompanyRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  SisterCompanyRoute: SisterCompanyRouteWithChildren,
   SuperadminRoute: SuperadminRoute,
   PwaTenantIdRoute: PwaTenantIdRoute,
 }

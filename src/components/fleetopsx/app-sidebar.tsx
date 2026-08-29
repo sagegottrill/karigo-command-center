@@ -152,7 +152,8 @@ export function AppSidebar({
 
       <div className="border-t border-black/[0.05] p-2.5 space-y-1">
         <Link
-          to="/pwa/petroline"
+          to="/pwa/$tenantId"
+          params={{ tenantId: "petroline" }}
           target="_blank"
           className={cn(
             "flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-[12px] font-medium text-blue-600 transition-colors hover:bg-blue-50 active:scale-[0.98]",
