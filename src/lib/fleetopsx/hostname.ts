@@ -20,3 +20,9 @@ export const isAppSubdomain = (hostname: string) => {
   }
   return hostname.startsWith("app.");
 };
+
+export const getTenantSlug = () => {
+  if (typeof window === "undefined") return "petrolline"; // Server-side fallback
+  const hostname = window.location.hostname;
+  return hostname.split(".")[0] || "petrolline";
+};
