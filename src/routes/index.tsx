@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ArrowRight,
   ClipboardCheck,
   Fuel,
   Radar,
@@ -60,37 +59,37 @@ const FEATURES = [
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-white/20 font-sans">
-      {/* Sleek Dark Ambient Glow */}
+    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-blue-500/20 font-sans">
+      {/* Soft Light Ambient Glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[150px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-slate-800/10 blur-[150px]" />
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-[150px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-purple-400/10 blur-[150px]" />
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#050505]/60 backdrop-blur-2xl">
+      <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/70 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
           <a href="#top" className="flex items-center gap-2.5 group">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-white text-[13px] font-bold text-black shadow-sm transition-transform group-hover:scale-105">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm transition-transform group-hover:scale-105">
               F
             </div>
-            <span className="text-[15px] font-bold tracking-tight text-white">
+            <span className="text-[15px] font-bold tracking-tight text-[#1d1d1f]">
               FleetOpsX
             </span>
           </a>
-          <nav className="hidden items-center gap-8 text-[13px] font-medium text-neutral-400 md:flex">
-            <a href="#features" className="hover:text-white transition-colors">
+          <nav className="hidden items-center gap-8 text-[13px] font-medium text-slate-500 md:flex">
+            <a href="#features" className="hover:text-[#1d1d1f] transition-colors">
               Features
             </a>
-            <a href="#benefits" className="hover:text-white transition-colors">
+            <a href="#benefits" className="hover:text-[#1d1d1f] transition-colors">
               Enterprise
             </a>
           </nav>
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-[13px] font-medium text-neutral-400 hover:text-white transition-colors hidden sm:block">
+            <Link to="/login" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
               Log in
             </Link>
             <Link to="/login">
-              <Button className="h-8 rounded-full bg-white text-black hover:bg-neutral-200 px-5 text-[13px] font-semibold transition-all">
+              <Button className="h-8 rounded-full bg-[#0066cc] text-white hover:bg-[#0055b3] px-5 text-[13px] font-semibold transition-all shadow-sm border-none">
                 Get Started
               </Button>
             </Link>
@@ -104,23 +103,23 @@ function LandingPage() {
           id="top"
           className="relative flex min-h-[85vh] w-full max-w-7xl flex-col items-center justify-center px-6 text-center pt-24 pb-32"
         >
-          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-white">
+          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f]">
             The operating system <br className="hidden sm:block" /> for heavy logistics.
           </h1>
           
-          <p className="mt-8 max-w-2xl text-lg sm:text-xl text-neutral-400 leading-relaxed font-medium">
+          <p className="mt-8 max-w-2xl text-lg sm:text-xl text-slate-500 leading-relaxed font-medium">
             Centralize your entire transport operation with accountable,
             enterprise-grade control. Manage fleets, dispatch, fuel, and expenses in one multi-tenant workspace.
           </p>
           
           <div className="mt-12 flex flex-col sm:flex-row items-center gap-4">
             <Link to="/login">
-              <Button size="lg" className="h-12 rounded-full bg-white text-black hover:bg-neutral-200 px-8 text-[15px] font-bold shadow-[0_0_40px_rgba(255,255,255,0.1)] transition-all">
+              <Button size="lg" className="h-12 rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[15px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
                 Start your workspace <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </Link>
             <a href="#features">
-              <Button size="lg" variant="outline" className="h-12 rounded-full border-white/10 bg-transparent text-white hover:bg-white/5 hover:text-white px-8 text-[15px] font-bold transition-all">
+              <Button size="lg" variant="outline" className="h-12 rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[15px] font-semibold transition-all shadow-sm">
                 Explore Features
               </Button>
             </a>
@@ -128,12 +127,12 @@ function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-white/5">
+        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
           <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-white">
-              Everything you need to <span className="text-neutral-500">scale.</span>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f]">
+              Everything you need to <span className="text-[#0066cc]">scale.</span>
             </h2>
-            <p className="mt-6 text-lg text-neutral-400">
+            <p className="mt-6 text-lg text-slate-500">
               Stop stitching together generic tools. Use a platform built meticulously for the realities of logistics.
             </p>
           </div>
@@ -144,14 +143,14 @@ function LandingPage() {
               return (
                 <div
                   key={idx}
-                  className="group relative overflow-hidden rounded-[32px] border border-white/5 bg-[#0a0a0a] p-8 hover:bg-[#111111] transition-colors duration-500"
+                  className="group relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-white p-8 hover:shadow-xl hover:shadow-black/5 transition-all duration-500"
                 >
                   <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-white mb-8 group-hover:bg-white group-hover:text-black transition-all duration-500">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#1d1d1f] mb-8 group-hover:bg-[#0066cc] group-hover:text-white transition-all duration-500 shadow-sm">
                       <Icon className="h-6 w-6" strokeWidth={1.5} />
                     </div>
-                    <h3 className="text-xl font-semibold mb-3 text-white">{feature.title}</h3>
-                    <p className="text-neutral-400 leading-relaxed text-[15px]">
+                    <h3 className="text-xl font-semibold mb-3 text-[#1d1d1f]">{feature.title}</h3>
+                    <p className="text-slate-500 leading-relaxed text-[15px]">
                       {feature.body}
                     </p>
                   </div>
@@ -162,19 +161,19 @@ function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 py-12 bg-[#050505]">
+      <footer className="border-t border-black/[0.05] py-12 bg-[#f5f5f7]">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row text-center sm:text-left">
-          <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
-            <div className="grid h-6 w-6 place-items-center rounded bg-white text-[10px] font-bold text-black">
+          <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+            <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
               F
             </div>
-            <span className="text-[13px] font-semibold text-white">
+            <span className="text-[13px] font-semibold text-[#1d1d1f]">
               FleetOpsX
             </span>
           </div>
-          <div className="flex items-center gap-6 text-[13px] text-neutral-500 font-medium flex-wrap justify-center">
-            <Link to="/pwa/petroline" target="_blank" className="hover:text-white transition-colors">Demo Customer Portal</Link>
-            <Link to="/superadmin" className="hover:text-white transition-colors">Platform Admin</Link>
+          <div className="flex items-center gap-6 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
+            <Link to="/pwa/petroline" target="_blank" className="hover:text-[#0066cc] transition-colors">Demo Customer Portal</Link>
+            <Link to="/superadmin" className="hover:text-[#1d1d1f] transition-colors">Platform Admin</Link>
             <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
           </div>
         </div>
