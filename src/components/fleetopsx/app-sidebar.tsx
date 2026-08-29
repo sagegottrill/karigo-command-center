@@ -44,7 +44,7 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { tenantName } = RootRoute.useRouteContext();
+  const { tenantName, tenantLogo } = RootRoute.useRouteContext();
 
   const isActive = (to: string) =>
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
@@ -89,10 +89,14 @@ export function AppSidebar({
           collapsed ? "justify-center px-2" : "px-3",
         )}
       >
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm">
-          {tenantName.charAt(0)}
-        </div>
-        {!collapsed && (
+        {tenantLogo ? (
+          <img src={tenantLogo} alt={tenantName} className="h-8 w-auto object-contain max-w-[140px]" />
+        ) : (
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm">
+            {tenantName.charAt(0)}
+          </div>
+        )}
+        {!collapsed && !tenantLogo && (
           <span className="truncate text-[14px] font-bold tracking-tight text-[#1d1d1f]">
             {tenantName}
           </span>

@@ -22,7 +22,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const [query, setQuery] = useState("");
   const [online, setOnline] = useState(true);
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
-  const { tenantName } = RootRoute.useRouteContext();
+  const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
   const roleName = authService.getRole();
   const role = ROLES.find(r => r.name === roleName) ?? ROLES[0]!;
@@ -59,10 +59,16 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
       </button>
 
       <div className="flex h-9 items-center gap-2 overflow-hidden rounded-[10px] bg-white px-2 md:hidden">
-        <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
-          {tenantName.charAt(0)}
-        </div>
-        <span className="text-[13px] font-bold text-[#1d1d1f]">{tenantName}</span>
+        {tenantLogo ? (
+          <img src={tenantLogo} alt={tenantName} className="h-6 w-auto object-contain max-w-[120px]" />
+        ) : (
+          <>
+            <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
+              {tenantName.charAt(0)}
+            </div>
+            <span className="text-[13px] font-bold text-[#1d1d1f]">{tenantName}</span>
+          </>
+        )}
       </div>
 
       <div className="hidden min-w-0 items-center gap-2 sm:flex">

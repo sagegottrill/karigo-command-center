@@ -24,7 +24,7 @@ export const Route = createFileRoute("/login")({
 import { Route as RootRoute } from "./__root";
 
 function LoginPage() {
-  const { tenantName } = RootRoute.useRouteContext();
+  const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!.id);
   const [username, setUsername] = useState("tbalogun");
@@ -74,14 +74,20 @@ function LoginPage() {
       <div className="relative hidden overflow-hidden border-r border-black/[0.06] bg-white lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,113,227,0.1),transparent_60%)]" />
         <div className="relative flex h-full flex-col justify-between p-12">
-          <div className="inline-flex items-center gap-3 rounded-[14px] px-3 py-2">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#1d1d1f] text-lg font-bold text-white shadow-lg">
-              {tenantName.charAt(0)}
+          {tenantLogo ? (
+            <div className="inline-flex items-center bg-black/5 rounded-[14px] px-3 py-2 w-max">
+              <img src={tenantLogo} alt={tenantName} className="h-10 w-auto object-contain max-w-[200px]" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-[#1d1d1f]">
-              {tenantName}
-            </span>
-          </div>
+          ) : (
+            <div className="inline-flex items-center gap-3 rounded-[14px] px-3 py-2 w-max">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#1d1d1f] text-lg font-bold text-white shadow-lg">
+                {tenantName.charAt(0)}
+              </div>
+              <span className="text-xl font-bold tracking-tight text-[#1d1d1f]">
+                {tenantName}
+              </span>
+            </div>
+          )}
           <div>
             <h1 className="max-w-md text-[36px] leading-[1.1] font-semibold tracking-[-0.03em]">
               Run fleet ops from one place

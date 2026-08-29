@@ -71,7 +71,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string }>()({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string; tenantLogo?: string }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -112,8 +112,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
     // Find the tenant name from the platform mock data
     const platformTenant = PLATFORM_TENANTS.find(t => t.tenantSlug === tenantSlug);
     const tenantName = platformTenant?.name || TENANT.name;
+    const tenantLogo = platformTenant?.logo;
 
-    return { tenantSlug, tenantName };
+    return { tenantSlug, tenantName, tenantLogo };
   },
 });
 

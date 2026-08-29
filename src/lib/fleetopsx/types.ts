@@ -23,6 +23,7 @@ export interface PlatformTenant {
   name: string;
   domain: string;
   tenantSlug?: string;
+  logo?: string;
   status: "Active" | "Suspended" | "Onboarding";
   activeTrucks: number;
   totalOrders: number;
