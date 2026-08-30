@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight,
   ChevronsUpDown, Download, MessageSquare, Phone, Plus, Truck, Wrench,
@@ -93,7 +93,13 @@ function ManagementDashboard({ data }: { data: any }) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All Trips");
   const [page, setPage] = useState(0);
-  const currentUser = authService.getCurrentUser();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentUser = mounted ? authService.getCurrentUser() : null;
 
   const FEATURED_TRIP_ID = TRIPS[0]?.id;
   const featured = TRIPS.find((t: any) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0]!;
@@ -138,8 +144,8 @@ function ManagementDashboard({ data }: { data: any }) {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[30px] leading-[1.08] font-semibold tracking-[-0.035em] text-foreground sm:text-[36px] lg:text-[40px]">
-            Hello {currentUser?.name?.split(" ")[0] || "User"},{" "}
-            <span className="text-muted-foreground">{greeting}</span>
+            Hello {mounted ? (currentUser?.name?.split(" ")[0] || "User") : "User"},{" "}
+            <span className="text-muted-foreground" suppressHydrationWarning>{greeting}</span>
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             <Select defaultValue="aug">
