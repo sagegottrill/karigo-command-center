@@ -24,7 +24,9 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const WORKSPACES = authService.getWorkspaces();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
-  const currentUser = authService.getCurrentUser();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const currentUser = mounted ? authService.getCurrentUser() : null;
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
   const role = ROLES.find(r => r.name === roleName) ?? ROLES[0]!;
@@ -163,11 +165,11 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
               className="flex items-center gap-2 rounded-full bg-white py-1 pr-2.5 pl-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.02] active:scale-[0.98]"
             >
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1d1d1f] text-[10px] font-semibold text-white">
-                {currentUser?.initials || "U"}
+                {mounted ? (currentUser?.initials || "U") : "U"}
               </span>
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block truncate text-[12px] leading-tight font-semibold text-foreground">
-                  {currentUser?.name || "User"}
+                  {mounted ? (currentUser?.name || "User") : "User"}
                 </span>
                 <span className="block truncate text-[10px] leading-tight text-muted-foreground">{role.name}</span>
               </span>
