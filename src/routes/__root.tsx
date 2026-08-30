@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
-import { adminService } from "@/lib/fleetopsx/services";
+import { tenantService } from "@/lib/fleetopsx/services";
 
 function NotFoundComponent() {
   return (
@@ -118,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       }
     }
     
-    const platformTenants = await adminService.platformTenants();
+    const platformTenants = await tenantService.list();
     const platformTenant = platformTenants.find(t => t.tenantSlug === tenantSlug || t.domain === tenantSlug);
     const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? "Unknown Tenant" : "FleetOpsX");
     const tenantLogo = platformTenant?.logo;
