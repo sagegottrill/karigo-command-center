@@ -588,6 +588,7 @@ export const messageService = {
 
 export const notificationService = {
   list: () => settle([...store.notifications]),
+  getUnreadCount: () => store.notifications.filter(n => !n.read).length,
   markAllRead: () => {
     store.notifications = store.notifications.map((n) => ({ ...n, read: true }));
     return settle(true);
