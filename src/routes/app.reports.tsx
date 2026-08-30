@@ -13,14 +13,15 @@ import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { ChartFrame } from "@/components/fleetopsx/chart-frame";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  CHART_FUEL, CHART_TRIP_PERFORMANCE, CHART_UTILISATION,
-  DRIVERS, EXPENSES, TRIPS, TRUCKS, WORK_ORDERS,
-} from "@/lib/fleetopsx/mock-data";
-import { formatNaira } from "@/lib/fleetopsx/services";
+import { formatNaira, dashboardService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/reports")({
+  loader: async () => {
+    const overview = await dashboardService.getOverview();
+    const charts = await dashboardService.charts();
+    return { ...overview, charts };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Accounts"];
     if (!allowed.includes(authService.getRole())) {
@@ -87,6 +88,7 @@ const tooltipStyle = {
 };
 
 function ReportsPage() {
+  const { trips: TRIPS, drivers: DRIVERS, expenses: EXPENSES, workOrders: WORK_ORDERS, trucks: TRUCKS, charts } = Route.useLoaderData();
   const [active, setActive] = useState<(typeof CATALOGUE)[number]["key"]>("fleet");
 
   const exportReport = (name: string) => {
@@ -152,7 +154,7 @@ function ReportsPage() {
         <TabsContent value="fleet" className="mt-4 grid gap-5 lg:grid-cols-2">
           <SectionPanel title="Fleet Utilisation" description="Weekly pattern" bodyClassName="p-4">
             <ChartFrame><ResponsiveContainer width="100%" height="100%">
-              <BarChart data={CHART_UTILISATION} barCategoryGap="28%">
+              <BarChart data={charts.utilisation} barCategoryGap="28%">
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -174,7 +176,7 @@ function ReportsPage() {
         <TabsContent value="trips" className="mt-4 grid gap-5 lg:grid-cols-2">
           <SectionPanel title="Completed vs Delayed" bodyClassName="p-4">
             <ChartFrame><ResponsiveContainer width="100%" height="100%">
-              <BarChart data={CHART_TRIP_PERFORMANCE} barGap={4} barCategoryGap="28%">
+              <BarChart data={charts.tripPerformance} barGap={4} barCategoryGap="28%">
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -202,7 +204,7 @@ function ReportsPage() {
         <TabsContent value="fuel" className="mt-4">
           <SectionPanel title="Fuel Efficiency Trend" description="Actual vs standard Km/L" bodyClassName="p-4">
             <ChartFrame><ResponsiveContainer width="100%" height="100%">
-              <LineChart data={CHART_FUEL}>
+              <LineChart data={charts.fuel}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />

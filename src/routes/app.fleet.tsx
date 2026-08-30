@@ -8,13 +8,18 @@ import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
-
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/fleetopsx/services";
+import { authService, fleetService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/fleet")({
+  loader: async () => {
+    const [heads, tails] = await Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails()
+    ]);
+    return { heads, tails };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!allowed.includes(authService.getRole())) {
@@ -35,6 +40,7 @@ export const Route = createFileRoute("/app/fleet")({
 const FILTERS = ["All", "Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as const;
 
 function FleetPage() {
+  const { heads: TRUCK_HEADS, tails: TRUCK_TAILS } = Route.useLoaderData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   
   const heads = filter === "All" ? TRUCK_HEADS : TRUCK_HEADS.filter((t) => t.status === filter);

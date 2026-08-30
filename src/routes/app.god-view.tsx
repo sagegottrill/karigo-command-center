@@ -12,13 +12,14 @@ import { MetricCard } from "@/components/fleetopsx/metric-card";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  CHART_COST_REVENUE, CHART_EXPENSE_SPLIT, CHART_FUEL, CHART_TRIP_PERFORMANCE, CHART_UTILISATION,
-  ALERTS, DRIVERS, EXPENSES, INVENTORY, TRIPS, WORK_ORDERS,
-} from "@/lib/fleetopsx/mock-data";
-import { formatNaira } from "@/lib/fleetopsx/services";
+import { dashboardService, formatNaira } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/god-view")({
+  loader: async () => {
+    const overview = await dashboardService.getOverview();
+    const charts = await dashboardService.charts();
+    return { ...overview, charts };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager"];
     if (!allowed.includes(authService.getRole())) {
@@ -48,9 +49,10 @@ const tooltipStyle = {
 };
 
 function GodViewPage() {
-  const revenue = CHART_COST_REVENUE.reduce((s, r) => s + r.revenue, 0) * 1_000_000;
-  const cost = CHART_COST_REVENUE.reduce((s, r) => s + r.cost, 0) * 1_000_000;
-  const utilisation = Math.round(CHART_UTILISATION.reduce((s, r) => s + r.utilisation, 0) / CHART_UTILISATION.length);
+  const { trips: TRIPS, drivers: DRIVERS, expenses: EXPENSES, workOrders: WORK_ORDERS, inventory: INVENTORY, alerts: ALERTS, charts } = Route.useLoaderData();
+  const revenue = charts.costRevenue.reduce((s: any, r: any) => s + r.revenue, 0) * 1_000_000;
+  const cost = charts.costRevenue.reduce((s: any, r: any) => s + r.cost, 0) * 1_000_000;
+  const utilisation = Math.round(charts.utilisation.reduce((s: any, r: any) => s + r.utilisation, 0) / charts.utilisation.length);
   const completed = TRIPS.filter((t) => t.status === "Completed").length;
   const delayed = TRIPS.filter((t) => t.status === "Delayed").length;
   const fuelCost = EXPENSES.filter((e) => e.type === "Fuel").reduce((s, e) => s + e.amount, 0);
@@ -101,7 +103,7 @@ function GodViewPage() {
       <div className="grid gap-5 xl:grid-cols-2">
         <SectionPanel title="Fleet Utilisation" description="Daily utilisation vs 80% target" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={CHART_UTILISATION}>
+            <ComposedChart data={charts.utilisation}>
               <defs>
                 <linearGradient id="utilFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
@@ -120,7 +122,7 @@ function GodViewPage() {
 
         <SectionPanel title="Trip Performance" description="Completed vs delayed" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
-            <BarChart data={CHART_TRIP_PERFORMANCE} barGap={4} barCategoryGap="28%">
+            <BarChart data={charts.tripPerformance} barGap={4} barCategoryGap="28%">
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
@@ -134,7 +136,7 @@ function GodViewPage() {
 
         <SectionPanel title="Fuel Efficiency" description="Actual vs standard Km/L" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
-            <LineChart data={CHART_FUEL}>
+            <LineChart data={charts.fuel}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} domain={[2.5, 3.6]} />
@@ -149,8 +151,8 @@ function GodViewPage() {
         <SectionPanel title="Expense Breakdown" description="Fuel / repairs / tolls / allowances" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={CHART_EXPENSE_SPLIT} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
-                {CHART_EXPENSE_SPLIT.map((_, i) => (
+              <Pie data={charts.expenseSplit} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                {charts.expenseSplit.map((_: any, i: number) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                 ))}
               </Pie>
@@ -164,7 +166,7 @@ function GodViewPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={CHART_COST_REVENUE}>
+            <AreaChart data={charts.costRevenue}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />

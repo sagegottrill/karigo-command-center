@@ -11,8 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { TRUCK_HEADS, TRUCK_TAILS } from "@/lib/fleetopsx/mock-data";
-import { tripService, driverService } from "@/lib/fleetopsx/services";
+import { tripService, driverService, fleetService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 import type { Trip, Driver } from "@/lib/fleetopsx/types";
 
@@ -20,6 +19,20 @@ import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/dispatch")({
+  loader: async () => {
+    const [heads, tails, drivers, trips] = await Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+      driverService.list(),
+      tripService.list()
+    ]);
+    return {
+      heads,
+      tails,
+      drivers,
+      pendingOrders: trips.filter(t => t.status === "Requested")
+    };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!allowed.includes(authService.getRole())) {
@@ -58,17 +71,8 @@ function DispatchPage() {
     },
     notes: "",
   });
+  const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
   const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>>>({});
-  const [pendingOrders, setPendingOrders] = useState<Trip[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-
-  // On mount, load pending orders and drivers
-  useState(() => {
-    tripService.list().then(trips => {
-      setPendingOrders(trips.filter(t => t.status === "Requested"));
-    });
-    driverService.list().then(d => setDrivers(d));
-  });
 
   const handleSelectPendingOrder = (orderId: string) => {
     const order = pendingOrders.find(o => o.id === orderId);

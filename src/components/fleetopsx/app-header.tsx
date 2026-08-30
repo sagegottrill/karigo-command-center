@@ -11,8 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { globalSearch, authService } from "@/lib/fleetopsx/services";
-import { NOTIFICATIONS, ROLES, WORKSPACES } from "@/lib/fleetopsx/mock-data";
+import { globalSearch, authService, notificationService } from "@/lib/fleetopsx/services";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
@@ -21,6 +20,8 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [online, setOnline] = useState(true);
+  const ROLES = authService.getRoles();
+  const WORKSPACES = authService.getWorkspaces();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
@@ -30,7 +31,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hits = globalSearch(query);
   const groups = [...new Set(hits.map((h) => h.group))];
-  const unread = NOTIFICATIONS.filter((n) => !n.read).length;
+  const unread = notificationService.getUnreadCount();
 
   const active = NAV.find((n) =>
     n.to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(n.to),

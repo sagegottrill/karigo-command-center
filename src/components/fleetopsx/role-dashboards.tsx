@@ -1,14 +1,26 @@
 import { Link } from "@tanstack/react-router";
-import { TRIPS, TRUCKS, EXPENSES, GATE_ENTRIES, DRIVERS, ALERTS, WORK_ORDERS, INVENTORY, PROCUREMENT_REQUESTS } from "@/lib/fleetopsx/mock-data";
 import { formatNaira } from "@/lib/fleetopsx/services";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
 import { Button } from "@/components/ui/button";
+import type { Trip, TruckHead, TruckTail, Expense, GateEntry, Driver, Alert, WorkOrder, InventoryItem, ProcurementRequest } from "@/lib/fleetopsx/types";
 
 const card = "rounded-[24px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] p-6";
 
-export function TransportManagerDashboard() {
-  const awaitingOrders = TRIPS.filter(t => t.status === "Scheduled");
+export interface DashboardProps {
+  trips: Trip[];
+  trucks: (TruckHead | TruckTail)[];
+  expenses: Expense[];
+  gateEntries: GateEntry[];
+  drivers: Driver[];
+  alerts: Alert[];
+  workOrders: WorkOrder[];
+  inventory: InventoryItem[];
+  procurement: ProcurementRequest[];
+}
+
+export function TransportManagerDashboard({ trips }: DashboardProps) {
+  const awaitingOrders = trips.filter(t => t.status === "Scheduled");
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Transport Manager Dashboard</h2>
@@ -28,10 +40,10 @@ export function TransportManagerDashboard() {
   );
 }
 
-export function FleetManagerDashboard() {
-  const activeDispatch = TRIPS.filter(t => t.status === "Scheduled");
-  const availableHeads = TRUCKS.filter(t => t.type === "Head" && t.status === "Available").length;
-  const availableTails = TRUCKS.filter(t => t.type === "Tail" && t.status === "Available").length;
+export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
+  const activeDispatch = trips.filter(t => t.status === "Scheduled");
+  const availableHeads = trucks.filter(t => t.type === "Head" && t.status === "Available").length;
+  const availableTails = trucks.filter(t => t.type === "Tail" && t.status === "Available").length;
   
   return (
     <div className="space-y-6">
@@ -45,8 +57,8 @@ export function FleetManagerDashboard() {
   );
 }
 
-export function FuelManagerDashboard() {
-  const pendingFuel = EXPENSES.filter(e => e.type === "Direct Cost" && e.status === "Pending" && e.category === "Fuel");
+export function FuelManagerDashboard({ expenses }: DashboardProps) {
+  const pendingFuel = expenses.filter(e => e.type === "Direct Cost" && e.status === "Pending" && e.category === "Fuel");
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Fuel Management Dashboard</h2>
@@ -64,10 +76,10 @@ export function FuelManagerDashboard() {
   );
 }
 
-export function AccountantDashboard() {
-  const pendingFunds = EXPENSES.filter(e => e.status === "Pending");
-  const directCosts = EXPENSES.filter(e => e.type === "Direct Cost").reduce((a, b) => a + b.amount, 0);
-  const indirectCosts = EXPENSES.filter(e => e.type === "Indirect Cost").reduce((a, b) => a + b.amount, 0);
+export function AccountantDashboard({ expenses }: DashboardProps) {
+  const pendingFunds = expenses.filter(e => e.status === "Pending");
+  const directCosts = expenses.filter(e => e.type === "Direct Cost").reduce((a, b) => a + b.amount, 0);
+  const indirectCosts = expenses.filter(e => e.type === "Indirect Cost").reduce((a, b) => a + b.amount, 0);
   
   return (
     <div className="space-y-6">
@@ -81,8 +93,8 @@ export function AccountantDashboard() {
   );
 }
 
-export function GateDashboard() {
-  const todayLog = GATE_ENTRIES.slice(0, 5);
+export function GateDashboard({ gateEntries }: DashboardProps) {
+  const todayLog = gateEntries.slice(0, 5);
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Security & Gate Dashboard</h2>
@@ -99,8 +111,8 @@ export function GateDashboard() {
   );
 }
 
-export function HRDashboard() {
-  const complianceAlerts = ALERTS.filter(a => a.message.includes("expire"));
+export function HRDashboard({ alerts }: DashboardProps) {
+  const complianceAlerts = alerts.filter(a => a.message.includes("expire"));
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">HR & Compliance Dashboard</h2>
@@ -113,9 +125,9 @@ export function HRDashboard() {
   );
 }
 
-export function EngineerDashboard() {
-  const activeRepairs = WORK_ORDERS.filter(w => w.status === "Repairing");
-  const lowStock = INVENTORY.filter(i => i.stock < i.min);
+export function EngineerDashboard({ workOrders, inventory }: DashboardProps) {
+  const activeRepairs = workOrders.filter(w => w.status === "Repairing");
+  const lowStock = inventory.filter(i => i.stock < i.min);
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Engineering Dashboard</h2>
@@ -127,8 +139,8 @@ export function EngineerDashboard() {
   );
 }
 
-export function ProcurementDashboard() {
-  const pendingRequests = PROCUREMENT_REQUESTS.filter(p => p.status === "Requested");
+export function ProcurementDashboard({ procurement }: DashboardProps) {
+  const pendingRequests = procurement.filter(p => p.status === "Requested");
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Procurement Dashboard</h2>

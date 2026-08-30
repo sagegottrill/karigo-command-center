@@ -3,10 +3,11 @@ import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
-import { AUDIT_LOGS } from "@/lib/fleetopsx/mock-data";
+import { auditService } from "@/lib/fleetopsx/services";
 import type { AuditLog } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/audit")({
+  loader: () => auditService.list(),
   beforeLoad: () => {
     const allowed = ["Transport Manager"];
     if (!allowed.includes(authService.getRole())) {
@@ -34,6 +35,7 @@ const columns: Column<AuditLog>[] = [
 ];
 
 function AuditPage() {
+  const AUDIT_LOGS = Route.useLoaderData();
   return (
     <>
       <PageHeader

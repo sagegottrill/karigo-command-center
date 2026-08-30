@@ -7,10 +7,11 @@ import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { NOTIFICATIONS } from "@/lib/fleetopsx/mock-data";
+import { notificationService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/notifications")({
+  loader: () => notificationService.list(),
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Fleet Operations", "Diesel", "Engineering", "Parts & Store", "Accounts", "HR", "Security", "Driver", "Sister Companies (External)"];
     if (!allowed.includes(authService.getRole())) {
@@ -31,7 +32,8 @@ export const Route = createFileRoute("/app/notifications")({
 const CATEGORIES = ["All", "Operations", "Approvals", "Compliance", "Engineering", "Security", "System"] as const;
 
 function NotificationsPage() {
-  const [items, setItems] = useState(NOTIFICATIONS);
+  const initialNotifications = Route.useLoaderData();
+  const [items, setItems] = useState(initialNotifications);
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const rows = cat === "All" ? items : items.filter((n) => n.category === cat);
 
@@ -41,7 +43,12 @@ function NotificationsPage() {
         title="Notifications"
         description="Items that need a look, grouped by area."
         actions={
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setItems(items.map((n) => ({ ...n, read: true }))); toast.success("All notifications marked as read"); }}>
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => {
+            void notificationService.markAllRead().then(() => {
+              setItems(items.map((n) => ({ ...n, read: true })));
+              toast.success("All notifications marked as read");
+            });
+          }}>
             Mark all read
           </Button>
         }
@@ -64,7 +71,11 @@ function NotificationsPage() {
                 <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{n.time}</p>
               </div>
-              <Button size="sm" variant="ghost" className="h-7 shrink-0 text-[11px]" onClick={() => setItems(items.map((x) => (x.id === n.id ? { ...x, read: !x.read } : x)))}>
+              <Button size="sm" variant="ghost" className="h-7 shrink-0 text-[11px]" onClick={() => {
+                void notificationService.toggleRead(n.id).then(() => {
+                  setItems(items.map((x) => (x.id === n.id ? { ...x, read: !x.read } : x)));
+                });
+              }}>
                 {n.read ? "Unread" : "Read"}
               </Button>
             </li>

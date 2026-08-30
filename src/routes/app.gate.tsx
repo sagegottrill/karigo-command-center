@@ -18,13 +18,23 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { DRIVERS, TRUCKS } from "@/lib/fleetopsx/mock-data";
-import { gateService } from "@/lib/fleetopsx/services";
+import { gateService, driverService, fleetService } from "@/lib/fleetopsx/services";
 import type { GateEntry } from "@/lib/fleetopsx/types";
 
 const FILTERS = ["Today", "Incoming", "Outgoing", "All"] as const;
 
 export const Route = createFileRoute("/app/gate")({
+  loader: async () => {
+    const [drivers, heads, tails] = await Promise.all([
+      driverService.list(),
+      fleetService.listHeads(),
+      fleetService.listTails(),
+    ]);
+    return {
+      drivers,
+      trucks: [...heads, ...tails],
+    };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Security"];
     if (!allowed.includes(authService.getRole())) {
@@ -43,6 +53,7 @@ export const Route = createFileRoute("/app/gate")({
 });
 
 function GatePage() {
+  const { drivers: DRIVERS, trucks: TRUCKS } = Route.useLoaderData();
   const [rows, setRows] = useState<GateEntry[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Today");
   const [open, setOpen] = useState(false);

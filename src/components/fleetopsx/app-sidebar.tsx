@@ -5,7 +5,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
-import { ROLES } from "@/lib/fleetopsx/mock-data";
 
 export interface NavItem {
   label: string;
@@ -50,7 +49,7 @@ export function AppSidebar({
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
 
   const roleName = authService.getRole();
-  const activeRole = ROLES.find(r => r.name === roleName);
+  const activeRole = authService.getRoles().find(r => r.name === roleName);
   const allowedModules = activeRole?.modules || [];
 
   const allowedNav = NAV.filter(item => {

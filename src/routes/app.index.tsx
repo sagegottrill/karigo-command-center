@@ -14,11 +14,9 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DRIVERS, EXPENSES, FEATURED_TRIP_ID, TRIPS, TRUCKS } from "@/lib/fleetopsx/mock-data";
-import { formatNaira, tripService } from "@/lib/fleetopsx/services";
+import { formatNaira, tripService, dashboardService, authService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { authService } from "@/lib/fleetopsx/services";
 import { 
   TransportManagerDashboard, 
   FleetManagerDashboard, 
@@ -31,6 +29,7 @@ import {
 } from "@/components/fleetopsx/role-dashboards";
 
 export const Route = createFileRoute("/app/")({
+  loader: () => dashboardService.getOverview(),
   head: () => ({
     meta: [
       { title: "Overview | FleetOpsX" },
@@ -71,42 +70,45 @@ const tooltipStyle = {
 
 function Dashboard() {
   const role = authService.getRole();
+  const data = Route.useLoaderData();
 
-  if (role === "Transport Manager") return <ManagementDashboard />;
-  if (role === "Fleet Operations") return <FleetManagerDashboard />;
-  if (role === "Diesel") return <FuelManagerDashboard />;
-  if (role === "Accounts") return <AccountantDashboard />;
-  if (role === "Security") return <GateDashboard />;
-  if (role === "HR") return <HRDashboard />;
-  if (role === "Engineering") return <EngineerDashboard />;
-  if (role === "Parts & Store") return <ProcurementDashboard />;
+  if (role === "Transport Manager") return <ManagementDashboard data={data} />;
+  if (role === "Fleet Operations") return <FleetManagerDashboard {...data} />;
+  if (role === "Diesel") return <FuelManagerDashboard {...data} />;
+  if (role === "Accounts") return <AccountantDashboard {...data} />;
+  if (role === "Security") return <GateDashboard {...data} />;
+  if (role === "HR") return <HRDashboard {...data} />;
+  if (role === "Engineering") return <EngineerDashboard {...data} />;
+  if (role === "Parts & Store") return <ProcurementDashboard {...data} />;
   
   // Fallback
   return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground">No dashboard available for this role.</div>;
 }
 
-function ManagementDashboard() {
+function ManagementDashboard({ data }: { data: any }) {
+  const { trips: TRIPS, trucks: TRUCKS, drivers: DRIVERS, expenses: EXPENSES } = data;
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All Trips");
   const [page, setPage] = useState(0);
   const currentUser = authService.getCurrentUser();
 
-  const featured = TRIPS.find((t) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0]!;
+  const FEATURED_TRIP_ID = TRIPS[0]?.id;
+  const featured = TRIPS.find((t: any) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0]!;
   const timeline = tripService.timeline(featured);
-  const driver = DRIVERS.find((d) => d.id === featured.driverId);
+  const driver = DRIVERS.find((d: any) => d.id === featured.driverId);
 
-  const ready = TRUCKS.filter((t) => t.status === "Available" || t.status === "Assigned").length;
-  const mechanic = TRUCKS.filter((t) => t.status === "Maintenance").length;
-  const accident = TRUCKS.filter((t) => t.status === "Out of Service").length;
+  const ready = TRUCKS.filter((t: any) => t.status === "Available" || t.status === "Assigned").length;
+  const mechanic = TRUCKS.filter((t: any) => t.status === "Maintenance").length;
+  const accident = TRUCKS.filter((t: any) => t.status === "Out of Service").length;
   const totalTrucks = TRUCKS.length;
-  const trucksOnRoad = TRUCKS.filter((t) => t.status === "In Transit" || t.status === "Assigned").length;
+  const trucksOnRoad = TRUCKS.filter((t: any) => t.status === "In Transit" || t.status === "Assigned").length;
 
-  const driversFree = DRIVERS.filter((d) => d.status === "Available").length;
-  const tripsMoving = TRIPS.filter((t) =>
+  const driversFree = DRIVERS.filter((d: any) => d.status === "Available").length;
+  const tripsMoving = TRIPS.filter((t: any) =>
     ["En Route", "Loaded", "Offloading", "Returning"].includes(t.status),
   ).length;
-  const tripsDelayed = TRIPS.filter((t) => t.status === "Delayed").length;
-  const approvals = EXPENSES.filter((e) => e.status === "Pending" || e.status === "Clarification").length;
+  const tripsDelayed = TRIPS.filter((t: any) => t.status === "Delayed").length;
+  const approvals = EXPENSES.filter((e: any) => e.status === "Pending" || e.status === "Clarification").length;
   const revenue = 272_980_190;
 
   const rows = useMemo(() => {

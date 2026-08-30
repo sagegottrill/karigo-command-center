@@ -18,13 +18,19 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { TRUCKS } from "@/lib/fleetopsx/mock-data";
-import { engineeringService, formatNaira } from "@/lib/fleetopsx/services";
+import { engineeringService, formatNaira, fleetService } from "@/lib/fleetopsx/services";
 import type { WorkOrder } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app/engineering")({
+  loader: async () => {
+    const [heads, tails] = await Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+    ]);
+    return { trucks: [...heads, ...tails] };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Engineering"];
     if (!allowed.includes(authService.getRole())) {
@@ -46,6 +52,7 @@ const CATEGORIES = ["Brakes", "Engine", "Tyres", "Electrics", "Hydraulics", "Bod
 const FILTERS = ["All", "Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed"] as const;
 
 function EngineeringPage() {
+  const { trucks: TRUCKS } = Route.useLoaderData();
   const [rows, setRows] = useState<WorkOrder[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [open, setOpen] = useState(false);

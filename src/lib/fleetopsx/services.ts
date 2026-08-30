@@ -139,7 +139,9 @@ export const authService = {
   logout: () => {
     sessionStorage.removeItem("fleetopsx_user_id");
     sessionStorage.removeItem("fleetopsx_role");
-  }
+  },
+  getRoles: () => db.ROLES,
+  getWorkspaces: () => db.WORKSPACES,
 };
 
 /* ---------------------------------- trips --------------------------------- */
@@ -640,6 +642,13 @@ export const adminService = {
 export const dashboardService = {
   activity: () => settle(db.ACTIVITY),
   alerts: () => settle(db.ALERTS),
+  charts: () => settle({
+    costRevenue: db.CHART_COST_REVENUE,
+    utilisation: db.CHART_UTILISATION,
+    tripPerformance: db.CHART_TRIP_PERFORMANCE,
+    fuel: db.CHART_FUEL,
+    expenseSplit: db.CHART_EXPENSE_SPLIT,
+  }),
 };
 
 /* -------------------------- in-memory mutable store ----------------------- */
@@ -661,6 +670,8 @@ const store = {
   notifications: [...db.NOTIFICATIONS],
   audit: [...db.AUDIT_LOGS],
   users: [...db.USERS],
+  companies: [...db.COMPANIES],
+  loginReports: [...db.LOGIN_REPORTS],
 };
 
 /* --------------------------------- search --------------------------------- */

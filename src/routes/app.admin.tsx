@@ -11,13 +11,20 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ROLES, TENANT, LOGIN_REPORTS } from "@/lib/fleetopsx/mock-data";
 import type { User, RoleKey, Trip, Company, LoginReport } from "@/lib/fleetopsx/types";
 import { adminService, tripService, companyService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { MoreHorizontal, Plus, Ban, KeyRound, Trash2, CheckCircle2, Edit2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/admin")({
+  loader: async () => {
+    const [tenant, roles, loginReports] = await Promise.all([
+      adminService.tenant(),
+      adminService.roles(),
+      adminService.loginReports(),
+    ]);
+    return { tenant, roles, loginReports };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager"];
     if (!allowed.includes(authService.getRole())) {
@@ -33,6 +40,7 @@ export const Route = createFileRoute("/app/admin")({
 });
 
 function AdminPage() {
+  const { tenant: TENANT, roles: ROLES, loginReports: LOGIN_REPORTS } = Route.useLoaderData();
   const [users, setUsers] = useState<User[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);

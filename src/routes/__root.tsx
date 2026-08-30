@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
-import { PLATFORM_TENANTS, TENANT } from "@/lib/fleetopsx/mock-data";
+import { adminService } from "@/lib/fleetopsx/services";
 
 function NotFoundComponent() {
   return (
@@ -101,7 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
-  beforeLoad: () => {
+  beforeLoad: async () => {
     let tenantSlug = "";
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
@@ -118,7 +118,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       }
     }
     
-    const platformTenant = PLATFORM_TENANTS.find(t => t.tenantSlug === tenantSlug || t.domain === tenantSlug);
+    const platformTenants = await adminService.platformTenants();
+    const platformTenant = platformTenants.find(t => t.tenantSlug === tenantSlug || t.domain === tenantSlug);
     const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? "Unknown Tenant" : "FleetOpsX");
     const tenantLogo = platformTenant?.logo;
 

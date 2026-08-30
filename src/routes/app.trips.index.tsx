@@ -9,10 +9,11 @@ import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { TRIPS } from "@/lib/fleetopsx/mock-data";
+import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/app/trips/")({
+  loader: () => tripService.list(),
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!allowed.includes(authService.getRole())) {
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/app/trips/")({
 const FILTERS = ["All", "En Route", "Loaded", "Offloading", "Returning", "Delayed", "Scheduled", "Completed"] as const;
 
 function TripsPage() {
+  const TRIPS = Route.useLoaderData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const navigate = useNavigate();
   const rows = filter === "All" ? TRIPS : TRIPS.filter((t) => t.status === filter);

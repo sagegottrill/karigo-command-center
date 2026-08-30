@@ -9,7 +9,6 @@ import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONVERSATIONS } from "@/lib/fleetopsx/mock-data";
 import { messageService, tripService } from "@/lib/fleetopsx/services";
 import type { Message, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -44,9 +43,12 @@ function TripDetail() {
   const [threadId, setThreadId] = useState<string | null>(null);
 
   useEffect(() => {
-    void tripService.get(tripId).then((t) => {
+    void Promise.all([
+      tripService.get(tripId),
+      messageService.list()
+    ]).then(([t, allConvos]) => {
       setTrip(t);
-      const thread = CONVERSATIONS.find((c) => c.tripId === (t?.id ?? tripId)) ?? CONVERSATIONS.find((c) => c.kind === "trip");
+      const thread = allConvos.find((c) => c.tripId === (t?.id ?? tripId)) ?? allConvos.find((c) => c.kind === "trip");
       setMessages(thread ? [...thread.messages] : []);
       setThreadId(thread?.id ?? null);
     });

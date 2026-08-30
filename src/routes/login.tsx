@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WORKSPACES } from "@/lib/fleetopsx/mock-data";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/login")({
@@ -31,6 +30,7 @@ import { Route as RootRoute } from "./__root";
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
+  const WORKSPACES = authService.getWorkspaces();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!.id);
   const [username, setUsername] = useState("tbalogun");
   const [password, setPassword] = useState("password");

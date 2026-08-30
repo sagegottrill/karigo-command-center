@@ -8,11 +8,18 @@ import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONVERSATIONS, TRIPS } from "@/lib/fleetopsx/mock-data";
+import { messageService, tripService } from "@/lib/fleetopsx/services";
 import type { Conversation, Message } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/messages")({
+  loader: async () => {
+    const [convos, trips] = await Promise.all([
+      messageService.list(),
+      tripService.list()
+    ]);
+    return { convos, trips };
+  },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Fleet Operations", "Diesel", "Engineering", "Parts & Store", "Accounts", "HR", "Security", "Driver", "Sister Companies (External)"];
     if (!allowed.includes(authService.getRole())) {
@@ -37,10 +44,11 @@ const SECTIONS: { key: Conversation["kind"]; label: string }[] = [
 ];
 
 function MessagesPage() {
-  const [convos, setConvos] = useState(CONVERSATIONS);
-  const [activeId, setActiveId] = useState(CONVERSATIONS[0]!.id);
+  const { convos: initialConvos, trips: TRIPS } = Route.useLoaderData();
+  const [convos, setConvos] = useState(initialConvos);
+  const [activeId, setActiveId] = useState(initialConvos[0]?.id || "");
   const [draft, setDraft] = useState("");
-  const active = convos.find((c) => c.id === activeId)!;
+  const active = convos.find((c) => c.id === activeId) || convos[0]!;
   const trip = TRIPS.find((t) => t.id === active.tripId);
 
   const send = () => {
