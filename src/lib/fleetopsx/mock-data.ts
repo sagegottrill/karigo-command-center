@@ -62,34 +62,7 @@ export const PLATFORM_TENANTS: PlatformTenant[] = [
     activeTrucks: 142,
     totalOrders: 12450,
     joinedAt: "2024-01-15",
-  },
-  {
-    id: "tnt_002",
-    name: "Dangote Transport",
-    domain: "dangote",
-    status: "Active",
-    activeTrucks: 850,
-    totalOrders: 89000,
-    joinedAt: "2023-11-02",
-  },
-  {
-    id: "tnt_003",
-    name: "Oando Haulage",
-    domain: "oando",
-    status: "Suspended",
-    activeTrucks: 0,
-    totalOrders: 530,
-    joinedAt: "2024-05-20",
-  },
-  {
-    id: "tnt_004",
-    name: "Bua Group Freight",
-    domain: "bua",
-    status: "Onboarding",
-    activeTrucks: 12,
-    totalOrders: 0,
-    joinedAt: "2024-08-01",
-  },
+  }
 ];
 
 export const COMPANIES: Company[] = [
