@@ -102,21 +102,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
   beforeLoad: () => {
-    let tenantSlug = "petrolline"; // default fallback for SSR / localhost
+    let tenantSlug = "";
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
-      const parts = hostname.split(".");
-      if (parts.length > 2) {
-        const sub = parts[0];
-        if (sub && sub !== "www" && sub !== "api") {
-          tenantSlug = sub;
+      
+      if (hostname === "petroline.fleetopsx.com") {
+        tenantSlug = "petrolline"; // Map to mock data slug
+      } else if (hostname.includes("fleetopsx.com")) {
+        const parts = hostname.split(".");
+        if (parts.length >= 3 && parts[0] !== "www") {
+          tenantSlug = parts[0];
         }
+      } else if (hostname.endsWith(".localhost")) {
+        tenantSlug = hostname.split(".")[0] || "";
       }
     }
     
-    // Find the tenant name from the platform mock data
-    const platformTenant = PLATFORM_TENANTS.find(t => t.tenantSlug === tenantSlug);
-    const tenantName = platformTenant?.name || TENANT.name;
+    const platformTenant = PLATFORM_TENANTS.find(t => t.tenantSlug === tenantSlug || t.domain === tenantSlug);
+    const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? "Unknown Tenant" : "FleetOpsX");
     const tenantLogo = platformTenant?.logo;
 
     return { tenantSlug, tenantName, tenantLogo };

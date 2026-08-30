@@ -22,7 +22,15 @@ export const isAppSubdomain = (hostname: string) => {
 };
 
 export const getTenantSlug = () => {
-  if (typeof window === "undefined") return "petrolline"; // Server-side fallback
+  if (typeof window === "undefined") return ""; // Server-side fallback
   const hostname = window.location.hostname;
-  return hostname.split(".")[0] || "petrolline";
+  
+  if (hostname === "petroline.fleetopsx.com") return "petrolline";
+  if (hostname.includes("fleetopsx.com")) {
+    const parts = hostname.split(".");
+    if (parts.length >= 3 && parts[0] !== "www") return parts[0];
+  }
+  if (hostname.endsWith(".localhost")) return hostname.split(".")[0] || "";
+  
+  return "";
 };
