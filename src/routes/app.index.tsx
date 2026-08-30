@@ -82,7 +82,10 @@ function Dashboard() {
   if (roles.includes("Parts & Store")) return <ProcurementDashboard {...data} />;
   
   // Fallback
-  return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground">No dashboard available for this role.</div>;
+  return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground flex-col gap-4">
+    <p>No dashboard available for this role.</p>
+    <p>Debug roles: {JSON.stringify(roles)}</p>
+  </div>;
 }
 
 function ManagementDashboard({ data }: { data: any }) {
