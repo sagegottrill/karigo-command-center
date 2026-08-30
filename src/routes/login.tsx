@@ -80,8 +80,8 @@ function LoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,113,227,0.1),transparent_60%)]" />
         <div className="relative flex h-full flex-col justify-between p-12">
           {tenantLogo ? (
-            <div className="inline-flex items-center bg-black/5 rounded-[14px] px-3 py-2 w-max">
-              <img src={tenantLogo} alt={tenantName} className="h-10 w-auto object-contain max-w-[200px]" />
+            <div className="inline-flex items-center w-max">
+              <img src={tenantLogo} alt={tenantName} className="h-12 w-auto object-contain max-w-[200px]" />
             </div>
           ) : (
             <div className="inline-flex items-center gap-3 rounded-[14px] px-3 py-2 w-max">
