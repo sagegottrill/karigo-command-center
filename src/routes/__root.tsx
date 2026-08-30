@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { tenantService } from "@/lib/fleetopsx/services";
+import { getHostnameServerFn } from "@/lib/fleetopsx/hostname";
 
 function NotFoundComponent() {
   return (
@@ -103,10 +104,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
   errorComponent: ErrorComponent,
   beforeLoad: async () => {
     let tenantSlug = "";
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      
-      if (hostname === "petroline.fleetopsx.com") {
+    const hostname = await getHostnameServerFn();
+    
+    if (hostname) {
+      if (hostname === "petroline.fleetopsx.com" || hostname.includes("vercel.app")) {
         tenantSlug = "petrolline"; // Map to mock data slug
       } else if (hostname.includes("fleetopsx.com")) {
         const parts = hostname.split(".");
