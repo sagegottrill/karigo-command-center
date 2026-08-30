@@ -73,8 +73,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string; tenantLogo?: string }>()({
   head: ({ routeContext }) => {
-    const title = routeContext.tenantName ? `${routeContext.tenantName} | Workspace` : "Workspace";
-    const iconUrl = routeContext.tenantLogo ? routeContext.tenantLogo : "/fleetopsx.svg";
+    const title = routeContext?.tenantName ? `${routeContext.tenantName} | Workspace` : "Workspace";
+    const iconUrl = routeContext?.tenantLogo ? routeContext.tenantLogo : "/fleetopsx.svg";
 
     return {
       meta: [
@@ -85,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
           name: "description",
           content: "Transport management for fleet, trips, fuel, workshop and expenses.",
         },
-        { name: "author", content: routeContext.tenantName || "Platform" },
+        { name: "author", content: routeContext?.tenantName || "Platform" },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
       ],
