@@ -247,16 +247,18 @@ function ManagementDashboard({ data }: { data: any }) {
             </div>
           </div>
           <div className="h-[240px] w-full sm:h-[280px] xl:h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DAILY_STATS} barGap={4} barCategoryGap="28%">
-                <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.05)" />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} width={28} tick={{ fill: "#86868b", fontSize: 11 }} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
-                <Bar dataKey="trip" fill="#1d1d1f" radius={[6, 6, 6, 6]} maxBarSize={14} />
-                <Bar dataKey="delivery" fill="#b7cfe6" radius={[6, 6, 6, 6]} maxBarSize={14} />
-              </BarChart>
-            </ResponsiveContainer>
+            {mounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={DAILY_STATS} barGap={4} barCategoryGap="28%">
+                  <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.05)" />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
+                  <YAxis axisLine={false} tickLine={false} width={28} tick={{ fill: "#86868b", fontSize: 11 }} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
+                  <Bar dataKey="trip" fill="#1d1d1f" radius={[6, 6, 6, 6]} maxBarSize={14} />
+                  <Bar dataKey="delivery" fill="#b7cfe6" radius={[6, 6, 6, 6]} maxBarSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </section>
 
@@ -397,12 +399,14 @@ function ManagementDashboard({ data }: { data: any }) {
         </section>
       </div>
 
-      <CommandCenterMap
-        trips={TRIPS}
-        activeTrips={tripsMoving}
-        trucks={totalTrucks}
-        approvals={approvals}
-      />
+      {mounted && (
+        <CommandCenterMap
+          trips={TRIPS}
+          activeTrips={tripsMoving}
+          trucks={totalTrucks}
+          approvals={approvals}
+        />
+      )}
 
       {/* Drivers — big and clear */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
