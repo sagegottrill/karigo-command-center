@@ -656,6 +656,14 @@ export const dashboardService = {
     fuel: db.CHART_FUEL,
     expenseSplit: db.CHART_EXPENSE_SPLIT,
   }),
+  getOverview: async () => {
+    return {
+      trips: isolate([...store.trips]),
+      trucks: isolate([...store.truckHeads]),
+      drivers: isolate([...store.drivers]),
+      expenses: isolate([...store.expenses]),
+    };
+  },
 };
 
 /* -------------------------- in-memory mutable store ----------------------- */
