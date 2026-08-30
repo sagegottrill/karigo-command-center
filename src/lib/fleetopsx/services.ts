@@ -662,6 +662,18 @@ export const dashboardService = {
       trucks: isolate([...store.truckHeads]),
       drivers: isolate([...store.drivers]),
       expenses: isolate([...store.expenses]),
+      gateEntries: isolate([...store.gate]),
+      alerts: isolate([...store.notifications]),
+      workOrders: isolate([...store.workOrders]),
+      inventory: isolate([...store.inventory]),
+      procurement: isolate([...store.procurement]),
+      charts: {
+        costRevenue: db.CHART_COST_REVENUE,
+        utilisation: db.CHART_UTILISATION,
+        tripPerformance: db.CHART_TRIP_PERFORMANCE,
+        fuel: db.CHART_FUEL,
+        expenseSplit: db.CHART_EXPENSE_SPLIT,
+      },
     };
   },
 };
