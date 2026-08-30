@@ -42,6 +42,7 @@ function isolate<T>(items: T[]): T[] {
 /* -------------------------------- tenants --------------------------------- */
 export const tenantService = {
   list: () => settle([...store.platformTenants]),
+  getBySlug: (slug: string) => settle(store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug) || null),
   create: (name: string, domain: string, logo?: string) => {
     const id = `tnt_${String(100 + store.platformTenants.length).padStart(3, "0")}`;
     const newTenant = {
