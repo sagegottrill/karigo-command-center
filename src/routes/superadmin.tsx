@@ -138,16 +138,7 @@ function SuperAdminLayout() {
         </div>
         <nav className="flex-1 p-4 space-y-1">
           <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary font-medium rounded-md">
-            <Users className="h-4 w-4" /> Tenants
-          </Link>
-          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
-            <CreditCard className="h-4 w-4" /> Billing & Revenue
-          </Link>
-          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
-            <Activity className="h-4 w-4" /> System Health
-          </Link>
-          <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground font-medium rounded-md transition-colors">
-            <Settings className="h-4 w-4" /> Global Config
+            <Users className="h-4 w-4" /> Tenants Directory
           </Link>
         </nav>
         <div className="p-4 border-t border-border">
