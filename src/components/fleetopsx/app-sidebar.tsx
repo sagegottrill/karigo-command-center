@@ -50,7 +50,7 @@ export function AppSidebar({
 
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
-  const activeRole = authService.getRoles().find(r => r.name === roleName);
+  const activeRole = authService.getAllRoles().find(r => roleNames.includes(r.name)) || authService.getAllRoles()[0];
   const allowedModules = activeRole?.modules || [];
 
   const allowedNav = NAV.filter(item => {

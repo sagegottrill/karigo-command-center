@@ -146,7 +146,7 @@ export const authService = {
     sessionStorage.removeItem("fleetopsx_user_id");
     sessionStorage.removeItem("fleetopsx_role");
   },
-  getRoles: () => db.ROLES,
+  getAllRoles: () => db.ROLES,
   getWorkspaces: () => db.WORKSPACES,
 };
 
