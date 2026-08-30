@@ -583,7 +583,7 @@ export const USERS: User[] = [
   ["Okwudili Fortune", "Transport Manager", "Transport Manager", "Executive"],
   ["Tunde Balogun", "Fleet Operations", "Fleet Operations", "Operations"],
   ["Adaeze Nwoke", "Fleet Operations", "Dispatcher", "Operations"],
-  ["Musa Danjuma", "Sister Companies (External)", "Sister Company Rep", "External"],
+  ["Musa Danjuma", "Customer Portals (External)", "Customer Portal Rep", "External"],
   ["Chuka Nwosu", "Engineering", "Engineer", "Engineering"],
   ["Idris Bako", "Parts & Store", "Store Manager", "Engineering"],
   ["Grace Ile", "Accounts", "Accountant", "Accounts"],
@@ -614,7 +614,7 @@ export const ROLES: Role[] = [
   { key: "HR", name: "HR", description: "Manages staff files and verifies driver licenses.", modules: ["Drivers & HR"], users: 2 },
   { key: "Security", name: "Security", description: "Uses the system strictly to scan and verify digital gate passes.", modules: ["Gate & Security"], users: 9 },
   { key: "Driver", name: "Driver", description: "Mobile app for trip assignments, fuel receipts, and PODs.", modules: ["Trips"], users: 34 },
-  { key: "Sister Companies (External)", name: "Sister Company", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
+  { key: "Customer Portals (External)", name: "Customer Portal", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
 ];
 
 export const CHART_UTILISATION = [

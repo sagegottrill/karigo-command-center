@@ -9,7 +9,7 @@ import { orderService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 
-export const Route = createFileRoute("/sister-company/request")({
+export const Route = createFileRoute("/customer-portal/request")({
   component: SisterCompanyRequest,
 });
 
@@ -49,7 +49,7 @@ function SisterCompanyRequest() {
 
     await orderService.submitCustomerOrder(payload);
     toast.success("Request submitted to Fleet Operations");
-    navigate({ to: "/sister-company" });
+    navigate({ to: "/customer-portal" });
   };
 
   return (

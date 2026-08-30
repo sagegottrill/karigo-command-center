@@ -49,7 +49,7 @@ export type RoleKey =
   | "HR"
   | "Security"
   | "Driver"
-  | "Sister Companies (External)";
+  | "Customer Portals (External)";
 
 export interface Role {
   key: RoleKey;

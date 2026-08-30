@@ -11,9 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as CustomerPortalRouteImport } from './routes/customer-portal'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as SisterCompanyRouteImport } from './routes/sister-company'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAccountsRouteImport } from './routes/app.accounts'
@@ -32,10 +32,10 @@ import { Route as AppNotificationsRouteImport } from './routes/app.notifications
 import { Route as AppProcurementRouteImport } from './routes/app.procurement'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
+import { Route as CustomerPortalIndexRouteImport } from './routes/customer-portal.index'
+import { Route as CustomerPortalRequestIdRouteImport } from './routes/customer-portal.$requestId'
+import { Route as CustomerPortalRequestRouteImport } from './routes/customer-portal.request'
 import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
-import { Route as SisterCompanyIndexRouteImport } from './routes/sister-company.index'
-import { Route as SisterCompanyRequestIdRouteImport } from './routes/sister-company.$requestId'
-import { Route as SisterCompanyRequestRouteImport } from './routes/sister-company.request'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
@@ -51,6 +51,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomerPortalRoute = CustomerPortalRouteImport.update({
+  id: '/customer-portal',
+  path: '/customer-portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -59,11 +64,6 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SisterCompanyRoute = SisterCompanyRouteImport.update({
-  id: '/sister-company',
-  path: '/sister-company',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperadminRoute = SuperadminRouteImport.update({
@@ -156,25 +156,25 @@ const AppUnauthorizedRoute = AppUnauthorizedRouteImport.update({
   path: '/unauthorized',
   getParentRoute: () => AppRoute,
 } as any)
+const CustomerPortalIndexRoute = CustomerPortalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CustomerPortalRoute,
+} as any)
+const CustomerPortalRequestIdRoute = CustomerPortalRequestIdRouteImport.update({
+  id: '/$requestId',
+  path: '/$requestId',
+  getParentRoute: () => CustomerPortalRoute,
+} as any)
+const CustomerPortalRequestRoute = CustomerPortalRequestRouteImport.update({
+  id: '/request',
+  path: '/request',
+  getParentRoute: () => CustomerPortalRoute,
+} as any)
 const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
   id: '/pwa/$tenantId',
   path: '/pwa/$tenantId',
   getParentRoute: () => rootRouteImport,
-} as any)
-const SisterCompanyIndexRoute = SisterCompanyIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SisterCompanyRoute,
-} as any)
-const SisterCompanyRequestIdRoute = SisterCompanyRequestIdRouteImport.update({
-  id: '/$requestId',
-  path: '/$requestId',
-  getParentRoute: () => SisterCompanyRoute,
-} as any)
-const SisterCompanyRequestRoute = SisterCompanyRequestRouteImport.update({
-  id: '/request',
-  path: '/request',
-  getParentRoute: () => SisterCompanyRoute,
 } as any)
 const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
   id: '/drivers/',
@@ -200,9 +200,9 @@ const AppTripsTripIdRoute = AppTripsTripIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/customer-portal': typeof CustomerPortalRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/sister-company': typeof SisterCompanyRouteWithChildren
   '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
@@ -220,11 +220,11 @@ export interface FileRoutesByFullPath {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
+  '/customer-portal/request': typeof CustomerPortalRequestRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
-  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
-  '/sister-company/': typeof SisterCompanyIndexRoute
+  '/customer-portal/': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers/': typeof AppDriversIndexRoute
@@ -251,11 +251,11 @@ export interface FileRoutesByTo {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
+  '/customer-portal/request': typeof CustomerPortalRequestRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
-  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app': typeof AppIndexRoute
-  '/sister-company': typeof SisterCompanyIndexRoute
+  '/customer-portal': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers': typeof AppDriversIndexRoute
@@ -265,9 +265,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/customer-portal': typeof CustomerPortalRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/sister-company': typeof SisterCompanyRouteWithChildren
   '/superadmin': typeof SuperadminRoute
   '/app/accounts': typeof AppAccountsRoute
   '/app/admin': typeof AppAdminRoute
@@ -285,11 +285,11 @@ export interface FileRoutesById {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
+  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
+  '/customer-portal/request': typeof CustomerPortalRequestRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/sister-company/$requestId': typeof SisterCompanyRequestIdRoute
-  '/sister-company/request': typeof SisterCompanyRequestRoute
   '/app/': typeof AppIndexRoute
-  '/sister-company/': typeof SisterCompanyIndexRoute
+  '/customer-portal/': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
   '/app/drivers/': typeof AppDriversIndexRoute
@@ -300,9 +300,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/customer-portal'
     | '/forgot-password'
     | '/login'
-    | '/sister-company'
     | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
@@ -320,11 +320,11 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/customer-portal/$requestId'
+    | '/customer-portal/request'
     | '/pwa/$tenantId'
-    | '/sister-company/$requestId'
-    | '/sister-company/request'
     | '/app/'
-    | '/sister-company/'
+    | '/customer-portal/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers/'
@@ -351,11 +351,11 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/customer-portal/$requestId'
+    | '/customer-portal/request'
     | '/pwa/$tenantId'
-    | '/sister-company/$requestId'
-    | '/sister-company/request'
     | '/app'
-    | '/sister-company'
+    | '/customer-portal'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers'
@@ -364,9 +364,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/customer-portal'
     | '/forgot-password'
     | '/login'
-    | '/sister-company'
     | '/superadmin'
     | '/app/accounts'
     | '/app/admin'
@@ -384,11 +384,11 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
+    | '/customer-portal/$requestId'
+    | '/customer-portal/request'
     | '/pwa/$tenantId'
-    | '/sister-company/$requestId'
-    | '/sister-company/request'
     | '/app/'
-    | '/sister-company/'
+    | '/customer-portal/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
     | '/app/drivers/'
@@ -398,9 +398,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CustomerPortalRoute: typeof CustomerPortalRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
-  SisterCompanyRoute: typeof SisterCompanyRouteWithChildren
   SuperadminRoute: typeof SuperadminRoute
   PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
@@ -421,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customer-portal': {
+      id: '/customer-portal'
+      path: '/customer-portal'
+      fullPath: '/customer-portal'
+      preLoaderRoute: typeof CustomerPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
@@ -433,13 +440,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sister-company': {
-      id: '/sister-company'
-      path: '/sister-company'
-      fullPath: '/sister-company'
-      preLoaderRoute: typeof SisterCompanyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/superadmin': {
@@ -568,33 +568,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUnauthorizedRouteImport
       parentRoute: typeof AppRoute
     }
+    '/customer-portal/': {
+      id: '/customer-portal/'
+      path: '/'
+      fullPath: '/customer-portal/'
+      preLoaderRoute: typeof CustomerPortalIndexRouteImport
+      parentRoute: typeof CustomerPortalRoute
+    }
+    '/customer-portal/$requestId': {
+      id: '/customer-portal/$requestId'
+      path: '/$requestId'
+      fullPath: '/customer-portal/$requestId'
+      preLoaderRoute: typeof CustomerPortalRequestIdRouteImport
+      parentRoute: typeof CustomerPortalRoute
+    }
+    '/customer-portal/request': {
+      id: '/customer-portal/request'
+      path: '/request'
+      fullPath: '/customer-portal/request'
+      preLoaderRoute: typeof CustomerPortalRequestRouteImport
+      parentRoute: typeof CustomerPortalRoute
+    }
     '/pwa/$tenantId': {
       id: '/pwa/$tenantId'
       path: '/pwa/$tenantId'
       fullPath: '/pwa/$tenantId'
       preLoaderRoute: typeof PwaTenantIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/sister-company/': {
-      id: '/sister-company/'
-      path: '/'
-      fullPath: '/sister-company/'
-      preLoaderRoute: typeof SisterCompanyIndexRouteImport
-      parentRoute: typeof SisterCompanyRoute
-    }
-    '/sister-company/$requestId': {
-      id: '/sister-company/$requestId'
-      path: '/$requestId'
-      fullPath: '/sister-company/$requestId'
-      preLoaderRoute: typeof SisterCompanyRequestIdRouteImport
-      parentRoute: typeof SisterCompanyRoute
-    }
-    '/sister-company/request': {
-      id: '/sister-company/request'
-      path: '/request'
-      fullPath: '/sister-company/request'
-      preLoaderRoute: typeof SisterCompanyRequestRouteImport
-      parentRoute: typeof SisterCompanyRoute
     }
     '/app/drivers/': {
       id: '/app/drivers/'
@@ -677,28 +677,28 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface SisterCompanyRouteChildren {
-  SisterCompanyRequestIdRoute: typeof SisterCompanyRequestIdRoute
-  SisterCompanyRequestRoute: typeof SisterCompanyRequestRoute
-  SisterCompanyIndexRoute: typeof SisterCompanyIndexRoute
+interface CustomerPortalRouteChildren {
+  CustomerPortalRequestIdRoute: typeof CustomerPortalRequestIdRoute
+  CustomerPortalRequestRoute: typeof CustomerPortalRequestRoute
+  CustomerPortalIndexRoute: typeof CustomerPortalIndexRoute
 }
 
-const SisterCompanyRouteChildren: SisterCompanyRouteChildren = {
-  SisterCompanyRequestIdRoute: SisterCompanyRequestIdRoute,
-  SisterCompanyRequestRoute: SisterCompanyRequestRoute,
-  SisterCompanyIndexRoute: SisterCompanyIndexRoute,
+const CustomerPortalRouteChildren: CustomerPortalRouteChildren = {
+  CustomerPortalRequestIdRoute: CustomerPortalRequestIdRoute,
+  CustomerPortalRequestRoute: CustomerPortalRequestRoute,
+  CustomerPortalIndexRoute: CustomerPortalIndexRoute,
 }
 
-const SisterCompanyRouteWithChildren = SisterCompanyRoute._addFileChildren(
-  SisterCompanyRouteChildren,
+const CustomerPortalRouteWithChildren = CustomerPortalRoute._addFileChildren(
+  CustomerPortalRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CustomerPortalRoute: CustomerPortalRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  SisterCompanyRoute: SisterCompanyRouteWithChildren,
   SuperadminRoute: SuperadminRoute,
   PwaTenantIdRoute: PwaTenantIdRoute,
 }

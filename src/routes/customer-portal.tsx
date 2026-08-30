@@ -4,10 +4,10 @@ import { Route as RootRoute } from "./__root";
 import { Button } from "@/components/ui/button";
 import { LogOut, Truck } from "lucide-react";
 
-export const Route = createFileRoute("/sister-company")({
+export const Route = createFileRoute("/customer-portal")({
   beforeLoad: () => {
     const role = authService.getRole();
-    if (role !== "Sister Companies (External)") {
+    if (role !== "Customer Portals (External)") {
       throw redirect({ to: "/login" });
     }
   },
@@ -55,8 +55,8 @@ function SisterCompanyShell() {
           Partner Portal
         </span>
         <nav className="flex flex-1 items-center justify-end gap-4">
-          <Link to="/sister-company" className="text-sm font-medium hover:text-primary [&.active]:text-primary">Dashboard</Link>
-          <Link to="/sister-company/request" className="text-sm font-medium hover:text-primary [&.active]:text-primary">New Request</Link>
+          <Link to="/customer-portal" className="text-sm font-medium hover:text-primary [&.active]:text-primary">Dashboard</Link>
+          <Link to="/customer-portal/request" className="text-sm font-medium hover:text-primary [&.active]:text-primary">New Request</Link>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
             <LogOut className="h-4 w-4" /> Sign Out
           </Button>

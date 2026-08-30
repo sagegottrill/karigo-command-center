@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Navigation, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/sister-company/$requestId")({
+export const Route = createFileRoute("/customer-portal/$requestId")({
   component: RequestTrackingPage,
 });
 
@@ -30,7 +30,7 @@ function RequestTrackingPage() {
     <div className="space-y-6 pb-24">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
-          <Link to="/sister-company"><ArrowLeft className="h-4 w-4" /> Back to Dashboard</Link>
+          <Link to="/customer-portal"><ArrowLeft className="h-4 w-4" /> Back to Dashboard</Link>
         </Button>
         <PageHeader
           title={`Request ${trip.id}`}

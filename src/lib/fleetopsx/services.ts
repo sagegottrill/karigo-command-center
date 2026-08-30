@@ -234,7 +234,7 @@ export const orderService = {
     const id = `TRP-${String(850 + store.trips.length).padStart(5, "0")}`;
     const newOrder: Trip = {
       id,
-      customer: "Sister Company",
+      customer: "Customer Portal",
       customerConsignee: payload.customerConsignee,
       cargo: payload.cargo,
       pickup: payload.pickup,

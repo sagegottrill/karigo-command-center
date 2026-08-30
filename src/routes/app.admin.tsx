@@ -64,7 +64,7 @@ function AdminPage() {
     }
     await adminService.createUser({
       ...newUser,
-      companyId: newUser.role === "Sister Companies (External)" ? newUser.companyId : undefined,
+      companyId: newUser.role === "Customer Portals (External)" ? newUser.companyId : undefined,
     });
     toast.success("User created. Default password requires reset on login.");
     setIsAddUserOpen(false);
@@ -77,7 +77,7 @@ function AdminPage() {
       return;
     }
     await companyService.create(newCompany);
-    toast.success("Sister Company profile created.");
+    toast.success("Customer Portal profile created.");
     setIsAddCompanyOpen(false);
     companyService.list().then(setCompanies);
   };
@@ -151,7 +151,7 @@ function AdminPage() {
 
   const handleApproveDispatch = (id: string) => {
     // In a real app, we'd update the trip status via service
-    toast.success(`Dispatch ${id} approved and routed to Sister Company.`);
+    toast.success(`Dispatch ${id} approved and routed to Customer Portal.`);
     setTrips(trips.map(t => t.id === id ? { ...t, status: "Scheduled" } : t));
   };
 
@@ -188,7 +188,7 @@ function AdminPage() {
 
       <Tabs defaultValue="approvals">
         <TabsList className="h-9">
-          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["logins", "Login Reports"], ["companies", "Sister Companies"], ["config", "System Configuration"]] as const).map(([v, l]) => (
+          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["logins", "Login Reports"], ["companies", "Customer Portals"], ["config", "System Configuration"]] as const).map(([v, l]) => (
             <TabsTrigger key={v} value={v} className="text-xs">{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -246,9 +246,9 @@ function AdminPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {newUser.role === "Sister Companies (External)" && (
+                    {newUser.role === "Customer Portals (External)" && (
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Sister Company Profile</Label>
+                        <Label className="text-xs">Customer Portal Profile</Label>
                         <Select value={newUser.companyId} onValueChange={(v) => setNewUser({...newUser, companyId: v})}>
                           <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
                           <SelectContent>
@@ -284,9 +284,9 @@ function AdminPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {editUser.role === "Sister Companies (External)" && (
+                  {editUser.role === "Customer Portals (External)" && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Sister Company Profile</Label>
+                      <Label className="text-xs">Customer Portal Profile</Label>
                       <Select value={editUser.companyId || "none"} onValueChange={(v) => setEditUser({...editUser, companyId: v === "none" ? undefined : v})}>
                         <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
                         <SelectContent>
@@ -331,7 +331,7 @@ function AdminPage() {
 
         <TabsContent value="companies" className="mt-4">
           <SectionPanel 
-            title="Sister Companies" 
+            title="Customer Portals" 
             description={`${companies.length} profiles`} 
             bodyClassName="p-0"
             meta={
@@ -341,7 +341,7 @@ function AdminPage() {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>New Sister Company</DialogTitle>
+                    <DialogTitle>New Customer Portal</DialogTitle>
                     <DialogDescription>Create a new external company profile.</DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">

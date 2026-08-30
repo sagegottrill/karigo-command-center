@@ -6,7 +6,7 @@ import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 
-export const Route = createFileRoute("/sister-company/")({
+export const Route = createFileRoute("/customer-portal/")({
   component: SisterCompanyDashboard,
 });
 
@@ -16,8 +16,8 @@ function SisterCompanyDashboard() {
 
   useEffect(() => {
     tripService.list().then((allTrips) => {
-      // Show trips belonging to Sister Company
-      setRequests(allTrips.filter((t) => t.customer === "Sister Company"));
+      // Show trips belonging to Customer Portal
+      setRequests(allTrips.filter((t) => t.customer === "Customer Portal"));
     });
   }, []);
 
@@ -42,7 +42,7 @@ function SisterCompanyDashboard() {
           columns={columns}
           pageSize={10}
           searchKeys={(r) => `${r.id} ${r.customerConsignee} ${r.dropoff}`}
-          onRowClick={(r) => navigate({ to: "/sister-company/$requestId", params: { requestId: r.id } })}
+          onRowClick={(r) => navigate({ to: "/customer-portal/$requestId", params: { requestId: r.id } })}
         />
       </div>
     </div>
