@@ -53,7 +53,7 @@ function LoginPage() {
     }
     toast.success("Welcome back", { description: `Signed in as ${user.roleName}` });
     if (user.role === "Customer Portals (External)") {
-      navigate({ to: "/customer-portal" });
+      navigate({ to: "/customer-portal/dashboard" });
     } else {
       navigate({ to: "/app" });
     }
@@ -68,7 +68,7 @@ function LoginPage() {
     await authService.completeFirstTimeLogin(userContext.id);
     toast.success("Password updated successfully.");
     if (userContext.role === "Customer Portals (External)") {
-      navigate({ to: "/customer-portal" });
+      navigate({ to: "/customer-portal/dashboard" });
     } else {
       navigate({ to: "/app" });
     }

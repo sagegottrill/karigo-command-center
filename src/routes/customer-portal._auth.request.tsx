@@ -9,7 +9,7 @@ import { orderService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 
-export const Route = createFileRoute("/customer-portal/request")({
+export const Route = createFileRoute("/customer-portal/_auth/request")({
   component: SisterCompanyRequest,
 });
 

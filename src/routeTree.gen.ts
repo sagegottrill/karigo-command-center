@@ -33,13 +33,16 @@ import { Route as AppProcurementRouteImport } from './routes/app.procurement'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
 import { Route as CustomerPortalIndexRouteImport } from './routes/customer-portal.index'
-import { Route as CustomerPortalRequestIdRouteImport } from './routes/customer-portal.$requestId'
-import { Route as CustomerPortalRequestRouteImport } from './routes/customer-portal.request'
+import { Route as CustomerPortalAuthRouteImport } from './routes/customer-portal._auth'
+import { Route as CustomerPortalLoginRouteImport } from './routes/customer-portal.login'
 import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
 import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
 import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
 import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
 import { Route as AppTripsTripIdRouteImport } from './routes/app.trips.$tripId'
+import { Route as CustomerPortalAuthRequestIdRouteImport } from './routes/customer-portal._auth.$requestId'
+import { Route as CustomerPortalAuthDashboardRouteImport } from './routes/customer-portal._auth.dashboard'
+import { Route as CustomerPortalAuthRequestRouteImport } from './routes/customer-portal._auth.request'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -161,14 +164,13 @@ const CustomerPortalIndexRoute = CustomerPortalIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CustomerPortalRoute,
 } as any)
-const CustomerPortalRequestIdRoute = CustomerPortalRequestIdRouteImport.update({
-  id: '/$requestId',
-  path: '/$requestId',
+const CustomerPortalAuthRoute = CustomerPortalAuthRouteImport.update({
+  id: '/_auth',
   getParentRoute: () => CustomerPortalRoute,
 } as any)
-const CustomerPortalRequestRoute = CustomerPortalRequestRouteImport.update({
-  id: '/request',
-  path: '/request',
+const CustomerPortalLoginRoute = CustomerPortalLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => CustomerPortalRoute,
 } as any)
 const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
@@ -196,6 +198,24 @@ const AppTripsTripIdRoute = AppTripsTripIdRouteImport.update({
   path: '/trips/$tripId',
   getParentRoute: () => AppRoute,
 } as any)
+const CustomerPortalAuthRequestIdRoute =
+  CustomerPortalAuthRequestIdRouteImport.update({
+    id: '/$requestId',
+    path: '/$requestId',
+    getParentRoute: () => CustomerPortalAuthRoute,
+  } as any)
+const CustomerPortalAuthDashboardRoute =
+  CustomerPortalAuthDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => CustomerPortalAuthRoute,
+  } as any)
+const CustomerPortalAuthRequestRoute =
+  CustomerPortalAuthRequestRouteImport.update({
+    id: '/request',
+    path: '/request',
+    getParentRoute: () => CustomerPortalAuthRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -220,13 +240,15 @@ export interface FileRoutesByFullPath {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
-  '/customer-portal/request': typeof CustomerPortalRequestRoute
+  '/customer-portal/login': typeof CustomerPortalLoginRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app/': typeof AppIndexRoute
   '/customer-portal/': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/customer-portal/$requestId': typeof CustomerPortalAuthRequestIdRoute
+  '/customer-portal/dashboard': typeof CustomerPortalAuthDashboardRoute
+  '/customer-portal/request': typeof CustomerPortalAuthRequestRoute
   '/app/drivers/': typeof AppDriversIndexRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
@@ -251,13 +273,15 @@ export interface FileRoutesByTo {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
-  '/customer-portal/request': typeof CustomerPortalRequestRoute
+  '/customer-portal': typeof CustomerPortalIndexRoute
+  '/customer-portal/login': typeof CustomerPortalLoginRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app': typeof AppIndexRoute
-  '/customer-portal': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/customer-portal/$requestId': typeof CustomerPortalAuthRequestIdRoute
+  '/customer-portal/dashboard': typeof CustomerPortalAuthDashboardRoute
+  '/customer-portal/request': typeof CustomerPortalAuthRequestRoute
   '/app/drivers': typeof AppDriversIndexRoute
   '/app/trips': typeof AppTripsIndexRoute
 }
@@ -285,13 +309,16 @@ export interface FileRoutesById {
   '/app/procurement': typeof AppProcurementRoute
   '/app/reports': typeof AppReportsRoute
   '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal/$requestId': typeof CustomerPortalRequestIdRoute
-  '/customer-portal/request': typeof CustomerPortalRequestRoute
+  '/customer-portal/_auth': typeof CustomerPortalAuthRouteWithChildren
+  '/customer-portal/login': typeof CustomerPortalLoginRoute
   '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/app/': typeof AppIndexRoute
   '/customer-portal/': typeof CustomerPortalIndexRoute
   '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
   '/app/trips/$tripId': typeof AppTripsTripIdRoute
+  '/customer-portal/_auth/$requestId': typeof CustomerPortalAuthRequestIdRoute
+  '/customer-portal/_auth/dashboard': typeof CustomerPortalAuthDashboardRoute
+  '/customer-portal/_auth/request': typeof CustomerPortalAuthRequestRoute
   '/app/drivers/': typeof AppDriversIndexRoute
   '/app/trips/': typeof AppTripsIndexRoute
 }
@@ -320,13 +347,15 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
-    | '/customer-portal/$requestId'
-    | '/customer-portal/request'
+    | '/customer-portal/login'
     | '/pwa/$tenantId'
     | '/app/'
     | '/customer-portal/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/customer-portal/$requestId'
+    | '/customer-portal/dashboard'
+    | '/customer-portal/request'
     | '/app/drivers/'
     | '/app/trips/'
   fileRoutesByTo: FileRoutesByTo
@@ -351,13 +380,15 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
-    | '/customer-portal/$requestId'
-    | '/customer-portal/request'
+    | '/customer-portal'
+    | '/customer-portal/login'
     | '/pwa/$tenantId'
     | '/app'
-    | '/customer-portal'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/customer-portal/$requestId'
+    | '/customer-portal/dashboard'
+    | '/customer-portal/request'
     | '/app/drivers'
     | '/app/trips'
   id:
@@ -384,13 +415,16 @@ export interface FileRouteTypes {
     | '/app/procurement'
     | '/app/reports'
     | '/app/unauthorized'
-    | '/customer-portal/$requestId'
-    | '/customer-portal/request'
+    | '/customer-portal/_auth'
+    | '/customer-portal/login'
     | '/pwa/$tenantId'
     | '/app/'
     | '/customer-portal/'
     | '/app/drivers/$driverId'
     | '/app/trips/$tripId'
+    | '/customer-portal/_auth/$requestId'
+    | '/customer-portal/_auth/dashboard'
+    | '/customer-portal/_auth/request'
     | '/app/drivers/'
     | '/app/trips/'
   fileRoutesById: FileRoutesById
@@ -575,18 +609,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomerPortalIndexRouteImport
       parentRoute: typeof CustomerPortalRoute
     }
-    '/customer-portal/$requestId': {
-      id: '/customer-portal/$requestId'
-      path: '/$requestId'
-      fullPath: '/customer-portal/$requestId'
-      preLoaderRoute: typeof CustomerPortalRequestIdRouteImport
+    '/customer-portal/_auth': {
+      id: '/customer-portal/_auth'
+      path: ''
+      fullPath: '/customer-portal'
+      preLoaderRoute: typeof CustomerPortalAuthRouteImport
       parentRoute: typeof CustomerPortalRoute
     }
-    '/customer-portal/request': {
-      id: '/customer-portal/request'
-      path: '/request'
-      fullPath: '/customer-portal/request'
-      preLoaderRoute: typeof CustomerPortalRequestRouteImport
+    '/customer-portal/login': {
+      id: '/customer-portal/login'
+      path: '/login'
+      fullPath: '/customer-portal/login'
+      preLoaderRoute: typeof CustomerPortalLoginRouteImport
       parentRoute: typeof CustomerPortalRoute
     }
     '/pwa/$tenantId': {
@@ -623,6 +657,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/trips/$tripId'
       preLoaderRoute: typeof AppTripsTripIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/customer-portal/_auth/$requestId': {
+      id: '/customer-portal/_auth/$requestId'
+      path: '/$requestId'
+      fullPath: '/customer-portal/$requestId'
+      preLoaderRoute: typeof CustomerPortalAuthRequestIdRouteImport
+      parentRoute: typeof CustomerPortalAuthRoute
+    }
+    '/customer-portal/_auth/dashboard': {
+      id: '/customer-portal/_auth/dashboard'
+      path: '/dashboard'
+      fullPath: '/customer-portal/dashboard'
+      preLoaderRoute: typeof CustomerPortalAuthDashboardRouteImport
+      parentRoute: typeof CustomerPortalAuthRoute
+    }
+    '/customer-portal/_auth/request': {
+      id: '/customer-portal/_auth/request'
+      path: '/request'
+      fullPath: '/customer-portal/request'
+      preLoaderRoute: typeof CustomerPortalAuthRequestRouteImport
+      parentRoute: typeof CustomerPortalAuthRoute
     }
   }
 }
@@ -677,15 +732,30 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface CustomerPortalAuthRouteChildren {
+  CustomerPortalAuthRequestIdRoute: typeof CustomerPortalAuthRequestIdRoute
+  CustomerPortalAuthDashboardRoute: typeof CustomerPortalAuthDashboardRoute
+  CustomerPortalAuthRequestRoute: typeof CustomerPortalAuthRequestRoute
+}
+
+const CustomerPortalAuthRouteChildren: CustomerPortalAuthRouteChildren = {
+  CustomerPortalAuthRequestIdRoute: CustomerPortalAuthRequestIdRoute,
+  CustomerPortalAuthDashboardRoute: CustomerPortalAuthDashboardRoute,
+  CustomerPortalAuthRequestRoute: CustomerPortalAuthRequestRoute,
+}
+
+const CustomerPortalAuthRouteWithChildren =
+  CustomerPortalAuthRoute._addFileChildren(CustomerPortalAuthRouteChildren)
+
 interface CustomerPortalRouteChildren {
-  CustomerPortalRequestIdRoute: typeof CustomerPortalRequestIdRoute
-  CustomerPortalRequestRoute: typeof CustomerPortalRequestRoute
+  CustomerPortalAuthRoute: typeof CustomerPortalAuthRouteWithChildren
+  CustomerPortalLoginRoute: typeof CustomerPortalLoginRoute
   CustomerPortalIndexRoute: typeof CustomerPortalIndexRoute
 }
 
 const CustomerPortalRouteChildren: CustomerPortalRouteChildren = {
-  CustomerPortalRequestIdRoute: CustomerPortalRequestIdRoute,
-  CustomerPortalRequestRoute: CustomerPortalRequestRoute,
+  CustomerPortalAuthRoute: CustomerPortalAuthRouteWithChildren,
+  CustomerPortalLoginRoute: CustomerPortalLoginRoute,
   CustomerPortalIndexRoute: CustomerPortalIndexRoute,
 }
 

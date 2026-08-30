@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Navigation, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/customer-portal/$requestId")({
+export const Route = createFileRoute("/customer-portal/_auth/$requestId")({
   component: RequestTrackingPage,
 });
 
