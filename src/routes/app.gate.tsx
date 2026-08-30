@@ -37,7 +37,7 @@ export const Route = createFileRoute("/app/gate")({
   },
   beforeLoad: () => {
     const allowed = ["Transport Manager", "Security"];
-    if (!allowed.includes(authService.getRole())) {
+    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/app" });
     }
   },

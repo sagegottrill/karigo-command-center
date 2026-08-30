@@ -16,7 +16,7 @@ import type { Driver } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/app/drivers/")({
   beforeLoad: () => {
     const allowed = ["Transport Manager", "HR", "Fleet Operations"];
-    if (!allowed.includes(authService.getRole())) {
+    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/app" });
     }
   },

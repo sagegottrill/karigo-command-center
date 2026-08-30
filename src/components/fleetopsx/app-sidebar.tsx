@@ -48,7 +48,8 @@ export function AppSidebar({
   const isActive = (to: string) =>
     to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
 
-  const roleName = authService.getRole();
+  const roleNames = authService.getRoles();
+  const roleName = roleNames.join(', ');
   const activeRole = authService.getRoles().find(r => r.name === roleName);
   const allowedModules = activeRole?.modules || [];
 

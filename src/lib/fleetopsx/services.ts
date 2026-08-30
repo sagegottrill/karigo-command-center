@@ -117,7 +117,7 @@ export const authService = {
     
     if (typeof window !== "undefined") {
       sessionStorage.setItem("fleetopsx_user_id", user.id);
-      sessionStorage.setItem("fleetopsx_role", user.role);
+      sessionStorage.setItem("fleetopsx_roles", JSON.stringify(user.roles));
     }
     return settle(user);
   },
@@ -130,12 +130,17 @@ export const authService = {
     store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
     return settle(true);
   },
-  getRole: () => {
-    if (typeof window === "undefined") return "Transport Manager";
-    return sessionStorage.getItem("fleetopsx_role") || "Transport Manager";
+  getRoles: (): string[] => {
+    if (typeof window === "undefined") return ["Transport Manager"];
+    try {
+      const stored = sessionStorage.getItem("fleetopsx_roles");
+      return stored ? JSON.parse(stored) : ["Transport Manager"];
+    } catch {
+      return ["Transport Manager"];
+    }
   },
-  setRole: (role: string) => {
-    sessionStorage.setItem("fleetopsx_role", role);
+  setRoles: (roles: string[]) => {
+    sessionStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
   },
   logout: () => {
     sessionStorage.removeItem("fleetopsx_user_id");
@@ -604,7 +609,7 @@ export const adminService = {
   tenant: () => settle(db.TENANT),
   users: () => settle([...store.users]),
   roles: () => settle(db.ROLES),
-  createUser: (payload: { firstName: string; surname: string; role: string; username: string; department: string; companyId?: string }) => {
+  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string }) => {
     const id = `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
     const newUser: import("./types").User = {
@@ -612,8 +617,8 @@ export const adminService = {
       name,
       email: `${payload.username}@petroline.ng`,
       username: payload.username,
-      role: payload.role as any,
-      roleName: payload.role,
+      roles: payload.roles as any,
+      roleNames: payload.roles,
       department: payload.department,
       status: "Active",
       passwordResetRequired: true,
@@ -625,7 +630,7 @@ export const adminService = {
     return settle(newUser);
   },
   editUser: (id: string, payload: Partial<import("./types").User>) => {
-    store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleName: payload.role || u.roleName } : u);
+    store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
     return settle(true);
   },
   resetPassword: (id: string) => {

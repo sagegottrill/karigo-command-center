@@ -69,17 +69,17 @@ const tooltipStyle = {
 };
 
 function Dashboard() {
-  const role = authService.getRole();
+  const roles = authService.getRoles();
   const data = Route.useLoaderData();
 
-  if (role === "Transport Manager") return <ManagementDashboard data={data} />;
-  if (role === "Fleet Operations") return <FleetManagerDashboard {...data} />;
-  if (role === "Diesel") return <FuelManagerDashboard {...data} />;
-  if (role === "Accounts") return <AccountantDashboard {...data} />;
-  if (role === "Security") return <GateDashboard {...data} />;
-  if (role === "HR") return <HRDashboard {...data} />;
-  if (role === "Engineering") return <EngineerDashboard {...data} />;
-  if (role === "Parts & Store") return <ProcurementDashboard {...data} />;
+  if (roles.includes("Transport Manager")) return <ManagementDashboard data={data} />;
+  if (roles.includes("Fleet Operations")) return <FleetManagerDashboard {...data} />;
+  if (roles.includes("Diesel")) return <FuelManagerDashboard {...data} />;
+  if (roles.includes("Accounts")) return <AccountantDashboard {...data} />;
+  if (roles.includes("Security")) return <GateDashboard {...data} />;
+  if (roles.includes("HR")) return <HRDashboard {...data} />;
+  if (roles.includes("Engineering")) return <EngineerDashboard {...data} />;
+  if (roles.includes("Parts & Store")) return <ProcurementDashboard {...data} />;
   
   // Fallback
   return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground">No dashboard available for this role.</div>;

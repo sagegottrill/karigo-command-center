@@ -5,8 +5,8 @@ import { LogOut, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/customer-portal/_auth")({
   beforeLoad: () => {
-    const role = authService.getRole();
-    if (role !== "Customer Portals (External)") {
+    const roles = authService.getRoles();
+    if (!roles.includes("Customer Portals (External)")) {
       throw redirect({ to: "/customer-portal/login" });
     }
   },

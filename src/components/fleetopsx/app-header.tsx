@@ -25,7 +25,8 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
-  const roleName = authService.getRole();
+  const roleNames = authService.getRoles();
+  const roleName = roleNames.join(', ');
   const role = ROLES.find(r => r.name === roleName) ?? ROLES[0]!;
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });

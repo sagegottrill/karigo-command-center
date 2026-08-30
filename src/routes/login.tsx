@@ -51,8 +51,8 @@ function LoginPage() {
       toast.info("Security Policy", { description: "You must change your default password to continue." });
       return;
     }
-    toast.success("Welcome back", { description: `Signed in as ${user.roleName}` });
-    if (user.role === "Customer Portals (External)") {
+    toast.success("Welcome back", { description: `Signed in as ${user.roleNames.join(', ')}` });
+    if (user.roles.includes("Customer Portals (External)")) {
       navigate({ to: "/customer-portal/dashboard" });
     } else {
       navigate({ to: "/app" });
@@ -67,7 +67,7 @@ function LoginPage() {
     }
     await authService.completeFirstTimeLogin(userContext.id);
     toast.success("Password updated successfully.");
-    if (userContext.role === "Customer Portals (External)") {
+    if (userContext.roles.includes("Customer Portals (External)")) {
       navigate({ to: "/customer-portal/dashboard" });
     } else {
       navigate({ to: "/app" });

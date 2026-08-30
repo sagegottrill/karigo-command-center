@@ -64,8 +64,8 @@ export interface User {
   name: string;
   email: string;
   username?: string;
-  role: RoleKey;
-  roleName: string;
+  roles: RoleKey[];
+  roleNames: string[];
   department: string;
   status: "Active" | "Suspended" | "Invited" | "Deleted";
   passwordResetRequired?: boolean;

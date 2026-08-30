@@ -595,14 +595,18 @@ export const USERS: User[] = [
   name: name as string,
   email: `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
   username: `${(name as string).split(" ")[0]!.charAt(0).toLowerCase()}${(name as string).split(" ")[1]!.toLowerCase()}`,
-  role: role as User["role"],
-  roleName: roleName as string,
+  roles: [role as User["roles"][0]],
+  roleNames: [roleName as string],
   department: department as string,
   status: i === 8 ? "Invited" : "Active",
   passwordResetRequired: i === 1,
   lastActive: `${int(1, 59)} min ago`,
   initials: (name as string).split(" ").map((p) => p[0]).join("").slice(0, 2),
 }));
+
+// Give Okwudili Fortune multiple roles for testing
+USERS[0]!.roles = ["Transport Manager", "HR"];
+USERS[0]!.roleNames = ["Transport Manager", "HR Manager"];
 
 export const ROLES: Role[] = [
   { key: "Transport Manager", name: "Transport Manager", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },

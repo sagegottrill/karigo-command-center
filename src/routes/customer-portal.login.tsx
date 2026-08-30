@@ -30,7 +30,7 @@ function CustomerLogin() {
       toast.error("Invalid credentials.");
       return;
     }
-    if (user.role !== "Customer Portals (External)") {
+    if (!user.roles.includes("Customer Portals (External)")) {
       toast.error("Access denied. Please use the main employee login portal.");
       authService.logout();
       return;

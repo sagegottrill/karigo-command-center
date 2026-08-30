@@ -27,7 +27,7 @@ export const Route = createFileRoute("/app/admin")({
   },
   beforeLoad: () => {
     const allowed = ["Transport Manager"];
-    if (!allowed.includes(authService.getRole())) {
+    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/app" });
     }
   },
@@ -47,7 +47,7 @@ function AdminPage() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ firstName: "", surname: "", username: "", role: "", defaultPassword: "", companyId: "" });
+  const [newUser, setNewUser] = useState<{ firstName: string; surname: string; username: string; roles: string[]; defaultPassword: string; companyId: string }>({ firstName: "", surname: "", username: "", roles: [], defaultPassword: "", companyId: "" });
   const [editUser, setEditUser] = useState<Partial<User>>({});
   const [newCompany, setNewCompany] = useState({ name: "", contactPerson: "", phone: "", email: "" });
 
@@ -58,13 +58,13 @@ function AdminPage() {
   }, []);
 
   const handleCreateUser = async () => {
-    if (!newUser.firstName || !newUser.surname || !newUser.username || !newUser.role || !newUser.defaultPassword) {
-      toast.error("Please fill all required fields");
+    if (!newUser.firstName || !newUser.surname || !newUser.username || newUser.roles.length === 0 || !newUser.defaultPassword) {
+      toast.error("Please fill all required fields and select at least one role");
       return;
     }
     await adminService.createUser({
       ...newUser,
-      companyId: newUser.role === "Customer Portals (External)" ? newUser.companyId : undefined,
+      companyId: newUser.roles.includes("Customer Portals (External)") ? newUser.companyId : undefined,
     });
     toast.success("User created. Default password requires reset on login.");
     setIsAddUserOpen(false);
@@ -111,7 +111,15 @@ function AdminPage() {
         <span className="text-xs text-muted-foreground">@{r.username} {r.companyId ? `· ${companies.find(c => c.id === r.companyId)?.name || r.companyId}` : ""}</span>
       </div>
     ) },
-    { key: "role", header: "Role", sortValue: (r) => r.roleName, cell: (r) => r.roleName },
+    { key: "role", header: "Roles", sortValue: (r) => r.roleNames.join(", "), cell: (r) => (
+      <div className="flex flex-wrap gap-1">
+        {r.roleNames.map((n) => (
+          <span key={n} className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-800">
+            {n}
+          </span>
+        ))}
+      </div>
+    )},
     { key: "dept", header: "Department", cell: (r) => r.department },
     { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
     { key: "actions", header: "", cell: (r) => (
@@ -238,15 +246,31 @@ function AdminPage() {
                     <div className="space-y-1.5"><Label className="text-xs">Username</Label><Input className="h-9 text-xs" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} /></div>
                     <div className="space-y-1.5"><Label className="text-xs">Default Password (Temporary)</Label><Input type="password" placeholder="e.g. Temp123!" className="h-9 text-xs" value={newUser.defaultPassword} onChange={e => setNewUser({...newUser, defaultPassword: e.target.value})} /></div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Assigned Role</Label>
-                      <Select value={newUser.role} onValueChange={(v) => setNewUser({...newUser, role: v})}>
-                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select role" /></SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map(r => <SelectItem key={r.key} value={r.key} className="text-xs">{r.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Label className="text-xs">Assigned Roles</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {ROLES.map(r => (
+                          <button
+                            key={r.key}
+                            type="button"
+                            onClick={() => {
+                              const selected = newUser.roles.includes(r.key);
+                              setNewUser({
+                                ...newUser,
+                                roles: selected ? newUser.roles.filter(role => role !== r.key) : [...newUser.roles, r.key]
+                              });
+                            }}
+                            className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium border ${
+                              newUser.roles.includes(r.key) 
+                                ? "bg-black text-white border-black" 
+                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            {r.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    {newUser.role === "Customer Portals (External)" && (
+                    {newUser.roles.includes("Customer Portals (External)") && (
                       <div className="space-y-1.5">
                         <Label className="text-xs">Customer Portal Profile</Label>
                         <Select value={newUser.companyId} onValueChange={(v) => setNewUser({...newUser, companyId: v})}>
@@ -276,15 +300,34 @@ function AdminPage() {
                   <div className="space-y-1.5"><Label className="text-xs">Full Name</Label><Input className="h-9 text-xs" value={editUser.name || ""} onChange={e => setEditUser({...editUser, name: e.target.value})} /></div>
                   <div className="space-y-1.5"><Label className="text-xs">Department</Label><Input className="h-9 text-xs" value={editUser.department || ""} onChange={e => setEditUser({...editUser, department: e.target.value})} /></div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Assigned Role</Label>
-                    <Select value={editUser.role || ""} onValueChange={(v) => setEditUser({...editUser, role: v as RoleKey})}>
-                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select role" /></SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map(r => <SelectItem key={r.key} value={r.key} className="text-xs">{r.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {editUser.role === "Customer Portals (External)" && (
+                      <Label className="text-xs">Assigned Roles</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {ROLES.map(r => {
+                          const roles = editUser.roles || [];
+                          return (
+                            <button
+                              key={r.key}
+                              type="button"
+                              onClick={() => {
+                                const selected = roles.includes(r.key as any);
+                                setEditUser({
+                                  ...editUser,
+                                  roles: selected ? roles.filter(role => role !== r.key) : [...roles, r.key as any]
+                                });
+                              }}
+                              className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium border ${
+                                roles.includes(r.key as any) 
+                                  ? "bg-black text-white border-black" 
+                                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                              }`}
+                            >
+                              {r.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {editUser.roles?.includes("Customer Portals (External)") && (
                     <div className="space-y-1.5">
                       <Label className="text-xs">Customer Portal Profile</Label>
                       <Select value={editUser.companyId || "none"} onValueChange={(v) => setEditUser({...editUser, companyId: v === "none" ? undefined : v})}>
