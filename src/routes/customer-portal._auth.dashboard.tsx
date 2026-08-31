@@ -24,7 +24,7 @@ function SisterCompanyDashboard() {
   const columns: Column<Trip>[] = [
     { key: "id", header: "Request ID", cell: (r) => <span className="font-medium text-xs">{r.id}</span> },
     { key: "customerConsignee", header: "Consignee", cell: (r) => <span className="text-xs">{r.customerConsignee || "—"}</span> },
-    { key: "pickup", header: "Pickup", cell: (r) => <span className="text-xs">{r.pickup}</span> },
+    { key: "pickup", header: "Pickup", cell: (r) => <span className="text-xs">{r.loadingSite && r.loadingSite.length > 1 ? `${r.loadingSite.length} Sites` : (r.pickup || "—")}</span> },
     { key: "dropoff", header: "Destination", cell: (r) => <span className="text-xs">{r.dropoff}</span> },
     { key: "tailType", header: "Tail Type", cell: (r) => <span className="text-xs">{r.tailType || "—"}</span> },
     { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },

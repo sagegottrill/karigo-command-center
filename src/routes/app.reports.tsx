@@ -23,9 +23,10 @@ export const Route = createFileRoute("/app/reports")({
     return { ...overview, charts };
   },
   beforeLoad: () => {
+    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Accounts"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
-      throw redirect({ to: "/app" });
+      throw redirect({ to: "/app/unauthorized" });
     }
   },
   head: () => ({

@@ -37,6 +37,11 @@ function SisterCompanyRequest() {
 
     const resolvedSites = loadingSites.map(s => s.predefined === "Others" ? s.custom : s.predefined);
 
+    if (new Set(resolvedSites).size !== resolvedSites.length) {
+      toast.error("Duplicate loading sites are not allowed");
+      return;
+    }
+
     const payload = {
       customerConsignee,
       cargo,
@@ -49,7 +54,7 @@ function SisterCompanyRequest() {
 
     await orderService.submitCustomerOrder(payload);
     toast.success("Request submitted to Fleet Operations");
-    navigate({ to: "/customer-portal" });
+    navigate({ to: "/customer-portal/dashboard" });
   };
 
   return (

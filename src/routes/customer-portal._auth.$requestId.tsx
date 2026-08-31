@@ -30,7 +30,7 @@ function RequestTrackingPage() {
     <div className="space-y-6 pb-24">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
-          <Link to="/customer-portal"><ArrowLeft className="h-4 w-4" /> Back to Dashboard</Link>
+          <Link to="/customer-portal/dashboard"><ArrowLeft className="h-4 w-4" /> Back to Dashboard</Link>
         </Button>
         <PageHeader
           title={`Request ${trip.id}`}
@@ -45,7 +45,7 @@ function RequestTrackingPage() {
           <SectionPanel title="Original Request" bodyClassName="pt-1">
             <FieldRow label="Consignee" value={trip.customerConsignee || "—"} />
             <FieldRow label="Cargo Details" value={trip.cargo} />
-            <FieldRow label="Pickup Site" value={trip.pickup} />
+            <FieldRow label="Pickup Site" value={trip.loadingRoutingType === "Multiple" && trip.loadingSite ? trip.loadingSite.join(", ") : trip.pickup} />
             <FieldRow label="Destination" value={trip.dropoff} />
             <FieldRow label="Scheduled Date" value={trip.scheduledDate || "—"} />
           </SectionPanel>

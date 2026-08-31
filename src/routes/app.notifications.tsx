@@ -13,9 +13,10 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/notifications")({
   loader: () => notificationService.list(),
   beforeLoad: () => {
+    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Fleet Operations", "Diesel", "Engineering", "Parts & Store", "Accounts", "HR", "Security", "Driver", "Customer Portals (External)"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
-      throw redirect({ to: "/app" });
+      throw redirect({ to: "/app/unauthorized" });
     }
   },
   head: () => ({
