@@ -95,10 +95,10 @@ function LoginPage() {
           )}
           <div>
             <h1 className="max-w-md text-[36px] leading-[1.1] font-semibold tracking-[-0.03em]">
-              Run fleet ops from one place
+              A centralized operational hub for {tenantName} personnel and authorized partners.
             </h1>
             <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-muted-foreground">
-              Trips, fuel, workshop, expenses and gate logs — all in one place.
+              Access is restricted to registered users.
             </p>
           </div>
           <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{tenantName} PORTAL</p>

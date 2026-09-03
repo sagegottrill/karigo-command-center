@@ -8,14 +8,21 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app")({
   beforeLoad: () => {
-    if (!authService.getCurrentUser()) {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw redirect({ to: "/login" });
+    }
+    if (user.passwordResetRequired) {
       throw redirect({ to: "/login" });
     }
   },
   component: AppShell,
 });
 function AppShell() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") return window.innerWidth < 768;
+    return false;
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

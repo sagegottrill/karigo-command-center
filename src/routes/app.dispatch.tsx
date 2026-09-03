@@ -98,20 +98,22 @@ function DispatchPage() {
   const distance = form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0;
   const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
-  const validate = () => {
-    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration", string>> = {};
-    if (step === 0) {
+  const validate = (validateAll = false) => {
+    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>> = {};
+    if (validateAll || step === 0) {
       if (!form.customer) e.customer = "Customer is required";
       if (!form.cargo) e.cargo = "Cargo description is required";
       if (!form.pickup) e.pickup = "Pickup location is required";
       if (!form.dropoff) e.dropoff = "Drop-off location is required";
     }
-    if (step === 1 && !form.headId) e.headId = "Select an available truck head";
-    if (step === 2) {
+    if (validateAll || step === 1) {
+      if (!form.headId) e.headId = "Select an available truck head";
+    }
+    if (validateAll || step === 2) {
       if (!form.tailId) e.tailId = "Select an available truck tail";
       if (!form.tailCalibration) e.tailCalibration = "Calibration value is required";
     }
-    if (step === 3) {
+    if (validateAll || step === 3) {
       if (form.manualDriver) {
         if (!form.manualSalaryNumber || !form.manualDriverName) e.manualDriver = "Please provide both Salary Number and Driver Name";
       } else {
@@ -133,6 +135,10 @@ function DispatchPage() {
   const submit = async () => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       toast.error("Offline Error", { description: "Cannot create dispatch while offline." });
+      return;
+    }
+    if (!validate(true)) {
+      toast.error("Validation Error", { description: "Please complete all mandatory fields before submitting." });
       return;
     }
     if (!head || !tail) return;
@@ -301,7 +307,7 @@ function DispatchPage() {
                     <button
                       key={t.id}
                       disabled={!selectable}
-                      onClick={() => setForm({ ...form, tailId: t.id })}
+                      onClick={() => setForm({ ...form, tailId: t.id, tailCalibration: "45,000L" })}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.tailId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",

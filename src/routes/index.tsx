@@ -109,7 +109,7 @@ function LandingPage() {
           id="top"
           className="relative flex min-h-[85vh] w-full max-w-7xl flex-col items-center justify-center px-6 text-center pt-24 pb-32"
         >
-          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f]">
+          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f] font-serif">
             The operating system <br className="hidden sm:block" /> for heavy logistics.
           </h1>
           
@@ -135,7 +135,7 @@ function LandingPage() {
         {/* Features Section */}
         <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
           <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f]">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-serif">
               Everything you need to <span className="text-[#0066cc]">scale.</span>
             </h2>
             <p className="mt-6 text-lg text-slate-500">

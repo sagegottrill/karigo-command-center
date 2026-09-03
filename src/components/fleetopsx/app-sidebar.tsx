@@ -77,12 +77,19 @@ export function AppSidebar({
   });
 
   return (
-    <aside
-      className={cn(
-        "sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] transition-[width] duration-300 ease-[var(--ease-apple)] md:flex",
-        collapsed ? "w-[76px]" : "w-[248px]",
+    <>
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" 
+          onClick={onToggle}
+        />
       )}
-    >
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] transition-all duration-300 ease-[var(--ease-apple)] md:sticky md:top-0",
+          collapsed ? "-translate-x-full md:translate-x-0 md:w-[76px]" : "translate-x-0 w-[248px]",
+        )}
+      >
       <div
         className={cn(
           "flex h-[60px] shrink-0 items-center gap-3 bg-white border-b border-black/[0.05]",
@@ -188,5 +195,6 @@ export function AppSidebar({
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -247,6 +247,7 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
             <Label htmlFor="contactName" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Contact Name</Label>
             <Input 
               id="contactName" 
+              name="contactName"
               required
               placeholder="Full Name" 
               className="h-12 bg-slate-50 border-slate-200 px-4 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
@@ -256,9 +257,10 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
             <Label htmlFor="contactPhone" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Phone Number</Label>
             <Input 
               id="contactPhone" 
+              name="contactPhone"
               type="tel"
               required
-              pattern="^\+?[0-9\s\-\(\)]{7,15}$"
+              pattern="^\+?[0-9\s\-\(\)]{10,20}$"
               title="Enter a valid phone number (e.g. +234 800 000 0000)"
               placeholder="e.g. +234 800 000 0000" 
               className="h-12 bg-slate-50 border-slate-200 px-4 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
@@ -272,7 +274,7 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
             disabled={isSubmitting}
             className="w-full h-14 rounded-xl bg-slate-900 text-white font-bold text-[15px] hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2"
           >
-            {isSubmitting ? "Processing..." : "Confirm & Submit Order"} {!isSubmitting && <ArrowRight className="h-4 w-4" />}
+            {isSubmitting ? "Processing..." : "Request Transport"} {!isSubmitting && <ArrowRight className="h-4 w-4" />}
           </Button>
         </div>
       </form>
