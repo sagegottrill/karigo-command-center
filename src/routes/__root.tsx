@@ -107,7 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
     const hostname = await getHostnameServerFn();
     
     if (hostname) {
-      if (hostname === "petroline.fleetopsx.com") {
+      if (hostname === "petroline.fleetopsx.com" || hostname === "www.fleetopsx.com" || hostname === "fleetopsx.com") {
         tenantSlug = "petrolline"; // Map to mock data slug
       } else if (hostname.includes("fleetopsx.com")) {
         const parts = hostname.split(".");

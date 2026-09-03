@@ -9,10 +9,11 @@ import { Truck } from "lucide-react";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 
 export const Route = createFileRoute("/customer-portal/login")({
-  loader: () => {
+  loader: async () => {
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug === "localhost" || slug === "fleetopsx") return { tenant: null };
-    return tenantService.getBySlug(slug);
+    const tenant = await tenantService.getBySlug(slug);
+    return { tenant };
   },
   component: CustomerLogin,
 });
