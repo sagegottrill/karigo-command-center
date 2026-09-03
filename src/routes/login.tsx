@@ -76,36 +76,44 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden border-r border-black/[0.06] bg-white lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(0,113,227,0.1),transparent_60%)]" />
-        <div className="relative flex h-full flex-col justify-between p-12">
-          {tenantLogo ? (
-            <div className="inline-flex items-center w-max">
-              <img src={tenantLogo} alt={tenantName} className="h-12 w-auto object-contain max-w-[200px]" />
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-3 rounded-[14px] px-3 py-2 w-max">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#1d1d1f] text-lg font-bold text-white shadow-lg">
-                {tenantName.charAt(0)}
-              </div>
-              <span className="text-xl font-bold tracking-tight text-[#1d1d1f]">
-                {tenantName}
-              </span>
-            </div>
-          )}
+      {/* Left Sidebar (Dark) */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#1B2432] p-12 text-white lg:flex">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.05),transparent_60%)]" />
+        
+        <div className="relative z-10 flex h-full flex-col justify-between">
           <div>
-            <h1 className="max-w-md text-[36px] leading-[1.1] font-semibold tracking-[-0.03em]">
-              A centralized operational hub for {tenantName} personnel and authorized partners.
+            {tenantLogo ? (
+              <div className="mb-12 inline-flex items-center w-max rounded-2xl bg-white/5 p-4 border border-white/10 backdrop-blur-sm">
+                <img src={tenantLogo} alt={tenantName} className="h-12 w-auto object-contain max-w-[200px]" />
+              </div>
+            ) : (
+              <div className="mb-12 inline-flex items-center gap-3 rounded-[14px] px-3 py-2 w-max">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-lg font-bold text-[#1B2432] shadow-lg">
+                  {tenantName.charAt(0)}
+                </div>
+                <span className="text-xl font-bold tracking-tight text-white">
+                  {tenantName}
+                </span>
+              </div>
+            )}
+
+            <p className="text-[13px] font-medium text-slate-400 mb-2">Welcome to {tenantName} Portal</p>
+            <h1 className="max-w-md font-space-grotesk text-[36px] font-bold leading-[1.1] tracking-[-0.03em] text-white">
+              Manage your fleet operation with confidence
             </h1>
-            <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-muted-foreground">
-              Access is restricted to registered users.
+            <p className="mt-6 max-w-sm text-[14px] leading-relaxed text-slate-300 font-medium">
+              Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
             </p>
           </div>
-          <p className="text-[12px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{tenantName} PORTAL</p>
+          
+          <div className="flex items-center gap-4">
+             <div className="h-1 w-12 bg-orange-500 rounded-full"></div>
+             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">POWERED BY FLEETOPSX | COPYRIGHT 2026</p>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-center p-6">
+      <div className="flex items-center justify-center p-6 bg-white">
         {resetting ? (
           <form className="w-full max-w-sm space-y-5" onSubmit={handleReset}>
             <div>
@@ -124,18 +132,20 @@ function LoginPage() {
                 className="h-11 rounded-xl text-[13px]"
               />
             </div>
-            <Button type="submit" className="h-11 w-full rounded-full text-[14px]">Update & Continue</Button>
+            <Button type="submit" className="h-11 w-full rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[14px]">
+              Update & Continue
+            </Button>
           </form>
         ) : (
           <form className="w-full max-w-sm space-y-5" onSubmit={handleLogin}>
             <div>
-              <h2 className="text-[28px] font-semibold tracking-[-0.025em]">Sign in</h2>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">Use your work email or username to continue.</p>
+              <h2 className="text-[24px] font-semibold tracking-tight text-[#141a1f]">Internal Portal Sign In</h2>
+              <p className="mt-1.5 text-[14px] text-slate-500">Enter your provisioned credentials to continue.</p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px]">Workspace</Label>
+              <Label className="text-[13px] font-medium text-[#141a1f]">Select Department</Label>
               <Select value={workspace} onValueChange={setWorkspace}>
-                <SelectTrigger className="h-11 rounded-xl text-[13px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 rounded-md text-[14px] border-slate-200"><SelectValue /></SelectTrigger>
                 <SelectContent>{WORKSPACES.map((w) => <SelectItem key={w.id} value={w.id} className="text-[13px]">{w.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -165,7 +175,7 @@ function LoginPage() {
               </label>
               <Link to="/forgot-password" className="text-[13px] text-foreground underline-offset-2 hover:underline">Forgot password?</Link>
             </div>
-            <Button type="submit" className="h-11 w-full rounded-full text-[14px]">Sign in</Button>
+            <Button type="submit" className="h-11 w-full rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[14px]">Sign in</Button>
           </form>
         )}
       </div>
