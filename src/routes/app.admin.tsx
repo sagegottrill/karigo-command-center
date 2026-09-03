@@ -83,7 +83,12 @@ function AdminPage() {
     companyService.list().then(setCompanies);
   };
 
-  const handleAction = async (id: string, action: "reset" | "suspend" | "delete") => {
+  const [confirmAction, setConfirmAction] = useState<{ id: string; action: "reset" | "suspend" | "delete" } | null>(null);
+
+  const executeAction = async () => {
+    if (!confirmAction) return;
+    const { id, action } = confirmAction;
+    
     if (action === "reset") {
       await adminService.resetPassword(id);
       toast.success("Password reset initiated. User must change password on next login.");
@@ -94,6 +99,8 @@ function AdminPage() {
       await adminService.deleteUser(id);
       toast.error("Account deleted (soft).");
     }
+    
+    setConfirmAction(null);
     adminService.users().then(setUsers);
   };
 
@@ -128,13 +135,13 @@ function AdminPage() {
         <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => { setEditUser(r); setIsEditUserOpen(true); }} title="Edit User">
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleAction(r.id, "reset")} title="Reset Password">
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setConfirmAction({ id: r.id, action: "reset" })} title="Reset Password">
           <KeyRound className="h-3.5 w-3.5 text-blue-500" />
         </Button>
-        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleAction(r.id, "suspend")} title="Suspend Account" disabled={r.status === "Suspended" || r.status === "Deleted"}>
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setConfirmAction({ id: r.id, action: "suspend" })} title="Suspend Account" disabled={r.status === "Suspended" || r.status === "Deleted"}>
           <Ban className="h-3.5 w-3.5 text-amber-500" />
         </Button>
-        <Button variant="outline" size="icon" className="h-7 w-7 border-critical text-critical hover:bg-critical/10 hover:text-critical" onClick={() => handleAction(r.id, "delete")} title="Soft Delete">
+        <Button variant="outline" size="icon" className="h-7 w-7 border-critical text-critical hover:bg-critical/10 hover:text-critical" onClick={() => setConfirmAction({ id: r.id, action: "delete" })} title="Soft Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -197,7 +204,7 @@ function AdminPage() {
 
       <Tabs defaultValue="approvals">
         <TabsList className="h-9">
-          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["roles", "Roles & Permissions"], ["logins", "Login Reports"], ["companies", "Customer Portals"], ["config", "System Configuration"]] as const).map(([v, l]) => (
+          {([["approvals", "Dispatch Approvals"], ["org", "Organization"], ["users", "Users"], ["requests", "Password Requests"], ["roles", "Roles & Permissions"], ["logins", "Login Reports"], ["companies", "Customer Portals"], ["config", "System Configuration"]] as const).map(([v, l]) => (
             <TabsTrigger key={v} value={v} className="text-xs">{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -209,6 +216,32 @@ function AdminPage() {
             ) : (
               <div className="p-12 text-center text-sm text-muted-foreground">No dispatches awaiting approval.</div>
             )}
+          </SectionPanel>
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-4">
+          <SectionPanel 
+            title="Manage Password Requests" 
+            description="Users who have requested a password reset or are locked out." 
+            bodyClassName="p-0"
+          >
+            <DataTable 
+              rows={users.filter(u => u.passwordResetRequired)} 
+              columns={[
+                { key: "name", header: "User", cell: (r) => <span className="font-medium">{r.name}</span> },
+                { key: "email", header: "Email Address", cell: (r) => <span className="text-xs text-muted-foreground">{r.email}</span> },
+                { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+                { key: "actions", header: "", align: "right", cell: (r) => (
+                  <Button size="sm" className="h-7 text-[11px] gap-1" onClick={() => setConfirmAction({ id: r.id, action: "reset" })}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve Reset
+                  </Button>
+                )},
+              ]} 
+              pageSize={10} 
+              searchKeys={(r) => `${r.name} ${r.email}`} 
+              emptyTitle="No pending requests"
+              emptyDescription="No users are currently awaiting password resets."
+            />
           </SectionPanel>
         </TabsContent>
 
@@ -289,6 +322,29 @@ function AdminPage() {
             }
           >
             <DataTable rows={users} columns={userColumns} pageSize={10} searchKeys={(r) => `${r.name} ${r.email} ${r.roleName}`} />
+            
+            {/* Confirmation Dialogs */}
+            <Dialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirm Action</DialogTitle>
+                  <DialogDescription>
+                    {confirmAction?.action === "reset" && "Are you sure you want to send a new password?"}
+                    {confirmAction?.action === "suspend" && "Are you sure you want to suspend this account?"}
+                    {confirmAction?.action === "delete" && "Are you sure you want to delete this account?"}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+                  <Button 
+                    variant={confirmAction?.action === "delete" ? "destructive" : "default"} 
+                    onClick={executeAction}
+                  >
+                    Confirm
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             
             {/* Edit User Dialog */}
             <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>

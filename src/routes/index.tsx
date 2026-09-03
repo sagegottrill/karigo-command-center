@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
   beforeLoad: ({ context }) => {
     // If a tenant subdomain is detected, skip the marketing page and go straight to login
     if (context.tenantSlug) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/account-type" });
     }
   },
   head: () => ({
@@ -91,10 +91,10 @@ function LandingPage() {
             </a>
           </nav>
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
+            <Link to="/account-type" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
               Log in
             </Link>
-            <Link to="/login">
+            <Link to="/account-type">
               <Button className="h-8 rounded-full bg-[#0066cc] text-white hover:bg-[#0055b3] px-5 text-[13px] font-semibold transition-all shadow-sm border-none">
                 Get Started
               </Button>
@@ -109,17 +109,16 @@ function LandingPage() {
           id="top"
           className="relative flex min-h-[85vh] w-full max-w-7xl flex-col items-center justify-center px-6 text-center pt-24 pb-32"
         >
-          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f] font-serif">
-            The operating system <br className="hidden sm:block" /> for heavy logistics.
+          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
+            Manage your fleet operation <br className="hidden sm:block" /> with confidence.
           </h1>
           
           <p className="mt-8 max-w-2xl text-lg sm:text-xl text-slate-500 leading-relaxed font-medium">
-            Centralize your entire transport operation with accountable,
-            enterprise-grade control. Manage fleets, dispatch, fuel, and expenses in one multi-tenant workspace.
+            Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
           </p>
           
           <div className="mt-12 flex flex-col sm:flex-row items-center gap-4">
-            <Link to="/login">
+            <Link to="/account-type">
               <Button size="lg" className="h-12 rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[15px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
                 Start your workspace <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
@@ -135,11 +134,11 @@ function LandingPage() {
         {/* Features Section */}
         <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
           <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-serif">
-              Everything you need to <span className="text-[#0066cc]">scale.</span>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-space-grotesk">
+              Everything you need to <span className="text-[#0066cc]">manage fleet operations.</span>
             </h2>
             <p className="mt-6 text-lg text-slate-500">
-              Stop stitching together generic tools. Use a platform built meticulously for the realities of logistics.
+              Secure and efficient fleet operation services.
             </p>
           </div>
 
