@@ -1,4 +1,4 @@
-﻿import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Server, Users, CreditCard, Settings, Activity, Building } from "lucide-react";
@@ -104,7 +104,7 @@ const columns: Column<PlatformTenant>[] = [
           <a href={`http://${r.domain}.fleetopsx.com/pwa/${r.domain}`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">View PWA</Button>
           </a>
-          <a href={`http://${r.domain}.fleetopsx.com/login`} target="_blank" rel="noreferrer">
+          <a href={`http://${r.domain}.fleetopsx.com/workspace/login`} target="_blank" rel="noreferrer">
             <Button variant="default" size="sm">Login As</Button>
           </a>
         </div>
