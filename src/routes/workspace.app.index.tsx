@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight,
@@ -102,9 +102,9 @@ function ManagementDashboard({ data }: { data: any }) {
   const currentUser = mounted ? authService.getCurrentUser() : null;
 
   const FEATURED_TRIP_ID = TRIPS[0]?.id;
-  const featured = TRIPS.find((t: any) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0]!;
-  const timeline = tripService.timeline(featured);
-  const driver = DRIVERS.find((d: any) => d.id === featured.driverId);
+  const featured = TRIPS.find((t: any) => t.id === FEATURED_TRIP_ID) ?? TRIPS[0];
+  const timeline = featured ? tripService.timeline(featured) : [];
+  const driver = featured ? DRIVERS.find((d: any) => d.id === featured.driverId) : null;
 
   const ready = TRUCKS.filter((t: any) => t.status === "Available" || t.status === "Assigned").length;
   const mechanic = TRUCKS.filter((t: any) => t.status === "Maintenance").length;
@@ -335,9 +335,9 @@ function ManagementDashboard({ data }: { data: any }) {
           <div className="border-b border-black/[0.05] p-4 sm:p-5 xl:border-r xl:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Tracking Trip</h2>
-              <StatusBadge status={featured.status} />
+              {featured && <StatusBadge status={featured.status} />}
             </div>
-            <p className="num mt-1 text-[12px] text-muted-foreground">{featured.id}</p>
+            <p className="num mt-1 text-[12px] text-muted-foreground">{featured?.id ?? "No active trips"}</p>
             <div className="relative mt-4 h-28 overflow-hidden rounded-[18px] bg-[linear-gradient(160deg,#f4f7fb,#e7eef6)]">
               <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:22px_22px]" />
               <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 40" preserveAspectRatio="none">
@@ -346,8 +346,8 @@ function ManagementDashboard({ data }: { data: any }) {
                 <circle cx="94" cy="22" r="2.2" fill="#1d1d1f" />
               </svg>
               <div className="absolute right-3 bottom-2 left-3 flex justify-between text-[10px] font-medium text-muted-foreground">
-                <span>{featured.pickup}</span>
-                <span>{featured.dropoff}</span>
+                <span>{featured?.pickup ?? "-"}</span>
+                <span>{featured?.dropoff ?? "-"}</span>
               </div>
             </div>
           </div>
@@ -381,7 +381,7 @@ function ManagementDashboard({ data }: { data: any }) {
               {driver?.initials ?? "DR"}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold tracking-[-0.01em]">{featured.driverName}</p>
+              <p className="truncate text-[13px] font-semibold tracking-[-0.01em]">{featured?.driverName ?? "No driver"}</p>
               <p className="text-[11px] text-muted-foreground">Assigned driver</p>
             </div>
             <Button asChild size="sm" variant="ghost" className="h-9 w-9 rounded-full p-0">
