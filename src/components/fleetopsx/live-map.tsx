@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Layers, Maximize2, Navigation } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -102,7 +102,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
             <StatusBadge status={selected.status} />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {selected.pickup} → {selected.dropoff}
+            {selected.pickup} â†’ {selected.dropoff}
           </p>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
             <dt className="text-muted-foreground">Driver</dt>
@@ -118,7 +118,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
             <div className="h-full rounded-full bg-[#1d1d1f]" style={{ width: `${selected.progress}%` }} />
           </div>
           <Button asChild size="sm" className="mt-3 h-8 w-full gap-1.5 text-[12px]">
-            <Link to="/app/trips/$tripId" params={{ tripId: selected.id }}>
+            <Link to="/workspace/app/trips/$tripId" params={{ tripId: selected.id }}>
               <Navigation className="h-3 w-3" />
               Open trip {selected.id}
             </Link>
@@ -128,3 +128,4 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
     </div>
   );
 }
+

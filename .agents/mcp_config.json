@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "Figma": {
+      "url": "https://mcp.figma.com/mcp",
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "figd_eftTpKcVBHF7b-uziChrXEYiJDnMOJugKB9b9804"
+      }
+    }
+  }
+}

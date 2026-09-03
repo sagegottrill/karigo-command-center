@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+﻿import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Server, Users, CreditCard, Settings, Activity, Building } from "lucide-react";
@@ -21,10 +21,10 @@ export const Route = createFileRoute("/superadmin")({
   beforeLoad: () => {
     const user = authService.getCurrentUser();
     if (!user) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/workspace/login" });
     }
     if (user.passwordResetRequired) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/workspace/login" });
     }
   },
   component: SuperAdminLayout,
@@ -152,35 +152,35 @@ function SuperAdminLayout() {
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Modules
           </div>
-          <Link to="/app" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Activity className="h-4 w-4" /> Main Dashboard
           </Link>
-          <Link to="/app/fleet" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/fleet" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Server className="h-4 w-4" /> Fleet Management
           </Link>
-          <Link to="/app/trips" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/trips" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Activity className="h-4 w-4" /> Trips & Dispatch
           </Link>
-          <Link to="/app/accounts" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/accounts" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <CreditCard className="h-4 w-4" /> Finance & Accounts
           </Link>
-          <Link to="/app/engineering" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/engineering" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Settings className="h-4 w-4" /> Engineering
           </Link>
-          <Link to="/app/inventory" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/inventory" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Server className="h-4 w-4" /> Inventory
           </Link>
-          <Link to="/app/drivers" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/drivers" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Users className="h-4 w-4" /> Drivers & HR
           </Link>
-          <Link to="/app/gate" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+          <Link to="/workspace/app/gate" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
             <Server className="h-4 w-4" /> Gate Security
           </Link>
         </nav>
         <div className="p-4 border-t border-border">
           <Link to="/">
             <Button variant="ghost" className="w-full justify-start text-muted-foreground">
-              ← Back to Main Site
+              â† Back to Main Site
             </Button>
           </Link>
         </div>
@@ -292,3 +292,4 @@ function SuperAdminLayout() {
     </div>
   );
 }
+

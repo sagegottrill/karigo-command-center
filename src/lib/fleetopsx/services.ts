@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mock service layer.
  * Every screen reads through these functions, never from mock-data directly.
  * Replacing the bodies with real API calls is the only change needed once the
@@ -159,7 +159,7 @@ export const tripService = {
   get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
   create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;
-    const trip: Trip = { ...input, id, progress: 4, eta: "—", status: "Scheduled" };
+    const trip: Trip = { ...input, id, progress: 4, eta: "â€”", status: "Scheduled" };
     store.trips = [trip, ...store.trips];
     
     // Assign assets
@@ -358,7 +358,7 @@ export const engineeringService = {
     store.expenses = [
       {
         id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
-        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "—",
+        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "â€”",
         status: "Pending", approvalLevel: "Operations Manager", date: new Date().toLocaleDateString(),
         documents: [],
       },
@@ -733,34 +733,35 @@ export function globalSearch(query: string): SearchHit[] {
   const hits: SearchHit[] = [];
   store.trips.filter((t) => `${t.id} ${t.customer} ${t.pickup} ${t.dropoff}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} → ${t.dropoff} · ${t.status}`, to: "/app/trips/$tripId", params: { tripId: t.id } }));
+    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} â†’ ${t.dropoff} Â· ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
   
   store.truckHeads.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} · ${t.registration}`, meta: `${t.make} · ${t.status}`, to: "/app/fleet" }));
+    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} Â· ${t.registration}`, meta: `${t.make} Â· ${t.status}`, to: "/workspace/app/fleet" }));
   
   store.truckTails.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/app/fleet" }));
+    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} Â· ${t.registration}`, meta: `${t.type} Â· ${t.status}`, to: "/workspace/app/fleet" }));
 
   store.drivers.filter((d) => `${d.id} ${d.name} ${d.employeeId} ${d.licenseNumber} ${d.assignedTruck || ""}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} · ${d.name}`, meta: `${d.status} · ${d.compliance}`, to: "/app/drivers/$driverId", params: { driverId: d.id } }));
+    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} Â· ${d.name}`, meta: `${d.status} Â· ${d.compliance}`, to: "/workspace/app/drivers/$driverId", params: { driverId: d.id } }));
   store.expenses.filter((e) => `${e.id} ${e.requester} ${e.type}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((e) => hits.push({ group: "Expenses", label: e.id, meta: `${e.type} · ₦${e.amount.toLocaleString()}`, to: "/app/accounts" }));
+    .forEach((e) => hits.push({ group: "Expenses", label: e.id, meta: `${e.type} Â· â‚¦${e.amount.toLocaleString()}`, to: "/workspace/app/accounts" }));
   store.workOrders.filter((w) => `${w.id} ${w.truckReg} ${w.defect}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((w) => hits.push({ group: "Work Orders", label: w.id, meta: `${w.truckReg} · ${w.status}`, to: "/app/engineering" }));
+    .forEach((w) => hits.push({ group: "Work Orders", label: w.id, meta: `${w.truckReg} Â· ${w.status}`, to: "/workspace/app/engineering" }));
   store.inventory.filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((i) => hits.push({ group: "Inventory", label: `${i.name}`, meta: `${i.sku} · ${i.stock} in stock`, to: "/app/inventory" }));
+    .forEach((i) => hits.push({ group: "Inventory", label: `${i.name}`, meta: `${i.sku} Â· ${i.stock} in stock`, to: "/workspace/app/inventory" }));
   store.audit.filter((a) => `${a.record} ${a.action} ${a.user}`.toLowerCase().includes(q))
     .slice(0, 3)
-    .forEach((a) => hits.push({ group: "Audit Logs", label: a.record, meta: `${a.action} · ${a.user}`, to: "/app/audit" }));
+    .forEach((a) => hits.push({ group: "Audit Logs", label: a.record, meta: `${a.action} Â· ${a.user}`, to: "/workspace/app/audit" }));
   return hits;
 }
 
 export const formatNaira = (n: number) =>
-  `₦${n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n.toLocaleString("en-NG")}`;
-export const formatNairaFull = (n: number) => `₦${n.toLocaleString("en-NG")}`;
+  `â‚¦${n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n.toLocaleString("en-NG")}`;
+export const formatNairaFull = (n: number) => `â‚¦${n.toLocaleString("en-NG")}`;
+

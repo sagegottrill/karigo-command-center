@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -26,7 +26,7 @@ function NotFoundComponent() {
         </p>
         <div className="mt-6">
           <Link
-            to="/app"
+            to="/workspace/app"
             className="inline-flex items-center justify-center rounded-full bg-[#1d1d1f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
           >
             Back to overview
@@ -61,7 +61,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             Try again
           </button>
           <a
-            href="/app"
+            href="/workspace/app"
             className="inline-flex items-center justify-center rounded-full border border-black/[0.1] bg-white px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/[0.03]"
           >
             Go to overview
@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
         { rel: "stylesheet", href: appCss },
         { rel: "manifest", href: "/manifest.json" },
         { rel: "icon", href: iconUrl, type: "image/svg+xml" },
-        { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+        { rel: "apple-touch-icon", href: "/workspace/apple-touch-icon.png" },
       ],
     };
   },
@@ -152,3 +152,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Minus, MoreVertical, Plus } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -220,10 +220,10 @@ export function CommandCenterMap({
           </span>
           <div>
             <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-foreground">Command Center</h2>
-            <p className="text-[11px] text-muted-foreground">Nigeria · OpenStreetMap</p>
+            <p className="text-[11px] text-muted-foreground">Nigeria Â· OpenStreetMap</p>
           </div>
         </div>
-        <p className="text-[12px] font-semibold text-[#34c759]">Online · PTL-001</p>
+        <p className="text-[12px] font-semibold text-[#34c759]">Online Â· PTL-001</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 px-5">
@@ -302,7 +302,7 @@ export function CommandCenterMap({
           <div className="absolute right-3 bottom-3 z-[500] max-w-[230px] rounded-[16px] bg-white/95 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
             <p className="num text-[12px] font-semibold">{selected.id}</p>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {selected.pickup} → {selected.dropoff}
+              {selected.pickup} â†’ {selected.dropoff}
             </p>
             <p
               className={cn("mt-1 text-[11px] font-semibold")}
@@ -311,7 +311,7 @@ export function CommandCenterMap({
               {selected.status}
             </p>
             <Link
-              to="/app/trips/$tripId"
+              to="/workspace/app/trips/$tripId"
               params={{ tripId: selected.id }}
               className="mt-2 inline-block text-[11px] font-semibold underline-offset-2 hover:underline"
             >
@@ -323,3 +323,4 @@ export function CommandCenterMap({
     </section>
   );
 }
+

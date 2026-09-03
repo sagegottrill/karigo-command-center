@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell, ChevronDown, CircleDot, HelpCircle, LogOut, MessageSquare, PanelLeft,
@@ -37,7 +37,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const unread = notificationService.getUnreadCount();
 
   const active = NAV.find((n) =>
-    n.to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(n.to),
+    n.to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(n.to),
   );
   const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
 
@@ -101,9 +101,9 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         className="mx-auto hidden h-10 w-full max-w-md items-center gap-2.5 rounded-full bg-white px-4 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors duration-150 hover:bg-black/[0.02] hover:text-foreground md:flex"
       >
         <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span className="flex-1 text-left">Search trips, trucks, drivers…</span>
+        <span className="flex-1 text-left">Search trips, trucks, driversâ€¦</span>
         <kbd className="num rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          ⌘K
+          âŒ˜K
         </kbd>
       </button>
 
@@ -126,13 +126,13 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
           ) : (
             <>
               <WifiOff className="h-3 w-3 text-[#ff9f0a]" />
-              <span className="text-[#1d1d1f]">Offline · 3</span>
+              <span className="text-[#1d1d1f]">Offline Â· 3</span>
             </>
           )}
         </button>
 
         <Link
-          to="/app/notifications"
+          to="/workspace/app/notifications"
           className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
         >
           <Bell className="h-4 w-4" strokeWidth={1.75} />
@@ -144,7 +144,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         </Link>
 
         <Link
-          to="/app/messages"
+          to="/workspace/app/messages"
           className="grid h-9 w-9 place-items-center rounded-full bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
         >
           <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
@@ -198,10 +198,10 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
             ))}
             <DropdownMenuSeparator className="my-1.5 bg-black/[0.06]" />
             <DropdownMenuItem asChild className="rounded-xl px-2.5 py-2 text-[13px]">
-              <Link to="/app/admin"><User className="mr-2 h-3.5 w-3.5" />Profile</Link>
+              <Link to="/workspace/app/admin"><User className="mr-2 h-3.5 w-3.5" />Profile</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="rounded-xl px-2.5 py-2 text-[13px]">
-              <Link to="/app/admin"><Settings className="mr-2 h-3.5 w-3.5" />Settings</Link>
+              <Link to="/workspace/app/admin"><Settings className="mr-2 h-3.5 w-3.5" />Settings</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1.5 bg-black/[0.06]" />
             <DropdownMenuItem 
@@ -212,7 +212,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
                 toast.success("Signed out");
               }}
             >
-              <Link to="/login"><LogOut className="mr-2 h-3.5 w-3.5" />Sign out</Link>
+              <Link to="/workspace/login"><LogOut className="mr-2 h-3.5 w-3.5" />Sign out</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -220,7 +220,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Search TRP-00842, TRK-104, driver…"
+          placeholder="Search TRP-00842, TRK-104, driverâ€¦"
           value={query}
           onValueChange={setQuery}
         />
@@ -248,3 +248,4 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
     </header>
   );
 }
+

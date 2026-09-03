@@ -1,12 +1,9 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
-  ClipboardCheck,
-  Fuel,
+  MapPin,
   Radar,
-  Truck,
-  Users,
-  Wrench,
-  ChevronRight
+  FileCheck2,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,12 +11,12 @@ export const Route = createFileRoute("/")({
   beforeLoad: ({ context }) => {
     // If a tenant subdomain is detected, skip the marketing page and go straight to login
     if (context.tenantSlug) {
-      throw redirect({ to: "/account-type" });
+      throw redirect({ to: "/workspace/account-type" });
     }
   },
   head: () => ({
     meta: [
-      { title: "FleetOpsX — The Operating System for Logistics" },
+      { title: "FleetOpsX - The Operating System for Logistics" },
       {
         name: "description",
         content:
@@ -30,171 +27,124 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
-const FEATURES = [
-  {
-    icon: Truck,
-    title: "Fleet Management",
-    body: "Live availability, assignment state and yard visibility across the entire heavy fleet.",
-  },
-  {
-    icon: Radar,
-    title: "Dispatch",
-    body: "Guided trip creation with vehicle, driver, route and compliance checks before release.",
-  },
-  {
-    icon: Fuel,
-    title: "Fuel Control",
-    body: "Efficiency-locked requisitions that stop operational leakage at the pump.",
-  },
-  {
-    icon: Wrench,
-    title: "Engineering",
-    body: "Defect intake, workshop queues and maintenance cost accountability.",
-  },
-  {
-    icon: Users,
-    title: "HR & Drivers",
-    body: "Licence compliance, availability and assignment history in one register.",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Accounts",
-    body: "Multi-level expense approvals with variance and disbursement control.",
-  },
-];
-
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-blue-500/20 font-sans">
-      {/* Soft Light Ambient Glow */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-[150px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-purple-400/10 blur-[150px]" />
-      </div>
-
-      <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <a href="#top" className="flex items-center gap-2.5 group">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm transition-transform group-hover:scale-105">
-              F
-            </div>
-            <span className="text-[15px] font-bold tracking-tight text-[#1d1d1f]">
-              FleetOpsX
-            </span>
-          </a>
-          <nav className="hidden items-center gap-8 text-[13px] font-medium text-slate-500 md:flex">
-            <a href="#features" className="hover:text-[#1d1d1f] transition-colors">
-              Features
-            </a>
-            <a href="#benefits" className="hover:text-[#1d1d1f] transition-colors">
-              Enterprise
-            </a>
-          </nav>
-          <div className="flex items-center gap-4">
-            <Link to="/account-type" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
-              Log in
-            </Link>
-            <Link to="/account-type">
-              <Button className="h-8 rounded-full bg-[#0066cc] text-white hover:bg-[#0055b3] px-5 text-[13px] font-semibold transition-all shadow-sm border-none">
-                Get Started
-              </Button>
-            </Link>
-          </div>
+    <div className="min-h-screen bg-[#f1f2f4] flex flex-col items-center">
+      
+      {/* Header - 1440x100 */}
+      <header className="w-full max-w-[1440px] h-[100px] bg-[#1b2432] border-b-[1px] border-[#e2e5e9] flex flex-row items-center pt-[12px] pb-[12px] px-[32px] gap-[10px]">
+        <div className="flex flex-row items-center gap-[16px] w-[178px] h-[75px]">
+           <div className="w-[178px] h-[100px] bg-[#ffffff] flex items-center justify-center font-bold text-[#1b2432]">
+             {/* Logo Placeholder */}
+             <span className="text-[24px]">FLEETOPSX</span>
+           </div>
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-col items-center">
-        {/* Hero Section */}
-        <section
-          id="top"
-          className="relative flex w-full max-w-7xl flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center pt-24 pb-16 sm:pt-32 sm:pb-24"
-        >
-          <h1 className="max-w-5xl text-[44px] font-bold tracking-tight sm:text-6xl lg:text-[80px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
-            Manage your fleet operation <br className="hidden sm:block" /> with confidence.
+      {/* Main Content Area */}
+      <main className="w-full max-w-[1440px] flex flex-col gap-[32px] mt-[10px] items-center pb-[100px]">
+        
+        {/* Hero Section - 1380x800 */}
+        <section className="bg-[#000000] rounded-[10px] w-[1380px] h-[800px] flex flex-col pt-[102px] pb-[102px] px-[209px] gap-[30px] items-center text-center mx-auto overflow-hidden relative">
+          
+          <h1 className="text-[90px] font-[500] leading-[90px] text-[#ffffff] w-[1160px] h-[180px]">
+            Manage your fleet operation with confidence
           </h1>
           
-          <p className="mt-6 sm:mt-8 max-w-2xl text-[17px] sm:text-[19px] lg:text-[21px] text-slate-500 leading-relaxed font-medium px-2">
+          <p className="text-[24px] font-[600] leading-[32px] text-[#ffffff] w-[668px] h-[96px]">
             Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
           </p>
           
-          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4 sm:px-0">
-            <Link to="/account-type" className="w-full sm:w-auto">
-              <Button size="lg" className="h-14 w-full sm:w-auto rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[16px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
-                Start your workspace <ChevronRight className="ml-1 h-5 w-5" />
-              </Button>
-            </Link>
-            <a href="#features" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="h-14 w-full sm:w-auto rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[16px] font-semibold transition-all shadow-sm">
-                Explore Features
-              </Button>
-            </a>
-          </div>
+          <Link to="/workspace/account-type">
+            <button className="bg-[#ed351d] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] w-[149px] h-[40px] flex items-center justify-center hover:bg-[#d62e19] transition-colors">
+              <span className="text-[16px] font-[500] leading-[24px] text-[#ffffff]">Access Portal</span>
+            </button>
+          </Link>
+          
+        </section>
 
-          <div className="mt-20 sm:mt-24 w-full max-w-6xl relative px-4 sm:px-0">
-            <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-black/5 bg-[#ebebeb]">
-              <img 
-                src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=2800" 
-                alt="Delivery Trucks" 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-multiply" />
+        {/* Portal Capabilities - 1440x628 */}
+        <section className="border-t-[1px] border-[#344256] w-[1440px] h-[628px] flex flex-col pt-[100px] pb-[100px] px-[85px] gap-[30px]">
+          
+          <div className="bg-[#1b2432] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] w-[186px] h-[40px] flex items-center justify-center">
+            <span className="text-[14px] font-[700] leading-[20px] text-[#ffffff]">PORTAL CAPABILITIES</span>
+          </div>
+          
+          <h2 className="text-[36px] font-[500] leading-[40px] text-[#5c6470] w-[1270px] h-[40px]">
+            Everything you need to manage fleet operations.
+          </h2>
+
+          <div className="flex flex-row gap-[40px] w-[1270px] h-[286px] mt-[10px]">
+            
+            {/* Feature 1 */}
+            <div className="flex flex-col w-[396px] h-[286px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white p-[40px] justify-between">
+              <div className="w-[100px] h-[100px] flex items-center justify-center absolute top-[-20px] right-[-20px] opacity-20">
+                <MapPin className="w-[141px] h-[141px]" />
+              </div>
+              <div className="flex flex-col gap-[9px] w-[345px] z-10 mt-auto">
+                <h3 className="text-[30px] font-[600] leading-[36px] text-[#ffffff]">Submit a Request</h3>
+                <p className="text-[20px] font-[300] leading-[32px] text-[#ffffff]">
+                  Create new load bookings, specify cargo details, and receive instant dispatch confirmations.
+                </p>
+              </div>
             </div>
+
+            {/* Feature 2 */}
+            <div className="flex flex-col w-[396px] h-[286px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white p-[40px] justify-between">
+              <div className="w-[100px] h-[100px] flex items-center justify-center absolute top-[-20px] right-[-20px] opacity-20">
+                <Radar className="w-[141px] h-[141px]" />
+              </div>
+              <div className="flex flex-col gap-[9px] w-[345px] z-10 mt-auto">
+                <h3 className="text-[30px] font-[600] leading-[36px] text-[#ffffff]">Track Active Loads</h3>
+                <p className="text-[20px] font-[300] leading-[32px] text-[#ffffff]">
+                  View live freight movements, track vehicle status, and check accurate arrival times.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="flex flex-col w-[396px] h-[286px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white p-[40px] justify-between">
+              <div className="w-[100px] h-[100px] flex items-center justify-center absolute top-[-20px] right-[-20px] opacity-20">
+                <FileCheck2 className="w-[141px] h-[141px]" />
+              </div>
+              <div className="flex flex-col gap-[9px] w-[345px] z-10 mt-auto">
+                <h3 className="text-[30px] font-[600] leading-[36px] text-[#ffffff]">Access Records</h3>
+                <p className="text-[20px] font-[300] leading-[32px] text-[#ffffff]">
+                  Review past delivery logs, download compliance documents, and audit completed freight operations.
+                </p>
+              </div>
+            </div>
+
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
-          <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-space-grotesk">
-              Everything you need to <span className="text-[#0066cc]">manage fleet operations.</span>
-            </h2>
-            <p className="mt-6 text-lg text-slate-500">
-              Secure and efficient fleet operation services.
-            </p>
+        {/* Secure/Trust Section - 1440x500 */}
+        <section className="bg-[#ffffff] flex flex-row pt-[100px] pb-[100px] px-[100px] gap-[20px] w-[1440px] h-[500px] items-center relative overflow-hidden">
+          <h2 className="text-[62px] font-[700] leading-[72px] text-[#1b2432] w-[597px] h-[216px] z-10">
+            Secure and efficient fleet operation services
+          </h2>
+          
+          <div className="absolute right-[100px] w-[576px] h-[457px] bg-[#f1f2f4] rounded-[24px] shadow-2xl flex items-center justify-center z-10 border-[4px] border-[#e2e5e9]">
+             {/* Tablet mockup placeholder */}
+             <div className="text-[24px] font-[600] text-[#5c6470]">Platform Preview</div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={idx}
-                  className="group relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-white p-8 hover:shadow-xl hover:shadow-black/5 transition-all duration-500"
-                >
-                  <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#1d1d1f] mb-8 group-hover:bg-[#0066cc] group-hover:text-white transition-all duration-500 shadow-sm">
-                      <Icon className="h-6 w-6" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-3 text-[#1d1d1f]">{feature.title}</h3>
-                    <p className="text-slate-500 leading-relaxed text-[15px]">
-                      {feature.body}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Decorative Ellipses */}
+          <div className="absolute right-[-100px] w-[960px] h-[545px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20" />
+          <div className="absolute right-[-80px] w-[960px] h-[545px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40" />
+          <div className="absolute right-[-60px] w-[960px] h-[545px] rounded-[100%] border-[1px] border-[#ed351d] opacity-60" />
+          <div className="absolute right-[-40px] w-[960px] h-[545px] rounded-[100%] bg-[#ed351d] opacity-10" />
         </section>
+
       </main>
 
-      <footer className="border-t border-black/[0.05] py-12 bg-[#f5f5f7]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row text-center sm:text-left">
-          <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
-            <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
-              F
-            </div>
-            <span className="text-[13px] font-semibold text-[#1d1d1f]">
-              FleetOpsX
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
-            <Link to="/pwa/$tenantId" params={{ tenantId: "petroline" }} target="_blank" className="hover:text-[#0066cc] transition-colors">Demo Customer Portal</Link>
-            <Link to="/superadmin" className="hover:text-[#1d1d1f] transition-colors">Platform Admin</Link>
-            <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
-          </div>
-        </div>
+      {/* Footer - 1440x100 */}
+      <footer className="w-full max-w-[1440px] h-[100px] bg-[#1b2432] flex items-center justify-center">
+        <p className="text-[12px] font-[400] leading-[16px] text-[#ffffff]">
+          POWERED BY FLEETOPSX | COPYRIGHT {new Date().getFullYear()}
+        </p>
       </footer>
+
     </div>
   );
 }
-

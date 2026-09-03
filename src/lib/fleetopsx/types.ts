@@ -42,7 +42,6 @@ export interface Company {
 export type RoleKey =
   | "Transport Manager"
   | "Fleet Operations"
-  | "Diesel"
   | "Engineering"
   | "Parts & Store"
   | "Accounts"

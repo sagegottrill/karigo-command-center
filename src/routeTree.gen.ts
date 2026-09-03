@@ -10,63 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as CustomerPortalRouteImport } from './routes/customer-portal'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
-import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as AppAccountsRouteImport } from './routes/app.accounts'
-import { Route as AppAdminRouteImport } from './routes/app.admin'
-import { Route as AppAuditRouteImport } from './routes/app.audit'
-import { Route as AppComplianceRouteImport } from './routes/app.compliance'
-import { Route as AppDepreciationRouteImport } from './routes/app.depreciation'
-import { Route as AppDispatchRouteImport } from './routes/app.dispatch'
-import { Route as AppEngineeringRouteImport } from './routes/app.engineering'
-import { Route as AppFleetRouteImport } from './routes/app.fleet'
-import { Route as AppGateRouteImport } from './routes/app.gate'
-import { Route as AppGodViewRouteImport } from './routes/app.god-view'
-import { Route as AppInventoryRouteImport } from './routes/app.inventory'
-import { Route as AppMessagesRouteImport } from './routes/app.messages'
-import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
-import { Route as AppProcurementRouteImport } from './routes/app.procurement'
-import { Route as AppReportsRouteImport } from './routes/app.reports'
-import { Route as AppUnauthorizedRouteImport } from './routes/app.unauthorized'
-import { Route as CustomerPortalIndexRouteImport } from './routes/customer-portal.index'
-import { Route as CustomerPortalAuthRouteImport } from './routes/customer-portal._auth'
-import { Route as CustomerPortalLoginRouteImport } from './routes/customer-portal.login'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
-import { Route as AppDriversIndexRouteImport } from './routes/app.drivers.index'
-import { Route as AppDriversDriverIdRouteImport } from './routes/app.drivers.$driverId'
-import { Route as AppTripsIndexRouteImport } from './routes/app.trips.index'
-import { Route as AppTripsTripIdRouteImport } from './routes/app.trips.$tripId'
-import { Route as CustomerPortalAuthRequestIdRouteImport } from './routes/customer-portal._auth.$requestId'
-import { Route as CustomerPortalAuthDashboardRouteImport } from './routes/customer-portal._auth.dashboard'
-import { Route as CustomerPortalAuthRequestRouteImport } from './routes/customer-portal._auth.request'
+import { Route as WorkspaceAccountTypeRouteImport } from './routes/workspace.account-type'
+import { Route as WorkspaceAppRouteImport } from './routes/workspace.app'
+import { Route as WorkspaceCustomerPortalRouteImport } from './routes/workspace.customer-portal'
+import { Route as WorkspaceForgotPasswordRouteImport } from './routes/workspace.forgot-password'
+import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
+import { Route as WorkspaceAppIndexRouteImport } from './routes/workspace.app.index'
+import { Route as WorkspaceAppAccountsRouteImport } from './routes/workspace.app.accounts'
+import { Route as WorkspaceAppAdminRouteImport } from './routes/workspace.app.admin'
+import { Route as WorkspaceAppAuditRouteImport } from './routes/workspace.app.audit'
+import { Route as WorkspaceAppComplianceRouteImport } from './routes/workspace.app.compliance'
+import { Route as WorkspaceAppDepreciationRouteImport } from './routes/workspace.app.depreciation'
+import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
+import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
+import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
+import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
+import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
+import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
+import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
+import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
+import { Route as WorkspaceAppReportsRouteImport } from './routes/workspace.app.reports'
+import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace.app.unauthorized'
+import { Route as WorkspaceCustomerPortalIndexRouteImport } from './routes/workspace.customer-portal.index'
+import { Route as WorkspaceCustomerPortalAuthRouteImport } from './routes/workspace.customer-portal._auth'
+import { Route as WorkspaceCustomerPortalLoginRouteImport } from './routes/workspace.customer-portal.login'
+import { Route as WorkspaceAppDriversIndexRouteImport } from './routes/workspace.app.drivers.index'
+import { Route as WorkspaceAppDriversDriverIdRouteImport } from './routes/workspace.app.drivers.$driverId'
+import { Route as WorkspaceAppTripsIndexRouteImport } from './routes/workspace.app.trips.index'
+import { Route as WorkspaceAppTripsTripIdRouteImport } from './routes/workspace.app.trips.$tripId'
+import { Route as WorkspaceCustomerPortalAuthRequestIdRouteImport } from './routes/workspace.customer-portal._auth.$requestId'
+import { Route as WorkspaceCustomerPortalAuthDashboardRouteImport } from './routes/workspace.customer-portal._auth.dashboard'
+import { Route as WorkspaceCustomerPortalAuthRequestRouteImport } from './routes/workspace.customer-portal._auth.request'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomerPortalRoute = CustomerPortalRouteImport.update({
-  id: '/customer-portal',
-  path: '/customer-portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperadminRoute = SuperadminRouteImport.update({
@@ -74,368 +55,404 @@ const SuperadminRoute = SuperadminRouteImport.update({
   path: '/superadmin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAccountsRoute = AppAccountsRouteImport.update({
-  id: '/accounts',
-  path: '/accounts',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAuditRoute = AppAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppComplianceRoute = AppComplianceRouteImport.update({
-  id: '/compliance',
-  path: '/compliance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDepreciationRoute = AppDepreciationRouteImport.update({
-  id: '/depreciation',
-  path: '/depreciation',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDispatchRoute = AppDispatchRouteImport.update({
-  id: '/dispatch',
-  path: '/dispatch',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEngineeringRoute = AppEngineeringRouteImport.update({
-  id: '/engineering',
-  path: '/engineering',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFleetRoute = AppFleetRouteImport.update({
-  id: '/fleet',
-  path: '/fleet',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppGateRoute = AppGateRouteImport.update({
-  id: '/gate',
-  path: '/gate',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppGodViewRoute = AppGodViewRouteImport.update({
-  id: '/god-view',
-  path: '/god-view',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppInventoryRoute = AppInventoryRouteImport.update({
-  id: '/inventory',
-  path: '/inventory',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMessagesRoute = AppMessagesRouteImport.update({
-  id: '/messages',
-  path: '/messages',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNotificationsRoute = AppNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppProcurementRoute = AppProcurementRouteImport.update({
-  id: '/procurement',
-  path: '/procurement',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReportsRoute = AppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppUnauthorizedRoute = AppUnauthorizedRouteImport.update({
-  id: '/unauthorized',
-  path: '/unauthorized',
-  getParentRoute: () => AppRoute,
-} as any)
-const CustomerPortalIndexRoute = CustomerPortalIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CustomerPortalRoute,
-} as any)
-const CustomerPortalAuthRoute = CustomerPortalAuthRouteImport.update({
-  id: '/_auth',
-  getParentRoute: () => CustomerPortalRoute,
-} as any)
-const CustomerPortalLoginRoute = CustomerPortalLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => CustomerPortalRoute,
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
   id: '/pwa/$tenantId',
   path: '/pwa/$tenantId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppDriversIndexRoute = AppDriversIndexRouteImport.update({
-  id: '/drivers/',
-  path: '/drivers/',
-  getParentRoute: () => AppRoute,
+const WorkspaceAccountTypeRoute = WorkspaceAccountTypeRouteImport.update({
+  id: '/account-type',
+  path: '/account-type',
+  getParentRoute: () => WorkspaceRoute,
 } as any)
-const AppDriversDriverIdRoute = AppDriversDriverIdRouteImport.update({
-  id: '/drivers/$driverId',
-  path: '/drivers/$driverId',
-  getParentRoute: () => AppRoute,
+const WorkspaceAppRoute = WorkspaceAppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => WorkspaceRoute,
 } as any)
-const AppTripsIndexRoute = AppTripsIndexRouteImport.update({
+const WorkspaceCustomerPortalRoute = WorkspaceCustomerPortalRouteImport.update({
+  id: '/customer-portal',
+  path: '/customer-portal',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceForgotPasswordRoute = WorkspaceForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceAppIndexRoute = WorkspaceAppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAccountsRoute = WorkspaceAppAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAdminRoute = WorkspaceAppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAuditRoute = WorkspaceAppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppComplianceRoute = WorkspaceAppComplianceRouteImport.update({
+  id: '/compliance',
+  path: '/compliance',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppDepreciationRoute =
+  WorkspaceAppDepreciationRouteImport.update({
+    id: '/depreciation',
+    path: '/depreciation',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppDispatchRoute = WorkspaceAppDispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppEngineeringRoute = WorkspaceAppEngineeringRouteImport.update({
+  id: '/engineering',
+  path: '/engineering',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppFleetRoute = WorkspaceAppFleetRouteImport.update({
+  id: '/fleet',
+  path: '/fleet',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppGateRoute = WorkspaceAppGateRouteImport.update({
+  id: '/gate',
+  path: '/gate',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppGodViewRoute = WorkspaceAppGodViewRouteImport.update({
+  id: '/god-view',
+  path: '/god-view',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppMessagesRoute = WorkspaceAppMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppNotificationsRoute =
+  WorkspaceAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppReportsRoute = WorkspaceAppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppUnauthorizedRoute =
+  WorkspaceAppUnauthorizedRouteImport.update({
+    id: '/unauthorized',
+    path: '/unauthorized',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceCustomerPortalIndexRoute =
+  WorkspaceCustomerPortalIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => WorkspaceCustomerPortalRoute,
+  } as any)
+const WorkspaceCustomerPortalAuthRoute =
+  WorkspaceCustomerPortalAuthRouteImport.update({
+    id: '/_auth',
+    getParentRoute: () => WorkspaceCustomerPortalRoute,
+  } as any)
+const WorkspaceCustomerPortalLoginRoute =
+  WorkspaceCustomerPortalLoginRouteImport.update({
+    id: '/login',
+    path: '/login',
+    getParentRoute: () => WorkspaceCustomerPortalRoute,
+  } as any)
+const WorkspaceAppDriversIndexRoute =
+  WorkspaceAppDriversIndexRouteImport.update({
+    id: '/drivers/',
+    path: '/drivers/',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppDriversDriverIdRoute =
+  WorkspaceAppDriversDriverIdRouteImport.update({
+    id: '/drivers/$driverId',
+    path: '/drivers/$driverId',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppTripsIndexRoute = WorkspaceAppTripsIndexRouteImport.update({
   id: '/trips/',
   path: '/trips/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const AppTripsTripIdRoute = AppTripsTripIdRouteImport.update({
+const WorkspaceAppTripsTripIdRoute = WorkspaceAppTripsTripIdRouteImport.update({
   id: '/trips/$tripId',
   path: '/trips/$tripId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const CustomerPortalAuthRequestIdRoute =
-  CustomerPortalAuthRequestIdRouteImport.update({
+const WorkspaceCustomerPortalAuthRequestIdRoute =
+  WorkspaceCustomerPortalAuthRequestIdRouteImport.update({
     id: '/$requestId',
     path: '/$requestId',
-    getParentRoute: () => CustomerPortalAuthRoute,
+    getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
   } as any)
-const CustomerPortalAuthDashboardRoute =
-  CustomerPortalAuthDashboardRouteImport.update({
+const WorkspaceCustomerPortalAuthDashboardRoute =
+  WorkspaceCustomerPortalAuthDashboardRouteImport.update({
     id: '/dashboard',
     path: '/dashboard',
-    getParentRoute: () => CustomerPortalAuthRoute,
+    getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
   } as any)
-const CustomerPortalAuthRequestRoute =
-  CustomerPortalAuthRequestRouteImport.update({
+const WorkspaceCustomerPortalAuthRequestRoute =
+  WorkspaceCustomerPortalAuthRequestRouteImport.update({
     id: '/request',
     path: '/request',
-    getParentRoute: () => CustomerPortalAuthRoute,
+    getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
-  '/customer-portal': typeof CustomerPortalRouteWithChildren
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/app/accounts': typeof AppAccountsRoute
-  '/app/admin': typeof AppAdminRoute
-  '/app/audit': typeof AppAuditRoute
-  '/app/compliance': typeof AppComplianceRoute
-  '/app/depreciation': typeof AppDepreciationRoute
-  '/app/dispatch': typeof AppDispatchRoute
-  '/app/engineering': typeof AppEngineeringRoute
-  '/app/fleet': typeof AppFleetRoute
-  '/app/gate': typeof AppGateRoute
-  '/app/god-view': typeof AppGodViewRoute
-  '/app/inventory': typeof AppInventoryRoute
-  '/app/messages': typeof AppMessagesRoute
-  '/app/notifications': typeof AppNotificationsRoute
-  '/app/procurement': typeof AppProcurementRoute
-  '/app/reports': typeof AppReportsRoute
-  '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal/login': typeof CustomerPortalLoginRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/app/': typeof AppIndexRoute
-  '/customer-portal/': typeof CustomerPortalIndexRoute
-  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
-  '/app/trips/$tripId': typeof AppTripsTripIdRoute
-  '/customer-portal/$requestId': typeof CustomerPortalAuthRequestIdRoute
-  '/customer-portal/dashboard': typeof CustomerPortalAuthDashboardRoute
-  '/customer-portal/request': typeof CustomerPortalAuthRequestRoute
-  '/app/drivers/': typeof AppDriversIndexRoute
-  '/app/trips/': typeof AppTripsIndexRoute
+  '/workspace/account-type': typeof WorkspaceAccountTypeRoute
+  '/workspace/app': typeof WorkspaceAppRouteWithChildren
+  '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
+  '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
+  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
+  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/gate': typeof WorkspaceAppGateRoute
+  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
+  '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
+  '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
+  '/workspace/app/': typeof WorkspaceAppIndexRoute
+  '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
+  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
+  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
+  '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
+  '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
+  '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
+  '/workspace/app/trips/': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/app/accounts': typeof AppAccountsRoute
-  '/app/admin': typeof AppAdminRoute
-  '/app/audit': typeof AppAuditRoute
-  '/app/compliance': typeof AppComplianceRoute
-  '/app/depreciation': typeof AppDepreciationRoute
-  '/app/dispatch': typeof AppDispatchRoute
-  '/app/engineering': typeof AppEngineeringRoute
-  '/app/fleet': typeof AppFleetRoute
-  '/app/gate': typeof AppGateRoute
-  '/app/god-view': typeof AppGodViewRoute
-  '/app/inventory': typeof AppInventoryRoute
-  '/app/messages': typeof AppMessagesRoute
-  '/app/notifications': typeof AppNotificationsRoute
-  '/app/procurement': typeof AppProcurementRoute
-  '/app/reports': typeof AppReportsRoute
-  '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal': typeof CustomerPortalIndexRoute
-  '/customer-portal/login': typeof CustomerPortalLoginRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/app': typeof AppIndexRoute
-  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
-  '/app/trips/$tripId': typeof AppTripsTripIdRoute
-  '/customer-portal/$requestId': typeof CustomerPortalAuthRequestIdRoute
-  '/customer-portal/dashboard': typeof CustomerPortalAuthDashboardRoute
-  '/customer-portal/request': typeof CustomerPortalAuthRequestRoute
-  '/app/drivers': typeof AppDriversIndexRoute
-  '/app/trips': typeof AppTripsIndexRoute
+  '/workspace/account-type': typeof WorkspaceAccountTypeRoute
+  '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
+  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
+  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/gate': typeof WorkspaceAppGateRoute
+  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
+  '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
+  '/workspace/customer-portal': typeof WorkspaceCustomerPortalIndexRoute
+  '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
+  '/workspace/app': typeof WorkspaceAppIndexRoute
+  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
+  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
+  '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
+  '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
+  '/workspace/app/drivers': typeof WorkspaceAppDriversIndexRoute
+  '/workspace/app/trips': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
-  '/customer-portal': typeof CustomerPortalRouteWithChildren
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/app/accounts': typeof AppAccountsRoute
-  '/app/admin': typeof AppAdminRoute
-  '/app/audit': typeof AppAuditRoute
-  '/app/compliance': typeof AppComplianceRoute
-  '/app/depreciation': typeof AppDepreciationRoute
-  '/app/dispatch': typeof AppDispatchRoute
-  '/app/engineering': typeof AppEngineeringRoute
-  '/app/fleet': typeof AppFleetRoute
-  '/app/gate': typeof AppGateRoute
-  '/app/god-view': typeof AppGodViewRoute
-  '/app/inventory': typeof AppInventoryRoute
-  '/app/messages': typeof AppMessagesRoute
-  '/app/notifications': typeof AppNotificationsRoute
-  '/app/procurement': typeof AppProcurementRoute
-  '/app/reports': typeof AppReportsRoute
-  '/app/unauthorized': typeof AppUnauthorizedRoute
-  '/customer-portal/_auth': typeof CustomerPortalAuthRouteWithChildren
-  '/customer-portal/login': typeof CustomerPortalLoginRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
   '/pwa/$tenantId': typeof PwaTenantIdRoute
-  '/app/': typeof AppIndexRoute
-  '/customer-portal/': typeof CustomerPortalIndexRoute
-  '/app/drivers/$driverId': typeof AppDriversDriverIdRoute
-  '/app/trips/$tripId': typeof AppTripsTripIdRoute
-  '/customer-portal/_auth/$requestId': typeof CustomerPortalAuthRequestIdRoute
-  '/customer-portal/_auth/dashboard': typeof CustomerPortalAuthDashboardRoute
-  '/customer-portal/_auth/request': typeof CustomerPortalAuthRequestRoute
-  '/app/drivers/': typeof AppDriversIndexRoute
-  '/app/trips/': typeof AppTripsIndexRoute
+  '/workspace/account-type': typeof WorkspaceAccountTypeRoute
+  '/workspace/app': typeof WorkspaceAppRouteWithChildren
+  '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
+  '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
+  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
+  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/gate': typeof WorkspaceAppGateRoute
+  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
+  '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
+  '/workspace/customer-portal/_auth': typeof WorkspaceCustomerPortalAuthRouteWithChildren
+  '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
+  '/workspace/app/': typeof WorkspaceAppIndexRoute
+  '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
+  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
+  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
+  '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
+  '/workspace/customer-portal/_auth/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/_auth/request': typeof WorkspaceCustomerPortalAuthRequestRoute
+  '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
+  '/workspace/app/trips/': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/app'
-    | '/customer-portal'
-    | '/forgot-password'
-    | '/login'
     | '/superadmin'
-    | '/app/accounts'
-    | '/app/admin'
-    | '/app/audit'
-    | '/app/compliance'
-    | '/app/depreciation'
-    | '/app/dispatch'
-    | '/app/engineering'
-    | '/app/fleet'
-    | '/app/gate'
-    | '/app/god-view'
-    | '/app/inventory'
-    | '/app/messages'
-    | '/app/notifications'
-    | '/app/procurement'
-    | '/app/reports'
-    | '/app/unauthorized'
-    | '/customer-portal/login'
+    | '/workspace'
     | '/pwa/$tenantId'
-    | '/app/'
-    | '/customer-portal/'
-    | '/app/drivers/$driverId'
-    | '/app/trips/$tripId'
-    | '/customer-portal/$requestId'
-    | '/customer-portal/dashboard'
-    | '/customer-portal/request'
-    | '/app/drivers/'
-    | '/app/trips/'
+    | '/workspace/account-type'
+    | '/workspace/app'
+    | '/workspace/customer-portal'
+    | '/workspace/forgot-password'
+    | '/workspace/login'
+    | '/workspace/app/accounts'
+    | '/workspace/app/admin'
+    | '/workspace/app/audit'
+    | '/workspace/app/compliance'
+    | '/workspace/app/depreciation'
+    | '/workspace/app/dispatch'
+    | '/workspace/app/engineering'
+    | '/workspace/app/fleet'
+    | '/workspace/app/gate'
+    | '/workspace/app/god-view'
+    | '/workspace/app/inventory'
+    | '/workspace/app/messages'
+    | '/workspace/app/notifications'
+    | '/workspace/app/reports'
+    | '/workspace/app/unauthorized'
+    | '/workspace/customer-portal/login'
+    | '/workspace/app/'
+    | '/workspace/customer-portal/'
+    | '/workspace/app/drivers/$driverId'
+    | '/workspace/app/trips/$tripId'
+    | '/workspace/customer-portal/$requestId'
+    | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/request'
+    | '/workspace/app/drivers/'
+    | '/workspace/app/trips/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/forgot-password'
-    | '/login'
     | '/superadmin'
-    | '/app/accounts'
-    | '/app/admin'
-    | '/app/audit'
-    | '/app/compliance'
-    | '/app/depreciation'
-    | '/app/dispatch'
-    | '/app/engineering'
-    | '/app/fleet'
-    | '/app/gate'
-    | '/app/god-view'
-    | '/app/inventory'
-    | '/app/messages'
-    | '/app/notifications'
-    | '/app/procurement'
-    | '/app/reports'
-    | '/app/unauthorized'
-    | '/customer-portal'
-    | '/customer-portal/login'
+    | '/workspace'
     | '/pwa/$tenantId'
-    | '/app'
-    | '/app/drivers/$driverId'
-    | '/app/trips/$tripId'
-    | '/customer-portal/$requestId'
-    | '/customer-portal/dashboard'
-    | '/customer-portal/request'
-    | '/app/drivers'
-    | '/app/trips'
+    | '/workspace/account-type'
+    | '/workspace/forgot-password'
+    | '/workspace/login'
+    | '/workspace/app/accounts'
+    | '/workspace/app/admin'
+    | '/workspace/app/audit'
+    | '/workspace/app/compliance'
+    | '/workspace/app/depreciation'
+    | '/workspace/app/dispatch'
+    | '/workspace/app/engineering'
+    | '/workspace/app/fleet'
+    | '/workspace/app/gate'
+    | '/workspace/app/god-view'
+    | '/workspace/app/inventory'
+    | '/workspace/app/messages'
+    | '/workspace/app/notifications'
+    | '/workspace/app/reports'
+    | '/workspace/app/unauthorized'
+    | '/workspace/customer-portal'
+    | '/workspace/customer-portal/login'
+    | '/workspace/app'
+    | '/workspace/app/drivers/$driverId'
+    | '/workspace/app/trips/$tripId'
+    | '/workspace/customer-portal/$requestId'
+    | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/request'
+    | '/workspace/app/drivers'
+    | '/workspace/app/trips'
   id:
     | '__root__'
     | '/'
-    | '/app'
-    | '/customer-portal'
-    | '/forgot-password'
-    | '/login'
     | '/superadmin'
-    | '/app/accounts'
-    | '/app/admin'
-    | '/app/audit'
-    | '/app/compliance'
-    | '/app/depreciation'
-    | '/app/dispatch'
-    | '/app/engineering'
-    | '/app/fleet'
-    | '/app/gate'
-    | '/app/god-view'
-    | '/app/inventory'
-    | '/app/messages'
-    | '/app/notifications'
-    | '/app/procurement'
-    | '/app/reports'
-    | '/app/unauthorized'
-    | '/customer-portal/_auth'
-    | '/customer-portal/login'
+    | '/workspace'
     | '/pwa/$tenantId'
-    | '/app/'
-    | '/customer-portal/'
-    | '/app/drivers/$driverId'
-    | '/app/trips/$tripId'
-    | '/customer-portal/_auth/$requestId'
-    | '/customer-portal/_auth/dashboard'
-    | '/customer-portal/_auth/request'
-    | '/app/drivers/'
-    | '/app/trips/'
+    | '/workspace/account-type'
+    | '/workspace/app'
+    | '/workspace/customer-portal'
+    | '/workspace/forgot-password'
+    | '/workspace/login'
+    | '/workspace/app/accounts'
+    | '/workspace/app/admin'
+    | '/workspace/app/audit'
+    | '/workspace/app/compliance'
+    | '/workspace/app/depreciation'
+    | '/workspace/app/dispatch'
+    | '/workspace/app/engineering'
+    | '/workspace/app/fleet'
+    | '/workspace/app/gate'
+    | '/workspace/app/god-view'
+    | '/workspace/app/inventory'
+    | '/workspace/app/messages'
+    | '/workspace/app/notifications'
+    | '/workspace/app/reports'
+    | '/workspace/app/unauthorized'
+    | '/workspace/customer-portal/_auth'
+    | '/workspace/customer-portal/login'
+    | '/workspace/app/'
+    | '/workspace/customer-portal/'
+    | '/workspace/app/drivers/$driverId'
+    | '/workspace/app/trips/$tripId'
+    | '/workspace/customer-portal/_auth/$requestId'
+    | '/workspace/customer-portal/_auth/dashboard'
+    | '/workspace/customer-portal/_auth/request'
+    | '/workspace/app/drivers/'
+    | '/workspace/app/trips/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRouteWithChildren
-  CustomerPortalRoute: typeof CustomerPortalRouteWithChildren
-  ForgotPasswordRoute: typeof ForgotPasswordRoute
-  LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
+  WorkspaceRoute: typeof WorkspaceRouteWithChildren
   PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
 
@@ -448,34 +465,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customer-portal': {
-      id: '/customer-portal'
-      path: '/customer-portal'
-      fullPath: '/customer-portal'
-      preLoaderRoute: typeof CustomerPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/superadmin': {
       id: '/superadmin'
       path: '/superadmin'
@@ -483,145 +472,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperadminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/': {
-      id: '/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/accounts': {
-      id: '/app/accounts'
-      path: '/accounts'
-      fullPath: '/app/accounts'
-      preLoaderRoute: typeof AppAccountsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/admin': {
-      id: '/app/admin'
-      path: '/admin'
-      fullPath: '/app/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/audit': {
-      id: '/app/audit'
-      path: '/audit'
-      fullPath: '/app/audit'
-      preLoaderRoute: typeof AppAuditRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/compliance': {
-      id: '/app/compliance'
-      path: '/compliance'
-      fullPath: '/app/compliance'
-      preLoaderRoute: typeof AppComplianceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/depreciation': {
-      id: '/app/depreciation'
-      path: '/depreciation'
-      fullPath: '/app/depreciation'
-      preLoaderRoute: typeof AppDepreciationRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/dispatch': {
-      id: '/app/dispatch'
-      path: '/dispatch'
-      fullPath: '/app/dispatch'
-      preLoaderRoute: typeof AppDispatchRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/engineering': {
-      id: '/app/engineering'
-      path: '/engineering'
-      fullPath: '/app/engineering'
-      preLoaderRoute: typeof AppEngineeringRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/fleet': {
-      id: '/app/fleet'
-      path: '/fleet'
-      fullPath: '/app/fleet'
-      preLoaderRoute: typeof AppFleetRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/gate': {
-      id: '/app/gate'
-      path: '/gate'
-      fullPath: '/app/gate'
-      preLoaderRoute: typeof AppGateRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/god-view': {
-      id: '/app/god-view'
-      path: '/god-view'
-      fullPath: '/app/god-view'
-      preLoaderRoute: typeof AppGodViewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/inventory': {
-      id: '/app/inventory'
-      path: '/inventory'
-      fullPath: '/app/inventory'
-      preLoaderRoute: typeof AppInventoryRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/messages': {
-      id: '/app/messages'
-      path: '/messages'
-      fullPath: '/app/messages'
-      preLoaderRoute: typeof AppMessagesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/notifications': {
-      id: '/app/notifications'
-      path: '/notifications'
-      fullPath: '/app/notifications'
-      preLoaderRoute: typeof AppNotificationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/procurement': {
-      id: '/app/procurement'
-      path: '/procurement'
-      fullPath: '/app/procurement'
-      preLoaderRoute: typeof AppProcurementRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/reports': {
-      id: '/app/reports'
-      path: '/reports'
-      fullPath: '/app/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/unauthorized': {
-      id: '/app/unauthorized'
-      path: '/unauthorized'
-      fullPath: '/app/unauthorized'
-      preLoaderRoute: typeof AppUnauthorizedRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/customer-portal/': {
-      id: '/customer-portal/'
-      path: '/'
-      fullPath: '/customer-portal/'
-      preLoaderRoute: typeof CustomerPortalIndexRouteImport
-      parentRoute: typeof CustomerPortalRoute
-    }
-    '/customer-portal/_auth': {
-      id: '/customer-portal/_auth'
-      path: ''
-      fullPath: '/customer-portal'
-      preLoaderRoute: typeof CustomerPortalAuthRouteImport
-      parentRoute: typeof CustomerPortalRoute
-    }
-    '/customer-portal/login': {
-      id: '/customer-portal/login'
-      path: '/login'
-      fullPath: '/customer-portal/login'
-      preLoaderRoute: typeof CustomerPortalLoginRouteImport
-      parentRoute: typeof CustomerPortalRoute
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/pwa/$tenantId': {
       id: '/pwa/$tenantId'
@@ -630,146 +486,340 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PwaTenantIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/drivers/': {
-      id: '/app/drivers/'
+    '/workspace/account-type': {
+      id: '/workspace/account-type'
+      path: '/account-type'
+      fullPath: '/workspace/account-type'
+      preLoaderRoute: typeof WorkspaceAccountTypeRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/app': {
+      id: '/workspace/app'
+      path: '/app'
+      fullPath: '/workspace/app'
+      preLoaderRoute: typeof WorkspaceAppRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/customer-portal': {
+      id: '/workspace/customer-portal'
+      path: '/customer-portal'
+      fullPath: '/workspace/customer-portal'
+      preLoaderRoute: typeof WorkspaceCustomerPortalRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/forgot-password': {
+      id: '/workspace/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/workspace/forgot-password'
+      preLoaderRoute: typeof WorkspaceForgotPasswordRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/login': {
+      id: '/workspace/login'
+      path: '/login'
+      fullPath: '/workspace/login'
+      preLoaderRoute: typeof WorkspaceLoginRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/app/': {
+      id: '/workspace/app/'
+      path: '/'
+      fullPath: '/workspace/app/'
+      preLoaderRoute: typeof WorkspaceAppIndexRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/accounts': {
+      id: '/workspace/app/accounts'
+      path: '/accounts'
+      fullPath: '/workspace/app/accounts'
+      preLoaderRoute: typeof WorkspaceAppAccountsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/admin': {
+      id: '/workspace/app/admin'
+      path: '/admin'
+      fullPath: '/workspace/app/admin'
+      preLoaderRoute: typeof WorkspaceAppAdminRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/audit': {
+      id: '/workspace/app/audit'
+      path: '/audit'
+      fullPath: '/workspace/app/audit'
+      preLoaderRoute: typeof WorkspaceAppAuditRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/compliance': {
+      id: '/workspace/app/compliance'
+      path: '/compliance'
+      fullPath: '/workspace/app/compliance'
+      preLoaderRoute: typeof WorkspaceAppComplianceRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/depreciation': {
+      id: '/workspace/app/depreciation'
+      path: '/depreciation'
+      fullPath: '/workspace/app/depreciation'
+      preLoaderRoute: typeof WorkspaceAppDepreciationRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/dispatch': {
+      id: '/workspace/app/dispatch'
+      path: '/dispatch'
+      fullPath: '/workspace/app/dispatch'
+      preLoaderRoute: typeof WorkspaceAppDispatchRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/engineering': {
+      id: '/workspace/app/engineering'
+      path: '/engineering'
+      fullPath: '/workspace/app/engineering'
+      preLoaderRoute: typeof WorkspaceAppEngineeringRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/fleet': {
+      id: '/workspace/app/fleet'
+      path: '/fleet'
+      fullPath: '/workspace/app/fleet'
+      preLoaderRoute: typeof WorkspaceAppFleetRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/gate': {
+      id: '/workspace/app/gate'
+      path: '/gate'
+      fullPath: '/workspace/app/gate'
+      preLoaderRoute: typeof WorkspaceAppGateRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/god-view': {
+      id: '/workspace/app/god-view'
+      path: '/god-view'
+      fullPath: '/workspace/app/god-view'
+      preLoaderRoute: typeof WorkspaceAppGodViewRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/inventory': {
+      id: '/workspace/app/inventory'
+      path: '/inventory'
+      fullPath: '/workspace/app/inventory'
+      preLoaderRoute: typeof WorkspaceAppInventoryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/messages': {
+      id: '/workspace/app/messages'
+      path: '/messages'
+      fullPath: '/workspace/app/messages'
+      preLoaderRoute: typeof WorkspaceAppMessagesRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/notifications': {
+      id: '/workspace/app/notifications'
+      path: '/notifications'
+      fullPath: '/workspace/app/notifications'
+      preLoaderRoute: typeof WorkspaceAppNotificationsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/reports': {
+      id: '/workspace/app/reports'
+      path: '/reports'
+      fullPath: '/workspace/app/reports'
+      preLoaderRoute: typeof WorkspaceAppReportsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/unauthorized': {
+      id: '/workspace/app/unauthorized'
+      path: '/unauthorized'
+      fullPath: '/workspace/app/unauthorized'
+      preLoaderRoute: typeof WorkspaceAppUnauthorizedRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/customer-portal/': {
+      id: '/workspace/customer-portal/'
+      path: '/'
+      fullPath: '/workspace/customer-portal/'
+      preLoaderRoute: typeof WorkspaceCustomerPortalIndexRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalRoute
+    }
+    '/workspace/customer-portal/_auth': {
+      id: '/workspace/customer-portal/_auth'
+      path: ''
+      fullPath: '/workspace/customer-portal'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalRoute
+    }
+    '/workspace/customer-portal/login': {
+      id: '/workspace/customer-portal/login'
+      path: '/login'
+      fullPath: '/workspace/customer-portal/login'
+      preLoaderRoute: typeof WorkspaceCustomerPortalLoginRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalRoute
+    }
+    '/workspace/app/drivers/': {
+      id: '/workspace/app/drivers/'
       path: '/drivers'
-      fullPath: '/app/drivers/'
-      preLoaderRoute: typeof AppDriversIndexRouteImport
-      parentRoute: typeof AppRoute
+      fullPath: '/workspace/app/drivers/'
+      preLoaderRoute: typeof WorkspaceAppDriversIndexRouteImport
+      parentRoute: typeof WorkspaceAppRoute
     }
-    '/app/drivers/$driverId': {
-      id: '/app/drivers/$driverId'
+    '/workspace/app/drivers/$driverId': {
+      id: '/workspace/app/drivers/$driverId'
       path: '/drivers/$driverId'
-      fullPath: '/app/drivers/$driverId'
-      preLoaderRoute: typeof AppDriversDriverIdRouteImport
-      parentRoute: typeof AppRoute
+      fullPath: '/workspace/app/drivers/$driverId'
+      preLoaderRoute: typeof WorkspaceAppDriversDriverIdRouteImport
+      parentRoute: typeof WorkspaceAppRoute
     }
-    '/app/trips/': {
-      id: '/app/trips/'
+    '/workspace/app/trips/': {
+      id: '/workspace/app/trips/'
       path: '/trips'
-      fullPath: '/app/trips/'
-      preLoaderRoute: typeof AppTripsIndexRouteImport
-      parentRoute: typeof AppRoute
+      fullPath: '/workspace/app/trips/'
+      preLoaderRoute: typeof WorkspaceAppTripsIndexRouteImport
+      parentRoute: typeof WorkspaceAppRoute
     }
-    '/app/trips/$tripId': {
-      id: '/app/trips/$tripId'
+    '/workspace/app/trips/$tripId': {
+      id: '/workspace/app/trips/$tripId'
       path: '/trips/$tripId'
-      fullPath: '/app/trips/$tripId'
-      preLoaderRoute: typeof AppTripsTripIdRouteImport
-      parentRoute: typeof AppRoute
+      fullPath: '/workspace/app/trips/$tripId'
+      preLoaderRoute: typeof WorkspaceAppTripsTripIdRouteImport
+      parentRoute: typeof WorkspaceAppRoute
     }
-    '/customer-portal/_auth/$requestId': {
-      id: '/customer-portal/_auth/$requestId'
+    '/workspace/customer-portal/_auth/$requestId': {
+      id: '/workspace/customer-portal/_auth/$requestId'
       path: '/$requestId'
-      fullPath: '/customer-portal/$requestId'
-      preLoaderRoute: typeof CustomerPortalAuthRequestIdRouteImport
-      parentRoute: typeof CustomerPortalAuthRoute
+      fullPath: '/workspace/customer-portal/$requestId'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthRequestIdRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalAuthRoute
     }
-    '/customer-portal/_auth/dashboard': {
-      id: '/customer-portal/_auth/dashboard'
+    '/workspace/customer-portal/_auth/dashboard': {
+      id: '/workspace/customer-portal/_auth/dashboard'
       path: '/dashboard'
-      fullPath: '/customer-portal/dashboard'
-      preLoaderRoute: typeof CustomerPortalAuthDashboardRouteImport
-      parentRoute: typeof CustomerPortalAuthRoute
+      fullPath: '/workspace/customer-portal/dashboard'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthDashboardRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalAuthRoute
     }
-    '/customer-portal/_auth/request': {
-      id: '/customer-portal/_auth/request'
+    '/workspace/customer-portal/_auth/request': {
+      id: '/workspace/customer-portal/_auth/request'
       path: '/request'
-      fullPath: '/customer-portal/request'
-      preLoaderRoute: typeof CustomerPortalAuthRequestRouteImport
-      parentRoute: typeof CustomerPortalAuthRoute
+      fullPath: '/workspace/customer-portal/request'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthRequestRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalAuthRoute
     }
   }
 }
 
-interface AppRouteChildren {
-  AppAccountsRoute: typeof AppAccountsRoute
-  AppAdminRoute: typeof AppAdminRoute
-  AppAuditRoute: typeof AppAuditRoute
-  AppComplianceRoute: typeof AppComplianceRoute
-  AppDepreciationRoute: typeof AppDepreciationRoute
-  AppDispatchRoute: typeof AppDispatchRoute
-  AppEngineeringRoute: typeof AppEngineeringRoute
-  AppFleetRoute: typeof AppFleetRoute
-  AppGateRoute: typeof AppGateRoute
-  AppGodViewRoute: typeof AppGodViewRoute
-  AppInventoryRoute: typeof AppInventoryRoute
-  AppMessagesRoute: typeof AppMessagesRoute
-  AppNotificationsRoute: typeof AppNotificationsRoute
-  AppProcurementRoute: typeof AppProcurementRoute
-  AppReportsRoute: typeof AppReportsRoute
-  AppUnauthorizedRoute: typeof AppUnauthorizedRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppDriversDriverIdRoute: typeof AppDriversDriverIdRoute
-  AppTripsTripIdRoute: typeof AppTripsTripIdRoute
-  AppDriversIndexRoute: typeof AppDriversIndexRoute
-  AppTripsIndexRoute: typeof AppTripsIndexRoute
+interface WorkspaceAppRouteChildren {
+  WorkspaceAppAccountsRoute: typeof WorkspaceAppAccountsRoute
+  WorkspaceAppAdminRoute: typeof WorkspaceAppAdminRoute
+  WorkspaceAppAuditRoute: typeof WorkspaceAppAuditRoute
+  WorkspaceAppComplianceRoute: typeof WorkspaceAppComplianceRoute
+  WorkspaceAppDepreciationRoute: typeof WorkspaceAppDepreciationRoute
+  WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
+  WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
+  WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
+  WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
+  WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
+  WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
+  WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
+  WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
+  WorkspaceAppReportsRoute: typeof WorkspaceAppReportsRoute
+  WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
+  WorkspaceAppIndexRoute: typeof WorkspaceAppIndexRoute
+  WorkspaceAppDriversDriverIdRoute: typeof WorkspaceAppDriversDriverIdRoute
+  WorkspaceAppTripsTripIdRoute: typeof WorkspaceAppTripsTripIdRoute
+  WorkspaceAppDriversIndexRoute: typeof WorkspaceAppDriversIndexRoute
+  WorkspaceAppTripsIndexRoute: typeof WorkspaceAppTripsIndexRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppAccountsRoute: AppAccountsRoute,
-  AppAdminRoute: AppAdminRoute,
-  AppAuditRoute: AppAuditRoute,
-  AppComplianceRoute: AppComplianceRoute,
-  AppDepreciationRoute: AppDepreciationRoute,
-  AppDispatchRoute: AppDispatchRoute,
-  AppEngineeringRoute: AppEngineeringRoute,
-  AppFleetRoute: AppFleetRoute,
-  AppGateRoute: AppGateRoute,
-  AppGodViewRoute: AppGodViewRoute,
-  AppInventoryRoute: AppInventoryRoute,
-  AppMessagesRoute: AppMessagesRoute,
-  AppNotificationsRoute: AppNotificationsRoute,
-  AppProcurementRoute: AppProcurementRoute,
-  AppReportsRoute: AppReportsRoute,
-  AppUnauthorizedRoute: AppUnauthorizedRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppDriversDriverIdRoute: AppDriversDriverIdRoute,
-  AppTripsTripIdRoute: AppTripsTripIdRoute,
-  AppDriversIndexRoute: AppDriversIndexRoute,
-  AppTripsIndexRoute: AppTripsIndexRoute,
+const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
+  WorkspaceAppAccountsRoute: WorkspaceAppAccountsRoute,
+  WorkspaceAppAdminRoute: WorkspaceAppAdminRoute,
+  WorkspaceAppAuditRoute: WorkspaceAppAuditRoute,
+  WorkspaceAppComplianceRoute: WorkspaceAppComplianceRoute,
+  WorkspaceAppDepreciationRoute: WorkspaceAppDepreciationRoute,
+  WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
+  WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
+  WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
+  WorkspaceAppGateRoute: WorkspaceAppGateRoute,
+  WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
+  WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
+  WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
+  WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
+  WorkspaceAppReportsRoute: WorkspaceAppReportsRoute,
+  WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,
+  WorkspaceAppIndexRoute: WorkspaceAppIndexRoute,
+  WorkspaceAppDriversDriverIdRoute: WorkspaceAppDriversDriverIdRoute,
+  WorkspaceAppTripsTripIdRoute: WorkspaceAppTripsTripIdRoute,
+  WorkspaceAppDriversIndexRoute: WorkspaceAppDriversIndexRoute,
+  WorkspaceAppTripsIndexRoute: WorkspaceAppTripsIndexRoute,
 }
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+const WorkspaceAppRouteWithChildren = WorkspaceAppRoute._addFileChildren(
+  WorkspaceAppRouteChildren,
+)
 
-interface CustomerPortalAuthRouteChildren {
-  CustomerPortalAuthRequestIdRoute: typeof CustomerPortalAuthRequestIdRoute
-  CustomerPortalAuthDashboardRoute: typeof CustomerPortalAuthDashboardRoute
-  CustomerPortalAuthRequestRoute: typeof CustomerPortalAuthRequestRoute
+interface WorkspaceCustomerPortalAuthRouteChildren {
+  WorkspaceCustomerPortalAuthRequestIdRoute: typeof WorkspaceCustomerPortalAuthRequestIdRoute
+  WorkspaceCustomerPortalAuthDashboardRoute: typeof WorkspaceCustomerPortalAuthDashboardRoute
+  WorkspaceCustomerPortalAuthRequestRoute: typeof WorkspaceCustomerPortalAuthRequestRoute
 }
 
-const CustomerPortalAuthRouteChildren: CustomerPortalAuthRouteChildren = {
-  CustomerPortalAuthRequestIdRoute: CustomerPortalAuthRequestIdRoute,
-  CustomerPortalAuthDashboardRoute: CustomerPortalAuthDashboardRoute,
-  CustomerPortalAuthRequestRoute: CustomerPortalAuthRequestRoute,
+const WorkspaceCustomerPortalAuthRouteChildren: WorkspaceCustomerPortalAuthRouteChildren =
+  {
+    WorkspaceCustomerPortalAuthRequestIdRoute:
+      WorkspaceCustomerPortalAuthRequestIdRoute,
+    WorkspaceCustomerPortalAuthDashboardRoute:
+      WorkspaceCustomerPortalAuthDashboardRoute,
+    WorkspaceCustomerPortalAuthRequestRoute:
+      WorkspaceCustomerPortalAuthRequestRoute,
+  }
+
+const WorkspaceCustomerPortalAuthRouteWithChildren =
+  WorkspaceCustomerPortalAuthRoute._addFileChildren(
+    WorkspaceCustomerPortalAuthRouteChildren,
+  )
+
+interface WorkspaceCustomerPortalRouteChildren {
+  WorkspaceCustomerPortalAuthRoute: typeof WorkspaceCustomerPortalAuthRouteWithChildren
+  WorkspaceCustomerPortalLoginRoute: typeof WorkspaceCustomerPortalLoginRoute
+  WorkspaceCustomerPortalIndexRoute: typeof WorkspaceCustomerPortalIndexRoute
 }
 
-const CustomerPortalAuthRouteWithChildren =
-  CustomerPortalAuthRoute._addFileChildren(CustomerPortalAuthRouteChildren)
+const WorkspaceCustomerPortalRouteChildren: WorkspaceCustomerPortalRouteChildren =
+  {
+    WorkspaceCustomerPortalAuthRoute:
+      WorkspaceCustomerPortalAuthRouteWithChildren,
+    WorkspaceCustomerPortalLoginRoute: WorkspaceCustomerPortalLoginRoute,
+    WorkspaceCustomerPortalIndexRoute: WorkspaceCustomerPortalIndexRoute,
+  }
 
-interface CustomerPortalRouteChildren {
-  CustomerPortalAuthRoute: typeof CustomerPortalAuthRouteWithChildren
-  CustomerPortalLoginRoute: typeof CustomerPortalLoginRoute
-  CustomerPortalIndexRoute: typeof CustomerPortalIndexRoute
+const WorkspaceCustomerPortalRouteWithChildren =
+  WorkspaceCustomerPortalRoute._addFileChildren(
+    WorkspaceCustomerPortalRouteChildren,
+  )
+
+interface WorkspaceRouteChildren {
+  WorkspaceAccountTypeRoute: typeof WorkspaceAccountTypeRoute
+  WorkspaceAppRoute: typeof WorkspaceAppRouteWithChildren
+  WorkspaceCustomerPortalRoute: typeof WorkspaceCustomerPortalRouteWithChildren
+  WorkspaceForgotPasswordRoute: typeof WorkspaceForgotPasswordRoute
+  WorkspaceLoginRoute: typeof WorkspaceLoginRoute
 }
 
-const CustomerPortalRouteChildren: CustomerPortalRouteChildren = {
-  CustomerPortalAuthRoute: CustomerPortalAuthRouteWithChildren,
-  CustomerPortalLoginRoute: CustomerPortalLoginRoute,
-  CustomerPortalIndexRoute: CustomerPortalIndexRoute,
+const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceAccountTypeRoute: WorkspaceAccountTypeRoute,
+  WorkspaceAppRoute: WorkspaceAppRouteWithChildren,
+  WorkspaceCustomerPortalRoute: WorkspaceCustomerPortalRouteWithChildren,
+  WorkspaceForgotPasswordRoute: WorkspaceForgotPasswordRoute,
+  WorkspaceLoginRoute: WorkspaceLoginRoute,
 }
 
-const CustomerPortalRouteWithChildren = CustomerPortalRoute._addFileChildren(
-  CustomerPortalRouteChildren,
+const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
+  WorkspaceRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
-  CustomerPortalRoute: CustomerPortalRouteWithChildren,
-  ForgotPasswordRoute: ForgotPasswordRoute,
-  LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
+  WorkspaceRoute: WorkspaceRouteWithChildren,
   PwaTenantIdRoute: PwaTenantIdRoute,
 }
 export const routeTree = rootRouteImport

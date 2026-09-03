@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+﻿import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity, Boxes, ChevronLeft, Fuel, Gauge, LayoutDashboard, LineChart,
   MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell, Smartphone
@@ -15,20 +15,20 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { label: "Overview", to: "/app", icon: LayoutDashboard, group: "Main" },
-  { label: "Fleet", to: "/app/fleet", icon: Truck, badge: 6, group: "Main" },
-  { label: "Trips", to: "/app/trips", icon: Radar, badge: 42, group: "Main" },
-  { label: "Engineering", to: "/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
-  { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: 3, group: "Workshop" },
-  { label: "Drivers", to: "/app/drivers", icon: Users, group: "People" },
-  { label: "Accounts", to: "/app/accounts", icon: Gauge, badge: 18, group: "Finance" },
-  { label: "Gate", to: "/app/gate", icon: ShieldCheck, group: "Yard" },
-  { label: "Messages", to: "/app/messages", icon: MessageSquare, badge: 11, group: "Inbox" },
-  { label: "God View", to: "/app/god-view", icon: LineChart, group: "Insights" },
-  { label: "Reports", to: "/app/reports", icon: Activity, group: "Insights" },
-  { label: "Notifications", to: "/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
-  { label: "Audit", to: "/app/audit", icon: ScrollText, group: "Admin" },
-  { label: "Settings", to: "/app/admin", icon: Settings, group: "Admin" },
+  { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
+  { label: "Fleet", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Main" },
+  { label: "Trips", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Main" },
+  { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
+  { label: "Inventory", to: "/workspace/app/inventory", icon: Boxes, badge: 3, group: "Workshop" },
+  { label: "Drivers", to: "/workspace/app/drivers", icon: Users, group: "People" },
+  { label: "Accounts", to: "/workspace/app/accounts", icon: Gauge, badge: 18, group: "Finance" },
+  { label: "Gate", to: "/workspace/app/gate", icon: ShieldCheck, group: "Yard" },
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, badge: 11, group: "Inbox" },
+  { label: "God View", to: "/workspace/app/god-view", icon: LineChart, group: "Insights" },
+  { label: "Reports", to: "/workspace/app/reports", icon: Activity, group: "Insights" },
+  { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
+  { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
+  { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
 const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
@@ -46,7 +46,7 @@ export function AppSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
 
   const isActive = (to: string) =>
-    to === "/app" ? pathname === "/app" || pathname === "/app/" : pathname.startsWith(to);
+    to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(to);
 
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
@@ -198,3 +198,4 @@ export function AppSidebar({
     </>
   );
 }
+

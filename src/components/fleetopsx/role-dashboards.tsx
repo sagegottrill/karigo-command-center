@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+﻿import { Link } from "@tanstack/react-router";
 import { formatNaira } from "@/lib/fleetopsx/services";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
@@ -32,7 +32,7 @@ export function TransportManagerDashboard({ trips }: DashboardProps) {
         {awaitingOrders.map(t => (
           <div key={t.id} className="flex justify-between py-2 border-b last:border-0">
             <span>{t.id} - {t.origin} to {t.destination}</span>
-            <Link to="/app/trips/$tripId" params={{ tripId: t.id }}><Button size="sm">Review</Button></Link>
+            <Link to="/workspace/app/trips/$tripId" params={{ tripId: t.id }}><Button size="sm">Review</Button></Link>
           </div>
         ))}
       </div>
@@ -64,7 +64,7 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
                 <span className="block font-medium">{t.customer}</span>
                 <span className="text-xs text-muted-foreground">{t.cargo} - {t.pickup || t.origin} to {t.dropoff || t.destination}</span>
               </div>
-              <Link to="/app/dispatch"><Button size="sm">Create Dispatch</Button></Link>
+              <Link to="/workspace/app/dispatch"><Button size="sm">Create Dispatch</Button></Link>
             </div>
           ))}
         </div>
@@ -173,3 +173,4 @@ export function ProcurementDashboard({ procurement }: DashboardProps) {
     </div>
   );
 }
+
