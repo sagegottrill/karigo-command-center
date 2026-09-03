@@ -1,14 +1,22 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
-  MapPin,
+  ClipboardCheck,
+  Fuel,
   Radar,
+  Truck,
+  Users,
+  Wrench,
+  ChevronRight,
+  MapPin,
   FileCheck2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FleetOpsX - The Operating System for Logistics" },
+      { title: "FleetOpsX — The Operating System for Logistics" },
       {
         name: "description",
         content:
@@ -16,10 +24,190 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: LandingPage,
+  component: UnifiedLandingPage,
 });
 
-function LandingPage() {
+function UnifiedLandingPage() {
+  const { tenantSlug } = RootRoute.useRouteContext();
+  
+  if (tenantSlug) {
+    return <TenantLandingPage />;
+  }
+  return <MainLandingPage />;
+}
+
+const FEATURES = [
+  {
+    icon: Truck,
+    title: "Fleet Management",
+    body: "Live availability, assignment state and yard visibility across the entire heavy fleet.",
+  },
+  {
+    icon: Radar,
+    title: "Dispatch",
+    body: "Guided trip creation with vehicle, driver, route and compliance checks before release.",
+  },
+  {
+    icon: Fuel,
+    title: "Fuel Control",
+    body: "Efficiency-locked requisitions that stop operational leakage at the pump.",
+  },
+  {
+    icon: Wrench,
+    title: "Engineering",
+    body: "Defect intake, workshop queues and maintenance cost accountability.",
+  },
+  {
+    icon: Users,
+    title: "HR & Drivers",
+    body: "Licence compliance, availability and assignment history in one register.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Accounts",
+    body: "Multi-level expense approvals with variance and disbursement control.",
+  },
+];
+
+function MainLandingPage() {
+  return (
+    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-blue-500/20 font-sans">
+      {/* Soft Light Ambient Glow */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-[150px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-purple-400/10 blur-[150px]" />
+      </div>
+
+      <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/70 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
+          <a href="#top" className="flex items-center gap-2.5 group">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm transition-transform group-hover:scale-105">
+              F
+            </div>
+            <span className="text-[15px] font-bold tracking-tight text-[#1d1d1f]">
+              FleetOpsX
+            </span>
+          </a>
+          <nav className="hidden items-center gap-8 text-[13px] font-medium text-slate-500 md:flex">
+            <a href="#features" className="hover:text-[#1d1d1f] transition-colors">
+              Features
+            </a>
+            <a href="#benefits" className="hover:text-[#1d1d1f] transition-colors">
+              Enterprise
+            </a>
+          </nav>
+          <div className="flex items-center gap-4">
+            <Link to="/workspace/account-type" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
+              Log in
+            </Link>
+            <Link to="/workspace/account-type">
+              <Button className="h-8 rounded-full bg-[#0066cc] text-white hover:bg-[#0055b3] px-5 text-[13px] font-semibold transition-all shadow-sm border-none">
+                Get Started
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10 flex flex-col items-center">
+        {/* Hero Section */}
+        <section
+          id="top"
+          className="relative flex w-full max-w-7xl flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center pt-24 pb-16 sm:pt-32 sm:pb-24"
+        >
+          <h1 className="max-w-5xl text-[44px] font-bold tracking-tight sm:text-6xl lg:text-[80px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
+            Manage your fleet operation <br className="hidden sm:block" /> with confidence.
+          </h1>
+          
+          <p className="mt-6 sm:mt-8 max-w-2xl text-[17px] sm:text-[19px] lg:text-[21px] text-slate-500 leading-relaxed font-medium px-2">
+            Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
+          </p>
+          
+          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4 sm:px-0">
+            <Link to="/workspace/account-type" className="w-full sm:w-auto">
+              <Button size="lg" className="h-14 w-full sm:w-auto rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[16px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
+                Start your workspace <ChevronRight className="ml-1 h-5 w-5" />
+              </Button>
+            </Link>
+            <a href="#features" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="h-14 w-full sm:w-auto rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[16px] font-semibold transition-all shadow-sm">
+                Explore Features
+              </Button>
+            </a>
+          </div>
+
+          <div className="mt-20 sm:mt-24 w-full max-w-6xl relative px-4 sm:px-0">
+            <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-black/5 bg-[#ebebeb]">
+              <img 
+                src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=2800" 
+                alt="Delivery Trucks" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-multiply" />
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
+          <div className="mb-20 text-center max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-space-grotesk">
+              Everything you need to <span className="text-[#0066cc]">manage fleet operations.</span>
+            </h2>
+            <p className="mt-6 text-lg text-slate-500">
+              Secure and efficient fleet operation services.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((feature, idx) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={idx}
+                  className="group relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-white p-8 hover:shadow-xl hover:shadow-black/5 transition-all duration-500"
+                >
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#1d1d1f] mb-8 group-hover:bg-[#0066cc] group-hover:text-white transition-all duration-500 shadow-sm">
+                      <Icon className="h-6 w-6" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-3 text-[#1d1d1f]">{feature.title}</h3>
+                    <p className="text-slate-500 leading-relaxed text-[15px]">
+                      {feature.body}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-black/[0.05] py-12 bg-[#f5f5f7]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row text-center sm:text-left">
+          <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+            <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
+              F
+            </div>
+            <span className="text-[13px] font-semibold text-[#1d1d1f]">
+              FleetOpsX
+            </span>
+          </div>
+          <div className="flex items-center gap-6 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
+            <Link to="/pwa/$tenantId" params={{ tenantId: "petroline" }} target="_blank" className="hover:text-[#0066cc] transition-colors">Demo Customer Portal</Link>
+            <Link to="/superadmin" className="hover:text-[#1d1d1f] transition-colors">Platform Admin</Link>
+            <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function TenantLandingPage() {
+  const { tenantName } = RootRoute.useRouteContext();
+  const displayName = tenantName || "FLEETOPSX";
+
   return (
     <div className="min-h-screen bg-[#f1f2f4] flex flex-col items-center overflow-x-hidden">
       
@@ -27,7 +215,7 @@ function LandingPage() {
       <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] bg-[#1b2432] border-b-[1px] border-[#e2e5e9] flex flex-row items-center md:pt-[12px] md:pb-[12px] md:px-[32px] pt-[5px] pb-[5px] px-[19px] gap-[10px]">
         <div className="flex flex-row items-center gap-[16px] md:w-[178px] md:h-[75px] w-[89px] h-[50px]">
            <div className="md:w-[178px] md:h-[100px] w-[89px] h-[50px] bg-[#ffffff] flex items-center justify-center font-bold text-[#1b2432]">
-             <span className="md:text-[24px] text-[12px]">FLEETOPSX</span>
+             <span className="md:text-[24px] text-[12px] uppercase">{displayName}</span>
            </div>
         </div>
       </header>

@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { Button } from "@/components/ui/button";
 import { LogOut, Truck } from "lucide-react";
@@ -8,13 +8,15 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth")({
     if (typeof window === 'undefined') return;
     const user = authService.getCurrentUser();
     if (user?.passwordResetRequired) {
-      throw redirect({ to: "/workspace/login" });
+      // Send to password reset — NOT to internal /workspace/login which is for staff only
+      throw redirect({ to: "/workspace/forgot-password" });
     }
     const roles = authService.getRoles();
     if (!roles.includes("Customer Portals (External)")) {
       throw redirect({ to: "/workspace/customer-portal/login" });
     }
   },
+
   component: CustomerPortalAuthShell,
 });
 

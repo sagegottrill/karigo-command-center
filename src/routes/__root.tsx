@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     let tenantSlug = "";
     const hostname = await getHostnameServerFn();
     
@@ -117,6 +117,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       } else if (hostname.endsWith(".localhost")) {
         tenantSlug = hostname.split(".")[0] || "";
       }
+    }
+
+    // Guard: On the main domain (no tenant), /workspace/* routes are not allowed.
+    // Redirect to the main landing page to prevent cross-context bleed.
+    if (!tenantSlug && location.pathname.startsWith("/workspace")) {
+      throw redirect({ to: "/" });
     }
     
     const platformTenants = await tenantService.list();
