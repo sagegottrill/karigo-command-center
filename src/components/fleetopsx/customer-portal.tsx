@@ -30,6 +30,20 @@ export function CustomerPortal({ tenantId }: { tenantId?: string }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center bg-slate-100/50 rounded-full p-1 mr-4 border border-slate-200 shadow-inner">
+            <button
+              onClick={() => setActiveTab("order")}
+              className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${activeTab === "order" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("map")}
+              className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all ${activeTab === "map" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              Tracking
+            </button>
+          </div>
           <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-600">
              <span className="text-[11px] font-bold">JD</span>
           </div>
@@ -53,6 +67,13 @@ export function CustomerPortal({ tenantId }: { tenantId?: string }) {
 function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerTab) => void, tenantId?: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    tripService.list().then(trips => {
+      setRecentOrders(trips.filter(t => t.customer.includes(tenantId || "PWA") || t.customer === "Customer").slice(0, 3));
+    });
+  }, [tenantId, showSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,6 +258,8 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
               id="contactPhone" 
               type="tel"
               required
+              pattern="^\+?[0-9\s\-\(\)]{7,15}$"
+              title="Enter a valid phone number (e.g. +234 800 000 0000)"
               placeholder="e.g. +234 800 000 0000" 
               className="h-12 bg-slate-50 border-slate-200 px-4 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 
             />
@@ -253,6 +276,33 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
           </Button>
         </div>
       </form>
+
+      {/* Recent Orders Section */}
+      {recentOrders.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">Recent Orders</h2>
+          <div className="space-y-3">
+            {recentOrders.map((order) => (
+              <div key={order.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900 text-[14px]">{order.cargo}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{order.origin} → {order.destination}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                    order.status === "Completed" ? "bg-emerald-100 text-emerald-700" :
+                    order.status === "Requested" ? "bg-amber-100 text-amber-700" :
+                    "bg-blue-100 text-blue-700"
+                  }`}>
+                    {order.status}
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-1">{new Date(order.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

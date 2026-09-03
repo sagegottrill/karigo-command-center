@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
-import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { PageReveal } from "@/components/fleetopsx/page-reveal";
 import { cn } from "@/lib/utils";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/app")({
+  beforeLoad: () => {
+    if (!authService.getCurrentUser()) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: AppShell,
 });
-
 function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
 

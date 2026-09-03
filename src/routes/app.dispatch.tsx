@@ -131,6 +131,10 @@ function DispatchPage() {
   };
 
   const submit = async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Offline Error", { description: "Cannot create dispatch while offline." });
+      return;
+    }
     if (!head || !tail) return;
     if (!form.manualDriver && !driver) return;
     const tripDriverId = form.manualDriver ? form.manualSalaryNumber : driver!.id;

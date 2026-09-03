@@ -125,10 +125,10 @@ const MAKES = ["MAN TGS", "Scania R500", "Mercedes Actros", "Howo A7", "Volvo FH
 export const DRIVERS: Driver[] = Array.from({ length: 34 }, (_, i) => {
   const name = `${pick(FIRST)} ${pick(LAST)}`;
   const status = pick<Driver["status"]>([
-    "Available", "Available", "On Trip", "On Trip", "On Trip", "Off Duty", "Suspended",
+    "Available", "Available", "Available", "Available", "On Trip", "Off Duty", "Suspended",
   ]);
   const compliance = pick<Driver["compliance"]>([
-    "Valid", "Valid", "Valid", "Valid", "Expiring Soon", "Expired",
+    "Valid", "Valid", "Valid", "Valid", "Valid", "Expiring Soon", "Expired",
   ]);
   return {
     id: `DRV-${pad(i + 1)}`,

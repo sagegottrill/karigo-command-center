@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Server, Users, CreditCard, Settings, Activity, Building } from "lucide-react";
@@ -8,7 +8,7 @@ import { MetricCard } from "@/components/fleetopsx/metric-card";
 import type { Column } from "@/components/fleetopsx/data-table";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { tenantService } from "@/lib/fleetopsx/services";
+import { tenantService, authService } from "@/lib/fleetopsx/services";
 import type { PlatformTenant } from "@/lib/fleetopsx/types";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,11 @@ import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/superadmin")({
+  beforeLoad: () => {
+    if (!authService.getCurrentUser()) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: SuperAdminLayout,
 });
 
@@ -139,6 +144,21 @@ function SuperAdminLayout() {
         <nav className="flex-1 p-4 space-y-1">
           <Link to="/superadmin" className="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary font-medium rounded-md">
             <Users className="h-4 w-4" /> Tenants Directory
+          </Link>
+          <div className="pt-4 pb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Modules
+          </div>
+          <Link to="/app" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+            <Activity className="h-4 w-4" /> Main Dashboard
+          </Link>
+          <Link to="/app/fleet" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+            <Server className="h-4 w-4" /> Fleet Management
+          </Link>
+          <Link to="/app/accounts" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+            <CreditCard className="h-4 w-4" /> Finance & Accounts
+          </Link>
+          <Link to="/app/engineering" className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground hover:bg-black/[0.04] hover:text-foreground font-medium rounded-md transition-colors">
+            <Settings className="h-4 w-4" /> Engineering
           </Link>
         </nav>
         <div className="p-4 border-t border-border">

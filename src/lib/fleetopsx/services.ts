@@ -104,6 +104,9 @@ export const driverService = {
 /* --------------------------------- auth ----------------------------------- */
 export const authService = {
   login: (username: string) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new Error("No internet connection");
+    }
     // Check tenant status first
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug !== "localhost" && slug !== "fleetopsx") {
@@ -131,12 +134,12 @@ export const authService = {
     return settle(true);
   },
   getRoles: (): string[] => {
-    if (typeof window === "undefined") return ["Transport Manager"];
+    if (typeof window === "undefined") return [];
     try {
       const stored = sessionStorage.getItem("fleetopsx_roles");
-      return stored ? JSON.parse(stored) : ["Transport Manager"];
+      return stored ? JSON.parse(stored) : [];
     } catch {
-      return ["Transport Manager"];
+      return [];
     }
   },
   setRoles: (roles: string[]) => {
@@ -592,8 +595,22 @@ export const messageService = {
 };
 
 export const notificationService = {
-  list: () => settle([...store.notifications]),
-  getUnreadCount: () => store.notifications.filter(n => !n.read).length,
+  list: () => {
+    let notifications = [...store.notifications];
+    const roles = authService.getRoles();
+    if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
+      notifications = notifications.filter(n => n.category !== "Compliance" && n.category !== "Engineering" && n.category !== "Approvals");
+    }
+    return settle(notifications);
+  },
+  getUnreadCount: () => {
+    let notifications = [...store.notifications];
+    const roles = authService.getRoles();
+    if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
+      notifications = notifications.filter(n => n.category !== "Compliance" && n.category !== "Engineering" && n.category !== "Approvals");
+    }
+    return notifications.filter(n => !n.read).length;
+  },
   markAllRead: () => {
     store.notifications = store.notifications.map((n) => ({ ...n, read: true }));
     return settle(true);

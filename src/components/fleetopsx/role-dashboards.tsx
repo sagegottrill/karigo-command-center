@@ -42,17 +42,33 @@ export function TransportManagerDashboard({ trips }: DashboardProps) {
 
 export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
   const activeDispatch = trips.filter(t => t.status === "Scheduled");
+  const pendingOrders = trips.filter(t => t.status === "Requested");
   const availableHeads = trucks.filter(t => t.type === "Head" && t.status === "Available").length;
   const availableTails = trucks.filter(t => t.type === "Tail" && t.status === "Available").length;
   
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Fleet Operations Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard label="Incoming Orders" value={pendingOrders.length} variant="warning" />
         <MetricCard label="Active Dispatch Queue" value={activeDispatch.length} variant="info" />
         <MetricCard label="Available Heads" value={availableHeads} variant="success" />
         <MetricCard label="Available Tails" value={availableTails} variant="success" />
       </div>
+      {pendingOrders.length > 0 && (
+        <div className={card}>
+          <h3 className="font-semibold mb-4">Incoming Order Requests (From TM)</h3>
+          {pendingOrders.map(t => (
+            <div key={t.id} className="flex justify-between py-2 border-b last:border-0 items-center">
+              <div>
+                <span className="block font-medium">{t.customer}</span>
+                <span className="text-xs text-muted-foreground">{t.cargo} - {t.pickup || t.origin} to {t.dropoff || t.destination}</span>
+              </div>
+              <Link to="/app/dispatch"><Button size="sm">Create Dispatch</Button></Link>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
