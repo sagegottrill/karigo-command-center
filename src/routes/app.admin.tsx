@@ -48,7 +48,7 @@ function AdminPage() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
-  const [newUser, setNewUser] = useState<{ firstName: string; surname: string; username: string; roles: string[]; defaultPassword: string; companyId: string }>({ firstName: "", surname: "", username: "", roles: [], defaultPassword: "", companyId: "" });
+  const [newUser, setNewUser] = useState<{ firstName: string; surname: string; username: string; roles: string[]; defaultPassword: string; companyId: string; department: string }>({ firstName: "", surname: "", username: "", roles: [], defaultPassword: "", companyId: "", department: "" });
   const [editUser, setEditUser] = useState<Partial<User>>({});
   const [newCompany, setNewCompany] = useState({ name: "", contactPerson: "", phone: "", email: "" });
 
@@ -65,7 +65,7 @@ function AdminPage() {
     }
     await adminService.createUser({
       ...newUser,
-      companyId: newUser.roles.includes("Customer Portals (External)") ? newUser.companyId : undefined,
+      companyId: newUser.roles.includes("Customer Portals (External)") && newUser.companyId ? newUser.companyId : undefined,
     });
     toast.success("User created. Default password requires reset on login.");
     setIsAddUserOpen(false);
@@ -278,6 +278,7 @@ function AdminPage() {
                       <div className="space-y-1.5"><Label className="text-xs">Surname</Label><Input className="h-9 text-xs" value={newUser.surname} onChange={e => setNewUser({...newUser, surname: e.target.value})} /></div>
                     </div>
                     <div className="space-y-1.5"><Label className="text-xs">Username</Label><Input className="h-9 text-xs" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} /></div>
+                    <div className="space-y-1.5"><Label className="text-xs">Department</Label><Input className="h-9 text-xs" value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} /></div>
                     <div className="space-y-1.5"><Label className="text-xs">Default Password (Temporary)</Label><Input type="password" placeholder="e.g. Temp123!" className="h-9 text-xs" value={newUser.defaultPassword} onChange={e => setNewUser({...newUser, defaultPassword: e.target.value})} /></div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Assigned Roles</Label>
@@ -321,7 +322,7 @@ function AdminPage() {
               </Dialog>
             }
           >
-            <DataTable rows={users} columns={userColumns} pageSize={10} searchKeys={(r) => `${r.name} ${r.email} ${r.roleName}`} />
+            <DataTable rows={users} columns={userColumns} pageSize={10} searchKeys={(r) => `${r.name} ${r.email} ${r.roleNames.join(" ")}`} />
             
             {/* Confirmation Dialogs */}
             <Dialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>

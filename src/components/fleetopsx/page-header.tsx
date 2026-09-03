@@ -32,6 +32,7 @@ export function SectionPanel({
   title,
   description,
   actions,
+  meta,
   children,
   className,
   bodyClassName,
@@ -39,6 +40,7 @@ export function SectionPanel({
   title?: string;
   description?: string;
   actions?: ReactNode;
+  meta?: ReactNode;
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
@@ -50,7 +52,7 @@ export function SectionPanel({
         className,
       )}
     >
-      {(title || actions) && (
+      {(title || actions || meta) && (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.05] px-5 py-4">
           <div className="min-w-0">
             {title && (
@@ -61,6 +63,7 @@ export function SectionPanel({
             {description && (
               <p className="mt-0.5 truncate text-[12px] leading-snug text-muted-foreground">{description}</p>
             )}
+            {meta && <div className="mt-2">{meta}</div>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
