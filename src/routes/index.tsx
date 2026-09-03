@@ -107,27 +107,38 @@ function LandingPage() {
         {/* Hero Section */}
         <section
           id="top"
-          className="relative flex min-h-[85vh] w-full max-w-7xl flex-col items-center justify-center px-6 text-center pt-24 pb-32"
+          className="relative flex w-full max-w-7xl flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center pt-24 pb-16 sm:pt-32 sm:pb-24"
         >
-          <h1 className="max-w-5xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-[90px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
+          <h1 className="max-w-5xl text-[44px] font-bold tracking-tight sm:text-6xl lg:text-[80px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
             Manage your fleet operation <br className="hidden sm:block" /> with confidence.
           </h1>
           
-          <p className="mt-8 max-w-2xl text-lg sm:text-xl text-slate-500 leading-relaxed font-medium">
+          <p className="mt-6 sm:mt-8 max-w-2xl text-[17px] sm:text-[19px] lg:text-[21px] text-slate-500 leading-relaxed font-medium px-2">
             Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
           </p>
           
-          <div className="mt-12 flex flex-col sm:flex-row items-center gap-4">
-            <Link to="/account-type">
-              <Button size="lg" className="h-12 rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[15px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
-                Start your workspace <ChevronRight className="ml-1 h-4 w-4" />
+          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4 sm:px-0">
+            <Link to="/account-type" className="w-full sm:w-auto">
+              <Button size="lg" className="h-14 w-full sm:w-auto rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[16px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
+                Start your workspace <ChevronRight className="ml-1 h-5 w-5" />
               </Button>
             </Link>
-            <a href="#features">
-              <Button size="lg" variant="outline" className="h-12 rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[15px] font-semibold transition-all shadow-sm">
+            <a href="#features" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="h-14 w-full sm:w-auto rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[16px] font-semibold transition-all shadow-sm">
                 Explore Features
               </Button>
             </a>
+          </div>
+
+          <div className="mt-20 sm:mt-24 w-full max-w-6xl relative px-4 sm:px-0">
+            <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-black/5 bg-[#ebebeb]">
+              <img 
+                src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=2800" 
+                alt="Delivery Trucks" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-multiply" />
+            </div>
           </div>
         </section>
 
