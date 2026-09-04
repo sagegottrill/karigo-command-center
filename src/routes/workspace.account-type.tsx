@@ -20,7 +20,7 @@ function AccountTypePage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#ffffff] w-full font-['Inter',sans-serif]">
+    <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">
       {/* Left Sidebar (Dark) */}
       <div className="relative hidden lg:flex flex-col bg-[#1B2432] w-[720px] pt-[68px] pb-[68px] px-[67px] text-[#ffffff] h-screen justify-between shrink-0">
         <div className="flex flex-col w-[586px] gap-[75px]">
@@ -50,10 +50,20 @@ function AccountTypePage() {
       </div>
 
       {/* Right Content (White) */}
-      <div className="flex flex-col justify-center items-center bg-[#ffffff] w-full h-screen">
+      <div className="flex flex-col justify-center items-center bg-[#1B2432] lg:bg-[#ffffff] w-full h-screen px-[24px] lg:px-0">
+        
+        {/* Mobile Logo */}
+        <div className="lg:hidden flex justify-center mb-[40px]">
+          {tenantLogo ? (
+            <img src={tenantLogo} alt={tenantName} className="w-[178px] h-[60px] object-contain" />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[178px] h-[60px] object-contain" />
+          )}
+        </div>
+
         {/* Card */}
         <div 
-          className="w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[32px] gap-[24px]"
+          className="w-full max-w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[24px] md:px-[32px] gap-[24px]"
           style={{ boxShadow: "0px 10px 40px rgba(0, 0, 0, 0.08)" }}
         >
           
@@ -63,11 +73,11 @@ function AccountTypePage() {
           </div>
 
           {/* Account Switch */}
-          <div className="flex flex-row gap-[16px] w-[436px]">
+          <div className="flex flex-col md:flex-row gap-[16px] w-full">
             {/* Option 1 - Internal */}
             <div 
               onClick={() => setAccountType("internal")}
-              className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-[210px] cursor-pointer transition-all ${
+              className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-full md:w-[210px] cursor-pointer transition-all ${
                 accountType === "internal" ? "border-[#e2e5e9] bg-[#f9fafb]" : "border-[#e2e5e9] bg-white hover:bg-[#f9fafb]"
               }`}
             >
@@ -89,7 +99,7 @@ function AccountTypePage() {
             {/* Option 2 - Partner */}
             <div 
               onClick={() => setAccountType("partner")}
-              className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-[210px] cursor-pointer transition-all ${
+              className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-full md:w-[210px] cursor-pointer transition-all ${
                 accountType === "partner" ? "border-[#e2e5e9] bg-[#f9fafb]" : "border-[#e2e5e9] bg-white hover:bg-[#f9fafb]"
               }`}
             >

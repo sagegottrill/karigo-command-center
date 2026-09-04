@@ -57,7 +57,7 @@ function CustomerLogin() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#ffffff] w-full font-['Inter',sans-serif]">
+    <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">
       {/* Left Sidebar (Dark) */}
       <div className="relative hidden lg:flex flex-col bg-[#1B2432] w-[720px] pt-[68px] pb-[68px] px-[67px] text-[#ffffff] h-screen justify-between shrink-0">
         <div className="flex flex-col w-[586px] gap-[75px]">
@@ -87,10 +87,20 @@ function CustomerLogin() {
       </div>
 
       {/* Right Content (White) */}
-      <div className="flex flex-col justify-center items-center bg-[#ffffff] w-full h-screen">
+      <div className="flex flex-col justify-center items-center bg-[#1B2432] lg:bg-[#ffffff] w-full h-screen px-[24px] lg:px-0">
+        
+        {/* Mobile Logo */}
+        <div className="lg:hidden flex justify-center mb-[40px]">
+          {tenantLogo ? (
+            <img src={tenantLogo} alt={tenantName} className="w-[178px] h-[60px] object-contain" />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[178px] h-[60px] object-contain" />
+          )}
+        </div>
+
         {/* Card */}
         <div 
-          className="w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[32px] gap-[24px]"
+          className="w-full max-w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[24px] md:px-[32px] gap-[24px]"
           style={{ boxShadow: "0px 10px 40px rgba(0, 0, 0, 0.08)" }}
         >
           
@@ -105,15 +115,15 @@ function CustomerLogin() {
           <form className="flex flex-col gap-[24px]" onSubmit={handleLogin}>
             
             {loginError && (
-              <div className="flex w-[436px] items-center p-[16px] gap-[10px] rounded-[4px] border-[1px] border-[#ed351d] bg-[#fdf2f1]">
+              <div className="flex w-full items-center p-[16px] gap-[10px] rounded-[4px] border-[1px] border-[#ed351d] bg-[#fdf2f1]">
                 <p className="text-[14px] font-[400] leading-[20px] text-[#ed351d]">
-                  Invalid username or password. Please contact the Transport Manager.
+                  Invalid username or password. Please contact support.
                 </p>
               </div>
             )}
 
             {/* Username Input */}
-            <div className="flex flex-col gap-[8px] w-[436px]">
+            <div className="flex flex-col gap-[8px] w-full">
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Username
               </label>
@@ -124,13 +134,13 @@ function CustomerLogin() {
                   value={username} 
                   onChange={(e) => setUsername(e.target.value)} 
                   placeholder="example: J.Doe"
-                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1]" 
+                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1] w-full" 
                 />
               </div>
             </div>
 
             {/* Password Input */}
-            <div className="flex flex-col gap-[8px] w-[436px]">
+            <div className="flex flex-col gap-[8px] w-full">
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Password
               </label>
@@ -141,13 +151,13 @@ function CustomerLogin() {
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   placeholder="*********"
-                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1]" 
+                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1] w-full" 
                 />
               </div>
             </div>
 
             {/* Keep me signed in & Forgot Password */}
-            <div className="flex flex-row items-center justify-between w-[436px] mt-[-8px]">
+            <div className="flex flex-row items-center justify-between w-full mt-[-8px]">
               <div className="flex flex-row gap-[10px] items-center cursor-pointer" onClick={() => setKeepSignedIn(!keepSignedIn)}>
                 <div className={`w-[16px] h-[16px] rounded-[4px] border-[1px] flex items-center justify-center ${keepSignedIn ? 'border-[#ed351d] bg-[#ed351d]' : 'border-[#e2e5e9] bg-transparent'}`}>
                   {keepSignedIn && (
@@ -167,7 +177,7 @@ function CustomerLogin() {
             <button 
               type="submit" 
               disabled={!username || !password}
-              className={`flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] w-[436px] transition-colors mt-[8px] ${
+              className={`flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] w-full transition-colors mt-[8px] ${
                 username && password 
                   ? "bg-[#ed351d] hover:bg-[#d62e19] cursor-pointer" 
                   : "bg-[#f5a89e] cursor-not-allowed"

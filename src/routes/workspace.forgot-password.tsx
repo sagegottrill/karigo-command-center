@@ -34,7 +34,7 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#ffffff] w-full font-['Inter',sans-serif]">
+    <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">
       {/* Left Sidebar (Dark) */}
       <div className="relative hidden lg:flex flex-col bg-[#1B2432] w-[720px] pt-[68px] pb-[68px] px-[67px] text-[#ffffff] h-screen justify-between shrink-0">
         <div className="flex flex-col w-[586px] gap-[75px]">
@@ -67,10 +67,20 @@ function ForgotPasswordPage() {
       </div>
 
       {/* Right Content (White) */}
-      <div className="flex flex-col justify-center items-center bg-[#ffffff] w-full h-screen">
+      <div className="flex flex-col justify-center items-center bg-[#1B2432] lg:bg-[#ffffff] w-full h-screen px-[24px] lg:px-0">
+        
+        {/* Mobile Logo */}
+        <div className="lg:hidden flex justify-center mb-[40px]">
+          {tenantLogo ? (
+            <img src={tenantLogo} alt={tenantName} className="w-[178px] h-[60px] object-contain" />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[178px] h-[60px] object-contain" />
+          )}
+        </div>
+
         {/* Card */}
         <div 
-          className="w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[32px] gap-[24px]"
+          className="w-full max-w-[500px] border-[1px] border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[32px] pb-[32px] px-[24px] md:px-[32px] gap-[24px]"
           style={{ boxShadow: "0px 10px 40px rgba(0, 0, 0, 0.08)" }}
         >
           
@@ -93,7 +103,7 @@ function ForgotPasswordPage() {
           <form className="flex flex-col gap-[24px]" onSubmit={handleReset}>
             
             {/* New Password Input */}
-            <div className="flex flex-col gap-[8px] w-[436px]">
+            <div className="flex flex-col gap-[8px] w-full">
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 New Password
               </label>
@@ -104,7 +114,7 @@ function ForgotPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)} 
                   placeholder="Enter new password"
-                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1]" 
+                  className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1] w-full" 
                 />
               </div>
             </div>
@@ -113,7 +123,7 @@ function ForgotPasswordPage() {
             <button 
               type="submit" 
               disabled={!password}
-              className={`flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] w-[436px] transition-colors mt-[8px] ${
+              className={`flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] w-full transition-colors mt-[8px] ${
                 password ? "bg-[#ed351d] hover:bg-[#d62e19] cursor-pointer" : "bg-[#f5a89e] cursor-not-allowed"
               }`}
             >
