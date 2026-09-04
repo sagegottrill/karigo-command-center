@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
@@ -9,7 +9,6 @@ import type { AuditLog } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/workspace/app/audit")({
   loader: () => auditService.list(),
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -32,7 +31,7 @@ const columns: Column<AuditLog>[] = [
   { key: "module", header: "Module", sortValue: (r) => r.module, cell: (r) => r.module },
   { key: "action", header: "Action", sortValue: (r) => r.action, cell: (r) => <span className="font-medium">{r.action}</span> },
   { key: "record", header: "Record", cell: (r) => <span className="num font-semibold text-foreground">{r.record}</span> },
-  { key: "device", header: "IP / Device", align: "right", cell: (r) => <span className="num text-muted-foreground">{r.ip} Â· {r.device}</span> },
+  { key: "device", header: "IP / Device", align: "right", cell: (r) => <span className="num text-muted-foreground">{r.ip} · {r.device}</span> },
 ];
 
 function AuditPage() {

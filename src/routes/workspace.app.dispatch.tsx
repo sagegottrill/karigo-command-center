@@ -34,7 +34,6 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
     };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -141,8 +140,18 @@ function DispatchPage() {
       toast.error("Validation Error", { description: "Please complete all mandatory fields before submitting." });
       return;
     }
-    if (!head || !tail) return;
-    if (!form.manualDriver && !driver) return;
+    if (!head) {
+      toast.error("Validation Error", { description: "Truck Head is missing." });
+      return;
+    }
+    if (!tail) {
+      toast.error("Validation Error", { description: "Truck Tail is missing." });
+      return;
+    }
+    if (!form.manualDriver && !driver) {
+      toast.error("Validation Error", { description: "Driver is missing." });
+      return;
+    }
     const tripDriverId = form.manualDriver ? form.manualSalaryNumber : driver!.id;
     const tripDriverName = form.manualDriver ? form.manualDriverName : driver!.name;
 

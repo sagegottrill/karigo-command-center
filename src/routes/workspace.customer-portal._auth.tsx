@@ -5,7 +5,6 @@ import { LogOut, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const user = authService.getCurrentUser();
     if (user?.passwordResetRequired) {
       // Send to password reset — NOT to internal /workspace/login which is for staff only

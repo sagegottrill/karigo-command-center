@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useState } from "react";
@@ -11,7 +11,6 @@ import type { Driver } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/drivers/$driverId")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "HR", "Fleet Operations"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -37,7 +36,7 @@ function DriverProfilePage() {
   }, [driverId]);
 
   if (driver === undefined) {
-    return <p className="text-xs text-muted-foreground">Loading driver profileâ€¦</p>;
+    return <p className="text-xs text-muted-foreground">Loading driver profile…</p>;
   }
 
   if (!driver) {
@@ -54,7 +53,7 @@ function DriverProfilePage() {
     <>
       <PageHeader
         title={driver.name}
-        description={`${driver.id} Â· ${driver.department} Â· Employee ${driver.employeeId}`}
+        description={`${driver.id} · ${driver.department} · Employee ${driver.employeeId}`}
         meta={
           <>
             <StatusBadge status={driver.status} />
@@ -95,7 +94,7 @@ function DriverProfilePage() {
             value={
               driver.currentTripId
                 ? <Link to="/workspace/app/trips/$tripId" params={{ tripId: driver.currentTripId }} className="font-semibold text-foreground hover:underline">{driver.currentTripId}</Link>
-                : "â€”"
+                : "—"
             }
           />
         </SectionPanel>

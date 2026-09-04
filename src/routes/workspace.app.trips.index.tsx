@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useState } from "react";
@@ -15,7 +15,6 @@ import type { Trip } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/workspace/app/trips/")({
   loader: () => tripService.list(),
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -42,7 +41,7 @@ function TripsPage() {
 
   const columns: Column<Trip>[] = [
     { key: "id", header: "Trip", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold text-foreground">{r.id}</span> },
-    { key: "route", header: "Route", sortValue: (r) => r.pickup, cell: (r) => `${r.pickup} â†’ ${r.dropoff}` },
+    { key: "route", header: "Route", sortValue: (r) => r.pickup, cell: (r) => `${r.pickup} → ${r.dropoff}` },
     { key: "customer", header: "Customer", sortValue: (r) => r.customer, cell: (r) => <span className="text-muted-foreground">{r.customer}</span> },
     { key: "truck", header: "Truck", cell: (r) => <span className="num">{r.truckReg}</span> },
     { key: "driver", header: "Driver", cell: (r) => r.driverName },

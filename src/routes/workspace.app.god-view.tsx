@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import {
@@ -21,7 +21,6 @@ export const Route = createFileRoute("/workspace/app/god-view")({
     return { ...overview, charts };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -76,7 +75,7 @@ function GodViewPage() {
         meta={
           <>
             <StatusBadge status="Online" />
-            <span className="num text-[11px] text-muted-foreground">Petroline Transport Â· PTL-001 Â· Aug 2026</span>
+            <span className="num text-[11px] text-muted-foreground">Petroline Transport · PTL-001 · Aug 2026</span>
           </>
         }
         actions={
@@ -165,7 +164,7 @@ function GodViewPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <SectionPanel title="Revenue vs Operating Cost" description="â‚¦ millions Â· trailing six months" bodyClassName="p-4">
+        <SectionPanel title="Revenue vs Operating Cost" description="₦ millions · trailing six months" bodyClassName="p-4">
           <ChartFrame><ResponsiveContainer width="100%" height="100%">
             <AreaChart data={charts.costRevenue}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />

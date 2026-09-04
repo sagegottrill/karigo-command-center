@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useState } from "react";
@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/trips/$tripId")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Fleet Operations"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -56,7 +55,7 @@ function TripDetail() {
   }, [tripId]);
 
   if (trip === undefined) {
-    return <p className="text-xs text-muted-foreground">Loading tripâ€¦</p>;
+    return <p className="text-xs text-muted-foreground">Loading trip…</p>;
   }
 
   if (!trip) {
@@ -83,7 +82,7 @@ function TripDetail() {
     <>
       <PageHeader
         title={trip.id}
-        description={`${trip.pickup} â†’ ${trip.dropoff} Â· ${trip.customer}`}
+        description={`${trip.pickup} → ${trip.dropoff} · ${trip.customer}`}
         meta={<><StatusBadge status={trip.status} /><StatusBadge status={trip.priority} dot={false} /><span className="num text-[11px] text-muted-foreground">{trip.cargo}</span></>}
         actions={
           <>
@@ -112,8 +111,8 @@ function TripDetail() {
         <SectionPanel title="Trip Record" bodyClassName="pt-1">
           <FieldRow label="Customer" value={trip.customer} />
           <FieldRow label="Cargo" value={trip.cargo} />
-          <FieldRow label="Truck" value={`${trip.truckId} Â· ${trip.truckReg}`} />
-          <FieldRow label="Driver" value={`${trip.driverId} Â· ${trip.driverName}`} />
+          <FieldRow label="Truck" value={`${trip.truckId} · ${trip.truckReg}`} />
+          <FieldRow label="Driver" value={`${trip.driverId} · ${trip.driverName}`} />
           <FieldRow label="Scheduled" value={trip.scheduledDate} />
           <FieldRow label="Start time" value={trip.startTime} />
           <FieldRow label="Priority" value={trip.priority} />
@@ -138,18 +137,18 @@ function TripDetail() {
           </ol>
         </SectionPanel>
 
-        <SectionPanel title={`${trip.id} Operations Thread`} description="Dispatcher Â· Driver Â· Fleet Â· Accounts Â· Management" bodyClassName="flex h-[360px] flex-col p-0">
+        <SectionPanel title={`${trip.id} Operations Thread`} description="Dispatcher · Driver · Fleet · Accounts · Management" bodyClassName="flex h-[360px] flex-col p-0">
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {messages.map((m) => (
               <div key={m.id} className={cn("max-w-[90%] rounded-[16px] px-3 py-2", m.self ? "ml-auto bg-[#1d1d1f]/8 text-foreground" : "bg-black/[0.04]")}>
-                <p className="text-[10px] font-semibold text-muted-foreground">{m.author} Â· {m.role}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground">{m.author} · {m.role}</p>
                 <p className="mt-0.5 text-xs text-foreground">{m.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{m.time}</p>
               </div>
             ))}
           </div>
           <div className="flex gap-2 border-t border-black/[0.05] p-3">
-            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} placeholder="Message trip threadâ€¦" className="h-8 text-xs" />
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} placeholder="Message trip thread…" className="h-8 text-xs" />
             <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => void send()}><Send className="h-3.5 w-3.5" /></Button>
           </div>
         </SectionPanel>

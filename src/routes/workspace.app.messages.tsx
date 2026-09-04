@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useState } from "react";
@@ -21,7 +21,6 @@ export const Route = createFileRoute("/workspace/app/messages")({
     return { convos, trips };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Fleet Operations", "Diesel", "Engineering", "Parts & Store", "Accounts", "HR", "Security", "Driver", "Customer Portals (External)"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -104,14 +103,14 @@ function MessagesPage() {
                     : "border border-black/[0.04] bg-black/[0.03]",
                 )}
               >
-                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{m.author} Â· {m.role}</p>
+                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{m.author} · {m.role}</p>
                 <p className="mt-1 text-xs text-foreground">{m.body}</p>
                 <p className="num mt-1 text-[10px] text-muted-foreground">{m.time}</p>
               </div>
             ))}
           </div>
           <div className="flex items-center gap-2 border-t border-black/[0.05] p-3">
-            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a messageâ€¦" className="h-9 rounded-full border-black/[0.08] bg-black/[0.03] text-[13px]" />
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a message…" className="h-9 rounded-full border-black/[0.08] bg-black/[0.03] text-[13px]" />
             <Button size="sm" className="h-9 w-9 rounded-full p-0" onClick={send}><Send className="h-3.5 w-3.5" /></Button>
           </div>
         </SectionPanel>
@@ -123,14 +122,14 @@ function MessagesPage() {
               <FieldRow label="Status" value={<StatusBadge status={trip.status} />} />
               <FieldRow label="Truck" value={trip.truckReg} />
               <FieldRow label="Driver" value={trip.driverName} />
-              <FieldRow label="Route" value={`${trip.pickup} â†’ ${trip.dropoff}`} />
-              <FieldRow label="Documents" value="waybill.pdf Â· POD.jpg" />
+              <FieldRow label="Route" value={`${trip.pickup} → ${trip.dropoff}`} />
+              <FieldRow label="Documents" value="waybill.pdf · POD.jpg" />
             </>
           ) : (
             <>
               <FieldRow label="Type" value={active.kind === "channel" ? "Department channel" : "Direct message"} />
               <FieldRow label="Participants" value={active.participants.join(", ")} />
-              <FieldRow label="Retention" value="Audited Â· 24 months" />
+              <FieldRow label="Retention" value="Audited · 24 months" />
             </>
           )}
         </SectionPanel>

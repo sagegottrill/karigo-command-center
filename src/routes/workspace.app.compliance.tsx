@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FileCheck } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
@@ -16,7 +16,6 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/compliance")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "HR"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -117,9 +116,9 @@ function CompliancePage() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Tracked Vehicles" value={vehicles.length} accent />
-        <MetricCard label="Vehicles at Risk" value={expiringVehicles} deltaTone="down" hint={`â‰¤ ${threshold} days`} />
+        <MetricCard label="Vehicles at Risk" value={expiringVehicles} deltaTone="down" hint={`≤ ${threshold} days`} />
         <MetricCard label="Tracked Drivers" value={drivers.length} accent icon={FileCheck} />
-        <MetricCard label="Drivers at Risk" value={expiringDrivers} deltaTone="down" hint={`â‰¤ ${threshold} days`} />
+        <MetricCard label="Drivers at Risk" value={expiringDrivers} deltaTone="down" hint={`≤ ${threshold} days`} />
       </div>
 
       <Tabs defaultValue="vehicles" className="mt-4">

@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
@@ -15,7 +15,6 @@ import type { Driver } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/drivers/")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "HR", "Fleet Operations"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -62,7 +61,7 @@ function DriversPage() {
       key: "trip", header: "Current Trip",
       cell: (r) => r.currentTripId
         ? <Link to="/workspace/app/trips/$tripId" params={{ tripId: r.currentTripId }} className="num font-semibold text-foreground hover:underline" onClick={(e) => e.stopPropagation()}>{r.currentTripId}</Link>
-        : <span className="text-muted-foreground">â€”</span>,
+        : <span className="text-muted-foreground">—</span>,
     },
     { key: "compliance", header: "Compliance", sortValue: (r) => r.compliance, cell: (r) => <StatusBadge status={r.compliance} /> },
   ], []);
@@ -119,7 +118,7 @@ function DriversPage() {
                 <span className="font-medium text-sm">{d.name}</span>
                 <StatusBadge status={d.compliance} />
               </div>
-              <p className="num mt-2 text-[11px] text-muted-foreground">{d.id} Â· {d.licenseNumber} Â· {d.licenseCategory}</p>
+              <p className="num mt-2 text-[11px] text-muted-foreground">{d.id} · {d.licenseNumber} · {d.licenseCategory}</p>
               <p className="num mt-1 text-xs text-foreground">Expires {d.licenseExpiry}</p>
             </Link>
           ))}

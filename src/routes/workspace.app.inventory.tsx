@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Boxes, PackageOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +27,6 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/inventory")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Engineering", "Parts & Store"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -126,7 +125,7 @@ function InventoryPage() {
     try {
       await inventoryService.release(selectedPart.id, selectedReq.quantity, form.reqId);
       toast.success("Parts released", {
-        description: `${selectedPart.name} Ã— ${selectedReq.quantity} against ${selectedWo.id}`,
+        description: `${selectedPart.name} × ${selectedReq.quantity} against ${selectedWo.id}`,
       });
       setReleaseOpen(false);
       setForm({ reqId: "", reason: "Scheduled repair" });
@@ -199,7 +198,7 @@ function InventoryPage() {
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select pending requisition" /></SelectTrigger>
                 <SelectContent>
                   {reqs.filter(r => r.status === "Pending").map((r) => (
-                    <SelectItem key={r.id} value={r.id} className="text-xs">{r.id} Â· {r.part} ({r.quantity})</SelectItem>
+                    <SelectItem key={r.id} value={r.id} className="text-xs">{r.id} · {r.part} ({r.quantity})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -208,11 +207,11 @@ function InventoryPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Work Order</Label>
-                <Input readOnly value={selectedReq?.workOrder ?? "â€”"} className="num h-9 text-xs bg-black/[0.02]" />
+                <Input readOnly value={selectedReq?.workOrder ?? "—"} className="num h-9 text-xs bg-black/[0.02]" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantity to Release</Label>
-                <Input readOnly value={selectedReq?.quantity ?? "â€”"} className="num h-9 text-xs bg-black/[0.02]" />
+                <Input readOnly value={selectedReq?.quantity ?? "—"} className="num h-9 text-xs bg-black/[0.02]" />
               </div>
             </div>
             <div className="space-y-1.5">

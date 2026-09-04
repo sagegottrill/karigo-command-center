@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useState } from "react";
@@ -23,7 +23,6 @@ export const Route = createFileRoute("/workspace/app/reports")({
     return { ...overview, charts };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Accounts"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -93,7 +92,7 @@ function ReportsPage() {
   const [active, setActive] = useState<(typeof CATALOGUE)[number]["key"]>("fleet");
 
   const exportReport = (name: string) => {
-    toast.success("Report export queued", { description: `${name} Â· CSV + PDF pack prepared.` });
+    toast.success("Report export queued", { description: `${name} · CSV + PDF pack prepared.` });
   };
 
   return (

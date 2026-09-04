@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, FileText, MessageSquareWarning, X } from "lucide-react";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/accounts")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Accounts"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -92,7 +91,7 @@ function AccountsPage() {
       <PageHeader
         title="Accounts & Approvals"
         description="Approvals, variance checks and payout tracking."
-        meta={<span className="num text-[11px] text-muted-foreground">{pending.length} pending Â· {formatNaira(pending.reduce((s, e) => s + e.amount, 0))} exposure</span>}
+        meta={<span className="num text-[11px] text-muted-foreground">{pending.length} pending · {formatNaira(pending.reduce((s, e) => s + e.amount, 0))} exposure</span>}
         actions={
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setLogOpen(true)}>
             <FileText className="h-3.5 w-3.5" />Log Expense
@@ -248,7 +247,7 @@ function AccountsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Amount (â‚¦)</Label>
+              <Label className="text-xs">Amount (₦)</Label>
               <Input 
                 type="number" 
                 value={logForm.amount} 

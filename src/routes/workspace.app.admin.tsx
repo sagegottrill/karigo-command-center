@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useState, useEffect } from "react";
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/workspace/app/admin")({
     return { tenant, roles, loginReports };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -73,8 +72,13 @@ function AdminPage() {
   };
 
   const handleCreateCompany = async () => {
-    if (!newCompany.name || !newCompany.contactPerson || !newCompany.email) {
+    if (!newCompany.name || !newCompany.contactPerson || !newCompany.email || !newCompany.phone) {
       toast.error("Please fill all required fields");
+      return;
+    }
+    const phoneRegex = /^\+?[0-9\s\-\(\)]{10,15}$/;
+    if (!phoneRegex.test(newCompany.phone)) {
+      toast.error("Please enter a valid phone number (10-15 digits, optional +).");
       return;
     }
     await companyService.create(newCompany);

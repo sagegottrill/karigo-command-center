@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Calculator } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
@@ -19,7 +19,6 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/depreciation")({
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Accounts"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -104,7 +103,7 @@ function DepreciationPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Tracked Assets" value={assets.length} accent icon={Calculator} />
-        <MetricCard label="Approaching EOL" value={atRisk} deltaTone="down" hint={`â‰¤ ${threshold} years`} />
+        <MetricCard label="Approaching EOL" value={atRisk} deltaTone="down" hint={`≤ ${threshold} years`} />
         <MetricCard label="Current Value (Heads)" value={formatNaira(assets.filter(a => a.type === "Head").reduce((s, a) => s + a.currentValue, 0))} />
         <MetricCard label="Current Value (Tails)" value={formatNaira(assets.filter(a => a.type === "Tail").reduce((s, a) => s + a.currentValue, 0))} />
       </div>

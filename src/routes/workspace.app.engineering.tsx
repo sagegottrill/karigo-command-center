@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Camera, Plus, Upload, Wrench } from "lucide-react";
 import { toast } from "sonner";
@@ -32,7 +32,6 @@ export const Route = createFileRoute("/workspace/app/engineering")({
     return { trucks: [...heads, ...tails] };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Engineering"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -175,7 +174,7 @@ function EngineeringPage() {
                 <StatusBadge status={w.priority} dot={false} />
               </div>
               <p className="mt-2 text-sm font-medium text-foreground">{w.defect}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">{w.truckReg} Â· {w.category} Â· {w.reportedBy}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{w.truckReg} · {w.category} · {w.reportedBy}</p>
               <div className="mt-3 flex items-center justify-between">
                 <StatusBadge status={w.status} />
                 <span className="num text-[10px] text-muted-foreground">{w.reportedAt}</span>
@@ -198,7 +197,7 @@ function EngineeringPage() {
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select truck" /></SelectTrigger>
                 <SelectContent>
                   {TRUCKS.slice(0, 20).map((t) => (
-                    <SelectItem key={t.id} value={t.registration} className="text-xs">{t.id} Â· {t.registration}</SelectItem>
+                    <SelectItem key={t.id} value={t.registration} className="text-xs">{t.id} · {t.registration}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -237,7 +236,7 @@ function EngineeringPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Date / time</Label>
-                <Input readOnly value="12 Aug 2026 â€” 10:42:31" className="num h-9 text-xs" />
+                <Input readOnly value="12 Aug 2026 — 10:42:31" className="num h-9 text-xs" />
               </div>
             </div>
             <button
@@ -292,7 +291,7 @@ function EngineeringPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Amount (â‚¦)</Label>
+              <Label className="text-xs">Amount (₦)</Label>
               <Input type="number" value={logForm.amount} onChange={(e) => setLogForm((f) => ({ ...f, amount: e.target.value }))} className="h-9 text-xs num" />
             </div>
           </div>

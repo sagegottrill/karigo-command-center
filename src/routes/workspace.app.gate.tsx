@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
@@ -36,7 +36,6 @@ export const Route = createFileRoute("/workspace/app/gate")({
     };
   },
   beforeLoad: () => {
-    if (typeof window === 'undefined') return;
     const allowed = ["Transport Manager", "Security"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -91,13 +90,13 @@ function GatePage() {
       return;
     }
     const id = await gateService.create({
-      time: "12 Aug 2026 â€” 10:42:31",
+      time: "12 Aug 2026 — 10:42:31",
       asset: form.asset,
       driver: form.driver,
       direction: form.direction,
       purpose: form.purpose,
       yard: form.yard,
-      cargo: form.cargo || "â€”",
+      cargo: form.cargo || "—",
       officer: form.officer,
       reference: form.reference || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
     });
@@ -150,7 +149,7 @@ function GatePage() {
           <div className="grid gap-3 py-2">
             <div className="rounded-[18px] border border-black/[0.05] bg-black/[0.03] px-3 py-2">
               <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Server Timestamp</p>
-              <p className="num mt-0.5 text-sm font-semibold text-foreground">12 Aug 2026 â€” 10:42:31</p>
+              <p className="num mt-0.5 text-sm font-semibold text-foreground">12 Aug 2026 — 10:42:31</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
