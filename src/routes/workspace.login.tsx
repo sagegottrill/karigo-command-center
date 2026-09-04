@@ -25,8 +25,8 @@ import { Route as RootRoute } from "./__root";
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
-  const WORKSPACES = authService.getWorkspaces();
-  const [workspace, setWorkspace] = useState(WORKSPACES[0]!.id);
+  const DEPARTMENTS = authService.getAllRoles().filter(r => r.key !== "Customer Portals (External)");
+  const [department, setDepartment] = useState(DEPARTMENTS[0]!.key);
   const [username, setUsername] = useState("J.Doe");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
@@ -106,14 +106,14 @@ function LoginPage() {
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Select Department
               </label>
-              <Select value={workspace} onValueChange={setWorkspace}>
+              <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px] w-full text-[14px] font-[400] leading-[20px] text-[#141a1f] shadow-none outline-none focus:ring-0">
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {WORKSPACES.map((ws) => (
-                    <SelectItem key={ws.id} value={ws.id}>
-                      {ws.name} ({ws.role})
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept.key} value={dept.key}>
+                      {dept.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
