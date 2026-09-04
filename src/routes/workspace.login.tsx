@@ -108,7 +108,7 @@ function LoginPage() {
               </label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px] w-full text-[14px] font-[400] leading-[20px] text-[#141a1f] shadow-none outline-none focus:ring-0">
-                  <SelectValue placeholder="Select Department" />
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
                   {DEPARTMENTS.map((dept) => (
