@@ -1,17 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Search, MoreVertical } from "lucide-react";
+import { useEffect, useState } from "react";
+import { adminService, authService } from "@/lib/fleetopsx/services";
+import type { User } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/admin/manage-account")({
   component: AdminManageAccount,
 });
 
 function AdminManageAccount() {
-  const staffAccounts = [
-    { sn: 1, name: "John Doe", dept: "Fleet Operation", id: "ID:PTL0012", username: "J.Doe", status: "Active" },
-    { sn: 2, name: "Cara Chen", dept: "HR & Personnel", id: "ID:PTL0015", username: "C.Chen", status: "Active" },
-    { sn: 3, name: "Cara Chen", dept: "HR & Personnel", id: "ID:PTL0015", username: "C.Chen", status: "Active" },
-    { sn: 4, name: "John Doe", dept: "Fleet Operation", id: "ID:PTL0012", username: "J.Doe", status: "Suspended" },
-  ];
+  const [users, setUsers] = useState<User[]>([]);
+  const currentUser = authService.getCurrentUser();
+
+  useEffect(() => {
+    void adminService.users().then(setUsers);
+  }, []);
 
   return (
     <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
@@ -54,11 +57,11 @@ function AdminManageAccount() {
           <div className="flex flex-row items-center justify-between">
             <div className="flex flex-row items-center gap-[12px]">
               <div className="w-[32px] h-[32px] rounded-[4px] bg-[#e2e5e9] flex items-center justify-center">
-                <span className="text-[14px] font-[600] text-[#141a1f]">JD</span>
+                <span className="text-[14px] font-[600] text-[#141a1f]">{currentUser?.initials || "AD"}</span>
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[14px] font-[600] leading-[16.94px] text-[#ffffff]">J.Doe</span>
-                <span className="text-[12px] font-[400] leading-[14.52px] text-[#8e95a1]">j.doe@gmail.com</span>
+                <span className="text-[14px] font-[600] leading-[16.94px] text-[#ffffff]">{currentUser?.name || "Admin"}</span>
+                <span className="text-[12px] font-[400] leading-[14.52px] text-[#8e95a1]">{currentUser?.email || "admin@petroline.ng"}</span>
               </div>
             </div>
             <MoreVertical className="w-[16px] h-[16px] text-[#8e95a1] cursor-pointer" />
@@ -122,16 +125,16 @@ function AdminManageAccount() {
             </div>
 
             <div className="flex flex-col w-full">
-              {staffAccounts.map((account, index) => (
-                <div key={index} className="flex flex-row items-center w-full px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9] bg-[#ffffff] last:border-b-0 hover:bg-[#fafafa] transition-colors">
+              {users.map((account, index) => (
+                <div key={account.id} className="flex flex-row items-center w-full px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9] bg-[#ffffff] last:border-b-0 hover:bg-[#fafafa] transition-colors">
                   <div className="w-[80px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.sn}</span>
+                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{index + 1}</span>
                   </div>
                   <div className="flex-1 min-w-[200px]">
                     <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.name}</span>
                   </div>
                   <div className="flex-1 min-w-[200px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.dept}</span>
+                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.department}</span>
                   </div>
                   <div className="flex-1 min-w-[150px]">
                     <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.id}</span>
