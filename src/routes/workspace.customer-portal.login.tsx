@@ -83,9 +83,6 @@ function CustomerLogin() {
         </div>
         
         <div className="mt-auto">
-           <p className="text-[11.41px] font-[400] leading-[13.81px] text-[#8e95a1] uppercase tracking-[0.05em]">
-             {tenantName === "Partner" ? "PETROLINE" : tenantName} FLEET OPERATION PORTAL | POWERED BY FLEETOPSX
-           </p>
         </div>
       </div>
 

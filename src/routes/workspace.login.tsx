@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { UserRound, KeyRound, ChevronDown } from "lucide-react";
+import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/workspace/login")({
   head: ({ routeContext }) => {
@@ -75,9 +76,6 @@ function LoginPage() {
         </div>
         
         <div className="mt-auto">
-           <p className="text-[11.41px] font-[400] leading-[13.81px] text-[#8e95a1] uppercase tracking-[0.05em]">
-             {tenantName || "PETROLINE"} FLEET OPERATION PORTAL | POWERED BY FLEETOPSX
-           </p>
         </div>
       </div>
 
@@ -112,10 +110,18 @@ function LoginPage() {
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Select Department
               </label>
-              <div className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px]">
-                <span className="text-[14px] font-[400] leading-[20px] text-[#141a1f]">Fleet Operation</span>
-                <ChevronDown className="w-[16px] h-[16px] text-[#141a1f]" />
-              </div>
+              <Select value={workspace} onValueChange={setWorkspace}>
+                <SelectTrigger className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px] w-full text-[14px] font-[400] leading-[20px] text-[#141a1f] shadow-none outline-none focus:ring-0">
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORKSPACES.map((ws) => (
+                    <SelectItem key={ws.id} value={ws.id}>
+                      {ws.name} ({ws.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Username Input */}
