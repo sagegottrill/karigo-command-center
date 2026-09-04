@@ -300,6 +300,7 @@ function TenantLandingPage() {
             </div>
 
           </div>
+        </section>
         </div>
 
         {/* Secure/Trust Section - Desktop: 1440x500, Mobile: 390x400 */}
