@@ -209,17 +209,19 @@ function TenantLandingPage() {
   const displayName = tenantName || "FLEETOPSX";
 
   return (
-    <div className="min-h-screen bg-[#f1f2f4] flex flex-col items-center overflow-x-hidden">
+    <div className="min-h-screen bg-[#f1f2f4] flex flex-col items-center overflow-x-hidden w-full">
       
       {/* Header - Desktop: 1440x100, Mobile: 390x61 */}
-      <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] bg-[#1b2432] border-b-[1px] border-[#e2e5e9] flex flex-row items-center md:pt-[12px] md:pb-[12px] md:px-[32px] pt-[5px] pb-[5px] px-[19px] gap-[10px]">
-        <div className="flex flex-row items-center gap-[16px]">
-           <img src="/logo.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
-        </div>
-      </header>
+      <div className="w-full bg-[#1b2432] border-b-[1px] border-[#e2e5e9] flex justify-center">
+        <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] flex flex-row items-center md:pt-[12px] md:pb-[12px] md:px-[32px] pt-[5px] pb-[5px] px-[19px] gap-[10px]">
+          <div className="flex flex-row items-center gap-[16px]">
+             <img src="/logo.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
+          </div>
+        </header>
+      </div>
 
       {/* Main Content Area */}
-      <main className="w-full max-w-[1440px] flex flex-col md:gap-[32px] gap-[18px] md:mt-[10px] mt-[18px] items-center md:pb-[100px] pb-[40px]">
+      <main className="w-full flex flex-col md:gap-[32px] gap-[18px] md:mt-[10px] mt-[18px] items-center md:pb-[100px] pb-[40px]">
         
         {/* Hero Section - Desktop: 1380x800, Mobile: 360x560 */}
         <section 
@@ -244,21 +246,22 @@ function TenantLandingPage() {
         </section>
 
         {/* Portal Capabilities - Desktop: 1440x628, Mobile: 390x546 */}
-        <section className="border-t-[1px] border-[#344256] w-full max-w-[1440px] md:h-[628px] h-[546px] flex flex-col md:pt-[100px] md:pb-[100px] md:px-[85px] pt-[75px] pb-[75px] px-[20px] gap-[30px] overflow-hidden">
-          
-          <div className="bg-[#1b2432] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] md:w-[186px] w-[159px] h-[40px] flex items-center justify-center">
-            <span className="md:text-[14px] text-[12px] md:font-[700] font-[400] md:leading-[20px] leading-[16.5px] text-[#ffffff]">PORTAL CAPABILITIES</span>
-          </div>
-          
-          <h2 className="md:text-[36px] text-[24px] md:font-[500] font-[400] md:leading-[40px] leading-[32px] text-[#5c6470] md:w-[1270px] w-[348px] md:h-[40px] h-[64px]">
-            Everything you need to manage fleet operations.
-          </h2>
-
-          {/* Cards Container - horizontally scrolling on mobile */}
-          <div className="flex flex-row gap-[40px] md:w-[1270px] w-full md:h-[286px] h-[230px] mt-[10px] overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar">
+        <div className="w-full border-t-[1px] border-[#344256] flex justify-center">
+          <section className="w-full max-w-[1440px] md:h-[628px] h-[546px] flex flex-col md:pt-[100px] md:pb-[100px] md:px-[85px] pt-[75px] pb-[75px] px-[20px] gap-[30px] overflow-hidden">
             
-            {/* Feature 1 */}
-            <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
+            <div className="bg-[#1b2432] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] md:w-[186px] w-[159px] h-[40px] flex items-center justify-center">
+              <span className="md:text-[14px] text-[12px] md:font-[700] font-[400] md:leading-[20px] leading-[16.5px] text-[#ffffff]">PORTAL CAPABILITIES</span>
+            </div>
+            
+            <h2 className="md:text-[36px] text-[24px] md:font-[500] font-[400] md:leading-[40px] leading-[32px] text-[#5c6470] md:w-[1270px] w-[348px] md:h-[40px] h-[64px]">
+              Everything you need to manage fleet operations.
+            </h2>
+
+            {/* Cards Container - horizontally scrolling on mobile, full width on desktop without scrolling */}
+            <div className="flex flex-row md:gap-[30px] gap-[40px] md:w-full w-full md:h-[286px] h-[230px] mt-[10px] overflow-x-auto md:overflow-x-visible pb-4 snap-x snap-mandatory md:snap-none hide-scrollbar">
+              
+              {/* Feature 1 */}
+              <div className="flex flex-col flex-1 min-w-[300px] md:max-w-[396px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
                 <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
@@ -270,8 +273,8 @@ function TenantLandingPage() {
               </div>
             </div>
 
-            {/* Feature 2 */}
-            <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
+              {/* Feature 2 */}
+              <div className="flex flex-col flex-1 min-w-[300px] md:max-w-[396px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
                 <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
@@ -283,8 +286,8 @@ function TenantLandingPage() {
               </div>
             </div>
 
-            {/* Feature 3 */}
-            <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
+              {/* Feature 3 */}
+              <div className="flex flex-col flex-1 min-w-[300px] md:max-w-[396px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
                 <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
@@ -297,11 +300,12 @@ function TenantLandingPage() {
             </div>
 
           </div>
-        </section>
+        </div>
 
         {/* Secure/Trust Section - Desktop: 1440x500, Mobile: 390x400 */}
-        <section className="bg-[#ffffff] flex flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-center relative overflow-hidden">
-          <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] md:h-[216px] h-[136px] z-10">
+        <div className="w-full bg-[#ffffff] flex justify-center">
+          <section className="flex flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-center relative overflow-hidden">
+            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] md:h-[216px] h-[136px] z-10">
             Secure and efficient fleet operation services
           </h2>
           
@@ -314,16 +318,19 @@ function TenantLandingPage() {
           <div className="absolute md:right-[-80px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40" />
           <div className="absolute md:right-[-60px] right-[-30px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-60" />
           <div className="absolute md:right-[-40px] right-[-20px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] bg-[#ed351d] opacity-10" />
-        </section>
+          </section>
+        </div>
 
       </main>
 
       {/* Footer - Desktop: 1440x100, Mobile: 390x70 */}
-      <footer className="w-full max-w-[1440px] md:h-[100px] h-[70px] bg-[#1b2432] flex items-center justify-center">
-        <p className="md:text-[12px] text-[11.41px] font-[400] md:leading-[16px] leading-[13.81px] text-[#ffffff] text-center w-[250px] md:w-auto">
-          POWERED BY FLEETOPSX | COPYRIGHT {new Date().getFullYear()}
-        </p>
-      </footer>
+      <div className="w-full bg-[#1b2432] flex justify-center">
+        <footer className="w-full max-w-[1440px] md:h-[100px] h-[70px] flex items-center justify-center">
+          <p className="md:text-[12px] text-[11.41px] font-[400] md:leading-[16px] leading-[13.81px] text-[#ffffff] text-center w-[250px] md:w-auto">
+            POWERED BY FLEETOPSX | COPYRIGHT {new Date().getFullYear()}
+          </p>
+        </footer>
+      </div>
 
     </div>
   );
