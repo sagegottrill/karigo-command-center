@@ -41,12 +41,8 @@ function LoginPage() {
       toast.error("Invalid credentials or suspended account.");
       return;
     }
-    toast.success("Welcome back", { description: `Signed in as ${user.roleNames.join(', ')}` });
-    if (user.roles.includes("Customer Portals (External)")) {
-      navigate({ to: "/workspace/customer-portal/dashboard" });
-    } else {
-      navigate({ to: "/workspace/app" });
-    }
+    toast.success(`Welcome back, ${user?.name}`);
+    navigate({ to: "/workspace/admin/manage-account" });
   };
 
   return (
