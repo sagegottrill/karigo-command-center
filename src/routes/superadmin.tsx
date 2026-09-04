@@ -101,9 +101,6 @@ const columns: Column<PlatformTenant>[] = [
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <a href={`http://${r.domain}.fleetopsx.com/pwa/${r.domain}`} target="_blank" rel="noreferrer">
-            <Button variant="outline" size="sm">View PWA</Button>
-          </a>
           <a href={`http://${r.domain}.fleetopsx.com/workspace/login`} target="_blank" rel="noreferrer">
             <Button variant="default" size="sm">Login As</Button>
           </a>

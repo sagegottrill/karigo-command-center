@@ -195,7 +195,6 @@ function MainLandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-6 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
-            <Link to="/pwa/$tenantId" params={{ tenantId: "petroline" }} target="_blank" className="hover:text-[#0066cc] transition-colors">Demo Customer Portal</Link>
             <Link to="/superadmin" className="hover:text-[#1d1d1f] transition-colors">Platform Admin</Link>
             <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
           </div>
