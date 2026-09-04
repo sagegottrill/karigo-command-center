@@ -83,35 +83,35 @@ function ForgotPasswordPage() {
           </Link>
 
           <div className="flex flex-col gap-[14px] w-full mt-[8px]">
-            <h1 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">Forgot Password</h1>
+            <h1 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">Set New Password</h1>
             <p className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">
-              Enter your username on your account and we will send a new password.
+              First-time login requires a password update to secure your account.
             </p>
           </div>
 
           {/* Form */}
           <form className="flex flex-col gap-[24px]" onSubmit={handleReset}>
             
-            {/* Username Input */}
+            {/* New Password Input */}
             <div className="flex flex-col gap-[8px] w-[436px]">
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
-                Username
+                New Password
               </label>
-              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[36px]">
-                <KeyRound className="w-[16px] h-[16px] text-[#5c6470]" />
+              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px]">
+                <KeyRound className="w-[16px] h-[16px] text-[#141a1f]" />
                 <input 
-                  type="text" 
-                  value={password} // Using password state as username for now to match the file's current state variables
+                  type="password" 
+                  value={password}
                   onChange={(e) => setPassword(e.target.value)} 
-                  placeholder="example: J.Doe"
+                  placeholder="*********"
                   className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1]" 
                 />
               </div>
             </div>
 
             {/* Submit Button */}
-            <button type="submit" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#f5a89e] w-[436px] hover:bg-[#f3988c] transition-colors mt-[8px]">
-              <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Reset Password</span>
+            <button type="submit" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] w-[436px] hover:bg-[#d62e19] transition-colors mt-[8px]">
+              <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Update and Continue</span>
             </button>
           </form>
 
