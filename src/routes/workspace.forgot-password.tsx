@@ -103,14 +103,20 @@ function ForgotPasswordPage() {
                   type="password" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)} 
-                  placeholder="*********"
+                  placeholder="Enter new password"
                   className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] leading-[20px] text-[#141a1f] placeholder-[#8e95a1]" 
                 />
               </div>
             </div>
 
             {/* Submit Button */}
-            <button type="submit" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] w-[436px] hover:bg-[#d62e19] transition-colors mt-[8px]">
+            <button 
+              type="submit" 
+              disabled={!password}
+              className={`flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] w-[436px] transition-colors mt-[8px] ${
+                password ? "bg-[#ed351d] hover:bg-[#d62e19] cursor-pointer" : "bg-[#f5a89e] cursor-not-allowed"
+              }`}
+            >
               <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Update and Continue</span>
             </button>
           </form>
