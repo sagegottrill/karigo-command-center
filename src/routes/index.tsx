@@ -257,8 +257,8 @@ function TenantLandingPage() {
               Everything you need to manage fleet operations.
             </h2>
 
-            {/* Cards Container - horizontally scrolling on mobile, full width on desktop without scrolling */}
-            <div className="flex flex-row md:gap-[30px] gap-[40px] md:w-full w-full md:h-[286px] h-[230px] mt-[10px] overflow-x-auto md:overflow-x-visible pb-4 snap-x snap-mandatory md:snap-none hide-scrollbar">
+            {/* Cards Container - stack vertically on mobile, full width on desktop without scrolling */}
+            <div className="flex flex-col md:flex-row md:gap-[30px] gap-[40px] md:w-full w-full md:h-[286px] h-auto mt-[10px] pb-4">
               
               {/* Feature 1 */}
               <div className="flex flex-col flex-1 min-w-[300px] md:max-w-[396px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
@@ -303,21 +303,30 @@ function TenantLandingPage() {
         </div>
 
         {/* Secure/Trust Section - Desktop: 1440x500, Mobile: 390x400 */}
-        <div className="w-full bg-[#ffffff] flex justify-center">
-          <section className="flex flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-center relative overflow-hidden">
-            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] md:h-[216px] h-[136px] z-10">
+        <div className="w-full bg-[#ffffff] flex justify-center relative overflow-hidden">
+          
+          {/* Decorative Background Elements (Full width container bounds) */}
+          {/* Top Left Thin Ellipses */}
+          <div className="absolute top-[-20%] left-[-20%] md:w-[960px] w-[400px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20" />
+          <div className="absolute top-[-10%] left-[-15%] md:w-[960px] w-[400px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40" />
+          <div className="absolute top-[0%] left-[-10%] md:w-[960px] w-[400px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-60" />
+          
+          {/* Bottom Right Solid Red Shape */}
+          <div className="absolute md:bottom-[-200px] bottom-[-50px] md:right-[-100px] right-[-50px] md:w-[1100px] w-[500px] md:h-[500px] h-[300px] rounded-tl-[100%] bg-[#ed351d]" />
+
+          <section className="flex flex-col md:flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[450px] items-center relative overflow-visible">
+            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] md:h-[216px] h-[136px] z-10 self-start md:self-center">
             Secure and efficient fleet operation services
           </h2>
           
-          <div className="absolute md:right-[50px] right-[45px] md:w-[700px] w-[300px] md:h-auto h-[238px] flex items-center justify-center z-10">
+          <div className="absolute md:right-[45px] md:bottom-auto bottom-[20px] right-1/2 translate-x-1/2 md:translate-x-0 md:w-[700px] w-[320px] md:h-auto h-[250px] flex items-center justify-center z-10">
              <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-full object-contain drop-shadow-2xl" />
           </div>
 
           {/* Decorative Ellipses */}
-          <div className="absolute md:right-[-100px] right-[-50px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20" />
-          <div className="absolute md:right-[-80px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40" />
-          <div className="absolute md:right-[-60px] right-[-30px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-60" />
-          <div className="absolute md:right-[-40px] right-[-20px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] bg-[#ed351d] opacity-10" />
+          <div className="absolute md:right-[-100px] right-[-150px] md:bottom-[-100px] bottom-[-50px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-white opacity-20" />
+          <div className="absolute md:right-[-80px] right-[-130px] md:bottom-[-80px] bottom-[-30px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white opacity-40" />
+          <div className="absolute md:right-[-60px] right-[-110px] md:bottom-[-60px] bottom-[-10px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white opacity-60" />
           </section>
         </div>
 
