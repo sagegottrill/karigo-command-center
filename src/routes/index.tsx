@@ -293,28 +293,35 @@ function TenantLandingPage() {
         </div>
 
         {/* SECURE SECTION — 1440x500 desktop, bg=white */}
-        <div className="w-full bg-[#ffffff] flex justify-center relative overflow-hidden">
-          {/* Top-Left stroke ellipses */}
-          <div className="absolute md:top-[-140px] top-[0px] md:left-[-406px] left-[-200px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-30 pointer-events-none" />
-          <div className="absolute md:top-[-190px] top-[-30px] md:left-[-355px] left-[-180px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
-          {/* Bottom-Right solid red ellipse */}
-          <div className="absolute md:bottom-[-210px] bottom-[-100px] md:right-[-193px] right-[-50px] md:w-[960px] w-[331px] md:h-[545px] h-[221px] rounded-[100%] bg-[#ed351d] pointer-events-none" />
-          {/* Bottom-Right stroke ellipses */}
-          <div className="absolute md:bottom-[-200px] bottom-[-80px] md:right-[-176px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40 pointer-events-none" />
-          <div className="absolute md:bottom-[-150px] bottom-[-60px] md:right-[-125px] right-[-20px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
+        <div className="w-full bg-[#ffffff] flex justify-center overflow-hidden border-b border-black/5">
+          <section className="relative flex flex-col md:flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-start md:items-center">
+            
+            {/* Top-Left stroke ellipses */}
+            <div className="absolute md:top-[-140px] top-[0px] md:left-[-200px] left-[-200px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-30 pointer-events-none" />
+            <div className="absolute md:top-[-190px] top-[-30px] md:left-[-150px] left-[-180px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
+            
+            {/* Bottom-Right solid red ellipse */}
+            <div className="absolute md:bottom-[-200px] bottom-[-100px] md:right-[-100px] right-[-50px] md:w-[960px] w-[331px] md:h-[545px] h-[221px] rounded-[100%] bg-[#ed351d] pointer-events-none" />
+            
+            {/* Bottom-Right stroke ellipses */}
+            <div className="absolute md:bottom-[-180px] bottom-[-80px] md:right-[-80px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40 pointer-events-none" />
+            <div className="absolute md:bottom-[-160px] bottom-[-60px] md:right-[-60px] right-[-20px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
 
-          <section className="flex flex-col md:flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-start md:items-center relative z-10">
-            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] md:h-[216px] h-[136px] shrink-0 font-['Space_Grotesk',sans-serif] text-left">
+            {/* White ellipses over red */}
+            <div className="absolute md:right-[0px] right-[-100px] md:bottom-[-100px] bottom-[-100px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-white/20 pointer-events-none" />
+            <div className="absolute md:right-[20px] right-[-80px] md:bottom-[-80px] bottom-[-80px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/40 pointer-events-none" />
+            <div className="absolute md:right-[40px] right-[-60px] md:bottom-[-60px] bottom-[-60px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/60 pointer-events-none" />
+
+            {/* Text Content */}
+            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] shrink-0 font-['Space_Grotesk',sans-serif] text-left relative z-10">
               Secure and efficient fleet operation services
             </h2>
+            
             {/* Tablet mockup */}
-            <div className="md:absolute md:right-[45px] md:top-1/2 md:-translate-y-1/2 absolute right-0 bottom-0 md:w-[576px] w-[300px] md:h-[457px] h-[238px] flex items-center justify-center translate-y-[20px] md:translate-y-0 translate-x-[20px] md:translate-x-0">
-               <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-full object-contain drop-shadow-2xl" />
+            <div className="absolute md:right-[45px] md:-bottom-[45px] right-[-20px] -bottom-[20px] md:w-[700px] w-[350px] flex items-end justify-center z-20">
+               <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-auto object-contain drop-shadow-2xl" />
             </div>
-            {/* White ellipses over red */}
-            <div className="absolute md:right-[-100px] right-[-100px] md:bottom-[-100px] bottom-[-100px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-white/20 pointer-events-none" />
-            <div className="absolute md:right-[-80px] right-[-80px] md:bottom-[-80px] bottom-[-80px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/40 pointer-events-none" />
-            <div className="absolute md:right-[-60px] right-[-60px] md:bottom-[-60px] bottom-[-60px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/60 pointer-events-none" />
+            
           </section>
         </div>
 
