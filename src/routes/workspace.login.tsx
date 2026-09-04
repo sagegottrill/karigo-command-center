@@ -29,11 +29,14 @@ function LoginPage() {
   const [username, setUsername] = useState("J.Doe");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [loginError, setLoginError] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError(false);
     const user = await authService.login(username);
     if (!user) {
+      setLoginError(true);
       toast.error("Invalid credentials or suspended account.");
       return;
     }
@@ -96,13 +99,21 @@ function LoginPage() {
           {/* Form */}
           <form className="flex flex-col gap-[24px]" onSubmit={handleLogin}>
             
+            {loginError && (
+              <div className="flex w-[436px] items-center p-[16px] gap-[10px] rounded-[4px] border-[1px] border-[#ed351d] bg-[#fdf2f1]">
+                <p className="text-[14px] font-[400] leading-[20px] text-[#ed351d]">
+                  Invalid username or password. Please contact the Transport Manager.
+                </p>
+              </div>
+            )}
+
             {/* Select Department */}
             <div className="flex flex-col gap-[8px] w-[436px]">
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Select Department
               </label>
-              <div className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[36px]">
-                <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">Select</span>
+              <div className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px]">
+                <span className="text-[14px] font-[400] leading-[20px] text-[#141a1f]">Fleet Operation</span>
                 <ChevronDown className="w-[16px] h-[16px] text-[#141a1f]" />
               </div>
             </div>
@@ -112,8 +123,8 @@ function LoginPage() {
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Username
               </label>
-              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[36px]">
-                <UserRound className="w-[16px] h-[16px] text-[#5c6470]" />
+              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px]">
+                <UserRound className="w-[16px] h-[16px] text-[#141a1f]" />
                 <input 
                   type="text" 
                   value={username} 
@@ -129,8 +140,8 @@ function LoginPage() {
               <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
                 Password
               </label>
-              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[36px]">
-                <KeyRound className="w-[16px] h-[16px] text-[#5c6470]" />
+              <div className="flex flex-row items-center py-[8px] px-[12px] gap-[10px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px]">
+                <KeyRound className="w-[16px] h-[16px] text-[#141a1f]" />
                 <input 
                   type="password" 
                   value={password} 
@@ -144,8 +155,12 @@ function LoginPage() {
             {/* Keep me signed in & Forgot Password */}
             <div className="flex flex-row items-center justify-between w-[436px] mt-[-8px]">
               <div className="flex flex-row gap-[10px] items-center cursor-pointer" onClick={() => setKeepSignedIn(!keepSignedIn)}>
-                <div className={`w-[16px] h-[16px] rounded-[4px] border-[1px] flex items-center justify-center ${keepSignedIn ? 'border-[#e2e5e9] bg-transparent' : 'border-[#e2e5e9] bg-transparent'}`}>
-                  {/* Assuming Figma design actually shows an empty unchecked box by default, based on the screenshot */}
+                <div className={`w-[16px] h-[16px] rounded-[4px] border-[1px] flex items-center justify-center ${keepSignedIn ? 'border-[#ed351d] bg-[#ed351d]' : 'border-[#e2e5e9] bg-transparent'}`}>
+                  {keepSignedIn && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
                 </div>
                 <span className="text-[14px] font-[400] leading-[20px] text-[#141a1f]">Keep me signed in</span>
               </div>
