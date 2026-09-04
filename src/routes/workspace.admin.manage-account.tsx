@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Search, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
@@ -29,13 +29,13 @@ function AdminManageAccount() {
             <span className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">STAFF ACCOUNT</span>
           </div>
           <div className="flex flex-col">
-            <button className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
+            <Link to="/workspace/admin/add-account" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
               <div className="w-[16px] h-[16px] flex items-center justify-center rounded-full border-[1.5px] border-[#ffffff]">
                 <span className="text-[#ffffff] text-[10px] font-bold leading-none">+</span>
               </div>
               <span className="text-[14px] font-[400] leading-[16.94px] text-[#ffffff]">Add New Account</span>
-            </button>
-            <button className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] bg-[#ed351d]">
+            </Link>
+            <Link to="/workspace/admin/manage-account" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] bg-[#ed351d]">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="2" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
                 <rect x="9" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
@@ -43,7 +43,7 @@ function AdminManageAccount() {
                 <rect x="9" y="9" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
               </svg>
               <span className="text-[14px] font-[500] leading-[16.94px] text-[#ffffff]">Account Management</span>
-            </button>
+            </Link>
             <button className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
               <div className="w-[16px] h-[16px] flex items-center justify-center rounded-full border-[1.5px] border-[#ffffff]">
                 <span className="text-[#ffffff] text-[10px] font-bold leading-none">?</span>
@@ -90,9 +90,9 @@ function AdminManageAccount() {
                 MANAGE LISTING OF INTERNAL STAFF
               </p>
             </div>
-            <button className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
+            <Link to="/workspace/admin/add-account" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
               <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ Add New Staff Account</span>
-            </button>
+            </Link>
           </div>
 
           <div className="flex flex-row items-center gap-[16px] mb-[24px]">
