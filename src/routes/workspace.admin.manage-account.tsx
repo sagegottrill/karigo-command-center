@@ -18,7 +18,7 @@ function AdminManageAccount() {
       {/* Sidebar */}
       <div className="flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
         <div className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
-          <img src="/logo.png" alt="Petroline Transport Ltd" className="w-[140px] h-[48px] object-contain" />
+          <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[140px] h-[48px] object-contain" />
         </div>
         
         <div className="flex flex-col flex-1 py-[24px]">

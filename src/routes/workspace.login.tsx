@@ -58,7 +58,7 @@ function LoginPage() {
             {tenantLogo ? (
               <img src={tenantLogo} alt={tenantName} className="w-[178px] h-[60px] object-contain" />
             ) : (
-              <img src="/logo.png" alt="Petroline Transport Ltd" className="w-[178px] h-[60px] object-contain" />
+              <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[178px] h-[60px] object-contain" />
             )}
           </div>
 

@@ -57,7 +57,7 @@ export const PLATFORM_TENANTS: PlatformTenant[] = [
     name: "Petroline Logistics",
     domain: "petroline",
     tenantSlug: "petrolline",
-    logo: "/petrolline.png",
+    logo: "/petroline-transparent.png",
     status: "Active",
     activeTrucks: 142,
     totalOrders: 12450,

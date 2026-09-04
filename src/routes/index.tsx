@@ -215,7 +215,7 @@ function TenantLandingPage() {
       <div className="w-full bg-[#1b2432] border-b border-[#e2e5e9] flex justify-center">
         <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] flex flex-row items-center md:py-[12px] md:px-[32px] py-[5px] px-[19px] gap-[10px]">
           <div className="flex flex-row items-center gap-[16px]">
-             <img src="/logo.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
+             <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
           </div>
         </header>
       </div>
