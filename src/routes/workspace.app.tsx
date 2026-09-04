@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
@@ -13,7 +13,12 @@ export const Route = createFileRoute("/workspace/app")({
       throw redirect({ to: "/workspace/login" });
     }
     if (user.passwordResetRequired) {
-      throw redirect({ to: "/workspace/login" });
+      throw redirect({ to: "/workspace/forgot-password" });
+    }
+    // Block External Partners from Staff Workspace
+    const roles = authService.getRoles();
+    if (roles.includes("Customer Portals (External)")) {
+      throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
   },
   component: AppShell,

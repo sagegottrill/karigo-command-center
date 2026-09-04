@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -338,7 +338,7 @@ function DispatchPage() {
                 Search driver by Salary Number. Active drivers will be listed below.
               </p>
               <div className="grid gap-2">
-                {DRIVERS.slice(0, 10).map((d) => {
+                {drivers.slice(0, 10).map((d) => {
                   const selectable = d.status === "Available" && d.compliance !== "Expired";
                   return (
                     <button
