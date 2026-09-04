@@ -28,7 +28,7 @@ export const Route = createFileRoute("/workspace/customer-portal/login")({
 function CustomerLogin() {
   const { tenant } = Route.useLoaderData();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("J.Doe");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);

@@ -609,15 +609,15 @@ USERS[0]!.roles = ["Transport Manager", "HR"];
 USERS[0]!.roleNames = ["Transport Manager", "HR Manager"];
 
 export const ROLES: Role[] = [
-  { key: "Transport Manager", name: "Transport Manager", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },
+  { key: "Transport Manager", name: "Transport Admin", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },
   { key: "Fleet Operations", name: "Fleet Operations", description: "Responsible for dispatching vehicles and assigning trips.", modules: ["Fleet & Dispatch"], users: 7 },
-  { key: "Diesel", name: "Diesel Department", description: "Manages all fuel-related workflows and consumption.", modules: ["Fuel"], users: 4 },
-  { key: "Engineering", name: "Engineering", description: "Manages the workshop and vehicle defect reports.", modules: ["Engineering"], users: 5 },
-  { key: "Parts & Store", name: "Parts & Store", description: "Handles all workshop inventory and spare parts.", modules: ["Inventory"], users: 3 },
+  { key: "Diesel", name: "Fuel Management", description: "Manages all fuel-related workflows and consumption.", modules: ["Fuel"], users: 4 },
+  { key: "Engineering", name: "Engineering and Maintenance", description: "Manages the workshop and vehicle defect reports.", modules: ["Engineering"], users: 5 },
+  { key: "Parts & Store", name: "Parts and Store", description: "Handles all workshop inventory and spare parts.", modules: ["Inventory"], users: 3 },
   { key: "Accounts", name: "Accounts", description: "Handles operational financials and trip invoicing.", modules: ["Accounts", "Reports"], users: 4 },
-  { key: "HR", name: "HR", description: "Manages staff files and verifies driver licenses.", modules: ["Drivers & HR"], users: 2 },
+  { key: "HR", name: "HR and Personnel", description: "Manages staff files and verifies driver licenses.", modules: ["Drivers & HR"], users: 2 },
   { key: "Security", name: "Security", description: "Uses the system strictly to scan and verify digital gate passes.", modules: ["Gate & Security"], users: 9 },
-  { key: "Driver", name: "Driver", description: "Mobile app for trip assignments, fuel receipts, and PODs.", modules: ["Trips"], users: 34 },
+  { key: "Driver", name: "Drivers", description: "Mobile app for trip assignments, fuel receipts, and PODs.", modules: ["Trips"], users: 34 },
   { key: "Customer Portals (External)", name: "Customer Portal", description: "External portal to submit logistics requests.", modules: ["Sister Portal"], users: 12 },
 ];
 

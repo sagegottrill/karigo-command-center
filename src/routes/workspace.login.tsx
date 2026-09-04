@@ -26,8 +26,8 @@ function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
   const DEPARTMENTS = authService.getAllRoles().filter(r => r.key !== "Customer Portals (External)");
-  const [department, setDepartment] = useState(DEPARTMENTS[0]!.key);
-  const [username, setUsername] = useState("J.Doe");
+  const [department, setDepartment] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
