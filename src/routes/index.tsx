@@ -255,7 +255,7 @@ function TenantLandingPage() {
           </h2>
 
           {/* Cards Container - horizontally scrolling on mobile */}
-          <div className="flex flex-row gap-[40px] md:w-[1270px] w-full md:h-[286px] h-[230px] mt-[10px] overflow-x-auto pb-4 snap-x hide-scrollbar">
+          <div className="flex flex-row gap-[40px] md:w-[1270px] w-full md:h-[286px] h-[230px] mt-[10px] overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar">
             
             {/* Feature 1 */}
             <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
@@ -305,8 +305,8 @@ function TenantLandingPage() {
             Secure and efficient fleet operation services
           </h2>
           
-          <div className="absolute md:right-[50px] right-[-20px] md:w-[700px] w-[350px] flex items-center justify-center z-10">
-             <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-auto object-contain drop-shadow-2xl" />
+          <div className="absolute md:right-[50px] right-[45px] md:w-[700px] w-[300px] md:h-auto h-[238px] flex items-center justify-center z-10">
+             <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-full object-contain drop-shadow-2xl" />
           </div>
 
           {/* Decorative Ellipses */}
