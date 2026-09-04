@@ -111,7 +111,7 @@ function AccountTypePage() {
 
           <button 
             onClick={handleProceed}
-            className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#f5a89e] w-full hover:bg-[#f3988c] transition-colors mt-[8px]"
+            className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] w-full hover:bg-[#d62e19] transition-colors mt-[8px]"
           >
             <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Proceed</span>
           </button>
