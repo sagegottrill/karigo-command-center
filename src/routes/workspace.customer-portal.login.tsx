@@ -117,7 +117,7 @@ function CustomerLogin() {
             {loginError && (
               <div className="flex w-full items-center p-[16px] gap-[10px] rounded-[4px] border-[1px] border-[#ed351d] bg-[#fdf2f1]">
                 <p className="text-[14px] font-[400] leading-[20px] text-[#ed351d]">
-                  Invalid username or password. Please contact support.
+                  Invalid username or password. Please contact the Transport Manager.
                 </p>
               </div>
             )}
