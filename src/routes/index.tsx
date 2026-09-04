@@ -9,6 +9,7 @@ import {
   ChevronRight,
   MapPin,
   FileCheck2,
+  Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Route as RootRoute } from "./__root";
@@ -213,10 +214,8 @@ function TenantLandingPage() {
       
       {/* Header - Desktop: 1440x100, Mobile: 390x61 */}
       <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] bg-[#1b2432] border-b-[1px] border-[#e2e5e9] flex flex-row items-center md:pt-[12px] md:pb-[12px] md:px-[32px] pt-[5px] pb-[5px] px-[19px] gap-[10px]">
-        <div className="flex flex-row items-center gap-[16px] md:w-[178px] md:h-[75px] w-[89px] h-[50px]">
-           <div className="md:w-[178px] md:h-[100px] w-[89px] h-[50px] bg-[#ffffff] flex items-center justify-center font-bold text-[#1b2432]">
-             <span className="md:text-[24px] text-[12px] uppercase">{displayName}</span>
-           </div>
+        <div className="flex flex-row items-center gap-[16px]">
+           <img src="/logo.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
         </div>
       </header>
 
@@ -224,7 +223,10 @@ function TenantLandingPage() {
       <main className="w-full max-w-[1440px] flex flex-col md:gap-[32px] gap-[18px] md:mt-[10px] mt-[18px] items-center md:pb-[100px] pb-[40px]">
         
         {/* Hero Section - Desktop: 1380x800, Mobile: 360x560 */}
-        <section className="bg-[#000000] rounded-[10px] md:w-[1380px] md:h-[800px] w-[360px] h-[560px] flex flex-col md:pt-[102px] md:pb-[102px] md:px-[209px] p-[20px] md:gap-[30px] gap-[20px] items-center justify-center text-center mx-auto overflow-hidden relative">
+        <section 
+          className="bg-[#000000] rounded-[10px] md:w-[1380px] md:h-[800px] w-[360px] h-[560px] flex flex-col md:pt-[102px] md:pb-[102px] md:px-[209px] p-[20px] md:gap-[30px] gap-[20px] items-center justify-center text-center mx-auto overflow-hidden relative bg-center bg-cover bg-no-repeat"
+          style={{ backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url('/hero.jpeg')" }}
+        >
           
           <h1 className="md:text-[90px] text-[36px] md:font-[500] font-[700] md:leading-[90px] leading-[40px] text-[#ffffff] md:w-[1160px] w-[329px] md:h-[180px] h-[120px] flex items-center justify-center">
             Manage your fleet operation with confidence
@@ -259,7 +261,7 @@ function TenantLandingPage() {
             {/* Feature 1 */}
             <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
-                <MapPin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px]" />
+                <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
               <div className="flex flex-col gap-[9px] md:w-[345px] w-[253px] z-10 mt-auto">
                 <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Submit a Request</h3>
@@ -272,7 +274,7 @@ function TenantLandingPage() {
             {/* Feature 2 */}
             <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
-                <Radar className="md:w-[141px] w-[106px] md:h-[141px] h-[106px]" />
+                <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
               <div className="flex flex-col gap-[9px] md:w-[345px] w-[253px] z-10 mt-auto">
                 <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Track Active Loads</h3>
@@ -285,7 +287,7 @@ function TenantLandingPage() {
             {/* Feature 3 */}
             <div className="flex flex-col md:min-w-[396px] min-w-[300px] md:h-[286px] h-[230px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-between snap-start">
               <div className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] flex items-center justify-center absolute top-[-10px] right-[-10px] opacity-20">
-                <FileCheck2 className="md:w-[141px] w-[106px] md:h-[141px] h-[106px]" />
+                <Pin className="md:w-[141px] w-[106px] md:h-[141px] h-[106px] rotate-45" />
               </div>
               <div className="flex flex-col gap-[9px] md:w-[345px] w-[253px] z-10 mt-auto">
                 <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Access Records</h3>
@@ -304,8 +306,8 @@ function TenantLandingPage() {
             Secure and efficient fleet operation services
           </h2>
           
-          <div className="absolute md:right-[100px] right-[-50px] md:w-[576px] w-[300px] md:h-[457px] h-[238px] bg-[#f1f2f4] rounded-[24px] shadow-2xl flex items-center justify-center z-10 border-[4px] border-[#e2e5e9]">
-             <div className="md:text-[24px] text-[14px] font-[600] text-[#5c6470]">Platform Preview</div>
+          <div className="absolute md:right-[50px] right-[-20px] md:w-[700px] w-[350px] flex items-center justify-center z-10">
+             <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-auto object-contain drop-shadow-2xl" />
           </div>
 
           {/* Decorative Ellipses */}
