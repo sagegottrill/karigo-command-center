@@ -68,7 +68,7 @@ function AccountTypePage() {
             <div 
               onClick={() => setAccountType("internal")}
               className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-[210px] cursor-pointer transition-all ${
-                accountType === "internal" ? "border-[#ed351d]/50 bg-white shadow-sm ring-1 ring-[#ed351d]/20" : "border-[#e2e5e9] bg-white hover:border-[#ed351d]/30"
+                accountType === "internal" ? "border-[#e2e5e9] bg-[#f9fafb]" : "border-[#e2e5e9] bg-white hover:bg-[#f9fafb]"
               }`}
             >
               <div className="flex items-center gap-[12px]">
@@ -90,7 +90,7 @@ function AccountTypePage() {
             <div 
               onClick={() => setAccountType("partner")}
               className={`flex flex-col pt-[16px] pb-[16px] px-[16px] gap-[12px] rounded-[6px] border-[1px] w-[210px] cursor-pointer transition-all ${
-                accountType === "partner" ? "border-[#ed351d]/50 bg-white shadow-sm ring-1 ring-[#ed351d]/20" : "border-[#e2e5e9] bg-white hover:border-[#ed351d]/30"
+                accountType === "partner" ? "border-[#e2e5e9] bg-[#f9fafb]" : "border-[#e2e5e9] bg-white hover:bg-[#f9fafb]"
               }`}
             >
               <div className="flex items-center gap-[12px]">
