@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search, MoreVertical, X, ArrowLeft, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
-import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import type { User } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
@@ -11,13 +10,12 @@ import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/workspace/app/manage-account")({
-  component: AdminManageAccount,
+export const Route = createFileRoute("/workspace/app/manage-partner")({
+  component: AdminManagePartner,
 });
 
-function AdminManageAccount() {
+function AdminManagePartner() {
   const [users, setUsers] = useState<User[]>([]);
-  const currentUser = authService.getCurrentUser();
   const navigate = useNavigate();
 
   // Confirmation modals
@@ -28,14 +26,14 @@ function AdminManageAccount() {
     void adminService.users().then(setUsers);
   }, []);
 
-  const filtered = users.filter(u => u.status !== "Deleted" && u.department !== "External Partner");
+  // ONLY show External Partners
+  const filtered = users.filter(u => u.status !== "Deleted" && u.department === "External Partner");
 
   const columns: Column<User>[] = [
     { key: "sn", header: "S/N", cell: (_, i) => <span className="text-[14px] font-[400] text-[#5c6470]">{i + 1}</span> },
-    { key: "name", header: "Name", sortValue: (r) => r.name, cell: (r) => r.name },
-    { key: "dept", header: "Department", sortValue: (r) => r.department, cell: (r) => r.department },
-    { key: "id", header: "Staff ID", sortValue: (r) => r.id, cell: (r) => <span className="text-[#5c6470]">ID:{r.id}</span> },
-    { key: "user", header: "Username", sortValue: (r) => r.username, cell: (r) => r.username },
+    { key: "company", header: "Company Name", sortValue: (r) => r.companyId || "", cell: (r) => <span className="font-semibold">{r.companyId || "Unknown Company"}</span> },
+    { key: "name", header: "Contact Person", sortValue: (r) => r.name, cell: (r) => r.name },
+    { key: "user", header: "Username", sortValue: (r) => r.username, cell: (r) => <span className="font-mono bg-muted px-2 py-1 rounded-md text-xs">{r.username}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     {
       key: "actions", header: "", align: "right", cell: (r) => (
@@ -55,23 +53,23 @@ function AdminManageAccount() {
     if (!confirmAction) return;
     if (confirmAction.type === "password") {
       await adminService.resetPassword(confirmAction.userId);
-      toast.success("Password reset initiated. User must change password on next login.");
+      toast.success("Password reset initiated. Partner must change password on next login.");
       setConfirmAction(null);
       setShowShareModal(true);
     } else if (confirmAction.type === "suspend") {
       await adminService.suspendUser(confirmAction.userId);
-      toast.warning("Account suspended.");
+      toast.warning("Partner account suspended.");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     } else if (confirmAction.type === "delete") {
       await adminService.deleteUser(confirmAction.userId);
-      toast.error("Account deleted (soft).");
+      toast.error("Partner account deleted.");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     }
   };
 
-  const shareText = `Hello,\n\nYour account password has been reset for the Transport Manager Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}`;
+  const shareText = `Hello,\n\nYour account password has been reset for the Partner Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
 
   const handleShareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
@@ -89,16 +87,14 @@ function AdminManageAccount() {
     setShowShareModal(false);
   };
 
-
-
   const exportCSV = () => {
-    const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
-    const csv = filtered.map((u, i) => `${i + 1},${u.name},${u.department},${u.id},${u.username},${u.status}`).join("\n");
+    const headers = "S/N,Company Name,Contact Person,Username,Status\n";
+    const csv = filtered.map((u, i) => `${i + 1},${u.companyId},${u.name},${u.username},${u.status}`).join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "staff_accounts.csv";
+    a.download = "partner_accounts.csv";
     a.click();
     toast.success("Exported CSV successfully.");
   };
@@ -106,25 +102,25 @@ function AdminManageAccount() {
   return (
     <>
       <PageHeader
-        title="Transport Manager Portal"
-        description="Manage the lifecycle of every account within the company to maintain data integrity."
+        title="Manage Sister Companies"
+        description="Manage the lifecycle of external partner accounts and their access to the Partner Portal."
         actions={
           <>
             <Button size="sm" variant="outline" className="h-10 text-[14px]" onClick={exportCSV}>
               Export CSV
             </Button>
             <Button asChild size="sm" className="h-10 bg-[#ed351d] hover:bg-[#d62e19] text-[14px]">
-              <Link to="/workspace/app/add-account">+ Add New Staff Account</Link>
+              <Link to="/workspace/app/add-partner">+ Add New Partner</Link>
             </Button>
           </>
         }
       />
 
-      <SectionPanel title="Manage Staff Account" description="Manage listing of internal company staff" bodyClassName="p-0 mt-4">
+      <SectionPanel title="Manage Sister Companies" description="Manage listing of external partners" bodyClassName="p-0 mt-4">
         <DataTable
           rows={filtered}
           columns={columns}
-          searchKeys={(r) => `${r.name} ${r.username} ${r.id} ${r.department}`}
+          searchKeys={(r) => `${r.name} ${r.username} ${r.companyId}`}
           pageSize={10}
         />
       </SectionPanel>
@@ -138,8 +134,8 @@ function AdminManageAccount() {
             </div>
             <p className="text-[16px] font-[400] text-[#5c6470] text-center mb-[32px]">
               {confirmAction.type === "password" && "Are you sure you want to send\na new password?"}
-              {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
-              {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
+              {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this partner account?"}
+              {confirmAction.type === "delete" && "Are you sure you want to\ndelete this partner account?"}
             </p>
             <div className="flex flex-row items-center justify-between w-full gap-[24px]">
               <button onClick={() => setConfirmAction(null)} className="text-[14px] font-[500] text-[#ed351d] hover:underline">Cancel</button>

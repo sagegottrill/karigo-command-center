@@ -83,7 +83,7 @@ function AddPartner() {
 
   const handleShareDone = () => {
     setShowShareModal(false);
-    navigate({ to: "/workspace/app/manage-account" }); // Assume manage partners is in manage accounts for now
+    navigate({ to: "/workspace/app/manage-partner" });
   };
 
   return (

@@ -59,16 +59,17 @@ export const NAV: NavItem[] = [
   { label: "God View", to: "/workspace/app/god-view", icon: LineChart, group: "Insights" },
   { label: "Reports", to: "/workspace/app/reports", icon: Activity, group: "Insights" },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
-  { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "Staff Account" },
-  { label: "Add A Partner", to: "/workspace/app/add-partner", icon: CustomPartnerIcon, group: "Staff Account" },
-  { label: "Account Management", to: "/workspace/app/manage-account", icon: CustomManageIcon, group: "Staff Account" },
-  { label: "Password Request", to: "/workspace/app/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
+  { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "User Management" },
+  { label: "Add A Partner", to: "/workspace/app/add-partner", icon: CustomPartnerIcon, group: "User Management" },
+  { label: "Account Management", to: "/workspace/app/manage-account", icon: CustomManageIcon, group: "User Management" },
+  { label: "Manage Partners", to: "/workspace/app/manage-partner", icon: CustomManageIcon, group: "User Management" },
+  { label: "Password Request", to: "/workspace/app/password-request", icon: CustomPasswordIcon, group: "User Management" },
   { label: "Platform Admin", to: "/superadmin", icon: ShieldCheck, group: "Admin" },
   { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
   { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Staff Account", "Admin"];
+const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "User Management", "Admin"];
 
 export function AppSidebar({
   collapsed,
@@ -84,7 +85,7 @@ export function AppSidebar({
   const [mounted, setMounted] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     "Main": true, "Workshop": true, "People": true, "Finance": true, 
-    "Yard": true, "Inbox": true, "Insights": true, "Admin": true, "Staff Account": true
+    "Yard": true, "Inbox": true, "Insights": true, "Admin": true, "User Management": true
   });
   
   useEffect(() => { setMounted(true); }, []);
@@ -108,7 +109,7 @@ export function AppSidebar({
 
   const allowedNav = NAV.filter(item => {
     // Admin stuff is available to those who can see Admin module
-    if (item.group === "Staff Account") return allowedModules.includes("All modules") || allowedModules.includes("Admin");
+    if (item.group === "User Management") return allowedModules.includes("All modules") || allowedModules.includes("Admin");
 
     if (allowedModules.includes("All modules")) return true;
     if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 

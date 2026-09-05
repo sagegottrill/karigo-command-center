@@ -32,6 +32,7 @@ import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gat
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
 import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
+import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
 import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
@@ -165,6 +166,12 @@ const WorkspaceAppManageAccountRoute =
     path: '/manage-account',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppManagePartnerRoute =
+  WorkspaceAppManagePartnerRouteImport.update({
+    id: '/manage-partner',
+    path: '/manage-partner',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppMessagesRoute = WorkspaceAppMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -274,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
+  '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -311,6 +319,7 @@ export interface FileRoutesByTo {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
+  '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -351,6 +360,7 @@ export interface FileRoutesById {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
+  '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -393,6 +403,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
+    | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
     | '/workspace/app/password-request'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
+    | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
     | '/workspace/app/password-request'
@@ -469,6 +481,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
+    | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
     | '/workspace/app/password-request'
@@ -656,6 +669,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppManageAccountRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/manage-partner': {
+      id: '/workspace/app/manage-partner'
+      path: '/manage-partner'
+      fullPath: '/workspace/app/manage-partner'
+      preLoaderRoute: typeof WorkspaceAppManagePartnerRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/messages': {
       id: '/workspace/app/messages'
       path: '/messages'
@@ -779,6 +799,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
   WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
+  WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
   WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
@@ -806,6 +827,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
   WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
+  WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
   WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
