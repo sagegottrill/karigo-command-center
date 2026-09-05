@@ -206,17 +206,24 @@ function PartnerPortalDashboard() {
           {/* Mobile Card List (Hidden on Desktop) */}
           <div className="flex lg:hidden flex-col gap-3 pb-[40px]">
             {requests.map((r) => (
-              <div key={r.id} className="bg-white rounded-[10px] border border-gray-200 p-4 shadow-sm relative">
+              <div 
+                key={r.id} 
+                className="bg-white rounded-[10px] border border-gray-200 p-4 shadow-sm relative cursor-pointer hover:border-gray-300 transition-colors"
+                onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
+              >
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[11px] font-[500] text-[#8e95a1]">02 Sept 2026</span>
                   <div className="relative">
-                    <button onClick={() => setRowMenuOpen(rowMenuOpen === r.id ? null : r.id)} className="p-1 -m-1 rounded hover:bg-gray-100 transition-colors">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setRowMenuOpen(rowMenuOpen === r.id ? null : r.id); }} 
+                      className="p-1 -m-1 rounded hover:bg-gray-100 transition-colors"
+                    >
                       <MoreVertical className="w-4 h-4 text-[#5c6470]" />
                     </button>
                     {rowMenuOpen === r.id && (
                       <div className="absolute right-0 top-6 bg-white border border-gray-100 rounded-md shadow-xl py-2 w-[140px] z-10">
-                        <button onClick={() => { setDetailsModalOpen(r); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#5c6470] hover:bg-gray-50 font-[500]">Details</button>
-                        <button onClick={() => { setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
+                        <button onClick={(e) => { e.stopPropagation(); setDetailsModalOpen(r); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#5c6470] hover:bg-gray-50 font-[500]">Details</button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
                       </div>
                     )}
                   </div>
@@ -270,7 +277,11 @@ function PartnerPortalDashboard() {
                 </thead>
                 <tbody>
                   {requests.map((r, i) => (
-                    <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                    <tr 
+                      key={r.id} 
+                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
+                      onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
+                    >
                       <td className="px-6 py-4 text-[13px] font-[600] text-[#5c6470]">{r.id}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">02 Sept 2026</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.customerConsignee || "Janeth Doe"}</td>
@@ -281,19 +292,22 @@ function PartnerPortalDashboard() {
                         <StatusBadge status={r.status} />
                       </td>
                       <td className="px-6 py-4 relative">
-                        <button onClick={() => setRowMenuOpen(rowMenuOpen === r.id ? null : r.id)} className="p-1 rounded hover:bg-gray-100">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setRowMenuOpen(rowMenuOpen === r.id ? null : r.id); }} 
+                          className="p-1 rounded hover:bg-gray-100"
+                        >
                           <MoreVertical className="w-4 h-4 text-gray-400" />
                         </button>
                         {rowMenuOpen === r.id && (
                           <div className="absolute right-8 top-10 bg-white border border-gray-100 rounded-md shadow-lg py-2 w-[140px] z-10">
                             <button 
-                              onClick={() => { setDetailsModalOpen(r); setRowMenuOpen(null); }}
+                              onClick={(e) => { e.stopPropagation(); setDetailsModalOpen(r); setRowMenuOpen(null); }}
                               className="w-full text-left px-4 py-2 text-[13px] text-[#5c6470] hover:bg-gray-50 font-medium"
                             >
                               Details
                             </button>
                             <button 
-                              onClick={() => { setDeleteModalOpen(r.id); setRowMenuOpen(null); }}
+                              onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }}
                               className="w-full text-left px-4 py-2 text-[13px] text-[#e3351d] hover:bg-red-50 font-medium"
                             >
                               Delete
