@@ -103,7 +103,7 @@ function MainLandingPage() {
       </div>
 
       {/* HERO SECTION - Black */}
-      <section className="bg-[#000000] text-white pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px]">
+      <section id="home" className="bg-[#000000] text-white pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px]">
         <div className="w-full max-w-[1440px] flex flex-col">
           <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-6">
             <div className="w-2 h-2 bg-[#ed351d]" />
@@ -136,7 +136,7 @@ function MainLandingPage() {
       </section>
 
       {/* LOGOS & MISSION - White */}
-      <section className="bg-white pt-[60px] pb-[80px] px-[20px] md:px-[60px] flex justify-center border-b border-gray-100">
+      <section id="platform" className="bg-white pt-[60px] pb-[80px] px-[20px] md:px-[60px] flex justify-center border-b border-gray-100">
         <div className="w-full max-w-[1440px]">
           <div className="flex flex-col md:flex-row items-center justify-between border-b border-gray-200 pb-[60px] mb-[100px] gap-10">
             <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-gray-400 max-w-[200px]">
@@ -216,7 +216,7 @@ function MainLandingPage() {
       </section>
 
       {/* FOOTER / SERVICES - Black */}
-      <section className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
+      <section id="services" className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
         <div className="w-full max-w-[1440px] flex flex-col">
           <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-12">
             <div className="w-2 h-2 bg-[#ed351d]" />
