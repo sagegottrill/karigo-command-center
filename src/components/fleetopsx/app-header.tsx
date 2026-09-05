@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell, ChevronDown, CircleDot, HelpCircle, LogOut, MessageSquare, PanelLeft,
@@ -62,7 +62,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
       </button>
 
-      <div className="flex h-9 items-center gap-2 overflow-hidden rounded-[10px] bg-white px-2 md:hidden">
+      <Link to="/workspace/app" className="flex h-9 items-center gap-2 overflow-hidden rounded-[10px] bg-white px-2 md:hidden">
         {tenantLogo ? (
           <img src={tenantLogo} alt={tenantName} className="h-6 w-auto object-contain max-w-[120px]" />
         ) : (
@@ -73,7 +73,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
             <span className="text-[13px] font-bold text-[#1d1d1f]">{tenantName}</span>
           </>
         )}
-      </div>
+      </Link>
 
       <div className="hidden min-w-0 items-center gap-2 sm:flex">
         <span className="truncate rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold tracking-[-0.01em] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06]">
