@@ -251,162 +251,161 @@ function PartnerPortalDashboard() {
         </div>
       </div>
 
-      {/* OVERLAYS */}
-      {(sortModalOpen || deleteModalOpen || detailsModalOpen) && (
+      {/* SORT MODAL */}
+      {sortModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          
-          {/* SORT MODAL */}
-          {sortModalOpen && (
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] overflow-hidden">
-              <div className="p-6">
-                <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Sort By</h3>
-                <div className="flex flex-col gap-3 mb-6">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">ID No.</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Date</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Product</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Truck Type</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Status</span>
-                  </label>
-                </div>
-                
-                <div className="h-px bg-gray-100 w-full mb-6"></div>
-                
-                <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Order By</h3>
-                <div className="flex flex-col gap-3 mb-8">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Ascending</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Descending</span>
-                  </label>
-                </div>
-                
-                <div className="flex justify-end">
-                  <button 
-                    onClick={() => setSortModalOpen(false)}
-                    className="h-[40px] px-[24px] bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[13px] font-[500]"
-                  >
-                    Save
-                  </button>
-                </div>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] overflow-hidden">
+            <div className="p-6">
+              <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Sort By</h3>
+              <div className="flex flex-col gap-3 mb-6">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">ID No.</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Date</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Product</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Truck Type</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Status</span>
+                </label>
+              </div>
+              
+              <div className="h-px bg-gray-100 w-full mb-6"></div>
+              
+              <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Order By</h3>
+              <div className="flex flex-col gap-3 mb-8">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Ascending</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
+                  <span className="text-[13px] font-[500] text-[#5c6470]">Descending</span>
+                </label>
+              </div>
+              
+              <div className="flex justify-end">
+                <button 
+                  onClick={() => setSortModalOpen(false)}
+                  className="h-[40px] px-[24px] bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[13px] font-[500]"
+                >
+                  Save
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* DELETE CONFIRMATION MODAL */}
-          {deleteModalOpen && (
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] p-8 flex flex-col items-center text-center">
-              <div className="w-[60px] h-[60px] mb-6 flex items-center justify-center">
-                <AlertCircle className="w-12 h-12 text-[#e3351d]" strokeWidth={1.5} />
+      {/* REQUEST DETAILS MODAL */}
+      {detailsModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[600px] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-[20px] font-[600] text-[#141a1f]">Request Details</h2>
+                <StatusBadge status={detailsModalOpen.status} />
               </div>
-              <p className="text-[15px] text-[#5c6470] font-[500] mb-8 max-w-[200px]">
-                Are you sure you want to delete this account?
-              </p>
-              <div className="flex gap-4 w-full justify-center">
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">ID No.</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.id}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Date</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    02-09-2026
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 col-span-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Cosignee</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.customerConsignee || "Janeth Doe"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Product</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.cargo || "Steel"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Truck Type</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.tailType || "Flat"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 col-span-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Destination</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.dropoff || "ABC, Alake Estate"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 col-span-2 mb-4">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
+                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                    {detailsModalOpen.pickup || "Babangida; Happy Home"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-6 border-t border-gray-100">
                 <button 
-                  onClick={() => setDeleteModalOpen(null)}
-                  className="h-[40px] px-8 bg-transparent text-[#e3351d] font-[500] text-[14px]"
+                  onClick={() => setDetailsModalOpen(null)}
+                  className="text-[#e3351d] text-[14px] font-[500] px-4 hover:underline"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={() => setDeleteModalOpen(null)}
-                  className="h-[40px] px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
+                  onClick={() => setDeleteModalOpen(detailsModalOpen.id)}
+                  className="h-[40px] px-6 bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[14px] font-[500]"
                 >
-                  Confirm
+                  Delete Request
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* REQUEST DETAILS MODAL */}
-          {detailsModalOpen && (
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-[600px] overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="p-6 overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-[20px] font-[600] text-[#141a1f]">Request Details</h2>
-                  <StatusBadge status={detailsModalOpen.status} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-x-6 gap-y-6">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">ID No.</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.id}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Date</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      02-09-2026
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 col-span-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Cosignee</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.customerConsignee || "Janeth Doe"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Product</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.cargo || "Steel"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Truck Type</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.tailType || "Flat"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 col-span-2">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Destination</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.dropoff || "ABC, Alake Estate"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 col-span-2 mb-4">
-                    <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
-                    <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                      {detailsModalOpen.pickup || "Babangida; Happy Home"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center pt-6 border-t border-gray-100">
-                  <button 
-                    onClick={() => setDetailsModalOpen(null)}
-                    className="text-[#e3351d] text-[14px] font-[500] px-4 hover:underline"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => setDetailsModalOpen(null)}
-                    className="h-[40px] px-6 bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[14px] font-[500]"
-                  >
-                    Delete Request
-                  </button>
-                </div>
-              </div>
+      {/* DELETE CONFIRMATION MODAL - High Z-Index for Nesting */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] p-8 flex flex-col items-center text-center">
+            <div className="w-[60px] h-[60px] mb-6 flex items-center justify-center">
+              <AlertCircle className="w-12 h-12 text-[#e3351d]" strokeWidth={1.5} />
             </div>
-          )}
-
+            <p className="text-[15px] text-[#5c6470] font-[500] mb-8 max-w-[200px]">
+              Are you sure you want to delete this account?
+            </p>
+            <div className="flex gap-4 w-full justify-center">
+              <button 
+                onClick={() => setDeleteModalOpen(null)}
+                className="h-[40px] px-8 bg-transparent text-[#e3351d] font-[500] text-[14px]"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => { setDeleteModalOpen(null); setDetailsModalOpen(null); }}
+                className="h-[40px] px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
