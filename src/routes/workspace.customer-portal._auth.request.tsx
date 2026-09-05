@@ -1,55 +1,51 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { MoreVertical } from "lucide-react";
 import { useState } from "react";
-import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { orderService } from "@/lib/fleetopsx/services";
+import { orderService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/request")({
-  component: SisterCompanyRequest,
+  component: PartnerNewRequest,
 });
 
-function SisterCompanyRequest() {
+const PRODUCT_OPTIONS = ["Sand", "Steel", "Bitumen"];
+const TRUCK_TYPE_OPTIONS = ["Full", "Semi", "Flat", "Side Guide", "Low Bed"];
+const LOADING_SITE_OPTIONS = [
+  "Comfortoboh", "Happy Home", "Ijesha.1", "Babangida.1",
+  "Babangida.2", "Ijesha.2", "Babangida.3", "Metalberg.K",
+  "Saba Factory", "Others",
+];
+
+function PartnerNewRequest() {
   const navigate = useNavigate();
+  const currentUser = authService.getCurrentUser();
+
   const [customerConsignee, setCustomerConsignee] = useState("");
-  const [cargo, setCargo] = useState("");
-  const [tailType, setTailType] = useState("");
-  const [loadingRoutingType, setLoadingRoutingType] = useState<"Single" | "Multiple">("Single");
-  const [loadingSites, setLoadingSites] = useState<{ predefined: string, custom: string }[]>([{ predefined: "", custom: "" }]);
-  const [dropoff, setDropoff] = useState("");
-  
-  const PREDEFINED_SITES = [
-    "Comfortoboh", "Happy Home", "Ijesha.1", "Babangida.1", 
-    "Babangida.2", "Ijesha.2", "Babangida.3", "Metalberg.K", 
-    "Saba Factory", "Others"
-  ];
+  const [product, setProduct] = useState("");
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [truckType, setTruckType] = useState("");
+  const [showTruckDropdown, setShowTruckDropdown] = useState(false);
+  const [destination, setDestination] = useState("");
+  const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
+  const [loadingSite, setLoadingSite] = useState("");
+  const [showSiteDropdown, setShowSiteDropdown] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerConsignee || !cargo || !tailType || loadingSites.some(s => !s.predefined || (s.predefined === "Others" && !s.custom)) || !dropoff) {
+    if (!customerConsignee || !product || !truckType || !loadingSite || !destination) {
       toast.error("Please fill all required fields");
-      return;
-    }
-
-    const resolvedSites = loadingSites.map(s => s.predefined === "Others" ? s.custom : s.predefined);
-
-    if (new Set(resolvedSites).size !== resolvedSites.length) {
-      toast.error("Duplicate loading sites are not allowed");
       return;
     }
 
     const payload = {
       customerConsignee,
-      cargo,
-      tailType,
-      loadingRoutingType,
-      loadingSite: resolvedSites,
-      pickup: resolvedSites[0] || "",
-      dropoff,
+      cargo: product,
+      tailType: truckType,
+      loadingRoutingType: routingType,
+      loadingSite: [loadingSite],
+      pickup: loadingSite,
+      dropoff: destination,
     };
 
     await orderService.submitCustomerOrder(payload);
@@ -57,105 +53,237 @@ function SisterCompanyRequest() {
     navigate({ to: "/workspace/customer-portal/dashboard" });
   };
 
+  const handleLogout = () => {
+    authService.logout();
+    navigate({ to: "/workspace/customer-portal/login" });
+  };
+
+  // Derive user display info
+  const companyName = currentUser?.department || "Saba Steel";
+  const userEmail = currentUser?.email || "logistics@s.steel.com";
+  const userInitials = currentUser?.initials || companyName.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="New Transport Request"
-        description="Submit a new request to Fleet Operations for dispatch."
-      />
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
-        <SectionPanel title="Request Details" bodyClassName="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Customer Name (Consignee)</Label>
-            <Input className="h-9 text-xs" value={customerConsignee} onChange={(e) => setCustomerConsignee(e.target.value)} placeholder="Enter consignee name" />
+    <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
+      {/* Sidebar */}
+      <div className="hidden lg:flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
+        <div className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
+          <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[140px] h-[48px] object-contain" />
+        </div>
+        <div className="flex flex-col flex-1 py-[24px]">
+          <div className="px-[24px] mb-[12px]">
+            <span className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">TRANSPORT REQUEST</span>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Product (Cargo)</Label>
-            <Select value={cargo} onValueChange={setCargo}>
-              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select product" /></SelectTrigger>
-              <SelectContent>
-                {["AGO", "PMS", "DPK", "Jet A1", "LPG", "Bitumen"].map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col">
+            <Link to="/workspace/customer-portal/dashboard" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
+                <rect x="9" y="2" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
+                <rect x="2" y="9" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
+                <rect x="9" y="9" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
+              </svg>
+              <span className="text-[14px] font-[400] leading-[16.94px] text-[#ffffff]">Dashboard</span>
+            </Link>
+            <Link to="/workspace/customer-portal/request" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] bg-[#ed351d]">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 3V13" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M3 8H13" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="text-[14px] font-[500] leading-[16.94px] text-[#ffffff]">New Request</span>
+            </Link>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Truck Type</Label>
-            <Select value={tailType} onValueChange={setTailType}>
-              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select truck type" /></SelectTrigger>
-              <SelectContent>
-                {["Full", "Semi", "Flat", "Side Guide", "Low Bed"].map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Final Destination (Dropoff)</Label>
-            <Input className="h-9 text-xs" value={dropoff} onChange={(e) => setDropoff(e.target.value)} placeholder="e.g. Abuja Depot" />
-          </div>
-        </SectionPanel>
+        </div>
 
-        <SectionPanel title="Loading Sites" bodyClassName="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Loading Scheme</Label>
-            <Select value={loadingRoutingType} onValueChange={(v: "Single" | "Multiple") => {
-              setLoadingRoutingType(v);
-              if (v === "Single") setLoadingSites([loadingSites[0] || { predefined: "", custom: "" }]);
-            }}>
-              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Single" className="text-xs">Single Loading Site</SelectItem>
-                <SelectItem value="Multiple" className="text-xs">Multiple Loading Sites</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Logout + User */}
+        <div className="mt-auto">
+          {showLogout && (
+            <div className="px-[24px] pb-[12px]">
+              <button onClick={handleLogout} className="flex flex-row items-center justify-center w-full py-[10px] rounded-[8px] border-[1px] border-[#ed351d] hover:bg-[#ed351d]/10 transition-colors">
+                <span className="text-[14px] font-[500] text-[#ed351d]">Log Out</span>
+              </button>
+            </div>
+          )}
+          <div className="p-[24px] border-t border-[#ffffff]/5">
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex flex-row items-center gap-[12px]">
+                <div className="w-[32px] h-[32px] rounded-[4px] bg-[#e2e5e9] flex items-center justify-center">
+                  <span className="text-[14px] font-[600] text-[#141a1f]">{userInitials}</span>
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[14px] font-[600] leading-[16.94px] text-[#ffffff]">{companyName}</span>
+                  <span className="text-[12px] font-[400] leading-[14.52px] text-[#8e95a1]">{userEmail}</span>
+                </div>
+              </div>
+              <button onClick={() => setShowLogout(!showLogout)}>
+                <MoreVertical className="w-[16px] h-[16px] text-[#8e95a1] cursor-pointer" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex flex-col flex-1 overflow-auto">
+        {/* Header */}
+        <div className="flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
+          <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Partner Portal</h1>
+          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
+            MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col px-[40px] py-[32px] flex-1">
+          <div className="flex flex-col gap-[8px] mb-[32px]">
+            <h2 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">New Delivery Request</h2>
+            <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
+              SUBMIT DELIVERY REQUESTS
+            </p>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-xs">Loading Sites</Label>
-            {loadingSites.map((site, index) => (
-              <div key={index} className="flex flex-col gap-2 rounded-lg border border-black/[0.05] p-3">
-                <div className="flex items-center gap-2">
-                  <Select value={site.predefined} onValueChange={(v) => {
-                    const newSites = [...loadingSites];
-                    newSites[index] = { predefined: v, custom: v === "Others" ? newSites[index]!.custom : "" };
-                    setLoadingSites(newSites);
-                  }}>
-                    <SelectTrigger className="h-9 text-xs flex-1"><SelectValue placeholder={`Select Loading Site ${index + 1}`} /></SelectTrigger>
-                    <SelectContent>
-                      {PREDEFINED_SITES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {loadingRoutingType === "Multiple" && loadingSites.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setLoadingSites(loadingSites.filter((_, i) => i !== index))}>
-                      <X className="h-4 w-4" />
-                    </Button>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[24px]">
+            {/* Request Details Card */}
+            <div className="flex flex-col w-full rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[32px] pb-[32px] px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
+              <h3 className="text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[24px]">Request Details</h3>
+              <div className="w-full h-[1px] bg-[#e2e5e9] mb-[24px]"></div>
+
+              <div className="flex flex-col gap-[20px]">
+                {/* Customer Name */}
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Customer Name (Cosignee)</label>
+                  <input
+                    type="text"
+                    value={customerConsignee}
+                    onChange={(e) => setCustomerConsignee(e.target.value)}
+                    placeholder="example: J.Doe"
+                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
+                  />
+                </div>
+
+                {/* Select Product */}
+                <div className="flex flex-col gap-[8px] relative">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Product</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowProductDropdown(!showProductDropdown); setShowTruckDropdown(false); setShowSiteDropdown(false); }}
+                    className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
+                  >
+                    <span className={product ? "text-[#141a1f]" : "text-[#8e95a1]"}>{product || "Select"}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                  {showProductDropdown && (
+                    <div className="absolute top-[68px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden">
+                      {PRODUCT_OPTIONS.map(opt => (
+                        <button key={opt} type="button" onClick={() => { setProduct(opt); setShowProductDropdown(false); }}
+                          className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${product === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {site.predefined === "Others" && (
-                  <Input 
-                    className="h-9 text-xs mt-1" 
-                    value={site.custom} 
-                    onChange={(e) => {
-                      const newSites = [...loadingSites];
-                      newSites[index] = { predefined: "Others", custom: e.target.value };
-                      setLoadingSites(newSites);
-                    }} 
-                    placeholder="Enter custom loading site name..." 
-                  />
-                )}
-              </div>
-            ))}
-            {loadingRoutingType === "Multiple" && (
-              <Button type="button" variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={() => setLoadingSites([...loadingSites, { predefined: "", custom: "" }])}>
-                <Plus className="h-3.5 w-3.5" /> Add Loading Site
-              </Button>
-            )}
-          </div>
-        </SectionPanel>
 
-        <div className="lg:col-span-2 flex justify-end">
-          <Button type="submit">Submit Request</Button>
+                {/* Select Truck Type */}
+                <div className="flex flex-col gap-[8px] relative">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Truck Type</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowTruckDropdown(!showTruckDropdown); setShowProductDropdown(false); setShowSiteDropdown(false); }}
+                    className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
+                  >
+                    <span className={truckType ? "text-[#141a1f]" : "text-[#8e95a1]"}>{truckType || "Select"}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                  {showTruckDropdown && (
+                    <div className="absolute top-[68px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden">
+                      {TRUCK_TYPE_OPTIONS.map(opt => (
+                        <button key={opt} type="button" onClick={() => { setTruckType(opt); setShowTruckDropdown(false); }}
+                          className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${truckType === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Final Destination */}
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Final Destination</label>
+                  <input
+                    type="text"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    placeholder="example: Kute, Abuja"
+                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Loading Sites Card */}
+            <div className="flex flex-col w-full rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[32px] pb-[32px] px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
+              <h3 className="text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[24px]">Loading Sites</h3>
+              <div className="w-full h-[1px] bg-[#e2e5e9] mb-[24px]"></div>
+
+              <div className="flex flex-col gap-[20px]">
+                {/* Routing Type */}
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Routing Type</label>
+                  <div className="flex flex-row items-center gap-[32px]">
+                    <label className="flex items-center gap-[8px] cursor-pointer">
+                      <div className={`w-[18px] h-[18px] rounded-full border-[2px] flex items-center justify-center ${routingType === "Single" ? "border-[#ed351d]" : "border-[#8e95a1]"}`}>
+                        {routingType === "Single" && <div className="w-[10px] h-[10px] rounded-full bg-[#ed351d]"></div>}
+                      </div>
+                      <span className="text-[14px] font-[400] text-[#5c6470]">Single Site Loading</span>
+                    </label>
+                    <label className="flex items-center gap-[8px] cursor-pointer">
+                      <div className={`w-[18px] h-[18px] rounded-full border-[2px] flex items-center justify-center ${routingType === "Multiple" ? "border-[#ed351d]" : "border-[#8e95a1]"}`}>
+                        {routingType === "Multiple" && <div className="w-[10px] h-[10px] rounded-full bg-[#ed351d]"></div>}
+                      </div>
+                      <span className="text-[14px] font-[400] text-[#5c6470]">Multiple Site Loading</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Select Loading Site */}
+                <div className="flex flex-col gap-[8px] relative">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Loading Site</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowSiteDropdown(!showSiteDropdown); setShowProductDropdown(false); setShowTruckDropdown(false); }}
+                    className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
+                  >
+                    <span className={loadingSite ? "text-[#141a1f]" : "text-[#8e95a1]"}>{loadingSite || "Select"}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                  {showSiteDropdown && (
+                    <div className="absolute top-[68px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden max-h-[250px] overflow-y-auto">
+                      {LOADING_SITE_OPTIONS.map(opt => (
+                        <button key={opt} type="button" onClick={() => { setLoadingSite(opt); setShowSiteDropdown(false); }}
+                          className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${loadingSite === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex justify-end">
+              <button type="submit" className="flex flex-row items-center justify-center py-[10px] px-[24px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
+                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Submit Request</span>
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
+
+      {/* Click-away for dropdowns */}
+      {(showProductDropdown || showTruckDropdown || showSiteDropdown || showLogout) && (
+        <div className="fixed inset-0 z-30" onClick={() => { setShowProductDropdown(false); setShowTruckDropdown(false); setShowSiteDropdown(false); setShowLogout(false); }} />
+      )}
     </div>
   );
 }
-
