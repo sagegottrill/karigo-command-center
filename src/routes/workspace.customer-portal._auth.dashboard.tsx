@@ -260,7 +260,7 @@ function PartnerPortalDashboard() {
                   <tr className="border-b border-gray-100">
                     <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">ID No.</th>
                     <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Date</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Cosignee</th>
+                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Customer</th>
                     <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Product</th>
                     <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Truck Type</th>
                     <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Destination</th>
@@ -379,7 +379,7 @@ function PartnerPortalDashboard() {
                 <StatusBadge status={detailsModalOpen.status} />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4 lg:gap-y-6">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4 lg:gap-x-6 lg:gap-y-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">ID No.</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
@@ -392,8 +392,8 @@ function PartnerPortalDashboard() {
                     02-09-2026
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Cosignee</label>
+                <div className="flex flex-col gap-2 col-span-2">
+                  <label className="text-[13px] font-[600] text-[#141a1f]">Customer</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.customerConsignee || "Janeth Doe"}
                   </div>
@@ -410,13 +410,13 @@ function PartnerPortalDashboard() {
                     {detailsModalOpen.tailType || "Flat"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 lg:col-span-2">
+                <div className="flex flex-col gap-2 col-span-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Destination</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.dropoff || "ABC, Alake Estate"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 lg:col-span-2 mb-2 lg:mb-4">
+                <div className="flex flex-col gap-2 col-span-2 mb-2 lg:mb-4">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.pickup || "Babangida; Happy Home"}
@@ -446,23 +446,23 @@ function PartnerPortalDashboard() {
       {/* DELETE CONFIRMATION MODAL - High Z-Index for Nesting */}
       {deleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] p-8 flex flex-col items-center text-center">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] p-6 lg:p-8 flex flex-col items-center text-center">
             <div className="w-[60px] h-[60px] mb-6 flex items-center justify-center">
               <AlertCircle className="w-12 h-12 text-[#e3351d]" strokeWidth={1.5} />
             </div>
-            <p className="text-[15px] text-[#5c6470] font-[500] mb-8 max-w-[200px]">
+            <p className="text-[15px] text-[#5c6470] font-[500] mb-8 max-w-[240px]">
               Are you sure you want to delete this account?
             </p>
             <div className="flex gap-4 w-full justify-center">
               <button 
                 onClick={() => setDeleteModalOpen(null)}
-                className="h-[40px] px-8 bg-transparent text-[#e3351d] font-[500] text-[14px]"
+                className="h-[40px] px-6 lg:px-8 bg-transparent text-[#e3351d] font-[500] text-[14px]"
               >
                 Cancel
               </button>
               <button 
                 onClick={() => { setDeleteModalOpen(null); setDetailsModalOpen(null); }}
-                className="h-[40px] px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
+                className="h-[40px] px-6 lg:px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
               >
                 Confirm
               </button>

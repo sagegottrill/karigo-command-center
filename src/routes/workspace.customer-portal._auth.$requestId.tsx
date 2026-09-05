@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TimelineStep } from "@/lib/fleetopsx/types";
@@ -43,7 +43,7 @@ function RequestTrackingPage() {
         {/* Left Column: Details */}
         <div className="space-y-6 lg:col-span-1">
           <SectionPanel title="Original Request" bodyClassName="pt-1">
-            <FieldRow label="Consignee" value={trip.customerConsignee || "—"} />
+            <FieldRow label="Customer" value={trip.customerConsignee || "—"} />
             <FieldRow label="Cargo Details" value={trip.cargo} />
             <FieldRow label="Pickup Site" value={trip.loadingRoutingType === "Multiple" && trip.loadingSite ? trip.loadingSite.join(", ") : trip.pickup} />
             <FieldRow label="Destination" value={trip.dropoff} />
