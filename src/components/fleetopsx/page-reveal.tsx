@@ -3,10 +3,9 @@ import { useRouterState } from "@tanstack/react-router";
 
 /** Light page enter — CSS only, no blur/layout thrash. */
 export function PageReveal({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-
+  // Removing key={pathname} to prevent massive DOM thrashing and 15-20 second unmount delays.
   return (
-    <div key={pathname} className="page-enter flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-6">
       {children}
     </div>
   );
