@@ -50,7 +50,7 @@ function AppShell() {
             "scroll-edge min-w-0 flex-1 overflow-auto px-4 py-5 sm:px-5 lg:px-8 lg:py-7",
           )}
         >
-          <div className="mx-auto max-w-[1480px]">
+          <div className="mx-auto w-full max-w-[1920px]">
             <PageReveal>
               <Outlet />
             </PageReveal>

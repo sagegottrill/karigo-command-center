@@ -626,8 +626,8 @@ export const adminService = {
   tenant: () => settle(db.TENANT),
   users: () => settle([...store.users]),
   roles: () => settle(db.ROLES),
-  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string }) => {
-    const id = `USR-${String(100 + store.users.length).padStart(4, "0")}`;
+  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string }) => {
+    const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
     const newUser: import("./types").User = {
       id,

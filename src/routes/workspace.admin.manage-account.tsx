@@ -22,6 +22,8 @@ function AdminManageAccount() {
   const [showOptions, setShowOptions] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   // Confirmation modals
   const [confirmAction, setConfirmAction] = useState<{ type: "password" | "suspend" | "delete"; userId: string } | null>(null);
@@ -48,6 +50,9 @@ function AdminManageAccount() {
       const cmp = valA.localeCompare(valB);
       return orderBy === "Ascending" ? cmp : -cmp;
     });
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedUsers = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleAction = (type: "view" | "password" | "suspend" | "delete", userId: string) => {
     setActiveMenu(null);
@@ -78,9 +83,39 @@ function AdminManageAccount() {
     }
   };
 
+  const shareText = `Hello,\n\nYour account password has been reset for the Transport Manager Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}`;
+
+  const handleShareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+    setShowShareModal(false);
+  };
+
+  const handleShareEmail = () => {
+    window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
+    setShowShareModal(false);
+  };
+
+  const handleCopyLink = () => {
+    void navigator.clipboard.writeText(shareText);
+    toast.success("Details copied to clipboard");
+    setShowShareModal(false);
+  };
+
   const removeFilter = (type: "sort" | "order") => {
     if (type === "sort") setSortBy("Username");
     if (type === "order") setOrderBy("Ascending");
+  };
+
+  const exportCSV = () => {
+    const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
+    const csv = filtered.map((u, i) => `${i + 1},${u.name},${u.department},${u.id},${u.username},${u.status}`).join("\n");
+    const blob = new Blob([headers + csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "staff_accounts.csv";
+    a.click();
+    toast.success("Exported CSV successfully.");
   };
 
   return (
@@ -121,9 +156,14 @@ function AdminManageAccount() {
                 Manage listing of internal company staff
               </p>
             </div>
-            <Link to="/workspace/admin/add-account" className="hidden lg:flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
-              <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ Add New Staff Account</span>
-            </Link>
+            <div className="hidden lg:flex flex-row items-center gap-[12px]">
+              <button onClick={exportCSV} className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] hover:bg-[#f6f7f9] transition-colors">
+                <span className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">Export CSV</span>
+              </button>
+              <Link to="/workspace/admin/add-account" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
+                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ Add New Staff Account</span>
+              </Link>
+            </div>
           </div>
 
           {/* Mobile: Add New Staff Account Button */}
@@ -175,10 +215,10 @@ function AdminManageAccount() {
               <div className="w-[80px]"></div>
             </div>
             <div className="flex flex-col w-full">
-              {filtered.map((account, index) => (
+              {paginatedUsers.map((account, index) => (
                 <div key={account.id} className="flex flex-row items-center w-full px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9] bg-[#ffffff] last:border-b-0 hover:bg-[#fafafa] transition-colors relative">
                   <div className="w-[80px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{index + 1}</span>
+                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{((page - 1) * pageSize) + index + 1}</span>
                   </div>
                   <div className="flex-1 min-w-[200px]">
                     <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.name}</span>
@@ -216,12 +256,24 @@ function AdminManageAccount() {
             </div>
           </div>
 
+          {/* Pagination UI Desktop */}
+          {pageCount > 1 && (
+            <div className="hidden lg:flex flex-row items-center justify-between mt-[24px]">
+              <span className="text-[14px] font-[400] text-[#8e95a1]">Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length}</span>
+              <div className="flex items-center gap-[8px]">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Prev</button>
+                <span className="text-[14px] font-[500] text-[#141a1f]">Page {page} of {pageCount}</span>
+                <button onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page === pageCount} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Next</button>
+              </div>
+            </div>
+          )}
+
           {/* Mobile Card List */}
           <div className="flex lg:hidden flex-col gap-[12px]">
-            {filtered.map((account, index) => (
+            {paginatedUsers.map((account, index) => (
               <div key={account.id} className="flex flex-col rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] px-[16px] py-[16px] relative">
                 <div className="flex flex-row items-start justify-between mb-[8px]">
-                  <span className="text-[12px] font-[400] text-[#8e95a1]">#{index + 1}</span>
+                  <span className="text-[12px] font-[400] text-[#8e95a1]">#{((page - 1) * pageSize) + index + 1}</span>
                   <div className="flex items-center gap-[8px]">
                     {account.status === "Suspended" && (
                       <div className="flex items-center justify-center py-[2px] px-[8px] rounded-[4px] bg-[#ed351d]">
@@ -260,6 +312,15 @@ function AdminManageAccount() {
               </div>
             ))}
           </div>
+
+          {/* Pagination UI Mobile */}
+          {pageCount > 1 && (
+            <div className="flex lg:hidden flex-row items-center justify-between mt-[24px]">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Prev</button>
+              <span className="text-[14px] font-[500] text-[#141a1f]">{page} / {pageCount}</span>
+              <button onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page === pageCount} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Next</button>
+            </div>
+          )}
         </div>
 
         {/* Mobile Bottom Nav */}
@@ -342,15 +403,15 @@ function AdminManageAccount() {
               </div>
               <div className="w-full h-[1px] bg-[#e2e5e9]"></div>
               <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={() => setShowShareModal(false)}>
+                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareWhatsApp}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141a1f"/></svg>
                   <span className="text-[12px] font-[500] text-[#5c6470]">WhatsApp</span>
                 </div>
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={() => setShowShareModal(false)}>
+                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareEmail}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141a1f"/></svg>
                   <span className="text-[12px] font-[500] text-[#5c6470]">Gmail</span>
                 </div>
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={() => setShowShareModal(false)}>
+                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleCopyLink}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141a1f"/></svg>
                   <span className="text-[12px] font-[500] text-[#5c6470]">Copy</span>
                 </div>

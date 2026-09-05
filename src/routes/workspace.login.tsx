@@ -42,7 +42,7 @@ function LoginPage() {
       return;
     }
     toast.success(`Welcome back, ${user?.name}`);
-    navigate({ to: "/workspace/admin/manage-account" });
+    navigate({ to: "/workspace/app" });
   };
 
   return (

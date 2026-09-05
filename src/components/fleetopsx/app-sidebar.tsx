@@ -22,6 +22,14 @@ const CustomAddIcon = ({ className, strokeWidth }: any) => (
   </div>
 );
 
+const CustomPartnerIcon = ({ className, strokeWidth }: any) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M20 8v6M23 11h-6" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 const CustomManageIcon = ({ className, strokeWidth }: any) => (
   <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth={strokeWidth}/>
@@ -38,9 +46,6 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
 );
 
 export const NAV: NavItem[] = [
-  { label: "Add New Account", to: "/workspace/admin/add-account", icon: CustomAddIcon, group: "Staff Account" },
-  { label: "Account Management", to: "/workspace/admin/manage-account", icon: CustomManageIcon, group: "Staff Account" },
-  { label: "Password Request", to: "/workspace/admin/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
   { label: "Fleet", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Main" },
   { label: "Trips", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Main" },
@@ -55,9 +60,13 @@ export const NAV: NavItem[] = [
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
   { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
   { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
+  { label: "Add New Account", to: "/workspace/admin/add-account", icon: CustomAddIcon, group: "Staff Account" },
+  { label: "Add A Partner", to: "/workspace/admin/add-partner", icon: CustomPartnerIcon, group: "Staff Account" },
+  { label: "Account Management", to: "/workspace/admin/manage-account", icon: CustomManageIcon, group: "Staff Account" },
+  { label: "Password Request", to: "/workspace/admin/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
 ];
 
-const GROUPS = ["Staff Account", "Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
+const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin", "Staff Account"];
 
 export function AppSidebar({
   collapsed,
@@ -134,13 +143,13 @@ export function AppSidebar({
         )}
       >
         {/* Header / Logo */}
-        <div className={cn("pt-[24px] pb-[24px] flex border-b border-[#ffffff]/5", collapsed ? "justify-center px-[8px]" : "justify-center px-[24px]")}>
+        <Link to="/workspace/app" className={cn("pt-[24px] pb-[24px] flex border-b border-[#ffffff]/5", collapsed ? "justify-center px-[8px]" : "justify-center px-[24px]")}>
           {tenantLogo ? (
             <img src={tenantLogo} alt={tenantName} className={cn("object-contain", collapsed ? "w-[40px] h-[40px]" : "w-[140px] h-[48px]")} />
           ) : (
             <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className={cn("object-contain", collapsed ? "w-[40px] h-[40px] object-cover object-left" : "w-[140px] h-[48px]")} />
           )}
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[24px] custom-scrollbar">
