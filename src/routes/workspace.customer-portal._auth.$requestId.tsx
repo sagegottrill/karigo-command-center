@@ -45,8 +45,8 @@ function RequestTrackingPage() {
           <SectionPanel title="Original Request" bodyClassName="pt-1">
             <FieldRow label="Customer" value={trip.customerConsignee || "—"} />
             <FieldRow label="Cargo Details" value={trip.cargo} />
-            <FieldRow label="Pickup Site" value={trip.loadingRoutingType === "Multiple" && trip.loadingSite ? trip.loadingSite.join(", ") : trip.pickup} />
-            <FieldRow label="Destination" value={trip.dropoff} />
+            <FieldRow label="Loading Location(s)" value={trip.loadingRoutingType === "Multiple" && trip.loadingSite ? trip.loadingSite.join(", ") : trip.pickup} />
+            <FieldRow label="Final Destination" value={trip.dropoff} />
             <FieldRow label="Scheduled Date" value={trip.scheduledDate || "—"} />
           </SectionPanel>
 
@@ -56,12 +56,12 @@ function RequestTrackingPage() {
                 <Truck className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>Your request has been approved and assets have been deployed. See assigned details below.</span>
               </div>
-              <FieldRow label="Truck Head (Cap No)" value={trip.truckReg.split(" / ")[0] || "—"} />
-              <FieldRow label="Truck Tail (Tail No)" value={trip.truckReg.split(" / ")[1] || "—"} />
-              <FieldRow label="Tail Type" value={trip.tailType || "—"} />
+              <FieldRow label="Driver Name" value={trip.driverName || "—"} />
+              <FieldRow label="Driver Phone" value="+234 800 000 0000" />
               <div className="mt-4 border-t border-black/[0.05] pt-4">
-                <FieldRow label="Assigned Driver" value={trip.driverName || "—"} />
-                <FieldRow label="Driver Phone" value="+234 800 000 0000" />
+                <FieldRow label="Truck Head" value={trip.truckReg.split(" / ")[0] || "—"} />
+                <FieldRow label="Truck Tail" value={`${trip.tailType || "—"} / ${trip.truckReg.split(" / ")[1] || "—"}`} />
+                <FieldRow label="Serial Number" value={`SN-${trip.id?.split("-")[1] || "0000"}`} />
               </div>
             </SectionPanel>
           ) : (

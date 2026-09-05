@@ -8,11 +8,11 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/request")
   component: PartnerNewRequest,
 });
 
-const TRUCK_TYPE_OPTIONS = ["Full", "Semi", "Flat", "Side Guide", "Low Bed"];
+const TRUCK_TYPE_OPTIONS = ["Full Sided", "Semi Sided", "Flat", "Side Guide", "Low Bed", "6 Meter Truck", "8 Meter Truck", "Pick Up"];
 const LOADING_SITE_OPTIONS = [
   "Comfortoboh", "Happy Home", "Ijesha.1", "Babangida.1",
   "Babangida.2", "Ijesha.2", "Babangida.3", "Metalberg.K",
-  "Saba Factory", "Other",
+  "Saba Factory", "Others",
 ];
 
 function PartnerNewRequest() {
@@ -38,7 +38,7 @@ function PartnerNewRequest() {
       return;
     }
 
-    const finalSites = loadingSites.map(s => s.type === "Other" ? s.customValue : s.type).filter(Boolean);
+    const finalSites = loadingSites.map(s => s.type === "Others" ? s.customValue : s.type).filter(Boolean);
 
     if (finalSites.length === 0 || (routingType === "Multiple" && finalSites.length !== loadingSites.length)) {
       toast.error("Please specify all loading sites");
@@ -207,7 +207,7 @@ function PartnerNewRequest() {
 
                 {/* Destination */}
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Destination <span className="text-[#ed351d]">*</span></label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Final Destination <span className="text-[#ed351d]">*</span></label>
                   <input
                     type="text"
                     value={destination}
@@ -279,7 +279,7 @@ function PartnerNewRequest() {
                                 <button key={opt} type="button" onClick={() => {
                                   const newSites = [...loadingSites];
                                   newSites[index].type = opt;
-                                  if (opt !== "Other") newSites[index].customValue = "";
+                                  if (opt !== "Others") newSites[index].customValue = "";
                                   setLoadingSites(newSites);
                                   setOpenDropdownIndex(null);
                                 }}
@@ -297,7 +297,7 @@ function PartnerNewRequest() {
                         )}
                       </div>
                       
-                      {site.type === "Other" && (
+                      {site.type === "Others" && (
                         <input
                           type="text"
                           value={site.customValue}
