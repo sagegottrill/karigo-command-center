@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
+import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/forgot-password")({
   head: ({ routeContext }) => {
@@ -22,15 +23,26 @@ import { Route as RootRoute } from "./__root";
 
 function ForgotPasswordPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
+  const navigate = useNavigate();
   const [password, setPassword] = useState("");
-  const [sent, setSent] = useState(false);
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
-    toast.success("Password updated", {
-      description: "Your new password has been set.",
-    });
+    const user = authService.getCurrentUser();
+    if (user) {
+      await authService.completeFirstTimeLogin(user.id);
+      toast.success("Password updated", {
+        description: "Your new password has been set.",
+      });
+      if (user.roles.includes("Customer Portals (External)")) {
+        navigate({ to: "/workspace/customer-portal/dashboard" });
+      } else {
+        navigate({ to: "/workspace/app" });
+      }
+    } else {
+      toast.error("Session expired. Please sign in again.");
+      navigate({ to: "/workspace/login" });
+    }
   };
 
   return (
