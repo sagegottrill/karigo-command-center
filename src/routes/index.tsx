@@ -72,73 +72,26 @@ const FEATURES = [
 
 function MainLandingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-blue-500/20 font-sans">
-      {/* Soft Light Ambient Glow */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-[150px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[50%] rounded-full bg-purple-400/10 blur-[150px]" />
-      </div>
-
-      <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <a href="#top" className="flex items-center gap-2.5 group">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm transition-transform group-hover:scale-105">
+    <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-[#ed351d]/20 overflow-x-hidden">
+      
+      {/* HEADER - Black */}
+      <div className="w-full bg-[#000000] border-b border-white/10 flex justify-center">
+        <header className="w-full max-w-[1440px] h-[80px] flex items-center justify-between px-[20px] md:px-[60px]">
+          <div className="flex items-center gap-2 group">
+            <div className="grid h-8 w-8 place-items-center rounded bg-[#ed351d] text-[13px] font-bold text-white shadow-sm">
               F
             </div>
-            <span className="text-[15px] font-bold tracking-tight text-[#1d1d1f]">
+            <span className="text-[20px] font-bold tracking-tight text-white font-space-grotesk">
               FleetOpsX
             </span>
-          </a>
-          <nav className="hidden items-center gap-8 text-[13px] font-medium text-slate-500 md:flex">
-            <a href="#features" className="hover:text-[#1d1d1f] transition-colors">
-              Features
-            </a>
-            <a href="#benefits" className="hover:text-[#1d1d1f] transition-colors">
-              Enterprise
-            </a>
+          </div>
+          <nav className="hidden items-center gap-10 text-[14px] font-medium text-white/70 md:flex">
+            <a href="#home" className="hover:text-white transition-colors">Home</a>
+            <a href="#platform" className="hover:text-white transition-colors">Platform</a>
+            <a href="#services" className="hover:text-white transition-colors">Services</a>
+            <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           </nav>
           <div className="flex items-center gap-4">
-            <Link to="/workspace/account-type" className="text-[13px] font-medium text-slate-500 hover:text-[#1d1d1f] transition-colors hidden sm:block">
-              Log in
-            </Link>
-            <Link to="/workspace/account-type">
-              <Button className="h-8 rounded-full bg-[#0066cc] text-white hover:bg-[#0055b3] px-5 text-[13px] font-semibold transition-all shadow-sm border-none">
-                Get Started
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 flex flex-col items-center">
-        {/* Hero Section */}
-        <section
-          id="top"
-          className="relative flex w-full max-w-7xl flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center pt-24 pb-16 sm:pt-32 sm:pb-24"
-        >
-          <h1 className="max-w-5xl text-[44px] font-bold tracking-tight sm:text-6xl lg:text-[80px] leading-[1.05] text-[#1d1d1f] font-space-grotesk">
-            Manage your fleet operation <br className="hidden sm:block" /> with confidence.
-          </h1>
-          
-          <p className="mt-6 sm:mt-8 max-w-2xl text-[17px] sm:text-[19px] lg:text-[21px] text-slate-500 leading-relaxed font-medium px-2">
-            Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
-          </p>
-          
-          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto px-4 sm:px-0">
-            <Link to="/workspace/account-type" className="w-full sm:w-auto">
-              <Button size="lg" className="h-14 w-full sm:w-auto rounded-full bg-[#1d1d1f] text-white hover:bg-black px-8 text-[16px] font-semibold shadow-lg shadow-black/10 transition-all border-none">
-                Start your workspace <ChevronRight className="ml-1 h-5 w-5" />
-              </Button>
-            </Link>
-            <a href="#features" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="h-14 w-full sm:w-auto rounded-full border-black/[0.1] bg-white text-[#1d1d1f] hover:bg-slate-50 px-8 text-[16px] font-semibold transition-all shadow-sm">
-                Explore Features
-              </Button>
-            </a>
-          </div>
-
-          <div className="mt-20 sm:mt-24 w-full max-w-6xl relative px-4 sm:px-0">
-            <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-black/5 bg-[#ebebeb]">
             <Link to="/workspace/login">
               <Button className="rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold">
                 Access Portal
