@@ -159,7 +159,7 @@ export const tripService = {
   get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
   create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;
-    const trip: Trip = { ...input, id, progress: 4, eta: "â€”", status: "Scheduled" };
+    const trip: Trip = { ...input, id, progress: 4, eta: "—", status: "Scheduled" };
     store.trips = [trip, ...store.trips];
     
     // Assign assets
@@ -358,7 +358,7 @@ export const engineeringService = {
     store.expenses = [
       {
         id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
-        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "â€”",
+        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "—",
         status: "Pending", approvalLevel: "Operations Manager", date: new Date().toLocaleDateString(),
         documents: [],
       },
@@ -626,6 +626,7 @@ export const adminService = {
   tenant: () => settle(db.TENANT),
   users: () => settle([...store.users]),
   roles: () => settle(db.ROLES),
+  loginReports: () => settle([...store.loginReports]),
   createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string }) => {
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
@@ -750,7 +751,7 @@ export function globalSearch(query: string): SearchHit[] {
   const hits: SearchHit[] = [];
   store.trips.filter((t) => `${t.id} ${t.customer} ${t.pickup} ${t.dropoff}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} â†’ ${t.dropoff} · ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
+    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} → ${t.dropoff} · ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
   
   store.truckHeads.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
