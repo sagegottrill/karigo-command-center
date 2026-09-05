@@ -46,8 +46,12 @@ function AdminManageAccount() {
       return orderBy === "Ascending" ? cmp : -cmp;
     });
 
-  const handleAction = (type: "password" | "suspend" | "delete", userId: string) => {
+  const handleAction = (type: "view" | "password" | "suspend" | "delete", userId: string) => {
     setActiveMenu(null);
+    if (type === "view") {
+      toast.info(`Viewing details for user ID: ${userId}`);
+      return;
+    }
     setConfirmAction({ type, userId });
   };
 
@@ -243,6 +247,7 @@ function AdminManageAccount() {
                     {/* Action Menu */}
                     {activeMenu === account.id && (
                       <div className="absolute top-[36px] right-0 z-40 w-[180px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
+                        <button onClick={() => handleAction("view", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">View</button>
                         <button onClick={() => handleAction("password", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Reset Password</button>
                         <button onClick={() => handleAction("suspend", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Suspend</button>
                         <button onClick={() => handleAction("delete", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#ed351d] hover:bg-[#f6f7f9]">Delete</button>
@@ -289,6 +294,7 @@ function AdminManageAccount() {
                 {/* Mobile Action Menu */}
                 {activeMenu === account.id && (
                   <div className="absolute top-[40px] right-[16px] z-40 w-[180px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
+                    <button onClick={() => handleAction("view", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">View</button>
                     <button onClick={() => handleAction("password", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Reset Password</button>
                     <button onClick={() => handleAction("suspend", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Suspend</button>
                     <button onClick={() => handleAction("delete", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#ed351d] hover:bg-[#f6f7f9]">Delete</button>
