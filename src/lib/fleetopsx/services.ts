@@ -202,6 +202,15 @@ export const tripService = {
     }
     return settle(nextStatus);
   },
+  setStatus: (id: string, newStatus: string) => {
+    store.trips = store.trips.map(t => {
+      if (t.id === id) {
+        return { ...t, status: newStatus as any };
+      }
+      return t;
+    });
+    return settle(newStatus);
+  },
   timeline: (trip: Trip): TimelineStep[] => {
     const order = [
       "Dispatch Created",

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
       heads,
       tails,
       drivers,
-      pendingOrders: trips.filter(t => t.status === "Requested")
+      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch")
     };
   },
   beforeLoad: () => {
@@ -59,7 +59,7 @@ function DispatchPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     customer: "", cargo: "", pickup: "", dropoff: "", date: "2026-08-13",
-    priority: "Normal", headId: "", tailId: "", tailCalibration: "", driverId: "", 
+    priority: "Normal", headId: "", tailId: "", tailNumber: "", driverId: "", 
     manualDriver: false, manualSalaryNumber: "", manualDriverName: "",
     costs: {
       tripAllowance: 0,
@@ -72,7 +72,7 @@ function DispatchPage() {
     notes: "",
   });
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
-  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>>>({});
 
   const handleSelectPendingOrder = (orderId: string) => {
     const order = pendingOrders.find(o => o.id === orderId);
@@ -98,7 +98,7 @@ function DispatchPage() {
   const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
   const validate = (validateAll = false) => {
-    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>> = {};
+    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>> = {};
     if (validateAll || step === 0) {
       if (!form.customer) e.customer = "Customer is required";
       if (!form.cargo) e.cargo = "Cargo description is required";
@@ -110,7 +110,7 @@ function DispatchPage() {
     }
     if (validateAll || step === 2) {
       if (!form.tailId) e.tailId = "Select an available truck tail";
-      if (!form.tailCalibration) e.tailCalibration = "Calibration value is required";
+      if (!form.tailNumber) e.tailNumber = "Tail Number is required";
     }
     if (validateAll || step === 3) {
       if (form.manualDriver) {
@@ -307,7 +307,7 @@ function DispatchPage() {
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Select Tail and input Calibration configuration.
+                Select Tail Type and input specific Tail Number.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {TRUCK_TAILS.slice(0, 12).map((t) => {
@@ -316,7 +316,7 @@ function DispatchPage() {
                     <button
                       key={t.id}
                       disabled={!selectable}
-                      onClick={() => setForm({ ...form, tailId: t.id, tailCalibration: "45,000L" })}
+                      onClick={() => setForm({ ...form, tailId: t.id, tailNumber: t.registration })}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.tailId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
@@ -334,9 +334,9 @@ function DispatchPage() {
               </div>
               {errors.tailId && <p className="text-[11px] text-critical">{errors.tailId}</p>}
               <div className="space-y-1.5 sm:w-1/2">
-                <Label className="text-xs">Tail Calibration (Litres/Tons)</Label>
-                <Input value={form.tailCalibration} onChange={(e) => setForm({ ...form, tailCalibration: e.target.value })} placeholder="e.g. 45,000L" className={cn("h-9 text-xs", errors.tailCalibration && "border-critical")} />
-                {errors.tailCalibration && <p className="text-[11px] text-critical">{errors.tailCalibration}</p>}
+                <Label className="text-xs">Tail Number</Label>
+                <Input value={form.tailNumber} onChange={(e) => setForm({ ...form, tailNumber: e.target.value })} placeholder="e.g. TN-5829" className={cn("h-9 text-xs", errors.tailNumber && "border-critical")} />
+                {errors.tailNumber && <p className="text-[11px] text-critical">{errors.tailNumber}</p>}
               </div>
             </div>
           )}

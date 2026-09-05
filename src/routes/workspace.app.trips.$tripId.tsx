@@ -86,15 +86,37 @@ function TripDetail() {
         meta={<><StatusBadge status={trip.status} /><StatusBadge status={trip.priority} dot={false} /><span className="num text-[11px] text-muted-foreground">{trip.cargo}</span></>}
         actions={
           <>
-            <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Link to="/workspace/app/trips"><ArrowLeft className="h-3.5 w-3.5" />All trips</Link></Button>
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => {
-              void tripService.updateStatus(trip.id).then(status => {
-                toast.success("Trip status advanced", { description: `${trip.id} updated to ${status}.` });
-                void tripService.get(trip.id).then(setTrip);
-              });
-            }}>
-              <Check className="h-3.5 w-3.5" />Advance status
+            <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+              <Link to="/workspace/app/trips"><ArrowLeft className="h-3.5 w-3.5" />All trips</Link>
             </Button>
+            {trip.status === "Requested" ? (
+              <Button size="sm" className="h-8 gap-1.5 text-xs bg-[#34c759] hover:bg-[#248a3d]" onClick={() => {
+                void tripService.setStatus(trip.id, "Approved for Dispatch").then(() => {
+                  toast.success("Trip Approved", { description: `${trip.id} sent to Fleet Operations.` });
+                  void tripService.get(trip.id).then(setTrip);
+                });
+              }}>
+                <Check className="h-3.5 w-3.5" />Approve for Dispatch
+              </Button>
+            ) : trip.status === "Awaiting Approval" ? (
+              <Button size="sm" className="h-8 gap-1.5 text-xs bg-[#ed351d] hover:bg-[#d62e19]" onClick={() => {
+                void tripService.setStatus(trip.id, "Scheduled").then(() => {
+                  toast.success("Trip Scheduled", { description: `${trip.id} has been fully approved.` });
+                  void tripService.get(trip.id).then(setTrip);
+                });
+              }}>
+                <Check className="h-3.5 w-3.5" />Final Approve & Schedule
+              </Button>
+            ) : (
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => {
+                void tripService.updateStatus(trip.id).then(status => {
+                  toast.success("Trip status advanced", { description: `${trip.id} updated to ${status}.` });
+                  void tripService.get(trip.id).then(setTrip);
+                });
+              }}>
+                <Check className="h-3.5 w-3.5" />Advance status
+              </Button>
+            )}
           </>
         }
       />
@@ -117,6 +139,20 @@ function TripDetail() {
           <FieldRow label="Start time" value={trip.startTime} />
           <FieldRow label="Priority" value={trip.priority} />
         </SectionPanel>
+
+        {trip.status === "Awaiting Approval" && trip.directCosts && (
+          <SectionPanel title="Direct Costs & Asset Review" bodyClassName="pt-1 bg-[#f8f9fa] border-l-[3px] border-l-[#ed351d]">
+            <div className="mb-3 rounded-md bg-orange-50 p-3 text-xs text-orange-800">
+              Fleet Operations has assigned assets and costs. Please review and provide Final Approval to schedule the trip.
+            </div>
+            <FieldRow label="Trip Allowance" value={`₦${trip.directCosts.tripAllowance?.toLocaleString() || 0}`} />
+            <FieldRow label="Return Waybill" value={`₦${trip.directCosts.returnWaybill?.toLocaleString() || 0}`} />
+            <FieldRow label="Motor Boy" value={`₦${trip.directCosts.motorBoy?.toLocaleString() || 0}`} />
+            <FieldRow label="Ticket" value={`₦${trip.directCosts.ticket?.toLocaleString() || 0}`} />
+            <FieldRow label="Extra Allowance" value={`₦${trip.directCosts.extraAllowance?.toLocaleString() || 0}`} />
+            <FieldRow label="Lubricant Type" value={trip.directCosts.lubricantType || "—"} />
+          </SectionPanel>
+        )}
 
         <SectionPanel title="Trip Timeline" bodyClassName="pt-2">
           <ol className="relative ml-2 border-l border-black/10 pl-5">
