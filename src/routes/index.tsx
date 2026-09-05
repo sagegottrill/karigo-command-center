@@ -86,10 +86,10 @@ function MainLandingPage() {
             </span>
           </div>
           <nav className="hidden items-center gap-10 text-[14px] font-medium text-white/70 md:flex">
-            <a href="#home" className="hover:text-white transition-colors">Home</a>
-            <a href="#platform" className="hover:text-white transition-colors">Platform</a>
-            <a href="#services" className="hover:text-white transition-colors">Services</a>
-            <a href="#contact" className="hover:text-white transition-colors">Contact</a>
+            <button onClick={() => document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors cursor-pointer">Home</button>
+            <button onClick={() => document.getElementById('platform')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors cursor-pointer">Platform</button>
+            <button onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors cursor-pointer">Services</button>
+            <button onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors cursor-pointer">Contact</button>
           </nav>
           <div className="flex items-center gap-4">
             <Link 
