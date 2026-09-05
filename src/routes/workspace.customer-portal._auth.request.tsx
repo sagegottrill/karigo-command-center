@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MoreVertical, ArrowLeft } from "lucide-react";
+import { MoreVertical, ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { orderService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
@@ -27,22 +27,23 @@ function PartnerNewRequest() {
   const [showTruckDropdown, setShowTruckDropdown] = useState(false);
   const [destination, setDestination] = useState("");
   const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
-  const [loadingSite, setLoadingSite] = useState("");
-  const [customLoadingSite, setCustomLoadingSite] = useState("");
-  const [showSiteDropdown, setShowSiteDropdown] = useState(false);
+  const [loadingSites, setLoadingSites] = useState<{ type: string; customValue: string }[]>([
+    { type: "", customValue: "" },
+  ]);
+  const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
   const [showLogout, setShowLogout] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerConsignee || !product || !truckType || !loadingSite || !destination) {
+    if (!customerConsignee || !product || !truckType || !destination) {
       toast.error("Please fill all required fields");
       return;
     }
 
-    const finalSite = loadingSite === "Other" ? customLoadingSite : loadingSite;
+    const finalSites = loadingSites.map(s => s.type === "Other" ? s.customValue : s.type).filter(Boolean);
 
-    if (!finalSite) {
-      toast.error("Please specify the loading site");
+    if (finalSites.length === 0 || (routingType === "Multiple" && finalSites.length !== loadingSites.length)) {
+      toast.error("Please specify all loading sites");
       return;
     }
 
@@ -51,8 +52,8 @@ function PartnerNewRequest() {
       cargo: product,
       tailType: truckType,
       loadingRoutingType: routingType,
-      loadingSite: [finalSite],
-      pickup: finalSite,
+      loadingSite: finalSites,
+      pickup: finalSites[0],
       dropoff: destination,
     };
 
@@ -186,7 +187,7 @@ function PartnerNewRequest() {
                   <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Product</label>
                   <button
                     type="button"
-                    onClick={() => { setShowProductDropdown(!showProductDropdown); setShowTruckDropdown(false); setShowSiteDropdown(false); }}
+                    onClick={() => { setShowProductDropdown(!showProductDropdown); setShowTruckDropdown(false); setOpenDropdownIndex(null); }}
                     className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
                   >
                     <span className={product ? "text-[#141a1f]" : "text-[#8e95a1]"}>{product || "Select"}</span>
@@ -209,7 +210,7 @@ function PartnerNewRequest() {
                   <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Truck Type</label>
                   <button
                     type="button"
-                    onClick={() => { setShowTruckDropdown(!showTruckDropdown); setShowProductDropdown(false); setShowSiteDropdown(false); }}
+                    onClick={() => { setShowTruckDropdown(!showTruckDropdown); setShowProductDropdown(false); setOpenDropdownIndex(null); }}
                     className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
                   >
                     <span className={truckType ? "text-[#141a1f]" : "text-[#8e95a1]"}>{truckType || "Select"}</span>
@@ -255,46 +256,82 @@ function PartnerNewRequest() {
                       <div className={`w-[18px] h-[18px] rounded-full border-[2px] flex items-center justify-center ${routingType === "Single" ? "border-[#ed351d]" : "border-[#8e95a1]"}`}>
                         {routingType === "Single" && <div className="w-[10px] h-[10px] rounded-full bg-[#ed351d]"></div>}
                       </div>
+                      <input type="radio" className="hidden" checked={routingType === "Single"} onChange={() => { setRoutingType("Single"); setLoadingSites([loadingSites[0] || { type: "", customValue: "" }]); }} />
                       <span className="text-[14px] font-[400] text-[#5c6470]">Single Site Loading</span>
                     </label>
                     <label className="flex items-center gap-[8px] cursor-pointer">
                       <div className={`w-[18px] h-[18px] rounded-full border-[2px] flex items-center justify-center ${routingType === "Multiple" ? "border-[#ed351d]" : "border-[#8e95a1]"}`}>
                         {routingType === "Multiple" && <div className="w-[10px] h-[10px] rounded-full bg-[#ed351d]"></div>}
                       </div>
+                      <input type="radio" className="hidden" checked={routingType === "Multiple"} onChange={() => setRoutingType("Multiple")} />
                       <span className="text-[14px] font-[400] text-[#5c6470]">Multiple Site Loading</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Select Loading Site */}
-                <div className="flex flex-col gap-[8px] relative">
+                {/* Select Loading Site(s) */}
+                <div className="flex flex-col gap-[12px]">
                   <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Loading Site</label>
-                  <button
-                    type="button"
-                    onClick={() => { setShowSiteDropdown(!showSiteDropdown); setShowProductDropdown(false); setShowTruckDropdown(false); }}
-                    className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
-                  >
-                    <span className={loadingSite ? "text-[#141a1f]" : "text-[#8e95a1]"}>{loadingSite || "Select"}</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                  {showSiteDropdown && (
-                    <div className="absolute top-[68px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden max-h-[250px] overflow-y-auto">
-                      {LOADING_SITE_OPTIONS.map(opt => (
-                        <button key={opt} type="button" onClick={() => { setLoadingSite(opt); setShowSiteDropdown(false); }}
-                          className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${loadingSite === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
-                          {opt}
-                        </button>
-                      ))}
+                  {loadingSites.map((site, index) => (
+                    <div key={index} className="flex flex-col gap-[8px] relative">
+                      <div className="flex flex-row items-center gap-[12px]">
+                        <div className="flex-1 relative">
+                          <button
+                            type="button"
+                            onClick={() => { setOpenDropdownIndex(openDropdownIndex === index ? null : index); setShowProductDropdown(false); setShowTruckDropdown(false); }}
+                            className="w-full flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
+                          >
+                            <span className={site.type ? "text-[#141a1f]" : "text-[#8e95a1]"}>{site.type || "Select"}</span>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </button>
+                          {openDropdownIndex === index && (
+                            <div className="absolute top-[44px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden max-h-[250px] overflow-y-auto">
+                              {LOADING_SITE_OPTIONS.map(opt => (
+                                <button key={opt} type="button" onClick={() => {
+                                  const newSites = [...loadingSites];
+                                  newSites[index].type = opt;
+                                  if (opt !== "Other") newSites[index].customValue = "";
+                                  setLoadingSites(newSites);
+                                  setOpenDropdownIndex(null);
+                                }}
+                                  className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${site.type === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {routingType === "Multiple" && loadingSites.length > 1 && (
+                          <button type="button" onClick={() => setLoadingSites(loadingSites.filter((_, i) => i !== index))} className="flex items-center justify-center p-[8px] hover:bg-black/5 rounded-[4px] shrink-0">
+                            <Trash2 className="w-[20px] h-[20px] text-[#ed351d]" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {site.type === "Other" && (
+                        <input
+                          type="text"
+                          value={site.customValue}
+                          onChange={(e) => {
+                            const newSites = [...loadingSites];
+                            newSites[index].customValue = e.target.value;
+                            setLoadingSites(newSites);
+                          }}
+                          placeholder="Enter specific loading address"
+                          className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
+                        />
+                      )}
                     </div>
-                  )}
-                  {loadingSite === "Other" && (
-                    <input
-                      type="text"
-                      value={customLoadingSite}
-                      onChange={(e) => setCustomLoadingSite(e.target.value)}
-                      placeholder="Enter specific loading address"
-                      className="mt-[8px] flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
-                    />
+                  ))}
+                  
+                  {routingType === "Multiple" && (
+                    <button
+                      type="button"
+                      onClick={() => setLoadingSites([...loadingSites, { type: "", customValue: "" }])}
+                      className="mt-[4px] flex flex-row items-center justify-center py-[10px] px-[24px] rounded-[4px] bg-[#1B2432] hover:bg-[#2c3a50] transition-colors"
+                    >
+                      <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Add Another Site</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -311,8 +348,8 @@ function PartnerNewRequest() {
       </div>
 
       {/* Click-away for dropdowns */}
-      {(showProductDropdown || showTruckDropdown || showSiteDropdown || showLogout) && (
-        <div className="fixed inset-0 z-30" onClick={() => { setShowProductDropdown(false); setShowTruckDropdown(false); setShowSiteDropdown(false); setShowLogout(false); }} />
+      {(showProductDropdown || showTruckDropdown || openDropdownIndex !== null || showLogout) && (
+        <div className="fixed inset-0 z-30" onClick={() => { setShowProductDropdown(false); setShowTruckDropdown(false); setOpenDropdownIndex(null); setShowLogout(false); }} />
       )}
     </div>
   );
