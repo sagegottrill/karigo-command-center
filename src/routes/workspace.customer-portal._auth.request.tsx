@@ -329,7 +329,7 @@ function PartnerNewRequest() {
             {/* Submit Button */}
             <div className="flex justify-end lg:max-w-[1000px] mb-[24px]">
               <button type="submit" className="flex flex-row items-center justify-center py-[12px] lg:py-[10px] px-[24px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors w-full lg:w-auto">
-                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Save Account</span>
+                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Submit Request</span>
               </button>
             </div>
           </form>
