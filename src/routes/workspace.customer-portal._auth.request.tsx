@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { orderService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ const TRUCK_TYPE_OPTIONS = ["Full", "Semi", "Flat", "Side Guide", "Low Bed"];
 const LOADING_SITE_OPTIONS = [
   "Comfortoboh", "Happy Home", "Ijesha.1", "Babangida.1",
   "Babangida.2", "Ijesha.2", "Babangida.3", "Metalberg.K",
-  "Saba Factory", "Others",
+  "Saba Factory", "Other",
 ];
 
 function PartnerNewRequest() {
@@ -28,6 +28,7 @@ function PartnerNewRequest() {
   const [destination, setDestination] = useState("");
   const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
   const [loadingSite, setLoadingSite] = useState("");
+  const [customLoadingSite, setCustomLoadingSite] = useState("");
   const [showSiteDropdown, setShowSiteDropdown] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
 
@@ -38,13 +39,20 @@ function PartnerNewRequest() {
       return;
     }
 
+    const finalSite = loadingSite === "Other" ? customLoadingSite : loadingSite;
+
+    if (!finalSite) {
+      toast.error("Please specify the loading site");
+      return;
+    }
+
     const payload = {
       customerConsignee,
       cargo: product,
       tailType: truckType,
       loadingRoutingType: routingType,
-      loadingSite: [loadingSite],
-      pickup: loadingSite,
+      loadingSite: [finalSite],
+      pickup: finalSite,
       dropoff: destination,
     };
 
@@ -124,8 +132,21 @@ function PartnerNewRequest() {
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-auto">
-        {/* Header */}
-        <div className="flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
+        {/* Mobile Header */}
+        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1B2432]">
+          <div className="flex items-center gap-[12px]">
+            <button onClick={() => navigate({ to: "/workspace/customer-portal/dashboard" })}>
+              <ArrowLeft className="w-[20px] h-[20px] text-[#ffffff]" />
+            </button>
+            <span className="text-[16px] font-[500] text-[#ffffff]">Partner Portal</span>
+          </div>
+          <div className="w-[32px] h-[32px] rounded-full bg-[#ed351d] flex items-center justify-center">
+            <span className="text-[12px] font-[600] text-[#ffffff]">{userInitials}</span>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
           <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Partner Portal</h1>
           <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
             MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
@@ -133,17 +154,17 @@ function PartnerNewRequest() {
         </div>
 
         {/* Content */}
-        <div className="flex flex-col px-[40px] py-[32px] flex-1">
-          <div className="flex flex-col gap-[8px] mb-[32px]">
-            <h2 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">New Delivery Request</h2>
-            <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
+        <div className="flex flex-col px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex-1">
+          <div className="flex flex-col gap-[8px] mb-[24px] lg:mb-[32px]">
+            <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f]">New Delivery Request</h2>
+            <p className="text-[10px] lg:text-[12px] font-[500] leading-[12px] lg:leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
               SUBMIT DELIVERY REQUESTS
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-[24px]">
             {/* Request Details Card */}
-            <div className="flex flex-col w-full rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[32px] pb-[32px] px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col w-full lg:max-w-[1000px] rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[24px] lg:pt-[32px] pb-[24px] lg:pb-[32px] px-[16px] lg:px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
               <h3 className="text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[24px]">Request Details</h3>
               <div className="w-full h-[1px] bg-[#e2e5e9] mb-[24px]"></div>
 
@@ -221,7 +242,7 @@ function PartnerNewRequest() {
             </div>
 
             {/* Loading Sites Card */}
-            <div className="flex flex-col w-full rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[32px] pb-[32px] px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col w-full lg:max-w-[1000px] rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] pt-[24px] lg:pt-[32px] pb-[24px] lg:pb-[32px] px-[16px] lg:px-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
               <h3 className="text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[24px]">Loading Sites</h3>
               <div className="w-full h-[1px] bg-[#e2e5e9] mb-[24px]"></div>
 
@@ -266,14 +287,23 @@ function PartnerNewRequest() {
                       ))}
                     </div>
                   )}
+                  {loadingSite === "Other" && (
+                    <input
+                      type="text"
+                      value={customLoadingSite}
+                      onChange={(e) => setCustomLoadingSite(e.target.value)}
+                      placeholder="Enter specific loading address"
+                      className="mt-[8px] flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
+                    />
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end">
-              <button type="submit" className="flex flex-row items-center justify-center py-[10px] px-[24px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
-                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Submit Request</span>
+            <div className="flex justify-end lg:max-w-[1000px] mb-[24px]">
+              <button type="submit" className="flex flex-row items-center justify-center py-[12px] lg:py-[10px] px-[24px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors w-full lg:w-auto">
+                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Save Account</span>
               </button>
             </div>
           </form>
