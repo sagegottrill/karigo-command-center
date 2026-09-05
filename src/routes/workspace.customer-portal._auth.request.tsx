@@ -228,9 +228,9 @@ function PartnerNewRequest() {
                   )}
                 </div>
 
-                {/* Final Destination */}
+                {/* Destination */}
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Final Destination</label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Destination</label>
                   <input
                     type="text"
                     value={destination}
