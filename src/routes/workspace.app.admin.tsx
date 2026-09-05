@@ -122,7 +122,7 @@ function AdminPage() {
     { key: "name", header: "User", sortValue: (r) => r.name, cell: (r) => (
       <div className="flex flex-col">
         <span className="font-medium">{r.name}</span>
-        <span className="text-xs text-muted-foreground">@{r.username} {r.companyId ? `Â· ${companies.find(c => c.id === r.companyId)?.name || r.companyId}` : ""}</span>
+        <span className="text-xs text-muted-foreground">@{r.username} {r.companyId ? `· ${companies.find(c => c.id === r.companyId)?.name || r.companyId}` : ""}</span>
       </div>
     ) },
     { key: "role", header: "Roles", sortValue: (r) => r.roleNames.join(", "), cell: (r) => (
@@ -161,7 +161,7 @@ function AdminPage() {
     { key: "driver", header: "Driver", cell: (r) => <span className="text-xs">{r.driverName}</span> },
     { key: "costs", header: "Direct Costs", cell: (r) => (
       <span className="text-xs font-mono">
-        {r.directCosts ? `â‚¦${(r.directCosts.tripAllowance + r.directCosts.returnWaybill + r.directCosts.motorBoy + r.directCosts.ticket + r.directCosts.extraAllowance).toLocaleString()}` : 'â€”'}
+        {r.directCosts ? `\u20A6${(r.directCosts.tripAllowance + r.directCosts.returnWaybill + r.directCosts.motorBoy + r.directCosts.ticket + r.directCosts.extraAllowance).toLocaleString()}` : 'â€”'}
       </span>
     )},
     { key: "actions", header: "", align: "right", cell: (r) => (

@@ -264,7 +264,7 @@ function DispatchPage() {
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs">Dispatch instructions</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Loading bay, escort requirements, customer contactâ€¦" className="text-xs" />
+                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Loading bay, escort requirements, customer contact..." className="text-xs" />
               </div>
             </div>
           )}
@@ -293,7 +293,7 @@ function DispatchPage() {
                         <StatusBadge status={t.status} />
                       </div>
                       <div className="w-full">
-                        <p className="truncate text-[11px] text-muted-foreground">PLATE: {t.registration} Â· {t.make}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">PLATE: {t.registration} · {t.make}</p>
                       </div>
                     </button>
                   );
@@ -324,8 +324,8 @@ function DispatchPage() {
                       )}
                     >
                       <div className="min-w-0">
-                        <p className="num text-xs font-semibold text-foreground">{t.id} Â· {t.registration}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{t.type} Â· {t.location}</p>
+                        <p className="num text-xs font-semibold text-foreground">{t.id} · {t.registration}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{t.type} · {t.location}</p>
                       </div>
                       <StatusBadge status={t.status} />
                     </button>
@@ -364,7 +364,7 @@ function DispatchPage() {
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-[11px] font-semibold text-foreground">{d.initials}</span>
                         <div className="min-w-0">
                           <p className="truncate text-xs font-semibold text-foreground">SAL: {d.salaryNumber} â€” {d.name}</p>
-                          <p className="num truncate text-[11px] text-muted-foreground">{d.id} Â· {d.licenseCategory} Â· last trip {d.currentTripId ?? "â€”"}</p>
+                          <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "â€”"}</p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -418,23 +418,23 @@ function DispatchPage() {
           {step === 4 && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Trip Allowance (â‚¦)</Label>
+                <Label className="text-xs">Trip Allowance (\u20A6)</Label>
                 <Input type="number" value={form.costs.tripAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, tripAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Return Waybill (â‚¦)</Label>
+                <Label className="text-xs">Return Waybill (\u20A6)</Label>
                 <Input type="number" value={form.costs.returnWaybill} onChange={(e) => setForm({ ...form, costs: { ...form.costs, returnWaybill: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Motor Boy (â‚¦)</Label>
+                <Label className="text-xs">Motor Boy (\u20A6)</Label>
                 <Input type="number" value={form.costs.motorBoy} onChange={(e) => setForm({ ...form, costs: { ...form.costs, motorBoy: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Ticket (â‚¦)</Label>
+                <Label className="text-xs">Ticket (\u20A6)</Label>
                 <Input type="number" value={form.costs.ticket} onChange={(e) => setForm({ ...form, costs: { ...form.costs, ticket: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Extra Allowance (â‚¦)</Label>
+                <Label className="text-xs">Extra Allowance (\u20A6)</Label>
                 <Input type="number" value={form.costs.extraAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, extraAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
               </div>
               <div className="space-y-1.5">
@@ -464,7 +464,7 @@ function DispatchPage() {
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
                 <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "â€”"} />
                 <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "â€”")} />
-                <FieldRow label="Total Direct Costs" value={`â‚¦${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
+                <FieldRow label="Total Direct Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
                 <FieldRow label="Lubricant" value={form.costs.lubricantType} />
               </div>
             </div>
@@ -490,7 +490,7 @@ function DispatchPage() {
             <FieldRow label="Head (Cap No)" value={head ? `${head.capNumber} (${head.registration})` : "â€”"} />
             <FieldRow label="Tail Config" value={tail ? `${tail.registration} (${form.tailCalibration})` : "â€”"} />
             <FieldRow label="Driver (Salary No)" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver ? `${driver.salaryNumber} (${driver.name})` : "â€”")} />
-            <FieldRow label="Total Costs" value={`â‚¦${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
+            <FieldRow label="Total Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
           </SectionPanel>
 
           <SectionPanel title="Compliance Gate" bodyClassName="space-y-2.5">

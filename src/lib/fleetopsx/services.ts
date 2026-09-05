@@ -750,35 +750,35 @@ export function globalSearch(query: string): SearchHit[] {
   const hits: SearchHit[] = [];
   store.trips.filter((t) => `${t.id} ${t.customer} ${t.pickup} ${t.dropoff}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} â†’ ${t.dropoff} Â· ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
+    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} â†’ ${t.dropoff} · ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
   
   store.truckHeads.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} Â· ${t.registration}`, meta: `${t.make} Â· ${t.status}`, to: "/workspace/app/fleet" }));
+    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} · ${t.registration}`, meta: `${t.make} · ${t.status}`, to: "/workspace/app/fleet" }));
   
   store.truckTails.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} Â· ${t.registration}`, meta: `${t.type} Â· ${t.status}`, to: "/workspace/app/fleet" }));
+    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/workspace/app/fleet" }));
 
   store.drivers.filter((d) => `${d.id} ${d.name} ${d.employeeId} ${d.licenseNumber} ${d.assignedTruck || ""}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} Â· ${d.name}`, meta: `${d.status} Â· ${d.compliance}`, to: "/workspace/app/drivers/$driverId", params: { driverId: d.id } }));
+    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} · ${d.name}`, meta: `${d.status} · ${d.compliance}`, to: "/workspace/app/drivers/$driverId", params: { driverId: d.id } }));
   store.expenses.filter((e) => `${e.id} ${e.requester} ${e.type}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((e) => hits.push({ group: "Expenses", label: e.id, meta: `${e.type} Â· â‚¦${e.amount.toLocaleString()}`, to: "/workspace/app/accounts" }));
+    .forEach((e) => hits.push({ group: "Expenses", label: e.id, meta: `${e.type} \u00b7 \u20A6${e.amount.toLocaleString()}`, to: "/workspace/app/accounts" }));
   store.workOrders.filter((w) => `${w.id} ${w.truckReg} ${w.defect}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((w) => hits.push({ group: "Work Orders", label: w.id, meta: `${w.truckReg} Â· ${w.status}`, to: "/workspace/app/engineering" }));
+    .forEach((w) => hits.push({ group: "Work Orders", label: w.id, meta: `${w.truckReg} · ${w.status}`, to: "/workspace/app/engineering" }));
   store.inventory.filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q))
     .slice(0, 4)
-    .forEach((i) => hits.push({ group: "Inventory", label: `${i.name}`, meta: `${i.sku} Â· ${i.stock} in stock`, to: "/workspace/app/inventory" }));
+    .forEach((i) => hits.push({ group: "Inventory", label: `${i.name}`, meta: `${i.sku} · ${i.stock} in stock`, to: "/workspace/app/inventory" }));
   store.audit.filter((a) => `${a.record} ${a.action} ${a.user}`.toLowerCase().includes(q))
     .slice(0, 3)
-    .forEach((a) => hits.push({ group: "Audit Logs", label: a.record, meta: `${a.action} Â· ${a.user}`, to: "/workspace/app/audit" }));
+    .forEach((a) => hits.push({ group: "Audit Logs", label: a.record, meta: `${a.action} · ${a.user}`, to: "/workspace/app/audit" }));
   return hits;
 }
 
 export const formatNaira = (n: number) =>
-  `â‚¦${n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n.toLocaleString("en-NG")}`;
-export const formatNairaFull = (n: number) => `â‚¦${n.toLocaleString("en-NG")}`;
+  `\u20A6${n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n.toLocaleString("en-NG")}`;
+export const formatNairaFull = (n: number) => `\u20A6${n.toLocaleString("en-NG")}`;
 

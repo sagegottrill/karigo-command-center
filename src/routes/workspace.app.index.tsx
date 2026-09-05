@@ -290,11 +290,11 @@ function ManagementDashboard({ data }: { data: any }) {
                 <div className="mt-3 grid grid-cols-2 gap-1.5">
                   <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">Target</p>
-                    <p className="num text-[12px] font-semibold">â‚¦350M</p>
+                    <p className="num text-[12px] font-semibold">{"\u20A6"}350M</p>
                   </div>
                   <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">Left</p>
-                    <p className="num text-[12px] font-semibold">â‚¦77M</p>
+                    <p className="num text-[12px] font-semibold">{"\u20A6"}77M</p>
                   </div>
                 </div>
               </div>
@@ -390,7 +390,7 @@ function ManagementDashboard({ data }: { data: any }) {
               size="sm"
               variant="ghost"
               className="h-9 w-9 rounded-full p-0"
-              onClick={() => toast("Calling driverâ€¦", { description: driver?.phone ?? "Contact unavailable" })}
+              onClick={() => toast("Calling driver...", { description: driver?.phone ?? "Contact unavailable" })}
             >
               <Phone className="h-4 w-4" strokeWidth={1.75} />
             </Button>

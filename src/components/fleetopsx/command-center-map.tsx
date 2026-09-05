@@ -220,10 +220,10 @@ export function CommandCenterMap({
           </span>
           <div>
             <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-foreground">Command Center</h2>
-            <p className="text-[11px] text-muted-foreground">Nigeria Â· OpenStreetMap</p>
+            <p className="text-[11px] text-muted-foreground">Nigeria · OpenStreetMap</p>
           </div>
         </div>
-        <p className="text-[12px] font-semibold text-[#34c759]">Online Â· PTL-001</p>
+        <p className="text-[12px] font-semibold text-[#34c759]">Online · PTL-001</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 px-5">

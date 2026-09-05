@@ -101,7 +101,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
         className="mx-auto hidden h-10 w-full max-w-md items-center gap-2.5 rounded-full bg-white px-4 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-colors duration-150 hover:bg-black/[0.02] hover:text-foreground md:flex"
       >
         <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span className="flex-1 text-left">Search trips, trucks, driversâ€¦</span>
+        <span className="flex-1 text-left">Search trips, trucks, drivers...</span>
         <kbd className="num rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
           âŒ˜K
         </kbd>
@@ -126,7 +126,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
           ) : (
             <>
               <WifiOff className="h-3 w-3 text-[#ff9f0a]" />
-              <span className="text-[#1d1d1f]">Offline Â· 3</span>
+              <span className="text-[#1d1d1f]">Offline · 3</span>
             </>
           )}
         </button>
@@ -220,7 +220,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Search TRP-00842, TRK-104, driverâ€¦"
+          placeholder="Search TRP-00842, TRK-104, driver..."
           value={query}
           onValueChange={setQuery}
         />
