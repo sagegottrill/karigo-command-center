@@ -87,37 +87,21 @@ function AddPartner() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
-      {/* Desktop Sidebar */}
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-auto relative pb-[80px] lg:pb-0">
-        {/* Mobile Header */}
-        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1B2432]">
-          <div className="flex items-center gap-[12px]">
-            <button onClick={() => navigate({ to: "/workspace/app" })}>
-              <ArrowLeft className="w-[20px] h-[20px] text-[#ffffff]" />
-            </button>
-            <span className="text-[16px] font-[500] text-[#ffffff]">Transport Manager Portal</span>
-          </div>
+    <>
+      <form onSubmit={handleSaveAccountClick} className="flex flex-col w-full max-w-[600px] mx-auto rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] p-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-4 mb-[24px] lg:hidden">
+           <button type="button" onClick={() => navigate({ to: "/workspace/app" })}>
+             <ArrowLeft className="w-[20px] h-[20px] text-[#141a1f]" />
+           </button>
+           <h2 className="text-[20px] font-[600] leading-[28px] text-[#141a1f]">Add A Partner</h2>
         </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
-          <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Transport Manager Portal</h1>
-          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
-            MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
+        
+        <div className="hidden lg:block">
+          <h2 className="text-[24px] font-[600] leading-[32px] text-[#141a1f] mb-[8px]">Add A Partner</h2>
+          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase mb-[32px]">
+            CREATE THE DIGITAL PROFILE OF EXTERNAL PARTNERS
           </p>
         </div>
-
-        {/* Content Body */}
-        <div className="flex flex-col px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex-1 lg:items-center">
-          <form onSubmit={handleSaveAccountClick} className="flex flex-col w-full lg:w-[600px] lg:rounded-[10px] lg:border-[1px] lg:border-[#e2e5e9] lg:bg-[#ffffff] lg:p-[32px] lg:shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
-            <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f] mb-[4px] lg:mb-[8px]">Add A Partner</h2>
-            <p className="text-[12px] font-[400] lg:font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase mb-[24px] lg:mb-[32px]">
-              CREATE THE DIGITAL PROFILE OF EXTERNAL PARTNERS
-            </p>
 
             <div className="flex flex-col gap-[20px] lg:gap-[24px]">
               {/* Logo Upload */}
@@ -288,7 +272,6 @@ function AddPartner() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </>
   );
 }
