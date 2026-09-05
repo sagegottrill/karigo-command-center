@@ -430,13 +430,51 @@ function PartnerPortalDashboard() {
                     {detailsModalOpen.dropoff || "ABC, Alake Estate"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 col-span-2 mb-2 lg:mb-4">
+                <div className="flex flex-col gap-2 col-span-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.pickup || "Babangida; Happy Home"}
                   </div>
                 </div>
               </div>
+
+              {detailsModalOpen.status !== "Requested" && detailsModalOpen.status !== "Scheduled" && (
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <h3 className="text-[15px] font-[600] text-[#141a1f] mb-4">Assigned Fulfillment Details</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-4 lg:gap-x-6 lg:gap-y-6">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[13px] font-[600] text-[#141a1f]">Driver Name</label>
+                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                        {detailsModalOpen.driverName || "—"}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[13px] font-[600] text-[#141a1f]">Driver Phone</label>
+                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                        +234 800 000 0000
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[13px] font-[600] text-[#141a1f]">Truck Head</label>
+                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                        {detailsModalOpen.truckReg ? detailsModalOpen.truckReg.split(" / ")[0] : "—"}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[13px] font-[600] text-[#141a1f]">Truck Tail</label>
+                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
+                        {detailsModalOpen.tailType || "—"} / {detailsModalOpen.truckReg ? detailsModalOpen.truckReg.split(" / ")[1] : "—"}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 col-span-2">
+                      <label className="text-[13px] font-[600] text-[#141a1f]">Serial Number (Provisional)</label>
+                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470] font-mono">
+                        SN-{detailsModalOpen.id?.split("-")[1] || "0000"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between items-center pt-6 border-t border-gray-100">
                 <button 
