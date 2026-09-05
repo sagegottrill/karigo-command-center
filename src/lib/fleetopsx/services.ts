@@ -644,27 +644,22 @@ export const adminService = {
       companyId: payload.companyId,
     };
     store.users = [newUser, ...store.users];
-    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(newUser);
   },
   editUser: (id: string, payload: Partial<import("./types").User>) => {
     store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
-    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   resetPassword: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, passwordResetRequired: true } : u);
-    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   suspendUser: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Suspended" } : u);
-    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   deleteUser: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Deleted" } : u);
-    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
 };
@@ -701,34 +696,44 @@ export const dashboardService = {
 };
 
 /* -------------------------- in-memory mutable store ----------------------- */
-const loadUsers = () => {
+const getInitialState = <T>(key: string, fallback: T): T => {
   if (typeof window !== "undefined") {
-    const saved = localStorage.getItem("fleetopsx_users");
+    const saved = localStorage.getItem(`fleetopsx_${key}`);
     if (saved) return JSON.parse(saved);
   }
-  return [...db.USERS];
+  return fallback;
 };
 
-const store = {
-  platformTenants: [...db.PLATFORM_TENANTS],
-  companies: [...db.COMPANIES],
-  truckHeads: [...db.TRUCK_HEADS] as TruckHead[],
-  truckTails: [...db.TRUCK_TAILS] as TruckTail[],
-  drivers: [...db.DRIVERS] as Driver[],
-  trips: [...db.TRIPS] as Trip[],
-  fuel: [...db.FUEL_REQUISITIONS],
-  workOrders: [...db.WORK_ORDERS],
-  inventory: [...db.INVENTORY],
-  inventoryRequisitions: [...db.INVENTORY_REQUISITIONS],
-  procurement: [...db.PROCUREMENT_REQUESTS],
-  expenses: [...db.EXPENSES] as Expense[],
-  gate: [...db.GATE_ENTRIES],
-  conversations: db.CONVERSATIONS.map((c) => ({ ...c, messages: [...c.messages] })),
-  notifications: [...db.NOTIFICATIONS],
-  audit: [...db.AUDIT_LOGS],
-  users: loadUsers(),
-  loginReports: [...db.LOGIN_REPORTS],
+const initialStore = {
+  platformTenants: getInitialState("platformTenants", [...db.PLATFORM_TENANTS]),
+  companies: getInitialState("companies", [...db.COMPANIES]),
+  truckHeads: getInitialState("truckHeads", [...db.TRUCK_HEADS] as TruckHead[]),
+  truckTails: getInitialState("truckTails", [...db.TRUCK_TAILS] as TruckTail[]),
+  drivers: getInitialState("drivers", [...db.DRIVERS] as Driver[]),
+  trips: getInitialState("trips", [...db.TRIPS] as Trip[]),
+  fuel: getInitialState("fuel", [...db.FUEL_REQUISITIONS]),
+  workOrders: getInitialState("workOrders", [...db.WORK_ORDERS]),
+  inventory: getInitialState("inventory", [...db.INVENTORY]),
+  inventoryRequisitions: getInitialState("inventoryRequisitions", [...db.INVENTORY_REQUISITIONS]),
+  procurement: getInitialState("procurement", [...db.PROCUREMENT_REQUESTS]),
+  expenses: getInitialState("expenses", [...db.EXPENSES] as Expense[]),
+  gate: getInitialState("gate", [...db.GATE_ENTRIES]),
+  conversations: getInitialState("conversations", db.CONVERSATIONS.map((c) => ({ ...c, messages: [...c.messages] }))),
+  notifications: getInitialState("notifications", [...db.NOTIFICATIONS]),
+  audit: getInitialState("audit", [...db.AUDIT_LOGS]),
+  users: getInitialState("users", [...db.USERS]),
+  loginReports: getInitialState("loginReports", [...db.LOGIN_REPORTS]),
 };
+
+const store = new Proxy(initialStore, {
+  set(target, prop: keyof typeof initialStore, value) {
+    target[prop] = value as any;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`fleetopsx_${String(prop)}`, JSON.stringify(value));
+    }
+    return true;
+  }
+});
 
 /* --------------------------------- search --------------------------------- */
 export interface SearchHit {
