@@ -92,10 +92,11 @@ function MainLandingPage() {
             <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           </nav>
           <div className="flex items-center gap-4">
-            <Link to="/superadmin">
-              <Button className="rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold">
-                Access Portal
-              </Button>
+            <Link 
+              to="/superadmin" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold transition-colors"
+            >
+              Access Portal
             </Link>
           </div>
         </header>
@@ -122,9 +123,12 @@ function MainLandingPage() {
                 Enterprise-grade logistics,<br />dispatch, and financial control for startups and giants.
               </p>
               <div className="flex gap-4">
-                <Button className="rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base">
+                <Link 
+                  to="/workspace/login" 
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base transition-colors"
+                >
                   View Modules ↗
-                </Button>
+                </Link>
               </div>
             </div>
           </div>
