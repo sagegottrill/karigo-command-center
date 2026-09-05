@@ -8,7 +8,6 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/request")
   component: PartnerNewRequest,
 });
 
-const PRODUCT_OPTIONS = ["Sand", "Steel", "Bitumen"];
 const TRUCK_TYPE_OPTIONS = ["Full", "Semi", "Flat", "Side Guide", "Low Bed"];
 const LOADING_SITE_OPTIONS = [
   "Comfortoboh", "Happy Home", "Ijesha.1", "Babangida.1",
@@ -22,7 +21,6 @@ function PartnerNewRequest() {
 
   const [customerConsignee, setCustomerConsignee] = useState("");
   const [product, setProduct] = useState("");
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [truckType, setTruckType] = useState("");
   const [showTruckDropdown, setShowTruckDropdown] = useState(false);
   const [destination, setDestination] = useState("");
@@ -172,7 +170,7 @@ function PartnerNewRequest() {
               <div className="flex flex-col gap-[20px]">
                 {/* Customer Name */}
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Customer Name</label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Customer Name <span className="text-[#ed351d]">*</span></label>
                   <input
                     type="text"
                     value={customerConsignee}
@@ -182,35 +180,12 @@ function PartnerNewRequest() {
                   />
                 </div>
 
-                {/* Select Product */}
-                <div className="flex flex-col gap-[8px] relative">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Product</label>
-                  <button
-                    type="button"
-                    onClick={() => { setShowProductDropdown(!showProductDropdown); setShowTruckDropdown(false); setOpenDropdownIndex(null); }}
-                    className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
-                  >
-                    <span className={product ? "text-[#141a1f]" : "text-[#8e95a1]"}>{product || "Select"}</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                  {showProductDropdown && (
-                    <div className="absolute top-[68px] left-0 right-0 z-40 rounded-[4px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] overflow-hidden">
-                      {PRODUCT_OPTIONS.map(opt => (
-                        <button key={opt} type="button" onClick={() => { setProduct(opt); setShowProductDropdown(false); }}
-                          className={`w-full text-left px-[12px] py-[10px] text-[14px] font-[400] ${product === opt ? "bg-[#ed351d] text-[#ffffff]" : "text-[#141a1f] hover:bg-[#f6f7f9]"}`}>
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Select Truck Type */}
                 <div className="flex flex-col gap-[8px] relative">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Truck Type</label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Truck Type <span className="text-[#ed351d]">*</span></label>
                   <button
                     type="button"
-                    onClick={() => { setShowTruckDropdown(!showTruckDropdown); setShowProductDropdown(false); setOpenDropdownIndex(null); }}
+                    onClick={() => { setShowTruckDropdown(!showTruckDropdown); setOpenDropdownIndex(null); }}
                     className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
                   >
                     <span className={truckType ? "text-[#141a1f]" : "text-[#8e95a1]"}>{truckType || "Select"}</span>
@@ -230,12 +205,24 @@ function PartnerNewRequest() {
 
                 {/* Destination */}
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Destination</label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Destination <span className="text-[#ed351d]">*</span></label>
                   <input
                     type="text"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     placeholder="example: Kute, Abuja"
+                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
+                  />
+                </div>
+
+                {/* Product */}
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Product</label>
+                  <input
+                    type="text"
+                    value={product}
+                    onChange={(e) => setProduct(e.target.value)}
+                    placeholder="example: Steel"
                     className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
                   />
                 </div>
