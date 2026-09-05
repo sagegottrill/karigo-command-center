@@ -13,13 +13,13 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 lg:flex lg:justify-between">
+    <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-[16px] mb-[24px]">
       <div className="min-w-0">
-        <h1 className="truncate text-[28px] leading-[1.08] font-semibold tracking-[-0.035em] text-foreground sm:text-[34px]">
+        <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-2xl text-[14px] leading-[1.45] text-muted-foreground sm:text-[15px]">{description}</p>
+          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">{description}</p>
         )}
         {meta && <div className="mt-3 flex flex-wrap items-center gap-2">{meta}</div>}
       </div>
@@ -46,26 +46,26 @@ export function SectionPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[24px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)]",
+        "flex flex-col rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] shadow-[0px_4px_24px_rgba(0,0,0,0.04)] overflow-hidden",
         className,
       )}
     >
       {(title || actions) && (
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.05] px-5 py-4">
+        <div className="flex flex-row items-center justify-between gap-3 border-b border-[#e2e5e9] px-[24px] py-[16px]">
           <div className="min-w-0">
             {title && (
-              <h2 className="truncate text-[16px] font-semibold tracking-[-0.02em] text-foreground">
+              <h2 className="text-[18px] font-[600] text-[#141a1f]">
                 {title}
               </h2>
             )}
             {description && (
-              <p className="mt-0.5 truncate text-[12px] leading-snug text-muted-foreground">{description}</p>
+              <p className="mt-0.5 truncate text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">{description}</p>
             )}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className={cn("p-5", bodyClassName)}>{children}</div>
+      <div className={cn("p-[24px]", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -80,19 +80,19 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-black/10 bg-black/[0.015] px-6 py-16 text-center">
-      <p className="text-[15px] font-semibold tracking-[-0.015em] text-foreground">{title}</p>
-      <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">{description}</p>
-      {action && <div className="mt-3">{action}</div>}
+    <div className="flex flex-col items-center justify-center gap-[8px] rounded-[10px] border border-dashed border-[#e2e5e9] bg-[#f6f7f9] px-6 py-16 text-center">
+      <p className="text-[16px] font-[600] text-[#141a1f]">{title}</p>
+      <p className="max-w-sm text-[14px] font-[400] text-[#5c6470]">{description}</p>
+      {action && <div className="mt-[12px]">{action}</div>}
     </div>
   );
 }
 
 export function FieldRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-black/[0.04] py-2.5 last:border-0">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
-      <span className="num truncate text-right text-[13px] font-medium text-foreground">{value}</span>
+    <div className="flex flex-row items-center justify-between gap-3 border-b border-[#e2e5e9] py-[12px] last:border-0">
+      <span className="text-[14px] font-[500] text-[#5c6470]">{label}</span>
+      <span className="num truncate text-right text-[14px] font-[600] text-[#141a1f]">{value}</span>
     </div>
   );
 }

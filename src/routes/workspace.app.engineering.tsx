@@ -168,16 +168,16 @@ function EngineeringPage() {
 
         <TabsContent value="defects" className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.filter((w) => ["Reported", "Diagnosing"].includes(w.status)).map((w) => (
-            <div key={w.id} className="rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)]">
+            <div key={w.id} className="flex flex-col rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] p-[16px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between gap-2">
-                <span className="num text-xs font-semibold">{w.id}</span>
+                <span className="num text-[12px] font-[600] text-[#141a1f]">{w.id}</span>
                 <StatusBadge status={w.priority} dot={false} />
               </div>
-              <p className="mt-2 text-sm font-medium text-foreground">{w.defect}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">{w.truckReg} · {w.category} · {w.reportedBy}</p>
-              <div className="mt-3 flex items-center justify-between">
+              <p className="mt-[8px] text-[14px] font-[600] text-[#141a1f]">{w.defect}</p>
+              <p className="mt-[4px] text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">{w.truckReg} · {w.category} · {w.reportedBy}</p>
+              <div className="mt-[12px] flex items-center justify-between">
                 <StatusBadge status={w.status} />
-                <span className="num text-[10px] text-muted-foreground">{w.reportedAt}</span>
+                <span className="num text-[12px] font-[400] text-[#5c6470]">{w.reportedAt}</span>
               </div>
             </div>
           ))}

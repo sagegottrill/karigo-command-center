@@ -57,7 +57,7 @@ const DAILY_STATS = [
 const FILTERS = ["All Trips", "En Route", "Delayed", "Completed"] as const;
 
 const card =
-  "rounded-[24px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)]";
+  "flex flex-col rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]";
 
 const tooltipStyle = {
   background: "rgba(255,255,255,0.96)",
@@ -141,15 +141,15 @@ function ManagementDashboard({ data }: { data: any }) {
   return (
     <>
       {/* Hero */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between mb-[24px]">
         <div className="min-w-0">
-          <h1 className="text-[30px] leading-[1.08] font-semibold tracking-[-0.035em] text-foreground sm:text-[36px] lg:text-[40px]">
+          <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">
             Hello {mounted ? (currentUser?.name?.split(" ")[0] || "User") : "User"},{" "}
-            <span className="text-muted-foreground" suppressHydrationWarning>{greeting}</span>
+            <span className="text-[#8e95a1]" suppressHydrationWarning>{greeting}</span>
           </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Select defaultValue="aug">
-              <SelectTrigger className="h-10 w-[132px] rounded-full border-black/[0.08] bg-white text-[13px] shadow-sm">
+              <SelectTrigger className="h-[40px] w-[132px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] text-[14px] shadow-none font-[400] text-[#141a1f]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -160,13 +160,13 @@ function ManagementDashboard({ data }: { data: any }) {
             </Select>
             <Button
               variant="outline"
-              className="h-10 gap-1.5 rounded-full border-black/[0.1] bg-white px-4 text-[13px]"
+              className="h-[40px] gap-1.5 rounded-[4px] border-[#e2e5e9] bg-[#ffffff] hover:bg-[#f6f7f9] px-[16px] text-[14px] font-[500] text-[#141a1f] shadow-none transition-colors"
               onClick={() => toast.success("Export queued")}
             >
               <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
               Export CSV
             </Button>
-            <Button asChild className="h-10 rounded-full bg-[#1d1d1f] px-5 text-[13px] text-white hover:bg-black">
+            <Button asChild className="h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] px-[16px] text-[14px] font-[500] text-white shadow-none transition-colors">
               <Link to="/workspace/app/dispatch">
                 <Plus className="h-3.5 w-3.5" />
                 Create Dispatch
@@ -176,16 +176,16 @@ function ManagementDashboard({ data }: { data: any }) {
         </div>
       </div>
 
-      {/* Truck zones â€” big cards, clear for anyone */}
+      {/* Truck zones — big cards, clear for anyone */}
       <div>
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="mb-[16px] flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 className="text-[20px] font-semibold tracking-[-0.025em]">Trucks</h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              {totalTrucks} trucks in total Â· {trucksOnRoad} on the road
+            <h2 className="text-[20px] font-[600] leading-[28px] text-[#141a1f]">Trucks</h2>
+            <p className="mt-0.5 text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">
+              {totalTrucks} trucks in total · {trucksOnRoad} on the road
             </p>
           </div>
-          <Link to="/workspace/app/fleet" className="text-[13px] font-medium underline-offset-2 hover:underline">
+          <Link to="/workspace/app/fleet" className="text-[14px] font-[500] text-[#ed351d] hover:underline">
             See all trucks
           </Link>
         </div>
@@ -208,14 +208,13 @@ function ManagementDashboard({ data }: { data: any }) {
                 </span>
               </div>
               <p
-                className="num mt-6 text-[52px] leading-none font-semibold tracking-[-0.05em] sm:text-[56px]"
-                style={{ color: z.color }}
+                className="num mt-6 text-[48px] leading-none font-[600] text-[#141a1f]"
               >
                 {z.value}
               </p>
-              <p className="mt-3 text-[18px] font-semibold tracking-[-0.02em] text-foreground">{z.title}</p>
-              <p className="mt-1 text-[13px] text-muted-foreground">{z.hint}</p>
-              <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-black/[0.06]">
+              <p className="mt-[12px] text-[16px] font-[600] text-[#141a1f]">{z.title}</p>
+              <p className="mt-[4px] text-[12px] font-[400] text-[#5c6470]">{z.hint}</p>
+              <div className="mt-5 h-[4px] overflow-hidden rounded-[2px] bg-[#e2e5e9]">
                 <div
                   className="h-full rounded-full"
                   style={{
@@ -230,20 +229,20 @@ function ManagementDashboard({ data }: { data: any }) {
       </div>
 
       {/*
-        Trip stats left Â· Analytic + Fleet stacked right (no empty stretch)
+        Trip stats left · Analytic + Fleet stacked right (no empty stretch)
       */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-stretch">
+      <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-12 xl:items-stretch mt-[24px]">
         {/* Trip Statistics */}
-        <section className={cn(card, "flex flex-col p-4 sm:p-5 xl:col-span-7")}>
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <section className={cn(card, "flex flex-col p-[24px] xl:col-span-7")}>
+          <div className="mb-[24px] flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Trip Statistics</h2>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">Daily dispatch vs completed deliveries</p>
+              <h2 className="text-[18px] font-[600] text-[#141a1f]">Trip Statistics</h2>
+              <p className="mt-0.5 text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Daily dispatch vs completed deliveries</p>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#1d1d1f]" /> Trip</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#b7cfe6]" /> Delivery</span>
-              <span className="rounded-full bg-black/[0.04] px-2.5 py-1 font-medium text-foreground">Daily</span>
+            <div className="flex flex-wrap items-center gap-[12px] text-[12px] font-[500] text-[#5c6470]">
+              <span className="flex items-center gap-[6px]"><span className="h-[8px] w-[8px] rounded-full bg-[#141a1f]" /> Trip</span>
+              <span className="flex items-center gap-[6px]"><span className="h-[8px] w-[8px] rounded-full bg-[#ed351d]" /> Delivery</span>
+              <span className="rounded-[4px] bg-[#f6f7f9] px-[10px] py-[4px] font-[500] text-[#141a1f]">Daily</span>
             </div>
           </div>
           <div className="h-[240px] w-full sm:h-[280px] xl:h-[300px]">
@@ -265,10 +264,10 @@ function ManagementDashboard({ data }: { data: any }) {
         {/* Right column â€” Analytic stacked on Fleet so neither stretches empty */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-5 xl:grid-cols-1 xl:content-stretch">
           {/* Analytic View */}
-          <section className={cn(card, "flex flex-col p-4 sm:p-5")}>
+          <section className={cn(card, "flex flex-col p-[24px]")}>
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Analytic View</h2>
-              <span className="rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium">Monthly</span>
+              <h2 className="text-[18px] font-[600] text-[#141a1f]">Analytic View</h2>
+              <span className="rounded-[4px] bg-[#f6f7f9] px-[10px] py-[4px] text-[12px] font-[500] text-[#141a1f]">Monthly</span>
             </div>
 
             <div className="mt-2 flex items-center gap-3">
@@ -281,11 +280,11 @@ function ManagementDashboard({ data }: { data: any }) {
               </svg>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-muted-foreground">Operating revenue</p>
-                <p className="num mt-1 text-[22px] leading-none font-semibold tracking-[-0.04em] sm:text-[24px]">
+                <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Operating revenue</p>
+                <p className="num mt-[4px] text-[24px] leading-none font-[600] text-[#141a1f]">
                   {formatNaira(revenue)}
                 </p>
-                <p className="mt-1.5 inline-flex items-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
+                <p className="mt-[6px] inline-flex items-center gap-[4px] text-[12px] font-[600] text-[#34c759]">
                   +2.45% <ArrowUpRight className="h-3.5 w-3.5" />
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-1.5">
@@ -307,16 +306,16 @@ function ManagementDashboard({ data }: { data: any }) {
             <div className="absolute inset-0 bg-[linear-gradient(165deg,#f7fafc_0%,#e8f0f8_55%,#dbe7f3_100%)]" />
             <div className="relative z-[1] flex items-start justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
               <div className="min-w-0">
-                <p className="text-[12px] font-medium text-muted-foreground">Fleet on road</p>
-                <p className="num mt-1 text-[32px] leading-none font-semibold tracking-[-0.04em]">{trucksOnRoad}</p>
-                <p className="mt-1.5 flex items-center gap-0.5 text-[12px] font-semibold text-[#34c759]">
+                <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Fleet on road</p>
+                <p className="num mt-[4px] text-[36px] leading-none font-[600] text-[#141a1f]">{trucksOnRoad}</p>
+                <p className="mt-[6px] flex items-center gap-[4px] text-[12px] font-[600] text-[#34c759]">
                   +1.51% <ArrowUpRight className="h-3.5 w-3.5" />
                 </p>
-                <p className="mt-1.5 text-[12px] text-muted-foreground">
-                  {totalTrucks} trucks Â· {driversFree} drivers free
+                <p className="mt-[6px] text-[12px] font-[400] text-[#5c6470]">
+                  {totalTrucks} trucks · {driversFree} drivers free
                 </p>
               </div>
-              <span className="rounded-full bg-[#34c759]/15 px-2.5 py-1 text-[11px] font-semibold text-[#248a3d]">
+              <span className="rounded-[4px] bg-[#34c759]/15 px-[10px] py-[4px] text-[12px] font-[600] text-[#248a3d]">
                 On-Route
               </span>
             </div>
@@ -332,12 +331,12 @@ function ManagementDashboard({ data }: { data: any }) {
 
         {/* Tracking Trip */}
         <section className={cn(card, "flex flex-col overflow-hidden xl:col-span-12 xl:grid xl:grid-cols-[1fr_1.2fr_1fr]")}>
-          <div className="border-b border-black/[0.05] p-4 sm:p-5 xl:border-r xl:border-b-0">
+          <div className="border-b border-black/[0.05] p-[24px] xl:border-r xl:border-b-0">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[16px] font-semibold tracking-[-0.02em]">Tracking Trip</h2>
+              <h2 className="text-[18px] font-[600] text-[#141a1f]">Tracking Trip</h2>
               {featured && <StatusBadge status={featured.status} />}
             </div>
-            <p className="num mt-1 text-[12px] text-muted-foreground">{featured?.id ?? "No active trips"}</p>
+            <p className="num mt-[4px] text-[12px] font-[400] text-[#8e95a1]">{featured?.id ?? "No active trips"}</p>
             <div className="relative mt-4 h-28 overflow-hidden rounded-[18px] bg-[linear-gradient(160deg,#f4f7fb,#e7eef6)]">
               <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:22px_22px]" />
               <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 40" preserveAspectRatio="none">
@@ -408,36 +407,36 @@ function ManagementDashboard({ data }: { data: any }) {
         />
       )}
 
-      {/* Drivers â€” big and clear */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className={cn(card, "p-5 sm:p-6")}>
-          <p className="text-[13px] font-medium text-muted-foreground">Drivers free now</p>
-          <p className="num mt-3 text-[56px] leading-none font-semibold tracking-[-0.05em] text-[#34c759]">
+      {/* Drivers — big and clear */}
+      <div className="grid grid-cols-1 gap-[16px] lg:grid-cols-2 mt-[24px]">
+        <section className={cn(card, "p-[24px]")}>
+          <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Drivers free now</p>
+          <p className="num mt-[12px] text-[56px] leading-none font-[600] text-[#34c759]">
             {driversFree}
           </p>
-          <p className="mt-2 text-[14px] text-muted-foreground">Ready to take a trip</p>
-          <Link to="/workspace/app/drivers" className="mt-5 inline-block text-[13px] font-medium underline-offset-2 hover:underline">
+          <p className="mt-[8px] text-[14px] font-[400] text-[#5c6470]">Ready to take a trip</p>
+          <Link to="/workspace/app/drivers" className="mt-[20px] inline-block text-[14px] font-[500] text-[#ed351d] hover:underline">
             See all drivers
           </Link>
         </section>
-        <section className={cn(card, "p-5 sm:p-6")}>
-          <p className="text-[13px] font-medium text-muted-foreground">Delayed trips</p>
-          <p className="num mt-3 text-[56px] leading-none font-semibold tracking-[-0.05em] text-[#ff3b30]">
+        <section className={cn(card, "p-[24px]")}>
+          <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Delayed trips</p>
+          <p className="num mt-[12px] text-[56px] leading-none font-[600] text-[#ff3b30]">
             {tripsDelayed}
           </p>
-          <p className="mt-2 text-[14px] text-muted-foreground">Check these first</p>
-          <Link to="/workspace/app/trips" className="mt-5 inline-block text-[13px] font-medium underline-offset-2 hover:underline">
+          <p className="mt-[8px] text-[14px] font-[400] text-[#5c6470]">Check these first</p>
+          <Link to="/workspace/app/trips" className="mt-[20px] inline-block text-[14px] font-[500] text-[#ed351d] hover:underline">
             Open trips
           </Link>
         </section>
       </div>
 
       {/* Trip activities */}
-      <section className={cn(card, "p-4 sm:p-5")}>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <section className={cn(card, "p-[24px] mt-[24px]")}>
+        <div className="mb-[24px] flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-[16px] font-semibold tracking-[-0.02em] sm:text-[20px]">Trip activities</h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">Tap a row to open the trip</p>
+            <h2 className="text-[20px] font-[600] leading-[28px] text-[#141a1f]">Trip activities</h2>
+            <p className="mt-0.5 text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Tap a row to open the trip</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <FilterPills

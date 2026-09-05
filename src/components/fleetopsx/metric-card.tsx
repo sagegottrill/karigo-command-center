@@ -26,23 +26,23 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-[22px] border border-black/[0.05] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_10px_28px_rgba(0,0,0,0.035)] transition-transform duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.985]",
-        accent && "ring-1 ring-black/[0.04]",
+        "group relative flex flex-col rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] p-[16px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)] overflow-hidden",
+        accent && "bg-[#f6f7f9]",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[12px] font-medium text-muted-foreground">{label}</p>
+        <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">{label}</p>
         {Icon && (
           <Icon
-            className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground"
+            className="h-4 w-4 shrink-0 text-[#8e95a1] transition-colors group-hover:text-[#141a1f]"
             strokeWidth={1.75}
           />
         )}
       </div>
-      <div className="mt-2.5 flex items-baseline gap-1.5">
-        <span className="num max-w-full truncate text-[24px] leading-none font-semibold tracking-[-0.04em] text-foreground sm:text-[28px]">{value}</span>
-        {unit && <span className="text-[12px] font-medium text-muted-foreground">{unit}</span>}
+      <div className="mt-[12px] flex items-baseline gap-1.5">
+        <span className="num max-w-full truncate text-[28px] leading-none font-[600] text-[#141a1f]">{value}</span>
+        {unit && <span className="text-[14px] font-[500] text-[#5c6470]">{unit}</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {delta && (
@@ -59,7 +59,7 @@ export function MetricCard({
             {deltaTone === "down" && <ArrowDownRight className="h-3.5 w-3.5" />}
           </span>
         )}
-        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+        {hint && <span className="text-[12px] font-[400] text-[#5c6470]">{hint}</span>}
       </div>
     </div>
   );
