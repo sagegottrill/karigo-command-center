@@ -27,9 +27,12 @@ function SisterCompanyDashboard() {
     navigate({ to: "/workspace/customer-portal/login" });
   };
 
-  const companyName = currentUser?.department || "Saba Steel";
-  const userEmail = currentUser?.email || "logistics@s.steel.com";
-  const userInitials = currentUser?.initials || companyName.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const companyName = mounted && currentUser?.department ? currentUser.department : "Saba Steel";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@s.steel.com";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SS";
 
   const columns: Column<Trip>[] = [
     { key: "id", header: "Request ID", cell: (r) => <span className="font-medium text-xs">{r.id}</span> },

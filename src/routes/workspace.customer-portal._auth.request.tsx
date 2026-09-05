@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MoreVertical, ArrowLeft, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { orderService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 
@@ -65,10 +65,12 @@ function PartnerNewRequest() {
     navigate({ to: "/workspace/customer-portal/login" });
   };
 
-  // Derive user display info
-  const companyName = currentUser?.department || "Saba Steel";
-  const userEmail = currentUser?.email || "logistics@s.steel.com";
-  const userInitials = currentUser?.initials || companyName.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const companyName = mounted && currentUser?.department ? currentUser.department : "Saba Steel";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@s.steel.com";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SS";
 
   return (
     <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
