@@ -2,18 +2,23 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell, ChevronDown, LogOut, MessageSquare, PanelLeft,
-  Settings, User
+  Settings, User, Search
 } from "lucide-react";
+import {
+  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { globalSearch, authService, notificationService } from "@/lib/fleetopsx/services";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
 
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ROLES = authService.getAllRoles();
   const WORKSPACES = authService.getWorkspaces();
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
@@ -24,13 +29,27 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
   const role = ROLES.find(r => r.name === roleName) ?? ROLES[0]!;
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const hits = globalSearch(query);
+  const groups = [...new Set(hits.map((h) => h.group))];
   const unread = notificationService.getUnreadCount();
 
   const active = NAV.find((n) =>
     n.to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(n.to),
   );
   const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 flex h-[60px] items-center gap-3 border-b border-[#e2e5e9] bg-[#ffffff] px-4 lg:px-6">
@@ -74,6 +93,18 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
           </>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mx-auto hidden h-[36px] w-full max-w-md items-center gap-2.5 rounded-[8px] bg-[#f6f7f9] border border-[#e2e5e9] px-3 text-[13px] text-[#8e95a1] transition-colors duration-150 hover:bg-[#e2e5e9]/50 hover:text-[#141a1f] md:flex"
+      >
+        <Search className="h-4 w-4" strokeWidth={1.75} />
+        <span className="flex-1 text-left font-[400]">Search trips, trucks, drivers...</span>
+        <kbd className="num rounded-[4px] bg-[#e2e5e9] px-1.5 py-0.5 text-[10px] font-medium text-[#5c6470]">
+          ⌘K
+        </kbd>
+      </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Link
@@ -154,6 +185,34 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandInput
+          placeholder="Search TRP-00842, TRK-104, driver..."
+          value={query}
+          onValueChange={setQuery}
+        />
+        <CommandList>
+          <CommandEmpty>No results.</CommandEmpty>
+          {groups.map((g) => (
+            <CommandGroup key={g} heading={g}>
+              {hits.filter((h) => h.group === g).map((h, i) => (
+                <CommandItem
+                  key={`${g}-${i}`}
+                  value={`${g}-${h.label}-${i}`}
+                  onSelect={() => {
+                    setOpen(false);
+                    navigate({ to: h.to, params: h.params } as never);
+                  }}
+                >
+                  <span className="num mr-2 text-xs font-semibold">{h.label}</span>
+                  <span className="truncate text-xs text-[#8e95a1]">{h.meta}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }

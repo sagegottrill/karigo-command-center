@@ -59,15 +59,16 @@ export const NAV: NavItem[] = [
   { label: "God View", to: "/workspace/app/god-view", icon: LineChart, group: "Insights" },
   { label: "Reports", to: "/workspace/app/reports", icon: Activity, group: "Insights" },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
-  { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
-  { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
   { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "Staff Account" },
   { label: "Add A Partner", to: "/workspace/app/add-partner", icon: CustomPartnerIcon, group: "Staff Account" },
   { label: "Account Management", to: "/workspace/app/manage-account", icon: CustomManageIcon, group: "Staff Account" },
   { label: "Password Request", to: "/workspace/app/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
+  { label: "Platform Admin", to: "/superadmin", icon: ShieldCheck, group: "Admin" },
+  { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
+  { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin", "Staff Account"];
+const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Staff Account", "Admin"];
 
 export function AppSidebar({
   collapsed,

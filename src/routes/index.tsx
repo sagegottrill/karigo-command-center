@@ -139,67 +139,148 @@ function MainLandingPage() {
 
           <div className="mt-20 sm:mt-24 w-full max-w-6xl relative px-4 sm:px-0">
             <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl shadow-black/10 ring-1 ring-black/5 bg-[#ebebeb]">
-              <img 
-                src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=2800" 
-                alt="Delivery Trucks" 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent mix-blend-multiply" />
+            <Link to="/workspace/login">
+              <Button className="rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold">
+                Access Portal
+              </Button>
+            </Link>
+          </div>
+        </header>
+      </div>
+
+      {/* HERO SECTION - Black */}
+      <section className="bg-[#000000] text-white pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px]">
+        <div className="w-full max-w-[1440px] flex flex-col">
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-6">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            Next-Gen Logistics OS
+          </div>
+          <h1 className="text-[50px] md:text-[90px] font-bold leading-[1.05] tracking-tight max-w-[1000px] font-space-grotesk mb-10">
+            Next-Gen Fleet Management for Growing Enterprises.
+          </h1>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10">
+            <div className="flex gap-10 text-white/50 text-sm font-medium uppercase tracking-widest">
+              <span>+ Fleet</span>
+              <span>+ Dispatch</span>
+              <span>+ Finance</span>
+            </div>
+            <div className="max-w-[400px]">
+              <p className="text-[20px] md:text-[24px] font-light leading-relaxed mb-8">
+                Enterprise-grade logistics,<br />dispatch, and financial control for startups and giants.
+              </p>
+              <div className="flex gap-4">
+                <Button className="rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base">
+                  View Modules ↗
+                </Button>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Features Section */}
-        <section id="features" className="w-full max-w-7xl px-6 py-32 border-t border-black/[0.05]">
-          <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-[#1d1d1f] font-space-grotesk">
-              Everything you need to <span className="text-[#0066cc]">manage fleet operations.</span>
+      {/* LOGOS & MISSION - White */}
+      <section className="bg-white pt-[60px] pb-[80px] px-[20px] md:px-[60px] flex justify-center border-b border-gray-100">
+        <div className="w-full max-w-[1440px]">
+          <div className="flex flex-col md:flex-row items-center justify-between border-b border-gray-200 pb-[60px] mb-[100px] gap-10">
+            <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-gray-400 max-w-[200px]">
+              <Pin className="w-6 h-6 text-gray-300" />
+              We've managed 500+ enterprise logistics operations.
+            </div>
+            <div className="flex flex-wrap justify-center gap-10 md:gap-20 opacity-40 grayscale">
+              <span className="font-bold text-xl">Dangote</span>
+              <span className="font-bold text-xl">BUA Group</span>
+              <span className="font-bold text-xl">Flour Mills</span>
+              <span className="font-bold text-xl">Olam</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-8">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            Who we are
+          </div>
+          <div className="flex flex-col lg:flex-row justify-between items-end gap-10 mb-[60px]">
+            <h2 className="text-[40px] md:text-[60px] font-medium leading-[1.1] tracking-tight max-w-[900px]">
+              We build data-first logistics systems to help transport <span className="text-gray-400">leaders lead their industries.</span>
             </h2>
-            <p className="mt-6 text-lg text-slate-500">
-              Secure and efficient fleet operation services.
+            <Link to="/workspace/app" className="text-sm font-bold uppercase tracking-widest border-b border-black pb-1 hover:text-[#ed351d] hover:border-[#ed351d] transition-colors whitespace-nowrap">
+              → Enter Workspace
+            </Link>
+          </div>
+
+          {/* Image Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-[120px]">
+            <div className="aspect-[3/4] bg-gray-900 rounded-[20px] overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+              <img src="/hero.jpeg" alt="Logistics 1" className="w-full h-full object-cover object-center brightness-75" />
+            </div>
+            <div className="aspect-[3/4] bg-gray-200 rounded-[20px] overflow-hidden relative">
+               <img src="/hero.jpeg" alt="Logistics 2" className="w-full h-full object-cover object-right sepia-[.3] hue-rotate-180" />
+            </div>
+            <div className="aspect-[3/4] bg-gray-100 rounded-[20px] overflow-hidden relative">
+               <img src="/hero.jpeg" alt="Logistics 3" className="w-full h-full object-cover object-left grayscale-[0.5]" />
+            </div>
+            <div className="aspect-[3/4] bg-[#ed351d] rounded-[20px] overflow-hidden flex items-center justify-center p-8">
+               <h3 className="text-white text-3xl font-bold font-space-grotesk leading-tight text-center">Seamless Operations</h3>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-12">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            By the numbers
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-16 border-b border-gray-200 pb-[100px]">
+            <div className="flex flex-col gap-4">
+              <div className="text-[50px] md:text-[70px] font-medium leading-none">99.9%</div>
+              <div className="w-full h-[1px] border-b border-dashed border-gray-300" />
+              <div className="font-bold text-sm">System Uptime</div>
+              <div className="text-xs text-gray-500">Uninterrupted tracking, routing and management for live fleets.</div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="text-[50px] md:text-[70px] font-medium leading-none">50+</div>
+              <div className="w-full h-[1px] border-b border-dashed border-gray-300" />
+              <div className="font-bold text-sm">Enterprise Clients</div>
+              <div className="text-xs text-gray-500">From emerging carriers to industrial giants—each treated as our only one.</div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="text-[50px] md:text-[70px] font-medium leading-none">10k+</div>
+              <div className="w-full h-[1px] border-b border-dashed border-gray-300" />
+              <div className="font-bold text-sm">Trips Managed</div>
+              <div className="text-xs text-gray-500">Zero compromises on manifest accuracy and payload tracking.</div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="text-[50px] md:text-[70px] font-medium leading-none">8+</div>
+              <div className="w-full h-[1px] border-b border-dashed border-gray-300" />
+              <div className="font-bold text-sm">Years Expertise</div>
+              <div className="text-xs text-gray-500">Deep experience in supply chain, vehicle telemetry and logistics workflow.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER / SERVICES - Black */}
+      <section className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
+        <div className="w-full max-w-[1440px] flex flex-col">
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-12">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            Services
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-[100px]">
+            <h2 className="text-[40px] md:text-[70px] font-medium leading-none flex items-center gap-4">
+              Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Platform
+            </h2>
+            <p className="text-white/50 text-sm max-w-[300px] leading-relaxed">
+              We craft high-impact digital experiences through strategic design, seamless coding, and creative thinking.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={idx}
-                  className="group relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-white p-8 hover:shadow-xl hover:shadow-black/5 transition-all duration-500"
-                >
-                  <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[#1d1d1f] mb-8 group-hover:bg-[#0066cc] group-hover:text-white transition-all duration-500 shadow-sm">
-                      <Icon className="h-6 w-6" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-3 text-[#1d1d1f]">{feature.title}</h3>
-                    <p className="text-slate-500 leading-relaxed text-[15px]">
-                      {feature.body}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t border-black/[0.05] py-12 bg-[#f5f5f7]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row text-center sm:text-left">
-          <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
-            <div className="grid h-6 w-6 place-items-center rounded bg-[#1d1d1f] text-[10px] font-bold text-white">
-              F
+          <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
+            <div className="flex items-center gap-4 mb-4 md:mb-0">
+              <Link to="/superadmin" className="hover:text-white transition-colors">Platform Admin</Link>
             </div>
-            <span className="text-[13px] font-semibold text-[#1d1d1f]">
-              FleetOpsX
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-[13px] text-slate-500 font-medium flex-wrap justify-center">
-            <Link to="/superadmin" className="hover:text-[#1d1d1f] transition-colors">Platform Admin</Link>
             <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
           </div>
         </div>
-      </footer>
+      </section>
     </div>
   );
 }
