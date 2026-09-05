@@ -6,7 +6,12 @@ import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import type { User } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/workspace/admin/manage-account")({
+import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { StatusBadge } from "@/components/fleetopsx/status-badge";
+import { Button } from "@/components/ui/button";
+
+export const Route = createFileRoute("/workspace/app/manage-account")({
   component: AdminManageAccount,
 });
 
@@ -14,16 +19,6 @@ function AdminManageAccount() {
   const [users, setUsers] = useState<User[]>([]);
   const currentUser = authService.getCurrentUser();
   const navigate = useNavigate();
-
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("Username");
-  const [orderBy, setOrderBy] = useState("Ascending");
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [showOptions, setShowOptions] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
-  const [showSortModal, setShowSortModal] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
 
   // Confirmation modals
   const [confirmAction, setConfirmAction] = useState<{ type: "password" | "suspend" | "delete"; userId: string } | null>(null);
@@ -33,33 +28,24 @@ function AdminManageAccount() {
     void adminService.users().then(setUsers);
   }, []);
 
-  // Filter & sort
-  const filtered = users
-    .filter(u => u.status !== "Deleted")
-    .filter(u => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return u.name.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q) || u.department?.toLowerCase().includes(q) || u.id.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      let valA = "", valB = "";
-      if (sortBy === "Username") { valA = a.username || ""; valB = b.username || ""; }
-      else if (sortBy === "Full Name") { valA = a.name; valB = b.name; }
-      else if (sortBy === "Department") { valA = a.department || ""; valB = b.department || ""; }
-      else if (sortBy === "Staff ID") { valA = a.id; valB = b.id; }
-      const cmp = valA.localeCompare(valB);
-      return orderBy === "Ascending" ? cmp : -cmp;
-    });
+  const filtered = users.filter(u => u.status !== "Deleted");
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginatedUsers = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const columns: Column<User>[] = [
+    { key: "sn", header: "S/N", cell: (_, i) => <span className="text-[14px] font-[400] text-[#5c6470]">{i + 1}</span> },
+    { key: "name", header: "Name", sortValue: (r) => r.name, cell: (r) => r.name },
+    { key: "dept", header: "Department", sortValue: (r) => r.department, cell: (r) => r.department },
+    { key: "id", header: "Staff ID", sortValue: (r) => r.id, cell: (r) => <span className="text-[#5c6470]">ID:{r.id}</span> },
+    { key: "user", header: "Username", sortValue: (r) => r.username, cell: (r) => r.username },
+    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
+    { key: "actions", header: "", align: "right", cell: (r) => (
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("password", r.id); }}>Reset Password</Button>
+        <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
+      </div>
+    )},
+  ];
 
-  const handleAction = (type: "view" | "password" | "suspend" | "delete", userId: string) => {
-    setActiveMenu(null);
-    if (type === "view") {
-      toast.info(`Viewing details for user ID: ${userId}`);
-      return;
-    }
+  const handleAction = (type: "password" | "suspend" | "delete", userId: string) => {
     setConfirmAction({ type, userId });
   };
 
@@ -101,10 +87,7 @@ function AdminManageAccount() {
     setShowShareModal(false);
   };
 
-  const removeFilter = (type: "sort" | "order") => {
-    if (type === "sort") setSortBy("Username");
-    if (type === "order") setOrderBy("Ascending");
-  };
+
 
   const exportCSV = () => {
     const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
@@ -119,154 +102,6 @@ function AdminManageAccount() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
-      {/* Desktop Sidebar */}
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-auto relative pb-[80px] lg:pb-0">
-        {/* Mobile Header */}
-        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1B2432]">
-          <div className="flex items-center gap-[12px]">
-            <button onClick={() => navigate({ to: "/workspace/app" })}>
-              <ArrowLeft className="w-[20px] h-[20px] text-[#ffffff]" />
-            </button>
-            <span className="text-[16px] font-[500] text-[#ffffff]">Transport Manager Portal</span>
-          </div>
-          <div className="w-[32px] h-[32px] rounded-full bg-[#ed351d] flex items-center justify-center">
-            <span className="text-[12px] font-[600] text-[#ffffff]">{currentUser?.initials || "JD"}</span>
-          </div>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
-          <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Transport Manager Portal</h1>
-          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
-            MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
-          </p>
-        </div>
-
-        {/* Content Body */}
-        <div className="flex flex-col px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex-1">
-          {/* Title row */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-[16px] lg:mb-[32px]">
-            <div className="flex flex-col gap-[4px] lg:gap-[8px]">
-              <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f]">Manage Staff Account</h2>
-              <p className="text-[12px] font-[400] lg:font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] lg:uppercase">
-                Manage listing of internal company staff
-              </p>
-            </div>
-            <div className="hidden lg:flex flex-row items-center gap-[12px]">
-              <button onClick={exportCSV} className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] hover:bg-[#f6f7f9] transition-colors">
-                <span className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">Export CSV</span>
-              </button>
-              <Link to="/workspace/admin/add-account" className="flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
-                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ Add New Staff Account</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Mobile: Add New Staff Account Button */}
-          <Link to="/workspace/admin/add-account" className="flex lg:hidden flex-row items-center justify-center py-[12px] rounded-[8px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors mb-[16px]">
-            <span className="text-[14px] font-[500] text-[#ffffff]">+ Add New Staff Account</span>
-          </Link>
-
-          {/* Search + Filter */}
-          <div className="flex flex-row items-center gap-[12px] lg:gap-[16px] mb-[12px] lg:mb-[16px]">
-            <div className="flex flex-row items-center flex-1 lg:w-[400px] lg:flex-none h-[40px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] lg:bg-[#f6f7f9] px-[12px] gap-[10px]">
-              <Search className="w-[16px] h-[16px] text-[#8e95a1]" />
-              <input 
-                type="text" 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search" 
-                className="flex-1 bg-transparent border-none outline-none text-[14px] font-[400] text-[#141a1f] placeholder-[#8e95a1]"
-              />
-            </div>
-            <button onClick={() => setShowSortModal(true)} className="flex flex-row items-center justify-center w-[40px] h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2.5 4.5H13.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M5 8.5H11" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M7 12.5H9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Filter Chips */}
-          <div className="flex flex-row items-center gap-[8px] mb-[16px] lg:mb-[24px]">
-            <div className="flex flex-row items-center gap-[6px] py-[4px] px-[10px] rounded-[4px] bg-[#ed351d]">
-              <span className="text-[12px] font-[500] text-[#ffffff]">{sortBy}</span>
-              <button onClick={() => removeFilter("sort")} className="text-[#ffffff]"><X className="w-[12px] h-[12px]" /></button>
-            </div>
-            <div className="flex flex-row items-center gap-[6px] py-[4px] px-[10px] rounded-[4px] bg-[#141a1f]">
-              <span className="text-[12px] font-[500] text-[#ffffff]">{orderBy === "Ascending" ? "Accending" : "Descending"}</span>
-              <button onClick={() => removeFilter("order")} className="text-[#ffffff]"><X className="w-[12px] h-[12px]" /></button>
-            </div>
-          </div>
-
-          {/* Desktop Table */}
-          <div className="hidden lg:flex flex-col w-full rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] shadow-[0px_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="flex flex-row items-center w-full px-[24px] py-[16px] border-b-[1px] border-[#e2e5e9] bg-[#ffffff]">
-              <div className="w-[80px]"><span className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">S/N</span></div>
-              <div className="flex-1 min-w-[200px]"><span className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Name</span></div>
-              <div className="flex-1 min-w-[200px]"><span className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Department</span></div>
-              <div className="flex-1 min-w-[150px]"><span className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Staff ID</span></div>
-              <div className="flex-1 min-w-[150px]"><span className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Username</span></div>
-              <div className="w-[80px]"></div>
-            </div>
-            <div className="flex flex-col w-full">
-              {paginatedUsers.map((account, index) => (
-                <div key={account.id} className="flex flex-row items-center w-full px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9] bg-[#ffffff] last:border-b-0 hover:bg-[#fafafa] transition-colors relative">
-                  <div className="w-[80px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{((page - 1) * pageSize) + index + 1}</span>
-                  </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.name}</span>
-                  </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.department}</span>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">ID:{account.id}</span>
-                  </div>
-                  <div className="flex-1 min-w-[150px] flex items-center gap-[8px]">
-                    <span className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">{account.username}</span>
-                  </div>
-                  <div className="w-[80px] flex items-center justify-end gap-[8px] relative">
-                    <button onClick={() => setActiveMenu(activeMenu === account.id ? null : account.id)} className="w-[32px] h-[32px] flex items-center justify-center rounded-[4px] hover:bg-[#e2e5e9] transition-colors">
-                      <MoreVertical className="w-[16px] h-[16px] text-[#141a1f]" />
-                    </button>
-                    {account.status === "Suspended" && (
-                      <div className="flex items-center justify-center py-[2px] px-[8px] rounded-[4px] bg-[#ed351d]">
-                        <span className="text-[10px] font-[500] leading-[14px] text-[#ffffff]">Suspended</span>
-                      </div>
-                    )}
-                    {/* Action Menu */}
-                    {activeMenu === account.id && (
-                      <div className="absolute top-[36px] right-0 z-40 w-[180px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
-                        <button onClick={() => handleAction("view", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">View</button>
-                        <button onClick={() => handleAction("password", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Reset Password</button>
-                        <button onClick={() => handleAction("suspend", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#141a1f] hover:bg-[#f6f7f9]">Suspend</button>
-                        <button onClick={() => handleAction("delete", account.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[400] text-[#ed351d] hover:bg-[#f6f7f9]">Delete</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Pagination UI Desktop */}
-          {pageCount > 1 && (
-            <div className="hidden lg:flex flex-row items-center justify-between mt-[24px]">
-              <span className="text-[14px] font-[400] text-[#8e95a1]">Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length}</span>
-              <div className="flex items-center gap-[8px]">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Prev</button>
-                <span className="text-[14px] font-[500] text-[#141a1f]">Page {page} of {pageCount}</span>
-                <button onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page === pageCount} className="px-[12px] py-[6px] rounded-[4px] border border-[#e2e5e9] disabled:opacity-50">Next</button>
-              </div>
-            </div>
-          )}
 
           {/* Mobile Card List */}
           <div className="flex lg:hidden flex-col gap-[12px]">
@@ -325,16 +160,16 @@ function AdminManageAccount() {
 
         {/* Mobile Bottom Nav */}
         <div className="fixed bottom-0 left-0 right-0 flex lg:hidden flex-row items-center justify-around bg-[#ffffff] border-t border-[#e2e5e9] py-[10px] z-30">
-          <Link to="/workspace/admin/add-account" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/add-account" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 4V16M4 10H16" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <span className="text-[10px] font-[500] text-[#8e95a1]">New{"\n"}Account</span>
           </Link>
-          <Link to="/workspace/admin/manage-account" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/manage-account" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 14C13 11.79 11.21 10 9 10C6.79 10 5 11.79 5 14" stroke="#141a1f" strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="6" r="3" stroke="#141a1f" strokeWidth="1.5"/><path d="M15 10L17 12L15 14" stroke="#141a1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span className="text-[10px] font-[600] text-[#141a1f]">Manage{"\n"}Account</span>
             <div className="w-[40px] h-[2px] bg-[#141a1f] rounded-full"></div>
           </Link>
-          <Link to="/workspace/admin/password-request" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/password-request" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="9" rx="2" stroke="#8e95a1" strokeWidth="1.5"/><path d="M7 8V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V8" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="13" r="1.5" fill="#8e95a1"/></svg>
             <span className="text-[10px] font-[500] text-[#8e95a1]">Password{"\n"}Requests</span>
           </Link>

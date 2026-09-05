@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
 import { useState, useEffect } from "react";
 import { Route as RootRoute } from "../../routes/__root";
+import { ChevronDown } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -60,10 +61,10 @@ export const NAV: NavItem[] = [
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, badge: 4, group: "Inbox" },
   { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
   { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
-  { label: "Add New Account", to: "/workspace/admin/add-account", icon: CustomAddIcon, group: "Staff Account" },
-  { label: "Add A Partner", to: "/workspace/admin/add-partner", icon: CustomPartnerIcon, group: "Staff Account" },
-  { label: "Account Management", to: "/workspace/admin/manage-account", icon: CustomManageIcon, group: "Staff Account" },
-  { label: "Password Request", to: "/workspace/admin/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
+  { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "Staff Account" },
+  { label: "Add A Partner", to: "/workspace/app/add-partner", icon: CustomPartnerIcon, group: "Staff Account" },
+  { label: "Account Management", to: "/workspace/app/manage-account", icon: CustomManageIcon, group: "Staff Account" },
+  { label: "Password Request", to: "/workspace/app/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
 ];
 
 const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin", "Staff Account"];
@@ -80,7 +81,16 @@ export function AppSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "Main": true, "Workshop": true, "People": true, "Finance": true, 
+    "Yard": true, "Inbox": true, "Insights": true, "Admin": true, "Staff Account": true
+  });
+  
   useEffect(() => { setMounted(true); }, []);
+
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
 
   const isActive = (to: string) =>
     to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(to);
@@ -152,20 +162,28 @@ export function AppSidebar({
         </Link>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[24px] custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[16px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {GROUPS.map((group) => {
             const items = allowedNav.filter((n) => n.group === group);
             if (!items.length) return null;
+            const isOpen = openGroups[group];
             return (
               <div key={group} className="flex flex-col">
                 {!collapsed && (
-                  <div className="px-[24px] mb-[12px]">
-                    <span className="text-[11px] font-[500] leading-[14px] tracking-[0.05em] text-[#8e95a1] uppercase">
+                  <button 
+                    onClick={() => toggleGroup(group)}
+                    className="flex items-center justify-between px-[24px] mb-[8px] group/heading"
+                  >
+                    <span className="text-[11px] font-[500] leading-[14px] tracking-[0.05em] text-[#8e95a1] uppercase group-hover/heading:text-white transition-colors">
                       {group}
                     </span>
-                  </div>
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-[#8e95a1] transition-transform duration-200 group-hover/heading:text-white", !isOpen && "-rotate-90")} />
+                  </button>
                 )}
-                <div className="flex flex-col">
+                
+                {/* When collapsed, we just show all items regardless of group toggle, or maybe we just don't show the toggle. */}
+                {(isOpen || collapsed) && (
+                  <div className="flex flex-col gap-[2px]">
                   {items.map((item) => {
                     const active = isActive(item.to);
                     return (
@@ -182,15 +200,16 @@ export function AppSidebar({
                         <item.icon className={cn("shrink-0", collapsed ? "w-[20px] h-[20px]" : "w-[16px] h-[16px]", active ? "text-[#ffffff]" : "text-[#8e95a1] group-hover:text-[#ffffff]")} strokeWidth={active ? 2 : 1.5} />
                         
                         {!collapsed && (
-                          <span className={cn("text-[14px] flex-1 truncate", active ? "font-[500] text-[#ffffff]" : "font-[400] text-[#8e95a1] group-hover:text-[#ffffff]")}>
-                            {item.label}
-                          </span>
-                        )}
-
-                        {item.badge && !collapsed && (
-                          <span className="flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-white/10 px-1.5 text-[10px] font-[600] text-white">
-                            {item.badge}
-                          </span>
+                          <>
+                            <span className={cn("text-[14px] flex-1 truncate", active ? "font-[500] text-[#ffffff]" : "font-[400] text-[#8e95a1] group-hover:text-[#ffffff]")}>
+                              {item.label}
+                            </span>
+                            {item.badge != null && item.badge > 0 && (
+                              <span className="ml-auto flex items-center justify-center min-w-[24px] h-[20px] rounded-[4px] bg-white/10 px-[6px] text-[10px] font-[600] leading-none text-white tabular-nums">
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
                         )}
 
                         {collapsed && item.badge && (
@@ -199,7 +218,8 @@ export function AppSidebar({
                       </Link>
                     );
                   })}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}

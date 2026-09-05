@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import type { User } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/workspace/admin/password-request")({
+export const Route = createFileRoute("/workspace/app/password-request")({
   component: AdminPasswordRequest,
 });
 
@@ -184,15 +184,15 @@ function AdminPasswordRequest() {
 
         {/* Mobile Bottom Nav */}
         <div className="fixed bottom-0 left-0 right-0 flex lg:hidden flex-row items-center justify-around bg-[#ffffff] border-t border-[#e2e5e9] py-[10px] z-30">
-          <Link to="/workspace/admin/add-account" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/add-account" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 4V16M4 10H16" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <span className="text-[10px] font-[500] text-[#8e95a1]">New{"\n"}Account</span>
           </Link>
-          <Link to="/workspace/admin/manage-account" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/manage-account" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 14C13 11.79 11.21 10 9 10C6.79 10 5 11.79 5 14" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="6" r="3" stroke="#8e95a1" strokeWidth="1.5"/></svg>
             <span className="text-[10px] font-[500] text-[#8e95a1]">Manage{"\n"}Account</span>
           </Link>
-          <Link to="/workspace/admin/password-request" className="flex flex-col items-center gap-[4px]">
+          <Link to="/workspace/app/password-request" className="flex flex-col items-center gap-[4px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="9" rx="2" stroke="#141a1f" strokeWidth="1.5"/><path d="M7 8V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V8" stroke="#141a1f" strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="13" r="1.5" fill="#141a1f"/></svg>
             <span className="text-[10px] font-[600] text-[#141a1f]">Password{"\n"}Requests</span>
             <div className="w-[40px] h-[2px] bg-[#141a1f] rounded-full"></div>

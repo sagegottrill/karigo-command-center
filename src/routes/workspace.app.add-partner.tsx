@@ -5,7 +5,7 @@ import { adminService, authService } from "@/lib/fleetopsx/services";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/workspace/admin/add-partner")({
+export const Route = createFileRoute("/workspace/app/add-partner")({
   component: AddPartner,
 });
 
@@ -83,7 +83,7 @@ function AddPartner() {
 
   const handleShareDone = () => {
     setShowShareModal(false);
-    navigate({ to: "/workspace/admin/manage-account" }); // Assume manage partners is in manage accounts for now
+    navigate({ to: "/workspace/app/manage-account" }); // Assume manage partners is in manage accounts for now
   };
 
   return (
