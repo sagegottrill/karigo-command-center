@@ -99,23 +99,41 @@ function SisterCompanyDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-auto">
-        <div className="flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
+      <div className="flex flex-col flex-1 overflow-auto relative pb-[80px] lg:pb-0">
+        
+        {/* Mobile Header */}
+        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1B2432]">
+          <div className="flex items-center gap-[12px]">
+            <span className="text-[16px] font-[500] text-[#ffffff]">Partner Portal</span>
+          </div>
+          <button onClick={() => setShowLogout(!showLogout)} className="w-[32px] h-[32px] rounded-full bg-[#ed351d] flex items-center justify-center relative">
+            <span className="text-[12px] font-[600] text-[#ffffff]">{userInitials}</span>
+          </button>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
           <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Partner Portal</h1>
           <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
             MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
           </p>
         </div>
 
-        <div className="flex flex-col px-[40px] py-[32px] flex-1">
-          <div className="flex flex-col gap-[8px] mb-[32px]">
-            <h2 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">Dashboard</h2>
-            <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
-              TRACK YOUR TRANSPORT REQUESTS AND THEIR CURRENT STATUSES
-            </p>
+        <div className="flex flex-col px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex-1">
+          <div className="flex flex-row items-start justify-between mb-[24px] lg:mb-[32px]">
+            <div className="flex flex-col gap-[8px]">
+              <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f]">Dashboard</h2>
+              <p className="text-[12px] font-[400] lg:font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
+                TRACK YOUR TRANSPORT REQUESTS AND THEIR CURRENT STATUSES
+              </p>
+            </div>
+            <Link to="/workspace/customer-portal/request" className="hidden lg:flex flex-row items-center justify-center py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors">
+              <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ New Request</span>
+            </Link>
           </div>
 
-          <div className="rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] shadow-[0px_4px_24px_rgba(0,0,0,0.04)] p-4">
+          {/* Desktop Table */}
+          <div className="hidden lg:block rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] shadow-[0px_4px_24px_rgba(0,0,0,0.04)] p-4">
             <DataTable
               rows={requests}
               columns={columns}
@@ -124,10 +142,72 @@ function SisterCompanyDashboard() {
               onRowClick={(r) => navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: r.id } })}
             />
           </div>
+
+          {/* Mobile Card List */}
+          <div className="flex lg:hidden flex-col gap-[12px]">
+            {requests.length === 0 ? (
+              <div className="text-center py-8 text-[#8e95a1] text-[14px]">No requests found.</div>
+            ) : (
+              requests.map((req) => (
+                <div 
+                  key={req.id} 
+                  className="flex flex-col rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] px-[16px] py-[16px] relative cursor-pointer hover:border-[#ed351d] transition-colors"
+                  onClick={() => navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: req.id } })}
+                >
+                  <div className="flex flex-row items-center justify-between mb-[12px]">
+                    <span className="text-[14px] font-[600] text-[#141a1f]">{req.id}</span>
+                    <StatusBadge status={req.status} />
+                  </div>
+                  
+                  <div className="flex flex-col gap-[8px]">
+                    <div className="flex flex-row items-start justify-between">
+                      <div className="flex flex-col flex-1">
+                        <span className="text-[11px] font-[500] text-[#8e95a1] uppercase mb-[2px]">Consignee</span>
+                        <span className="text-[14px] font-[500] text-[#141a1f]">{req.customerConsignee || "—"}</span>
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <span className="text-[11px] font-[500] text-[#8e95a1] uppercase mb-[2px]">Asset Type</span>
+                        <span className="text-[14px] font-[500] text-[#141a1f]">{req.tailType || "—"}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-row items-center gap-[12px] mt-[4px]">
+                      <div className="flex flex-col items-center gap-[4px] mt-[4px]">
+                        <div className="w-[8px] h-[8px] rounded-full border-[2px] border-[#141a1f]"></div>
+                        <div className="w-[2px] h-[16px] bg-[#e2e5e9]"></div>
+                        <div className="w-[8px] h-[8px] rounded-full bg-[#ed351d]"></div>
+                      </div>
+                      <div className="flex flex-col justify-between h-[44px]">
+                        <span className="text-[13px] font-[400] text-[#5c6470]">{req.loadingSite && req.loadingSite.length > 1 ? `${req.loadingSite.length} Sites` : (req.pickup || "—")}</span>
+                        <span className="text-[13px] font-[400] text-[#5c6470]">{req.dropoff}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
+
+        {/* Mobile Floating Action Button */}
+        <Link 
+          to="/workspace/customer-portal/request" 
+          className="lg:hidden fixed bottom-[24px] right-[24px] w-[56px] h-[56px] rounded-full bg-[#ed351d] shadow-[0px_4px_16px_rgba(237,53,29,0.4)] flex items-center justify-center z-40"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 5V19M5 12H19" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
+        
+        {/* Mobile Logout Dropdown */}
+        {showLogout && (
+          <div className="lg:hidden fixed top-[60px] right-[16px] z-50 w-[160px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] p-[8px]">
+            <button onClick={handleLogout} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#ed351d] hover:bg-[#f6f7f9] rounded-[4px]">Log Out</button>
+          </div>
+        )}
       </div>
 
-      {showLogout && <div className="fixed inset-0 z-30" onClick={() => setShowLogout(false)} />}
+      {showLogout && <div className="fixed inset-0 z-30 lg:hidden" onClick={() => setShowLogout(false)} />}
     </div>
   );
 }
