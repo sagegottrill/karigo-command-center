@@ -41,7 +41,7 @@ function AppShell() {
   }, []);
 
   return (
-    <div className="flex min-h-screen w-full bg-[#f5f5f7]">
+    <div className="flex min-h-screen w-full bg-[#f6f7f9]">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />

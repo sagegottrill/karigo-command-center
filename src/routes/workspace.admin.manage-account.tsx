@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search, MoreVertical, X, ArrowLeft, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
+import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import type { User } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
@@ -18,6 +19,8 @@ function AdminManageAccount() {
   const [sortBy, setSortBy] = useState("Username");
   const [orderBy, setOrderBy] = useState("Ascending");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [showOptions, setShowOptions] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
 
   // Confirmation modals
@@ -83,53 +86,7 @@ function AdminManageAccount() {
   return (
     <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
-        <div className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
-          <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[140px] h-[48px] object-contain" />
-        </div>
-        <div className="flex flex-col flex-1 py-[24px]">
-          <div className="px-[24px] mb-[12px]">
-            <span className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">STAFF ACCOUNT</span>
-          </div>
-          <div className="flex flex-col">
-            <Link to="/workspace/admin/add-account" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
-              <div className="w-[16px] h-[16px] flex items-center justify-center rounded-full border-[1.5px] border-[#ffffff]">
-                <span className="text-[#ffffff] text-[10px] font-bold leading-none">+</span>
-              </div>
-              <span className="text-[14px] font-[400] leading-[16.94px] text-[#ffffff]">Add New Account</span>
-            </Link>
-            <Link to="/workspace/admin/manage-account" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] bg-[#ed351d]">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-                <rect x="9" y="2" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-                <rect x="2" y="9" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-                <rect x="9" y="9" width="5" height="5" rx="1" stroke="white" strokeWidth="1.5"/>
-              </svg>
-              <span className="text-[14px] font-[500] leading-[16.94px] text-[#ffffff]">Account Management</span>
-            </Link>
-            <Link to="/workspace/admin/password-request" className="flex flex-row items-center px-[24px] py-[12px] gap-[12px] hover:bg-white/5 transition-colors">
-              <div className="w-[16px] h-[16px] flex items-center justify-center rounded-full border-[1.5px] border-[#ffffff]">
-                <span className="text-[#ffffff] text-[10px] font-bold leading-none">?</span>
-              </div>
-              <span className="text-[14px] font-[400] leading-[16.94px] text-[#ffffff]">Password Request</span>
-            </Link>
-          </div>
-        </div>
-        <div className="mt-auto p-[24px] border-t border-[#ffffff]/5">
-          <div className="flex flex-row items-center justify-between">
-            <div className="flex flex-row items-center gap-[12px]">
-              <div className="w-[32px] h-[32px] rounded-[4px] bg-[#e2e5e9] flex items-center justify-center">
-                <span className="text-[14px] font-[600] text-[#141a1f]">{currentUser?.initials || "JD"}</span>
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[14px] font-[600] leading-[16.94px] text-[#ffffff]">{currentUser?.name || "J.Doe"}</span>
-                <span className="text-[12px] font-[400] leading-[14.52px] text-[#8e95a1]">{currentUser?.email || "j.doe@gmail.com"}</span>
-              </div>
-            </div>
-            <MoreVertical className="w-[16px] h-[16px] text-[#8e95a1] cursor-pointer" />
-          </div>
-        </div>
-      </div>
+      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-auto relative pb-[80px] lg:pb-0">

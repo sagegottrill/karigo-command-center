@@ -11,12 +11,36 @@ import { Route as RootRoute } from "../../routes/__root";
 export interface NavItem {
   label: string;
   to: string;
-  icon: typeof Truck;
+  icon: any; // Can be a Lucide icon or a custom functional component
   badge?: number;
   group: string;
 }
 
+const CustomAddIcon = ({ className, strokeWidth }: any) => (
+  <div className={cn("flex items-center justify-center rounded-full border", className)} style={{ borderWidth: strokeWidth }}>
+    <span className="text-[10px] font-bold leading-none">+</span>
+  </div>
+);
+
+const CustomManageIcon = ({ className, strokeWidth }: any) => (
+  <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth={strokeWidth}/>
+    <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth={strokeWidth}/>
+    <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth={strokeWidth}/>
+    <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth={strokeWidth}/>
+  </svg>
+);
+
+const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
+  <div className={cn("flex items-center justify-center rounded-full border", className)} style={{ borderWidth: strokeWidth }}>
+    <span className="text-[10px] font-bold leading-none">?</span>
+  </div>
+);
+
 export const NAV: NavItem[] = [
+  { label: "Add New Account", to: "/workspace/admin/add-account", icon: CustomAddIcon, group: "Staff Account" },
+  { label: "Account Management", to: "/workspace/admin/manage-account", icon: CustomManageIcon, group: "Staff Account" },
+  { label: "Password Request", to: "/workspace/admin/password-request", icon: CustomPasswordIcon, group: "Staff Account" },
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
   { label: "Fleet", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Main" },
   { label: "Trips", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Main" },
@@ -33,7 +57,7 @@ export const NAV: NavItem[] = [
   { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
+const GROUPS = ["Staff Account", "Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
 
 export function AppSidebar({
   collapsed,
@@ -63,6 +87,9 @@ export function AppSidebar({
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SU";
 
   const allowedNav = NAV.filter(item => {
+    // Admin stuff is available to those who can see Admin module
+    if (item.group === "Staff Account") return allowedModules.includes("All modules") || allowedModules.includes("Admin");
+
     if (allowedModules.includes("All modules")) return true;
     if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 
     
