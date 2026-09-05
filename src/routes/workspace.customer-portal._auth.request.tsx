@@ -172,7 +172,7 @@ function PartnerNewRequest() {
               <div className="flex flex-col gap-[20px]">
                 {/* Customer Name */}
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Customer Name (Cosignee)</label>
+                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Customer Name</label>
                   <input
                     type="text"
                     value={customerConsignee}

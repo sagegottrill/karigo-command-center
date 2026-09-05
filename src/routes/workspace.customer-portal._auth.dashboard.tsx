@@ -33,7 +33,7 @@ function SisterCompanyDashboard() {
 
   const columns: Column<Trip>[] = [
     { key: "id", header: "Request ID", cell: (r) => <span className="font-medium text-xs">{r.id}</span> },
-    { key: "customerConsignee", header: "Consignee", cell: (r) => <span className="text-xs">{r.customerConsignee || "—"}</span> },
+    { key: "customerConsignee", header: "Customer Name", cell: (r) => <span className="text-xs">{r.customerConsignee || "—"}</span> },
     { key: "pickup", header: "Pickup", cell: (r) => <span className="text-xs">{r.loadingSite && r.loadingSite.length > 1 ? `${r.loadingSite.length} Sites` : (r.pickup || "—")}</span> },
     { key: "dropoff", header: "Destination", cell: (r) => <span className="text-xs">{r.dropoff}</span> },
     { key: "tailType", header: "Tail Type", cell: (r) => <span className="text-xs">{r.tailType || "—"}</span> },
@@ -162,7 +162,7 @@ function SisterCompanyDashboard() {
                   <div className="flex flex-col gap-[8px]">
                     <div className="flex flex-row items-start justify-between">
                       <div className="flex flex-col flex-1">
-                        <span className="text-[11px] font-[500] text-[#8e95a1] uppercase mb-[2px]">Consignee</span>
+                        <span className="text-[11px] font-[500] text-[#8e95a1] uppercase mb-[2px]">Customer Name</span>
                         <span className="text-[14px] font-[500] text-[#141a1f]">{req.customerConsignee || "—"}</span>
                       </div>
                       <div className="flex flex-col flex-1">
