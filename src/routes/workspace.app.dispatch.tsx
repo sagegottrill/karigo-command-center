@@ -95,7 +95,7 @@ function DispatchPage() {
   const tail = TRUCK_TAILS.find((t) => t.id === form.tailId);
   const driver = drivers.find((d) => d.id === form.driverId);
   const distance = form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0;
-  const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "â€”";
+  const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
 
   const validate = (validateAll = false) => {
     const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailCalibration" | "manualDriver", string>> = {};
@@ -222,7 +222,7 @@ function DispatchPage() {
                   <SelectContent>
                     {pendingOrders.map((o) => (
                       <SelectItem key={o.id} value={o.id} className="text-xs">
-                        <span className="font-semibold">{o.customer}</span> â€” {o.cargo} to {o.dropoff}
+                        <span className="font-semibold">{o.customer}</span> — {o.cargo} to {o.dropoff}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -363,8 +363,8 @@ function DispatchPage() {
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-[11px] font-semibold text-foreground">{d.initials}</span>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-foreground">SAL: {d.salaryNumber} â€” {d.name}</p>
-                          <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "â€”"}</p>
+                          <p className="truncate text-xs font-semibold text-foreground">SAL: {d.salaryNumber} — {d.name}</p>
+                          <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "—"}</p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -462,8 +462,8 @@ function DispatchPage() {
               </div>
               <div>
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
-                <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "â€”"} />
-                <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "â€”")} />
+                <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
+                <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "—")} />
                 <FieldRow label="Total Direct Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
                 <FieldRow label="Lubricant" value={form.costs.lubricantType} />
               </div>
@@ -485,11 +485,11 @@ function DispatchPage() {
         <div className="flex flex-col gap-5">
           <SectionPanel title="Dispatch Summary" bodyClassName="pt-1">
             <FieldRow label="Trip ID" value={tripId} />
-            <FieldRow label="Customer" value={form.customer || "â€”"} />
-            <FieldRow label="Route" value={form.pickup && form.dropoff ? `${form.pickup} â†’ ${form.dropoff}` : "â€”"} />
-            <FieldRow label="Head (Cap No)" value={head ? `${head.capNumber} (${head.registration})` : "â€”"} />
-            <FieldRow label="Tail Config" value={tail ? `${tail.registration} (${form.tailCalibration})` : "â€”"} />
-            <FieldRow label="Driver (Salary No)" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver ? `${driver.salaryNumber} (${driver.name})` : "â€”")} />
+            <FieldRow label="Customer" value={form.customer || "—"} />
+            <FieldRow label="Route" value={form.pickup && form.dropoff ? `${form.pickup} → ${form.dropoff}` : "—"} />
+            <FieldRow label="Head (Cap No)" value={head ? `${head.capNumber} (${head.registration})` : "—"} />
+            <FieldRow label="Tail Config" value={tail ? `${tail.registration} (${form.tailCalibration})` : "—"} />
+            <FieldRow label="Driver (Salary No)" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver ? `${driver.salaryNumber} (${driver.name})` : "—")} />
             <FieldRow label="Total Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
           </SectionPanel>
 

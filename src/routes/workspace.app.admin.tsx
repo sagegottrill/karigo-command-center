@@ -161,7 +161,7 @@ function AdminPage() {
     { key: "driver", header: "Driver", cell: (r) => <span className="text-xs">{r.driverName}</span> },
     { key: "costs", header: "Direct Costs", cell: (r) => (
       <span className="text-xs font-mono">
-        {r.directCosts ? `\u20A6${(r.directCosts.tripAllowance + r.directCosts.returnWaybill + r.directCosts.motorBoy + r.directCosts.ticket + r.directCosts.extraAllowance).toLocaleString()}` : 'â€”'}
+        {r.directCosts ? `\u20A6${(r.directCosts.tripAllowance + r.directCosts.returnWaybill + r.directCosts.motorBoy + r.directCosts.ticket + r.directCosts.extraAllowance).toLocaleString()}` : '—'}
       </span>
     )},
     { key: "actions", header: "", align: "right", cell: (r) => (

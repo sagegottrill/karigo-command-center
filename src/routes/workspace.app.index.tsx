@@ -261,7 +261,7 @@ function ManagementDashboard({ data }: { data: any }) {
           </div>
         </section>
 
-        {/* Right column â€” Analytic stacked on Fleet so neither stretches empty */}
+        {/* Right column — Analytic stacked on Fleet so neither stretches empty */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-5 xl:grid-cols-1 xl:content-stretch">
           {/* Analytic View */}
           <section className={cn(card, "flex flex-col p-[24px]")}>
@@ -490,7 +490,7 @@ function ManagementDashboard({ data }: { data: any }) {
                   <td className="border-b border-black/[0.04] px-4 py-3.5 text-[13px] text-muted-foreground">{t.cargo}</td>
                   <td className="border-b border-black/[0.04] px-4 py-3.5 text-[13px]">{t.customer}</td>
                   <td className="num border-b border-black/[0.04] px-4 py-3.5 text-[13px]">{t.eta}</td>
-                  <td className="border-b border-black/[0.04] px-4 py-3.5 text-[13px] text-muted-foreground">{t.pickup} â†’ {t.dropoff}</td>
+                  <td className="border-b border-black/[0.04] px-4 py-3.5 text-[13px] text-muted-foreground">{t.pickup} → {t.dropoff}</td>
                   <td className="border-b border-black/[0.04] px-4 py-3.5 pr-5"><StatusBadge status={t.status} /></td>
                 </tr>
               ))}

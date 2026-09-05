@@ -102,7 +102,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
             <StatusBadge status={selected.status} />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {selected.pickup} â†’ {selected.dropoff}
+            {selected.pickup} → {selected.dropoff}
           </p>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
             <dt className="text-muted-foreground">Driver</dt>

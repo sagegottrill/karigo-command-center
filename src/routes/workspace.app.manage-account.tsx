@@ -37,12 +37,14 @@ function AdminManageAccount() {
     { key: "id", header: "Staff ID", sortValue: (r) => r.id, cell: (r) => <span className="text-[#5c6470]">ID:{r.id}</span> },
     { key: "user", header: "Username", sortValue: (r) => r.username, cell: (r) => r.username },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "actions", header: "", align: "right", cell: (r) => (
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("password", r.id); }}>Reset Password</Button>
-        <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
-      </div>
-    )},
+    {
+      key: "actions", header: "", align: "right", cell: (r) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("password", r.id); }}>Reset Password</Button>
+          <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
+        </div>
+      )
+    },
   ];
 
   const handleAction = (type: "password" | "suspend" | "delete", userId: string) => {
@@ -119,7 +121,7 @@ function AdminManageAccount() {
       />
 
       <SectionPanel title="Manage Staff Account" description="Manage listing of internal company staff" bodyClassName="p-0 mt-4">
-        <DataTable 
+        <DataTable
           rows={filtered}
           columns={columns}
           searchKeys={(r) => `${r.name} ${r.username} ${r.id} ${r.department}`}
@@ -160,15 +162,15 @@ function AdminManageAccount() {
             <div className="w-full h-[1px] bg-[#e2e5e9]"></div>
             <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
               <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareWhatsApp}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141a1f"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141a1f" /></svg>
                 <span className="text-[12px] font-[500] text-[#5c6470]">WhatsApp</span>
               </div>
               <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareEmail}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141a1f"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141a1f" /></svg>
                 <span className="text-[12px] font-[500] text-[#5c6470]">Gmail</span>
               </div>
               <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleCopyLink}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141a1f"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141a1f" /></svg>
                 <span className="text-[12px] font-[500] text-[#5c6470]">Copy</span>
               </div>
             </div>

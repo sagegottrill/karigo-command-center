@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
-import { Route as PwaTenantIdRouteImport } from './routes/pwa.$tenantId'
 import { Route as WorkspaceAccountTypeRouteImport } from './routes/workspace.account-type'
 import { Route as WorkspaceAppRouteImport } from './routes/workspace.app'
 import { Route as WorkspaceCustomerPortalRouteImport } from './routes/workspace.customer-portal'
@@ -20,6 +19,8 @@ import { Route as WorkspaceForgotPasswordRouteImport } from './routes/workspace.
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceAppIndexRouteImport } from './routes/workspace.app.index'
 import { Route as WorkspaceAppAccountsRouteImport } from './routes/workspace.app.accounts'
+import { Route as WorkspaceAppAddAccountRouteImport } from './routes/workspace.app.add-account'
+import { Route as WorkspaceAppAddPartnerRouteImport } from './routes/workspace.app.add-partner'
 import { Route as WorkspaceAppAdminRouteImport } from './routes/workspace.app.admin'
 import { Route as WorkspaceAppAuditRouteImport } from './routes/workspace.app.audit'
 import { Route as WorkspaceAppComplianceRouteImport } from './routes/workspace.app.compliance'
@@ -30,8 +31,10 @@ import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fl
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
+import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
 import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
+import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
 import { Route as WorkspaceAppReportsRouteImport } from './routes/workspace.app.reports'
 import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace.app.unauthorized'
 import { Route as WorkspaceCustomerPortalIndexRouteImport } from './routes/workspace.customer-portal.index'
@@ -58,11 +61,6 @@ const SuperadminRoute = SuperadminRouteImport.update({
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PwaTenantIdRoute = PwaTenantIdRouteImport.update({
-  id: '/pwa/$tenantId',
-  path: '/pwa/$tenantId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceAccountTypeRoute = WorkspaceAccountTypeRouteImport.update({
@@ -98,6 +96,16 @@ const WorkspaceAppIndexRoute = WorkspaceAppIndexRouteImport.update({
 const WorkspaceAppAccountsRoute = WorkspaceAppAccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAddAccountRoute = WorkspaceAppAddAccountRouteImport.update({
+  id: '/add-account',
+  path: '/add-account',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAddPartnerRoute = WorkspaceAppAddPartnerRouteImport.update({
+  id: '/add-partner',
+  path: '/add-partner',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
 const WorkspaceAppAdminRoute = WorkspaceAppAdminRouteImport.update({
@@ -151,6 +159,12 @@ const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppManageAccountRoute =
+  WorkspaceAppManageAccountRouteImport.update({
+    id: '/manage-account',
+    path: '/manage-account',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppMessagesRoute = WorkspaceAppMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -160,6 +174,12 @@ const WorkspaceAppNotificationsRoute =
   WorkspaceAppNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppPasswordRequestRoute =
+  WorkspaceAppPasswordRequestRouteImport.update({
+    id: '/password-request',
+    path: '/password-request',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
 const WorkspaceAppReportsRoute = WorkspaceAppReportsRouteImport.update({
@@ -235,13 +255,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/superadmin': typeof SuperadminRoute
   '/workspace': typeof WorkspaceRouteWithChildren
-  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
   '/workspace/app': typeof WorkspaceAppRouteWithChildren
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
+  '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
@@ -252,8 +273,10 @@ export interface FileRoutesByFullPath {
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
@@ -271,11 +294,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/superadmin': typeof SuperadminRoute
   '/workspace': typeof WorkspaceRouteWithChildren
-  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
+  '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
@@ -286,8 +310,10 @@ export interface FileRoutesByTo {
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalIndexRoute
@@ -306,13 +332,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/superadmin': typeof SuperadminRoute
   '/workspace': typeof WorkspaceRouteWithChildren
-  '/pwa/$tenantId': typeof PwaTenantIdRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
   '/workspace/app': typeof WorkspaceAppRouteWithChildren
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
+  '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
@@ -323,8 +350,10 @@ export interface FileRoutesById {
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal/_auth': typeof WorkspaceCustomerPortalAuthRouteWithChildren
@@ -345,13 +374,14 @@ export interface FileRouteTypes {
     | '/'
     | '/superadmin'
     | '/workspace'
-    | '/pwa/$tenantId'
     | '/workspace/account-type'
     | '/workspace/app'
     | '/workspace/customer-portal'
     | '/workspace/forgot-password'
     | '/workspace/login'
     | '/workspace/app/accounts'
+    | '/workspace/app/add-account'
+    | '/workspace/app/add-partner'
     | '/workspace/app/admin'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
@@ -362,8 +392,10 @@ export interface FileRouteTypes {
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
+    | '/workspace/app/manage-account'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal/login'
@@ -381,11 +413,12 @@ export interface FileRouteTypes {
     | '/'
     | '/superadmin'
     | '/workspace'
-    | '/pwa/$tenantId'
     | '/workspace/account-type'
     | '/workspace/forgot-password'
     | '/workspace/login'
     | '/workspace/app/accounts'
+    | '/workspace/app/add-account'
+    | '/workspace/app/add-partner'
     | '/workspace/app/admin'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
@@ -396,8 +429,10 @@ export interface FileRouteTypes {
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
+    | '/workspace/app/manage-account'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal'
@@ -415,13 +450,14 @@ export interface FileRouteTypes {
     | '/'
     | '/superadmin'
     | '/workspace'
-    | '/pwa/$tenantId'
     | '/workspace/account-type'
     | '/workspace/app'
     | '/workspace/customer-portal'
     | '/workspace/forgot-password'
     | '/workspace/login'
     | '/workspace/app/accounts'
+    | '/workspace/app/add-account'
+    | '/workspace/app/add-partner'
     | '/workspace/app/admin'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
@@ -432,8 +468,10 @@ export interface FileRouteTypes {
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/inventory'
+    | '/workspace/app/manage-account'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal/_auth'
@@ -453,7 +491,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SuperadminRoute: typeof SuperadminRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
-  PwaTenantIdRoute: typeof PwaTenantIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -477,13 +514,6 @@ declare module '@tanstack/react-router' {
       path: '/workspace'
       fullPath: '/workspace'
       preLoaderRoute: typeof WorkspaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pwa/$tenantId': {
-      id: '/pwa/$tenantId'
-      path: '/pwa/$tenantId'
-      fullPath: '/pwa/$tenantId'
-      preLoaderRoute: typeof PwaTenantIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspace/account-type': {
@@ -533,6 +563,20 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/workspace/app/accounts'
       preLoaderRoute: typeof WorkspaceAppAccountsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/add-account': {
+      id: '/workspace/app/add-account'
+      path: '/add-account'
+      fullPath: '/workspace/app/add-account'
+      preLoaderRoute: typeof WorkspaceAppAddAccountRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/add-partner': {
+      id: '/workspace/app/add-partner'
+      path: '/add-partner'
+      fullPath: '/workspace/app/add-partner'
+      preLoaderRoute: typeof WorkspaceAppAddPartnerRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/admin': {
@@ -605,6 +649,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppInventoryRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/manage-account': {
+      id: '/workspace/app/manage-account'
+      path: '/manage-account'
+      fullPath: '/workspace/app/manage-account'
+      preLoaderRoute: typeof WorkspaceAppManageAccountRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/messages': {
       id: '/workspace/app/messages'
       path: '/messages'
@@ -617,6 +668,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/workspace/app/notifications'
       preLoaderRoute: typeof WorkspaceAppNotificationsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/password-request': {
+      id: '/workspace/app/password-request'
+      path: '/password-request'
+      fullPath: '/workspace/app/password-request'
+      preLoaderRoute: typeof WorkspaceAppPasswordRequestRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/reports': {
@@ -708,6 +766,8 @@ declare module '@tanstack/react-router' {
 
 interface WorkspaceAppRouteChildren {
   WorkspaceAppAccountsRoute: typeof WorkspaceAppAccountsRoute
+  WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
+  WorkspaceAppAddPartnerRoute: typeof WorkspaceAppAddPartnerRoute
   WorkspaceAppAdminRoute: typeof WorkspaceAppAdminRoute
   WorkspaceAppAuditRoute: typeof WorkspaceAppAuditRoute
   WorkspaceAppComplianceRoute: typeof WorkspaceAppComplianceRoute
@@ -718,8 +778,10 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
+  WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
   WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
+  WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
   WorkspaceAppReportsRoute: typeof WorkspaceAppReportsRoute
   WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
   WorkspaceAppIndexRoute: typeof WorkspaceAppIndexRoute
@@ -731,6 +793,8 @@ interface WorkspaceAppRouteChildren {
 
 const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppAccountsRoute: WorkspaceAppAccountsRoute,
+  WorkspaceAppAddAccountRoute: WorkspaceAppAddAccountRoute,
+  WorkspaceAppAddPartnerRoute: WorkspaceAppAddPartnerRoute,
   WorkspaceAppAdminRoute: WorkspaceAppAdminRoute,
   WorkspaceAppAuditRoute: WorkspaceAppAuditRoute,
   WorkspaceAppComplianceRoute: WorkspaceAppComplianceRoute,
@@ -741,8 +805,10 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
+  WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
   WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
+  WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
   WorkspaceAppReportsRoute: WorkspaceAppReportsRoute,
   WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,
   WorkspaceAppIndexRoute: WorkspaceAppIndexRoute,
@@ -820,7 +886,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SuperadminRoute: SuperadminRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
-  PwaTenantIdRoute: PwaTenantIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

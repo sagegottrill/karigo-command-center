@@ -302,7 +302,7 @@ export function CommandCenterMap({
           <div className="absolute right-3 bottom-3 z-[500] max-w-[230px] rounded-[16px] bg-white/95 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
             <p className="num text-[12px] font-semibold">{selected.id}</p>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {selected.pickup} â†’ {selected.dropoff}
+              {selected.pickup} → {selected.dropoff}
             </p>
             <p
               className={cn("mt-1 text-[11px] font-semibold")}
