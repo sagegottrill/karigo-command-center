@@ -92,7 +92,7 @@ function MainLandingPage() {
             <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           </nav>
           <div className="flex items-center gap-4">
-            <Link to="/workspace/login">
+            <Link to="/superadmin">
               <Button className="rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold">
                 Access Portal
               </Button>
