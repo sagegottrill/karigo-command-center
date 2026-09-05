@@ -196,8 +196,6 @@ function AddPartner() {
               </button>
             </div>
           </form>
-        </div>
-
         {/* Confirm Modal */}
         {showConfirmModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60">
