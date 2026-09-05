@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Mock service layer.
  * Every screen reads through these functions, never from mock-data directly.
  * Replacing the bodies with real API calls is the only change needed once the
@@ -644,22 +644,27 @@ export const adminService = {
       companyId: payload.companyId,
     };
     store.users = [newUser, ...store.users];
+    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(newUser);
   },
   editUser: (id: string, payload: Partial<import("./types").User>) => {
     store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
+    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   resetPassword: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, passwordResetRequired: true } : u);
+    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   suspendUser: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Suspended" } : u);
+    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
   deleteUser: (id: string) => {
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Deleted" } : u);
+    if (typeof window !== "undefined") localStorage.setItem("fleetopsx_users", JSON.stringify(store.users));
     return settle(true);
   },
 };
@@ -696,6 +701,14 @@ export const dashboardService = {
 };
 
 /* -------------------------- in-memory mutable store ----------------------- */
+const loadUsers = () => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("fleetopsx_users");
+    if (saved) return JSON.parse(saved);
+  }
+  return [...db.USERS];
+};
+
 const store = {
   platformTenants: [...db.PLATFORM_TENANTS],
   companies: [...db.COMPANIES],
@@ -713,8 +726,7 @@ const store = {
   conversations: db.CONVERSATIONS.map((c) => ({ ...c, messages: [...c.messages] })),
   notifications: [...db.NOTIFICATIONS],
   audit: [...db.AUDIT_LOGS],
-  users: [...db.USERS],
-  companies: [...db.COMPANIES],
+  users: loadUsers(),
   loginReports: [...db.LOGIN_REPORTS],
 };
 
