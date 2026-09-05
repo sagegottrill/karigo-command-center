@@ -33,7 +33,7 @@ function PartnerNewRequest() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerConsignee || !product || !truckType || !destination) {
+    if (!customerConsignee || !truckType || !destination) {
       toast.error("Please fill all required fields");
       return;
     }

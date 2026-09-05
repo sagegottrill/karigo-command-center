@@ -1,10 +1,12 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Activity, Boxes, ChevronLeft, Fuel, Gauge, LayoutDashboard, LineChart,
-  MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell, Smartphone
+  MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell, Smartphone, MoreVertical, LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
+import { useState, useEffect } from "react";
+import { Route as RootRoute } from "../../routes/__root";
 
 export interface NavItem {
   label: string;
@@ -33,8 +35,6 @@ export const NAV: NavItem[] = [
 
 const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "Admin"];
 
-import { Route as RootRoute } from "../../routes/__root";
-
 export function AppSidebar({
   collapsed,
   onToggle,
@@ -43,21 +43,29 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
+  const [showLogout, setShowLogout] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const isActive = (to: string) =>
     to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(to);
 
+  const currentUser = authService.getCurrentUser();
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
   const activeRole = authService.getAllRoles().find(r => roleNames.includes(r.name)) || authService.getAllRoles()[0];
   const allowedModules = activeRole?.modules || [];
 
+  const userName = mounted && currentUser?.name ? currentUser.name : "System User";
+  const displayRole = mounted ? roleName : "Loading...";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SU";
+
   const allowedNav = NAV.filter(item => {
     if (allowedModules.includes("All modules")) return true;
-    if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; // always show overview
+    if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 
     
-    // Map NAV label to role modules
     const label = item.label;
     if (label === "Fleet" || label === "Dispatch") return allowedModules.includes("Fleet & Dispatch");
     if (label === "Trips") return allowedModules.includes("Trips");
@@ -70,120 +78,147 @@ export function AppSidebar({
     if (label === "Messages") return allowedModules.includes("Messages");
     if (label === "God View") return allowedModules.includes("God View");
     if (label === "Reports") return allowedModules.includes("Reports");
-    if (label === "Notifications") return true; // everyone gets notifications
+    if (label === "Notifications") return true; 
     if (label === "Audit" || label === "Settings") return allowedModules.includes("All modules");
     
     return false;
   });
 
+  const handleLogout = () => {
+    authService.logout();
+    navigate({ to: "/workspace/login" });
+  };
+
   return (
     <>
+      {/* Mobile Backdrop */}
       {!collapsed && (
         <div 
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" 
           onClick={onToggle}
         />
       )}
+      
+      {/* Sidebar Container */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col border-r border-black/[0.05] bg-[#f5f5f7] transition-all duration-300 ease-[var(--ease-apple)] md:sticky md:top-0",
-          collapsed ? "-translate-x-full md:translate-x-0 md:w-[76px]" : "translate-x-0 w-[248px]",
+          "fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col bg-[#1B2432] transition-all duration-300 ease-[var(--ease-apple)] md:sticky md:top-0 font-['Inter',sans-serif]",
+          collapsed ? "-translate-x-full md:translate-x-0 md:w-[80px]" : "translate-x-0 w-[260px]",
         )}
       >
-      <div
-        className={cn(
-          "flex h-[60px] shrink-0 items-center gap-3 bg-white border-b border-black/[0.05]",
-          collapsed ? "justify-center px-2" : "px-3",
-        )}
-      >
-        {tenantLogo ? (
-          <img src={tenantLogo} alt={tenantName} className="h-8 w-auto object-contain max-w-[140px]" />
-        ) : (
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1d1d1f] text-[13px] font-bold text-white shadow-sm">
-            {tenantName.charAt(0)}
-          </div>
-        )}
-        {!collapsed && !tenantLogo && (
-          <span className="truncate text-[14px] font-bold tracking-tight text-[#1d1d1f]">
-            {tenantName}
-          </span>
-        )}
-      </div>
+        {/* Header / Logo */}
+        <div className={cn("pt-[24px] pb-[24px] flex border-b border-[#ffffff]/5", collapsed ? "justify-center px-[8px]" : "justify-center px-[24px]")}>
+          {tenantLogo ? (
+            <img src={tenantLogo} alt={tenantName} className={cn("object-contain", collapsed ? "w-[40px] h-[40px]" : "w-[140px] h-[48px]")} />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className={cn("object-contain", collapsed ? "w-[40px] h-[40px] object-cover object-left" : "w-[140px] h-[48px]")} />
+          )}
+        </div>
 
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-4 pt-4">
-        {GROUPS.map((group) => {
-          const items = allowedNav.filter((n) => n.group === group);
-          if (!items.length) return null;
-          return (
-            <div key={group} className="mb-4">
-              {!collapsed && (
-                <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-[0.04em] text-muted-foreground/80 uppercase">
-                  {group}
-                </p>
-              )}
-              <ul className="space-y-1">
-                {items.map((item) => {
-                  const active = isActive(item.to);
-                  return (
-                    <li key={item.to}>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[24px] custom-scrollbar">
+          {GROUPS.map((group) => {
+            const items = allowedNav.filter((n) => n.group === group);
+            if (!items.length) return null;
+            return (
+              <div key={group} className="flex flex-col">
+                {!collapsed && (
+                  <div className="px-[24px] mb-[12px]">
+                    <span className="text-[11px] font-[500] leading-[14px] tracking-[0.05em] text-[#8e95a1] uppercase">
+                      {group}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  {items.map((item) => {
+                    const active = isActive(item.to);
+                    return (
                       <Link
+                        key={item.to}
                         to={item.to}
                         title={collapsed ? item.label : undefined}
                         className={cn(
-                          "relative flex items-center gap-2.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors duration-150 active:scale-[0.98]",
-                          collapsed && "justify-center px-0",
-                          active
-                            ? "bg-[#1d1d1f] text-white shadow-[0_1px_2px_rgba(0,0,0,0.14)]"
-                            : "text-[#3a3a3c] hover:bg-black/[0.045] hover:text-foreground",
+                          "relative flex flex-row items-center transition-colors group",
+                          collapsed ? "justify-center py-[12px] px-[8px] mx-[12px] rounded-[8px]" : "px-[24px] py-[12px] gap-[12px]",
+                          active ? "bg-[#ed351d]" : "hover:bg-white/5",
                         )}
                       >
-                        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-                          <item.icon className="h-[17px] w-[17px]" strokeWidth={active ? 2.2 : 1.7} />
-                          {collapsed && item.badge ? (
-                            <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-[#1d1d1f]" />
-                          ) : null}
-                        </span>
-                        {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
-                        {!collapsed && item.badge ? (
-                          <span
-                            className={cn(
-                              "num shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                              active ? "bg-white/15 text-white" : "bg-black/[0.06] text-muted-foreground",
-                            )}
-                          >
+                        <item.icon className={cn("shrink-0", collapsed ? "w-[20px] h-[20px]" : "w-[16px] h-[16px]", active ? "text-[#ffffff]" : "text-[#8e95a1] group-hover:text-[#ffffff]")} strokeWidth={active ? 2 : 1.5} />
+                        
+                        {!collapsed && (
+                          <span className={cn("text-[14px] flex-1 truncate", active ? "font-[500] text-[#ffffff]" : "font-[400] text-[#8e95a1] group-hover:text-[#ffffff]")}>
+                            {item.label}
+                          </span>
+                        )}
+
+                        {item.badge && !collapsed && (
+                          <span className="flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-white/10 px-1.5 text-[10px] font-[600] text-white">
                             {item.badge}
                           </span>
-                        ) : null}
+                        )}
+
+                        {collapsed && item.badge && (
+                          <span className="absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full bg-[#ed351d]" />
+                        )}
                       </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="mt-auto flex flex-col">
+          {/* Collapse Toggle */}
+          <div className="px-[12px] pb-[12px]">
+            <button
+              onClick={onToggle}
+              className="flex w-full items-center justify-center gap-2 rounded-[8px] py-[10px] text-[#8e95a1] hover:bg-white/5 hover:text-white transition-colors"
+              title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <ChevronLeft className={cn("w-[16px] h-[16px] transition-transform duration-300", collapsed && "rotate-180")} />
+              {!collapsed && <span className="text-[12px] font-[500]">Collapse Sidebar</span>}
+            </button>
+          </div>
+
+          {/* Logout Menu */}
+          {showLogout && (
+            <div className="px-[12px] pb-[12px] animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <button 
+                onClick={handleLogout} 
+                className="flex flex-row items-center justify-center w-full py-[10px] gap-2 rounded-[8px] border-[1px] border-[#ed351d] bg-[#ed351d]/10 hover:bg-[#ed351d]/20 transition-colors"
+              >
+                <LogOut className="w-[14px] h-[14px] text-[#ed351d]" />
+                {!collapsed && <span className="text-[14px] font-[500] text-[#ed351d]">Log Out</span>}
+              </button>
             </div>
-          );
-        })}
-      </nav>
-
-      <div className="border-t border-black/[0.05] p-2.5 space-y-1">
-
-        <button
-          type="button"
-          onClick={onToggle}
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground active:scale-[0.98]",
-            collapsed && "justify-center px-0",
           )}
-        >
-          <ChevronLeft
-            className={cn(
-              "h-4 w-4 shrink-0 transition-transform duration-300 ease-[var(--ease-apple)]",
-              collapsed && "rotate-180",
-            )}
-          />
-          {!collapsed && <span>Collapse</span>}
-        </button>
-      </div>
-    </aside>
+
+          {/* User Profile */}
+          <div className="p-[16px] border-t border-[#ffffff]/5">
+            <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}>
+              <div className="flex items-center gap-[12px]">
+                <div className="w-[32px] h-[32px] rounded-[4px] bg-[#e2e5e9] flex items-center justify-center shrink-0">
+                  <span className="text-[14px] font-[600] text-[#141a1f]">{userInitials}</span>
+                </div>
+                {!collapsed && (
+                  <div className="flex flex-col text-left overflow-hidden max-w-[140px]">
+                    <span className="text-[14px] font-[600] leading-[16.94px] text-[#ffffff] truncate">{userName}</span>
+                    <span className="text-[12px] font-[400] leading-[14.52px] text-[#8e95a1] truncate">{displayRole}</span>
+                  </div>
+                )}
+              </div>
+              {!collapsed && (
+                <button onClick={() => setShowLogout(!showLogout)} className="shrink-0 p-1 rounded hover:bg-white/10 transition-colors">
+                  <MoreVertical className="w-[16px] h-[16px] text-[#8e95a1]" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
     </>
   );
 }
