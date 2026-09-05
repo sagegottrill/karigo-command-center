@@ -1,28 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Download, Upload, MoreVertical, X, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
+import type { Role } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/admin/add-account")({
   component: AdminAddAccount,
 });
 
-const DEPARTMENT_OPTIONS = [
-  "Transport Admin",
-  "Fleet Operations",
-  "Fuel Management",
-  "Engineering and Maintenance",
-  "Parts and Store",
-  "Accounts",
-  "HR and Personnel",
-  "Security",
-  "Drivers",
-];
-
 function AdminAddAccount() {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
+  const [roles, setRoles] = useState<Role[]>([]);
+
+  useEffect(() => {
+    void adminService.roles().then((r) => setRoles(r.filter((d: Role) => d.key !== "Customer Portals (External)")));
+  }, []);
 
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
@@ -49,13 +43,15 @@ function AdminAddAccount() {
 
   const handleConfirmAndSend = async () => {
     try {
+      const selectedRole = roles.find((r) => r.name === department);
       await adminService.createUser({
         firstName,
         surname,
-        roles: [role],
+        roles: [selectedRole?.key || department],
         username: generatedUsername,
         department,
       });
+      toast.success("User created. Default password requires reset on login.");
       setShowConfirmModal(false);
       setShowShareModal(true);
     } catch {
@@ -227,12 +223,12 @@ function AdminAddAccount() {
                 </button>
                 {showDeptDropdown && (
                   <div className="absolute top-[72px] lg:top-[64px] left-0 right-0 z-40 rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] max-h-[300px] overflow-y-auto">
-                    {DEPARTMENT_OPTIONS.map(dept => (
-                      <label key={dept} className="flex items-center gap-[12px] px-[16px] py-[12px] cursor-pointer hover:bg-[#f6f7f9]" onClick={() => { setDepartment(dept); setShowDeptDropdown(false); }}>
-                        <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center shrink-0 ${department === dept ? "bg-[#ed351d] border-[#ed351d]" : "border-[#8e95a1]"}`}>
-                          {department === dept && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    {roles.map(dept => (
+                      <label key={dept.key} className="flex items-center gap-[12px] px-[16px] py-[12px] cursor-pointer hover:bg-[#f6f7f9]" onClick={() => { setDepartment(dept.name); setShowDeptDropdown(false); }}>
+                        <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center shrink-0 ${department === dept.name ? "bg-[#ed351d] border-[#ed351d]" : "border-[#8e95a1]"}`}>
+                          {department === dept.name && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
-                        <span className="text-[14px] font-[400] text-[#5c6470]">{dept}</span>
+                        <span className="text-[14px] font-[400] text-[#5c6470]">{dept.name}</span>
                       </label>
                     ))}
                   </div>

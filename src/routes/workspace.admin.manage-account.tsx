@@ -3,6 +3,7 @@ import { Search, MoreVertical, X, ArrowLeft, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import type { User } from "@/lib/fleetopsx/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/admin/manage-account")({
   component: AdminManageAccount,
@@ -54,14 +55,17 @@ function AdminManageAccount() {
     if (!confirmAction) return;
     if (confirmAction.type === "password") {
       await adminService.resetPassword(confirmAction.userId);
+      toast.success("Password reset initiated. User must change password on next login.");
       setConfirmAction(null);
       setShowShareModal(true);
     } else if (confirmAction.type === "suspend") {
       await adminService.suspendUser(confirmAction.userId);
+      toast.warning("Account suspended.");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     } else if (confirmAction.type === "delete") {
       await adminService.deleteUser(confirmAction.userId);
+      toast.error("Account deleted (soft).");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     }

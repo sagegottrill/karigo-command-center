@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MoreVertical, ArrowLeft } from "lucide-react";
-import { useState } from "react";
-import { authService } from "@/lib/fleetopsx/services";
+import { useState, useEffect } from "react";
+import { adminService, authService } from "@/lib/fleetopsx/services";
+import type { User } from "@/lib/fleetopsx/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/admin/password-request")({
   component: AdminPasswordRequest,
@@ -9,6 +11,7 @@ export const Route = createFileRoute("/workspace/admin/password-request")({
 
 interface PasswordRequest {
   id: string;
+  userId: string;
   name: string;
   department: string;
   staffId: string;
@@ -21,17 +24,37 @@ function AdminPasswordRequest() {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [requests, setRequests] = useState<PasswordRequest[]>([]);
 
-  const [requests, setRequests] = useState<PasswordRequest[]>([
-    { id: "PWR-001", name: "John Doe", department: "Fleet Operation", staffId: "ID:PTL0012", username: "J.Doe", date: "31st Aug 2026", status: "Pending" },
-    { id: "PWR-002", name: "John Doe", department: "Fleet Operation", staffId: "ID:PTL0012", username: "J.Doe", date: "31st Aug 2026", status: "Approved" },
-    { id: "PWR-003", name: "John Doe", department: "Fleet Operation", staffId: "ID:PTL0012", username: "J.Doe", date: "31st Aug 2026", status: "Declined" },
-    { id: "PWR-004", name: "John Doe", department: "Fleet Operation", staffId: "ID:PTL0012", username: "J.Doe", date: "31st Aug 2026", status: "Approved" },
-  ]);
+  useEffect(() => {
+    void adminService.users().then((users: User[]) => {
+      // Build password requests from live user data
+      // Users with passwordResetRequired are Pending, others get mixed statuses for demo
+      const statuses: Array<"Pending" | "Approved" | "Declined"> = ["Pending", "Approved", "Declined", "Approved"];
+      const reqs = users.slice(0, Math.max(4, users.filter(u => u.passwordResetRequired).length)).map((u, i) => ({
+        id: `PWR-${String(i + 1).padStart(3, "0")}`,
+        userId: u.id,
+        name: u.name,
+        department: u.department || "Fleet Operation",
+        staffId: `ID:${u.id}`,
+        username: u.username || u.name.split(" ").map(p => p[0]).join(""),
+        date: "31st Aug 2026",
+        status: u.passwordResetRequired ? "Pending" as const : (statuses[i % statuses.length] || "Approved" as const),
+      }));
+      setRequests(reqs);
+    });
+  }, []);
 
   const handleAction = (id: string, action: "Approved" | "Declined") => {
     setActiveMenu(null);
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: action } : r));
+    const req = requests.find(r => r.id === id);
+    if (action === "Approved" && req) {
+      void adminService.resetPassword(req.userId);
+      toast.success(`Password reset approved for ${req.name}.`);
+    } else if (action === "Declined" && req) {
+      toast.warning(`Password reset declined for ${req.name}.`);
+    }
   };
 
   const statusColor = (status: string) => {
