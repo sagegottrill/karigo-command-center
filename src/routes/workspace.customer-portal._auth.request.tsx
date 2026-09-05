@@ -265,7 +265,7 @@ function PartnerNewRequest() {
                         <div className="flex-1 relative">
                           <button
                             type="button"
-                            onClick={() => { setOpenDropdownIndex(openDropdownIndex === index ? null : index); setShowProductDropdown(false); setShowTruckDropdown(false); }}
+                            onClick={() => { setOpenDropdownIndex(openDropdownIndex === index ? null : index); setShowTruckDropdown(false); }}
                             className="w-full flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] text-[14px] font-[400] text-left"
                           >
                             <span className={site.type ? "text-[#141a1f]" : "text-[#8e95a1]"}>{site.type || "Select"}</span>
@@ -335,8 +335,8 @@ function PartnerNewRequest() {
       </div>
 
       {/* Click-away for dropdowns */}
-      {(showProductDropdown || showTruckDropdown || openDropdownIndex !== null || showLogout) && (
-        <div className="fixed inset-0 z-30" onClick={() => { setShowProductDropdown(false); setShowTruckDropdown(false); setOpenDropdownIndex(null); setShowLogout(false); }} />
+      {(showTruckDropdown || openDropdownIndex !== null || showLogout) && (
+        <div className="fixed inset-0 z-30" onClick={() => { setShowTruckDropdown(false); setOpenDropdownIndex(null); setShowLogout(false); }} />
       )}
     </div>
   );
