@@ -111,6 +111,16 @@ function PartnerPortalDashboard() {
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-auto relative bg-[#f1f2f4]">
         
+        {/* Mobile Header */}
+        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1a232f]">
+          <div className="flex items-center gap-[12px]">
+            <span className="text-[18px] font-[600] text-[#ffffff]">Partner Dashboard</span>
+          </div>
+          <button onClick={() => setShowLogout(!showLogout)} className="w-[36px] h-[36px] rounded-[6px] bg-[#e3351d] flex items-center justify-center relative">
+            <span className="text-[13px] font-[600] text-[#ffffff]">{userInitials}</span>
+          </button>
+        </div>
+
         {/* Desktop Header */}
         <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[20px] border-b border-[#e2e5e9]">
           <h1 className="text-[24px] font-[500] text-[#141a1f] mb-[4px]">Partner Portal</h1>
@@ -119,82 +129,131 @@ function PartnerPortalDashboard() {
           </p>
         </div>
 
-        <div className="px-[40px] py-[32px] flex flex-col h-full">
+        <div className="px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex flex-col h-full bg-[#f1f2f4]">
           {/* Stats Cards */}
-          <div className="grid grid-cols-5 gap-4 mb-8">
-            <div className="bg-white rounded-[6px] p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px]">
-              <span className="text-[13px] font-[600] text-[#5c6470]">Total Requests</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{totalRequests}</span>
+          <div className="grid grid-cols-6 lg:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8">
+            <div className="col-span-3 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
+              <span className="text-[12px] lg:text-[13px] font-[600] text-[#5c6470]">Total Request</span>
+              <span className="text-[28px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{totalRequests}</span>
             </div>
-            <div className="bg-white rounded-[6px] p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px]">
-              <span className="text-[13px] font-[600] text-[#5c6470]">In transit</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{inTransit}</span>
-              <span className="text-[10px] font-[500] text-[#34c759] mt-2">Look out for your delivery</span>
+            <div className="col-span-3 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
+              <span className="text-[12px] lg:text-[13px] font-[600] text-[#5c6470]">In transit</span>
+              <span className="text-[28px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{inTransit}</span>
+              <span className="text-[9px] lg:text-[10px] font-[500] text-[#34c759] mt-1 lg:mt-2 line-clamp-1">Look out for your delivery</span>
             </div>
-            <div className="bg-white rounded-[6px] p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px]">
-              <span className="text-[13px] font-[600] text-[#5c6470]">Pending</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{pending}</span>
+            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
+              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Pending</span>
+              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{pending}</span>
             </div>
-            <div className="bg-white rounded-[6px] p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px]">
-              <span className="text-[13px] font-[600] text-[#5c6470]">Declined</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{declined}</span>
+            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
+              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Declined</span>
+              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{declined}</span>
             </div>
-            <div className="bg-white rounded-[6px] p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px]">
-              <span className="text-[13px] font-[600] text-[#5c6470]">Completed</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{completed}</span>
+            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
+              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Completed</span>
+              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{completed}</span>
             </div>
           </div>
 
           {/* Table Header Section */}
-          <div className="flex flex-col mb-[20px]">
-            <div className="flex justify-between items-end mb-[20px]">
+          <div className="flex flex-col mb-[16px] lg:mb-[20px]">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-[16px] lg:mb-[20px] gap-4">
               <div className="flex flex-col gap-[4px]">
-                <h2 className="text-[20px] font-[500] text-[#141a1f]">Recent Requests</h2>
-                <p className="text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">
+                <h2 className="text-[18px] lg:text-[20px] font-[600] lg:font-[500] text-[#141a1f]">Recent Requests</h2>
+                <p className="text-[9px] lg:text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">
                   TRACK YOUR TRANSPORT REQUESTS AND THEIR CURRENT STATUSES
                 </p>
               </div>
-              <Link to="/workspace/customer-portal/request">
-                <button className="h-[36px] px-[16px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors flex items-center justify-center">
-                  <span className="text-[13px] font-[500] text-white">+ Add New Staff Account</span>
+              <Link to="/workspace/customer-portal/request" className="w-full lg:w-auto">
+                <button className="w-full h-[44px] lg:h-[36px] px-[16px] rounded-[6px] lg:rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors flex items-center justify-center shadow-sm">
+                  <span className="text-[14px] lg:text-[13px] font-[500] text-white">+ Add New Staff Account</span>
                 </button>
               </Link>
             </div>
 
-            <div className="flex gap-4 items-center">
-              <div className="relative flex-1 max-w-[400px]">
+            <div className="flex gap-3 lg:gap-4 items-center">
+              <div className="relative flex-1 lg:max-w-[400px]">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" />
+                  <Search className="h-4 w-4 lg:h-4 lg:w-4 text-gray-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="Search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 h-[40px] border border-gray-300 rounded-[4px] bg-transparent focus:outline-none focus:ring-1 focus:ring-[#e3351d] text-sm"
+                  className="w-full pl-10 pr-4 h-[44px] lg:h-[40px] border border-gray-300 rounded-[6px] lg:rounded-[4px] bg-white lg:bg-transparent focus:outline-none focus:ring-1 focus:ring-[#e3351d] text-[14px] lg:text-sm"
                 />
               </div>
               <button 
                 onClick={() => setSortModalOpen(true)}
-                className="w-[40px] h-[40px] bg-[#e3351d] rounded-[4px] flex items-center justify-center hover:bg-[#d62e19] transition-colors"
+                className="w-[44px] h-[44px] lg:w-[40px] lg:h-[40px] shrink-0 bg-[#e3351d] rounded-[6px] lg:rounded-[4px] flex items-center justify-center hover:bg-[#d62e19] transition-colors shadow-sm"
               >
-                <ListFilter className="w-4 h-4 text-white" />
+                <ListFilter className="w-5 h-5 lg:w-4 lg:h-4 text-white" />
               </button>
             </div>
             
             {/* Active Filters Row */}
-            <div className="flex gap-2 mt-4">
-              <div className="bg-[#e3351d] text-white px-2 py-1 rounded-[4px] flex items-center gap-2 text-[10px] font-semibold">
-                ID No. <X className="w-3 h-3 cursor-pointer" />
+            <div className="flex gap-2 mt-4 flex-wrap">
+              <div className="bg-[#e3351d] text-white px-3 py-1.5 lg:px-2 lg:py-1 rounded-[6px] lg:rounded-[4px] flex items-center gap-2 text-[11px] lg:text-[10px] font-semibold shadow-sm">
+                Username <X className="w-3 h-3 cursor-pointer" />
               </div>
-              <div className="bg-[#141a1f] text-white px-2 py-1 rounded-[4px] flex items-center gap-2 text-[10px] font-semibold">
+              <div className="bg-[#141a1f] text-white px-3 py-1.5 lg:px-2 lg:py-1 rounded-[6px] lg:rounded-[4px] flex items-center gap-2 text-[11px] lg:text-[10px] font-semibold shadow-sm">
                 {sortOrder === "Ascending" ? "Accending" : "Descending"} <X className="w-3 h-3 cursor-pointer" />
               </div>
             </div>
           </div>
 
+          {/* Mobile Card List (Hidden on Desktop) */}
+          <div className="flex lg:hidden flex-col gap-3 pb-[40px]">
+            {requests.map((r) => (
+              <div key={r.id} className="bg-white rounded-[10px] border border-gray-200 p-4 shadow-sm relative">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-[11px] font-[500] text-[#8e95a1]">02 Sept 2026</span>
+                  <div className="relative">
+                    <button onClick={() => setRowMenuOpen(rowMenuOpen === r.id ? null : r.id)} className="p-1 -m-1 rounded hover:bg-gray-100 transition-colors">
+                      <MoreVertical className="w-4 h-4 text-[#5c6470]" />
+                    </button>
+                    {rowMenuOpen === r.id && (
+                      <div className="absolute right-0 top-6 bg-white border border-gray-100 rounded-md shadow-xl py-2 w-[140px] z-10">
+                        <button onClick={() => { setDetailsModalOpen(r); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#5c6470] hover:bg-gray-50 font-[500]">Details</button>
+                        <button onClick={() => { setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-[16px] font-[600] text-[#141a1f]">{r.customerConsignee || "Janeth Doe"}</h3>
+                  <StatusBadge status={r.status} />
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
+                    <span className="text-[13px] font-[500] text-[#5c6470]">ID No:</span>
+                    <span className="text-[13px] font-[600] text-[#e3351d]">{r.id}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
+                    <span className="text-[13px] font-[500] text-[#5c6470]">Product</span>
+                    <span className="text-[13px] font-[500] text-[#141a1f]">{r.cargo || "Steel"}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
+                    <span className="text-[13px] font-[500] text-[#5c6470]">Truck Type</span>
+                    <span className="text-[13px] font-[500] text-[#141a1f]">{r.tailType || "Flat"}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
+                    <span className="text-[13px] font-[500] text-[#5c6470]">Destination</span>
+                    <span className="text-[13px] font-[500] text-[#141a1f] leading-snug">{r.dropoff || "ABC, Alake Estate"}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {requests.length === 0 && (
+              <div className="text-center p-8 text-sm text-gray-500">No requests found.</div>
+            )}
+          </div>
+
           {/* Desktop Table - Custom Implementation to match Figma exactly */}
-          <div className="bg-white rounded-[10px] border border-gray-200 overflow-hidden shadow-sm">
+          <div className="hidden lg:block bg-white rounded-[10px] border border-gray-200 overflow-hidden shadow-sm">
             <div className="w-full overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -244,6 +303,9 @@ function PartnerPortalDashboard() {
                       </td>
                     </tr>
                   ))}
+                  {requests.length === 0 && (
+                    <tr><td colSpan={8} className="text-center p-8 text-sm text-gray-500">No requests found.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -317,7 +379,7 @@ function PartnerPortalDashboard() {
                 <StatusBadge status={detailsModalOpen.status} />
               </div>
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4 lg:gap-y-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">ID No.</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
@@ -330,7 +392,7 @@ function PartnerPortalDashboard() {
                     02-09-2026
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 col-span-2">
+                <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Cosignee</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.customerConsignee || "Janeth Doe"}
@@ -348,13 +410,13 @@ function PartnerPortalDashboard() {
                     {detailsModalOpen.tailType || "Flat"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 col-span-2">
+                <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Destination</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.dropoff || "ABC, Alake Estate"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 col-span-2 mb-4">
+                <div className="flex flex-col gap-2 lg:col-span-2 mb-2 lg:mb-4">
                   <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
                   <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
                     {detailsModalOpen.pickup || "Babangida; Happy Home"}
