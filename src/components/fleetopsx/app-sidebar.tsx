@@ -163,7 +163,7 @@ export function AppSidebar({
         </Link>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[16px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <nav className="flex-1 overflow-y-auto py-[16px] flex flex-col gap-[16px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
           {GROUPS.map((group) => {
             const items = allowedNav.filter((n) => n.group === group);
             if (!items.length) return null;
