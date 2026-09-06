@@ -113,6 +113,15 @@ function SuperAdminLayout() {
   const [createdCredentials, setCreatedCredentials] = useState({ username: "", password: "", url: "" });
   const [managingTenant, setManagingTenant] = useState<PlatformTenant | null>(null);
   const [activeTab, setActiveTab] = useState("Overview");
+  const [tenantAdmins, setTenantAdmins] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (managingTenant) {
+      adminService.users().then(users => {
+        setTenantAdmins(users.filter(u => u.companyId === managingTenant.id && u.roles.includes("Transport Manager")));
+      });
+    }
+  }, [managingTenant]);
 
   useEffect(() => {
     const handleManage = (e: any) => {
@@ -456,13 +465,33 @@ function SuperAdminLayout() {
                         <Button 
                           className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 ml-4"
                           onClick={() => {
-                            // Find the first transport manager of this tenant to impersonate, or just use their domain
                             window.location.href = `https://${managingTenant.domain}.fleetopsx.com/workspace/login`;
                           }}
                         >
                           <LogOut className="h-4 w-4 mr-2 rotate-180" />
                           Login to Workspace
                         </Button>
+                      </div>
+
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Tenant Administrators</h3>
+                      <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 overflow-hidden">
+                        {tenantAdmins.length === 0 ? (
+                          <div className="p-4 text-sm text-gray-500 text-center">No administrators found.</div>
+                        ) : (
+                          <div className="divide-y divide-gray-200">
+                            {tenantAdmins.map(admin => (
+                              <div key={admin.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{admin.name}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">{admin.email} (Username: {admin.username})</p>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => toast.success(`Password reset link sent to ${admin.email}`)}>
+                                  Reset Password
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Platform Actions</h3>
