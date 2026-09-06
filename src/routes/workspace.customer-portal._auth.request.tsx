@@ -68,9 +68,9 @@ function PartnerNewRequest() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const companyName = mounted && currentUser?.partnerCompanyName ? currentUser.partnerCompanyName : "Saba Steel";
-  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@sabasteel.com";
-  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SS";
+  const companyName = mounted && currentUser ? (currentUser.partnerCompanyName || currentUser.department || "Partner") : "Partner Workspace";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
 
   return (
     <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">

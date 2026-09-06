@@ -39,9 +39,9 @@ function PartnerPortalDashboard() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const companyName = mounted && currentUser?.partnerCompanyName ? currentUser.partnerCompanyName : "Saba Steel";
-  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@sabasteel.com";
-  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SS";
+  const companyName = mounted && currentUser ? (currentUser.partnerCompanyName || currentUser.department || "Partner") : "Partner Workspace";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
 
   const totalRequests = requests.length;
   const inTransit = requests.filter(r => r.status === "In transit").length;
