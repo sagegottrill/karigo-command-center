@@ -1,4 +1,4 @@
-﻿import { Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { formatNaira } from "@/lib/fleetopsx/services";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
@@ -41,8 +41,8 @@ export function TransportManagerDashboard({ trips }: DashboardProps) {
 }
 
 export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
-  const activeDispatch = trips.filter(t => t.status === "Scheduled");
-  const pendingOrders = trips.filter(t => t.status === "Requested");
+  const activeDispatch = trips.filter(t => t.status === "Approved for Dispatch");
+  const pendingOrders = trips.filter(t => t.status === "Awaiting Approval");
   const availableHeads = trucks.filter(t => t.type === "Head" && t.status === "Available").length;
   const availableTails = trucks.filter(t => t.type === "Tail" && t.status === "Available").length;
   
@@ -57,14 +57,14 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
       </div>
       {pendingOrders.length > 0 && (
         <div className={card}>
-          <h3 className="font-semibold mb-4">Incoming Order Requests (From TM)</h3>
+          <h3 className="font-semibold mb-4">Pending Approvals (Trips Awaiting Auth)</h3>
           {pendingOrders.map(t => (
             <div key={t.id} className="flex justify-between py-2 border-b last:border-0 items-center">
               <div>
                 <span className="block font-medium">{t.customer}</span>
                 <span className="text-xs text-muted-foreground">{t.cargo} - {t.pickup || t.origin} to {t.dropoff || t.destination}</span>
               </div>
-              <Link to="/workspace/app/dispatch"><Button size="sm">Create Dispatch</Button></Link>
+              <Link to="/workspace/app/approvals"><Button size="sm">Review & Approve</Button></Link>
             </div>
           ))}
         </div>

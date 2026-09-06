@@ -48,9 +48,9 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
 
 export const NAV: NavItem[] = [
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
-  { label: "Approvals", to: "/workspace/app/approvals", icon: ShieldCheck, badge: 14, group: "Main" },
-  { label: "Fleet", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Main" },
-  { label: "Trips", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Main" },
+  { label: "Authorization", to: "/workspace/app/approvals", icon: ShieldCheck, badge: 14, group: "Fleet Operations" },
+  { label: "Dispatch", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Fleet Operations" },
+  { label: "Tracking", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Fleet Operations" },
   { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
   { label: "Inventory", to: "/workspace/app/inventory", icon: Boxes, badge: 3, group: "Workshop" },
   { label: "Drivers", to: "/workspace/app/drivers", icon: Users, group: "People" },
@@ -70,7 +70,7 @@ export const NAV: NavItem[] = [
   { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "User Management", "Admin"];
+const GROUPS = ["Main", "Fleet Operations", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "User Management", "Admin"];
 
 export function AppSidebar({
   collapsed,
@@ -85,7 +85,7 @@ export function AppSidebar({
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    "Main": true, "Workshop": true, "People": true, "Finance": true, 
+    "Main": true, "Fleet Operations": true, "Workshop": true, "People": true, "Finance": true, 
     "Yard": true, "Inbox": true, "Insights": true, "Admin": true, "User Management": true
   });
   

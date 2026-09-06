@@ -48,21 +48,24 @@ function ApprovalsPage() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const handleApproveTrip = async (id: string) => {
-    await tripService.approveDispatch(id);
-    toast.success(`Trip ${id} approved for dispatch.`);
-    await refresh();
-  };
+  const [confirmApproval, setConfirmApproval] = useState<{ id: string, type: "Trip" | "Expense" | "Work Order" } | null>(null);
 
-  const handleApproveExpense = async (id: string) => {
-    await accountService.setStatus(id, "Approved");
-    toast.success(`Expense ${id} approved.`);
-    await refresh();
-  };
-
-  const handleApproveWO = async (id: string) => {
-    await engineeringService.advance(id);
-    toast.success(`Work Order ${id} approved for diagnosis.`);
+  const executeApproval = async () => {
+    if (!confirmApproval) return;
+    const { id, type } = confirmApproval;
+    
+    if (type === "Trip") {
+      await tripService.approveDispatch(id);
+      toast.success(`Trip ${id} approved for dispatch.`);
+    } else if (type === "Expense") {
+      await accountService.setStatus(id, "Approved");
+      toast.success(`Expense ${id} approved.`);
+    } else if (type === "Work Order") {
+      await engineeringService.advance(id);
+      toast.success(`Work Order ${id} approved for diagnosis.`);
+    }
+    
+    setConfirmApproval(null);
     await refresh();
   };
 
@@ -83,7 +86,7 @@ function ApprovalsPage() {
       return <span className="num font-bold">{formatNairaFull(margin)}</span>;
     }},
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => handleApproveTrip(r.id)} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Trip" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
     )}
   ];
 
@@ -93,7 +96,7 @@ function ApprovalsPage() {
     { key: "req", header: "Requester", cell: r => r.requester },
     { key: "amount", header: "Amount", align: "right", cell: r => <span className="num font-bold">{formatNairaFull(r.amount)}</span> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => handleApproveExpense(r.id)} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Expense" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
     )}
   ];
 
@@ -103,7 +106,7 @@ function ApprovalsPage() {
     { key: "defect", header: "Reported Defect", cell: r => r.defect },
     { key: "pri", header: "Priority", cell: r => <StatusBadge status={r.priority as any} /> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => handleApproveWO(r.id)} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Work Order" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
     )}
   ];
 
@@ -145,6 +148,24 @@ function ApprovalsPage() {
           </SectionPanel>
         </TabsContent>
       </Tabs>
+
+      {confirmApproval && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[16px] bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <ShieldCheck className="h-6 w-6 text-emerald-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-[#141a1f]">Confirm {confirmApproval.type} Approval</h3>
+            <p className="mt-2 text-sm text-[#5c6470]">
+              You are about to authorize <strong>{confirmApproval.id}</strong>. This action will advance the workflow and notify relevant parties.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setConfirmApproval(null)}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={executeApproval}>Authorize</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

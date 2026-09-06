@@ -201,7 +201,7 @@ export const TRUCKS = [
 
 const TRIP_STATUSES: Trip["status"][] = [
   "En Route", "En Route", "Loaded", "Offloading", "Returning", "Delayed",
-  "Completed", "Completed", "Scheduled", "Stopped",
+  "Completed", "Completed", "Scheduled", "Stopped", "Awaiting Approval", "Awaiting Approval", "Approved for Dispatch"
 ];
 
 export const TRIPS: Trip[] = Array.from({ length: 56 }, (_, i) => {
