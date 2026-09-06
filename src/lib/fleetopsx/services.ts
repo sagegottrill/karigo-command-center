@@ -129,6 +129,10 @@ export const authService = {
     const id = sessionStorage.getItem("fleetopsx_user_id");
     return store.users.find(u => u.id === id) || null;
   },
+  isAuthenticated: () => {
+    if (typeof window === "undefined") return false;
+    return !!sessionStorage.getItem("fleetopsx_user_id");
+  },
   completeFirstTimeLogin: (userId: string) => {
     store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
     return settle(true);
