@@ -594,7 +594,7 @@ export const USERS: User[] = [
 ].map(([name, role, roleName, department], i) => ({
   id: `USR-${pad(i + 1, 4)}`,
   name: name as string,
-  email: role === "Platform Admin" ? "admin@fleetopsx.com" : `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
+  email: role === "Platform Admin" ? "admin@fleetopsx.com" : role === "Customer Portals (External)" ? `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@sabasteel.com` : `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
   username: role === "Platform Admin" ? "admin" : `${(name as string).split(" ")[0]!.charAt(0).toLowerCase()}${(name as string).split(" ")[1]!.toLowerCase()}`,
   roles: [role as User["roles"][0]],
   roleNames: [roleName as string],
@@ -603,10 +603,7 @@ export const USERS: User[] = [
   passwordResetRequired: i === 1,
   lastActive: `${int(1, 59)} min ago`,
   initials: (name as string).split(" ").map((p) => p[0]).join("").slice(0, 2),
-  // Platform Admin (i=0) has no companyId — they're platform-level.
-  // All other Petroline users belong to tenant tnt_001.
   companyId: i === 0 ? undefined : "tnt_001",
-  // External partner gets their partner company name
   partnerCompanyName: role === "Customer Portals (External)" ? "Saba Steel" : undefined,
 }));
 

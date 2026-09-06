@@ -39,8 +39,8 @@ function PartnerPortalDashboard() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const companyName = mounted && currentUser?.department ? currentUser.department : "Saba Steel";
-  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@s.steel.com";
+  const companyName = mounted && currentUser?.partnerCompanyName ? currentUser.partnerCompanyName : "Saba Steel";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "logistics@sabasteel.com";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "SS";
 
   const totalRequests = requests.length;
