@@ -45,7 +45,7 @@ function AdminManagePartner() {
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     } else if (confirmAction.type === "activate") {
-      // Assuming activate function exists or just edit user status
+      await adminService.activateUser(confirmAction.userId);
       toast.success("Partner account activated.");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
@@ -168,7 +168,7 @@ function AdminManagePartner() {
                       </button>
                       {activeMenu === u.id && (
                         <div className="absolute top-[40px] right-0 z-40 w-[150px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
-                          <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">View</button>
+                          <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Reset Password</button>
                           {u.status !== "Suspended" ? (
                              <button onClick={() => handleAction("suspend", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Suspend</button>
                           ) : (
@@ -221,7 +221,7 @@ function AdminManagePartner() {
                  
                  {activeMenu === u.id && (
                     <div className="absolute top-[48px] right-[16px] z-40 w-[140px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
-                      <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">View</button>
+                      <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Reset Password</button>
                       {u.status !== "Suspended" ? (
                          <button onClick={() => handleAction("suspend", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Suspend</button>
                       ) : (
@@ -241,7 +241,7 @@ function AdminManagePartner() {
           <div className="flex flex-col items-center w-full max-w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)] pt-[32px] pb-[24px] px-[24px]">
             <AlertOctagon className="w-[48px] h-[48px] text-[#ed351d] mb-[16px]" strokeWidth={1.5} />
             <p className="text-[14px] font-[400] text-[#5c6470] text-center mb-[32px] max-w-[240px]">
-              {confirmAction.type === "password" && "Are you sure you want to\nview this account?"}
+              {confirmAction.type === "password" && "Are you sure you want to\nreset this partner's password?"}
               {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
               {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}

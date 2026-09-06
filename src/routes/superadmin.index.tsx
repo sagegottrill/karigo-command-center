@@ -155,7 +155,8 @@ function SuperAdminLayout() {
       roles: ["Transport Manager"],
       username: newTenant.adminEmail.split("@")[0],
       department: "Management",
-      companyId: tenant.id
+      companyId: tenant.id,
+      email: newTenant.adminEmail
     });
     
     setCreatedCredentials({

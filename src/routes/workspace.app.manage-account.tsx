@@ -41,13 +41,17 @@ function AdminManageAccount() {
       key: "actions", header: "", align: "right", cell: (r) => (
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("password", r.id); }}>Reset Password</Button>
-          <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
+          {r.status === "Suspended" ? (
+            <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("activate", r.id); }}>Activate</Button>
+          ) : (
+            <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
+          )}
         </div>
       )
     },
   ];
 
-  const handleAction = (type: "password" | "suspend" | "delete", userId: string) => {
+  const handleAction = (type: "password" | "suspend" | "activate" | "delete", userId: string) => {
     setConfirmAction({ type, userId });
   };
 
@@ -61,6 +65,11 @@ function AdminManageAccount() {
     } else if (confirmAction.type === "suspend") {
       await adminService.suspendUser(confirmAction.userId);
       toast.warning("Account suspended.");
+      setConfirmAction(null);
+      void adminService.users().then(setUsers);
+    } else if (confirmAction.type === "activate") {
+      await adminService.activateUser(confirmAction.userId);
+      toast.success("Account activated.");
       setConfirmAction(null);
       void adminService.users().then(setUsers);
     } else if (confirmAction.type === "delete") {
@@ -137,8 +146,9 @@ function AdminManageAccount() {
               <AlertCircle className="w-[28px] h-[28px] text-[#ed351d]" />
             </div>
             <p className="text-[16px] font-[400] text-[#5c6470] text-center mb-[32px]">
-              {confirmAction.type === "password" && "Are you sure you want to send\na new password?"}
+              {confirmAction.type === "password" && "Are you sure you want to\nreset this user's password?"}
               {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
+              {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
             </p>
             <div className="flex flex-row items-center justify-between w-full gap-[24px]">

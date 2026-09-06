@@ -684,7 +684,7 @@ export const adminService = {
   users: () => settle(isolateUser([...store.users])),
   roles: () => settle(db.ROLES),
   loginReports: () => settle([...store.loginReports]),
-  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string }) => {
+  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string; email?: string }) => {
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
     
@@ -693,11 +693,13 @@ export const adminService = {
     if (payload.roles.includes("Customer Portals (External)") && payload.partnerCompanyName) {
       emailDomain = payload.partnerCompanyName.toLowerCase().replace(/[^a-z]+/g, "") + ".com";
     }
+    
+    const email = payload.email || `${payload.username}@${emailDomain}`;
 
     const newUser: import("./types").User = {
       id,
       name,
-      email: `${payload.username}@${emailDomain}`,
+      email,
       username: payload.username,
       roles: payload.roles as any,
       roleNames: payload.roles,
@@ -720,8 +722,8 @@ export const adminService = {
     store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
     return settle(true);
   },
-  resetPassword: (id: string) => {
-    store.users = store.users.map(u => u.id === id ? { ...u, passwordResetRequired: true } : u);
+  activateUser: (id: string) => {
+    store.users = store.users.map(u => u.id === id ? { ...u, status: "Active" } : u);
     return settle(true);
   },
   suspendUser: (id: string) => {
