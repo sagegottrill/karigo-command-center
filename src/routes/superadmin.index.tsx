@@ -430,9 +430,9 @@ function SuperAdminLayout() {
                     Overview
                   </button>
                   <button 
-                    onClick={() => setActiveTab("Feature Flags")}
-                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Feature Flags" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
-                    Feature Flags
+                    onClick={() => setActiveTab("Settings")}
+                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Settings" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
+                    Settings
                   </button>
                   <button 
                     onClick={() => setActiveTab("Danger Zone")}
@@ -493,42 +493,46 @@ function SuperAdminLayout() {
                           </div>
                         )}
                       </div>
-
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Platform Actions</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center bg-white p-3 rounded-md border border-gray-200">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Require MFA for all users</p>
-                            <p className="text-xs text-gray-500">Force multi-factor authentication across the entire workspace.</p>
-                          </div>
-                          <div className="h-5 w-9 bg-green-500 rounded-full relative cursor-pointer" onClick={() => toast.success("MFA requirement toggled")}><div className="absolute right-1 top-0.5 h-4 w-4 bg-white rounded-full" /></div>
-                        </div>
-                        <div className="flex justify-between items-center bg-white p-3 rounded-md border border-gray-200">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">SSO / SAML Integration</p>
-                            <p className="text-xs text-gray-500">Allow users to log in via Okta or Azure AD.</p>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => toast.success("SSO configured")}>Configure</Button>
-                        </div>
-                      </div>
                     </>
                   )}
 
-                  {activeTab === "Feature Flags" && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold mb-2">Feature Flags</h3>
-                      <p className="text-sm text-gray-500 mb-4">Toggle beta features or premium add-ons for this specific tenant.</p>
+                  {activeTab === "Settings" && (
+                    <div className="space-y-6">
+                      <h3 className="text-lg font-semibold mb-2">Workspace Settings</h3>
                       
-                      {['AI Route Optimization', 'Predictive Maintenance Analytics', 'Advanced Customer Portal', 'Third-Party Logistics (3PL) Brokerage'].map((feature, i) => (
-                        <div key={i} className="flex justify-between items-center bg-white p-4 rounded-md border border-gray-200 shadow-sm">
-                          <span className="text-sm font-medium text-gray-900">{feature}</span>
-                          <div 
-                            className={`h-5 w-9 rounded-full relative cursor-pointer ${i % 2 === 0 ? 'bg-green-500' : 'bg-gray-300'}`}
-                            onClick={() => toast.success(`${feature} flag toggled`)}>
-                            <div className={`absolute top-0.5 h-4 w-4 bg-white rounded-full transition-all ${i % 2 === 0 ? 'right-1' : 'left-1'}`} />
+                      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-4">
+                        <div className="grid gap-2">
+                          <Label className="text-sm font-medium text-gray-700">Company Name</Label>
+                          <Input 
+                            value={managingTenant.name}
+                            onChange={(e) => setManagingTenant({ ...managingTenant, name: e.target.value })}
+                            className="h-10 text-sm"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label className="text-sm font-medium text-gray-700">Tenant Domain</Label>
+                          <div className="flex">
+                            <Input 
+                              value={managingTenant.domain}
+                              onChange={(e) => setManagingTenant({ ...managingTenant, domain: e.target.value })}
+                              className="h-10 text-sm rounded-r-none"
+                            />
+                            <div className="flex items-center px-3 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-sm text-gray-500 font-mono">
+                              .fleetopsx.com
+                            </div>
                           </div>
                         </div>
-                      ))}
+                        <Button 
+                          onClick={() => {
+                            tenantService.updateTenant(managingTenant.id, { name: managingTenant.name, domain: managingTenant.domain });
+                            toast.success("Tenant settings updated successfully");
+                            loadTenants();
+                          }}
+                          className="bg-black hover:bg-gray-800 text-white mt-2"
+                        >
+                          Save Changes
+                        </Button>
+                      </div>
                     </div>
                   )}
 
