@@ -324,41 +324,6 @@ function SuperAdminLayout() {
                   </div>
                 </div>
 
-                {/* Subscription & Billing (Mock) */}
-                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gray-500" />
-                    3. Subscription & Billing Plan
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <Label className="text-sm font-medium text-gray-700">Plan Tier</Label>
-                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
-                        <option>Professional (Up to 50 trucks)</option>
-                        <option>Enterprise (Unlimited)</option>
-                        <option>Starter (Up to 10 trucks)</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label className="text-sm font-medium text-gray-700">Billing Cycle</Label>
-                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
-                        <option>Annually (20% Off)</option>
-                        <option>Monthly</option>
-                        <option>Quarterly</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label className="text-sm font-medium text-gray-700">Default Currency</Label>
-                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
-                        <option>NGN (₦)</option>
-                        <option>USD ($)</option>
-                        <option>GBP (£)</option>
-                        <option>EUR (€)</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
               </div>
               <DialogFooter className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center sm:justify-between">
                 <p className="text-xs text-gray-500">
@@ -479,6 +444,24 @@ function SuperAdminLayout() {
                           <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Orders</p>
                           <p className="text-2xl font-semibold">{managingTenant.totalOrders.toLocaleString()}</p>
                         </div>
+                      </div>
+
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Workspace Access</h3>
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">Impersonate Workspace</p>
+                          <p className="text-xs text-blue-700 mt-1">Log in directly to this tenant's dashboard as a Platform Administrator to manage settings, users, and operations on their behalf.</p>
+                        </div>
+                        <Button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 ml-4"
+                          onClick={() => {
+                            // Find the first transport manager of this tenant to impersonate, or just use their domain
+                            window.location.href = `https://${managingTenant.domain}.fleetopsx.com/workspace/login`;
+                          }}
+                        >
+                          <LogOut className="h-4 w-4 mr-2 rotate-180" />
+                          Login to Workspace
+                        </Button>
                       </div>
 
                       <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Platform Actions</h3>
