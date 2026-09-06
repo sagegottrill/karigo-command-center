@@ -18,15 +18,6 @@ import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/superadmin")({
-  beforeLoad: () => {
-    const user = authService.getCurrentUser();
-    if (!user) {
-      throw redirect({ to: "/workspace/login" });
-    }
-    if (user.passwordResetRequired) {
-      throw redirect({ to: "/workspace/login" });
-    }
-  },
   component: SuperAdminLayout,
 });
 
