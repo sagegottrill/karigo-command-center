@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
-import { authService, fleetService } from "@/lib/fleetopsx/services";
+import { authService, fleetService, engineeringService } from "@/lib/fleetopsx/services";
+import { toast } from "sonner";
+import { AlertTriangle, Wrench } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   loader: async () => {
@@ -52,6 +54,35 @@ function FleetPage() {
     setTailsList(t);
   };
   
+  const [maintenanceModal, setMaintenanceModal] = useState<{ id: string, type: "Head" | "Tail", reg: string } | null>(null);
+  const [defectText, setDefectText] = useState("");
+  const [priority, setPriority] = useState("Medium");
+
+  const submitMaintenance = async () => {
+    if (!maintenanceModal || !defectText) return;
+    
+    // 1. Change status
+    if (maintenanceModal.type === "Head") {
+      await fleetService.updateHeadStatus(maintenanceModal.id, "Maintenance");
+    } else {
+      await fleetService.updateTailStatus(maintenanceModal.id, "Maintenance");
+    }
+
+    // 2. Create defect
+    await engineeringService.createDefect({
+      truckReg: maintenanceModal.reg,
+      defect: defectText,
+      category: "General",
+      priority: priority,
+      reportedBy: authService.getCurrentUser()?.name || "System"
+    });
+
+    toast.success(`${maintenanceModal.id} grounded. Work order generated.`);
+    setMaintenanceModal(null);
+    setDefectText("");
+    await refresh();
+  };
+  
   const heads = filter === "All" ? headsList : headsList.filter((t) => t.status === filter);
   const tails = filter === "All" ? tailsList : tailsList.filter((t) => t.status === filter);
   
@@ -81,7 +112,7 @@ function FleetPage() {
         {r.status === "Maintenance" || r.status === "Out of Service" ? (
           <Button variant="outline" size="sm" className="h-7 px-2 text-emerald-600" onClick={() => handleUpdateHead(r.id, "Available")}>Make Available</Button>
         ) : (
-          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => handleUpdateHead(r.id, "Maintenance")}>Set Maintenance</Button>
+          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => setMaintenanceModal({ id: r.id, type: "Head", reg: r.registration })}>Set Maintenance</Button>
         )}
       </div>
     )}
@@ -98,7 +129,7 @@ function FleetPage() {
         {r.status === "Maintenance" || r.status === "Out of Service" ? (
           <Button variant="outline" size="sm" className="h-7 px-2 text-emerald-600" onClick={() => handleUpdateTail(r.id, "Available")}>Make Available</Button>
         ) : (
-          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => handleUpdateTail(r.id, "Maintenance")}>Set Maintenance</Button>
+          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => setMaintenanceModal({ id: r.id, type: "Tail", reg: r.registration })}>Set Maintenance</Button>
         )}
       </div>
     )}
@@ -156,6 +187,67 @@ function FleetPage() {
           </SectionPanel>
         </TabsContent>
       </Tabs>
+
+      {maintenanceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+          <div className="w-full max-w-[420px] rounded-[24px] bg-white p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex-shrink-0">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+                <Wrench className="h-6 w-6 text-rose-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#141a1f] tracking-tight">Ground Asset</h3>
+              <p className="mt-1 text-sm text-[#8e95a1]">
+                You are moving <span className="font-semibold text-[#141a1f]">{maintenanceModal.reg}</span> to Maintenance status. Please report the defect.
+              </p>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto mt-4 space-y-4">
+              <div>
+                <label className="text-[12px] font-semibold text-[#5c6470] uppercase">Defect Description</label>
+                <textarea 
+                  className="mt-1 w-full rounded-xl border border-black/[0.1] bg-black/[0.02] p-3 text-sm outline-none focus:border-rose-500 focus:bg-white transition-colors"
+                  rows={3}
+                  placeholder="E.g. Air brake leak, worn tires..."
+                  value={defectText}
+                  onChange={e => setDefectText(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-[#5c6470] uppercase">Priority</label>
+                <div className="mt-1 flex gap-2">
+                  {["Low", "Medium", "High", "Critical"].map(p => (
+                    <button 
+                      key={p}
+                      onClick={() => setPriority(p)}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold border ${priority === p ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-black/[0.1] text-[#5c6470] hover:bg-black/[0.02]'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-900 mt-2">
+                <p className="text-[10px] text-rose-500 uppercase font-semibold flex items-center gap-1 mb-1">
+                  <AlertTriangle className="h-3 w-3" /> Warning
+                </p>
+                <p className="text-xs font-medium">This will instantly generate an Engineering Work Order and ground the truck.</p>
+              </div>
+            </div>
+            
+            <div className="flex-shrink-0 mt-6 flex justify-end gap-3 pt-4 border-t border-black/[0.05]">
+              <Button variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => setMaintenanceModal(null)}>Cancel</Button>
+              <Button 
+                className="h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-6 font-semibold shadow-md hover:shadow-lg transition-all" 
+                onClick={submitMaintenance}
+                disabled={!defectText}
+              >
+                Ground Asset
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

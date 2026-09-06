@@ -30,6 +30,106 @@ export const Route = createFileRoute("/workspace/app/approvals")({
   component: ApprovalsPage,
 });
 
+function TripSummary({ record }: { record: Trip }) {
+  const costs = record.directCosts;
+  const total = costs ? (costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance) : 0;
+  const margin = record.revenue - total;
+  const marginPct = record.revenue > 0 ? (margin / record.revenue) * 100 : 0;
+  
+  return (
+    <div className="text-sm text-[#141a1f] space-y-4 text-left mt-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 bg-black/[0.03] rounded-xl">
+          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Route</p>
+          <p className="font-medium mt-1 truncate">{record.pickup} &rarr; {record.dropoff}</p>
+        </div>
+        <div className="p-3 bg-black/[0.03] rounded-xl">
+          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Asset</p>
+          <p className="font-medium mt-1 truncate">{record.truckReg}</p>
+        </div>
+      </div>
+      
+      <div className="p-3 bg-black/[0.03] rounded-xl flex items-center justify-between">
+        <div>
+          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Driver</p>
+          <p className="font-medium mt-1">{record.driverName}</p>
+        </div>
+        <StatusBadge status="Valid" dot={false} />
+      </div>
+
+      <div className="border border-black/[0.05] rounded-xl p-4">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Financials</h4>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Est. Revenue</span>
+            <span className="font-mono font-medium">{formatNairaFull(record.revenue)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Direct Costs</span>
+            <span className="font-mono font-medium text-rose-600">-{formatNairaFull(total)}</span>
+          </div>
+          <div className="pt-3 mt-2 border-t border-black/[0.05] flex justify-between items-center">
+            <span className="font-semibold text-[15px]">Gross Margin</span>
+            <div className="text-right flex items-center gap-2">
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">{marginPct.toFixed(1)}%</span>
+              <span className="font-mono font-bold text-[16px] text-emerald-600 block">{formatNairaFull(margin)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExpenseSummary({ record }: { record: Expense }) {
+  return (
+    <div className="text-sm text-[#141a1f] space-y-4 text-left mt-4">
+      <div className="p-3 bg-black/[0.03] rounded-xl">
+        <p className="text-[10px] text-muted-foreground uppercase font-semibold">Requester</p>
+        <p className="font-medium mt-1">{record.requester} &middot; <span className="text-muted-foreground">{record.department}</span></p>
+      </div>
+      <div className="p-3 bg-black/[0.03] rounded-xl">
+        <p className="text-[10px] text-muted-foreground uppercase font-semibold">Description</p>
+        <p className="font-medium mt-1">{record.description}</p>
+        <div className="mt-2 flex gap-2">
+          <StatusBadge status={record.type} dot={false} tone="neutral" />
+          <StatusBadge status={record.category} dot={false} tone="neutral" />
+        </div>
+      </div>
+      <div className="border border-black/[0.05] rounded-xl p-4 flex items-center justify-between">
+        <span className="font-semibold text-[15px]">Total Amount</span>
+        <span className="font-mono font-bold text-[18px] text-rose-600 block">{formatNairaFull(record.amount)}</span>
+      </div>
+    </div>
+  );
+}
+
+function WOSummary({ record }: { record: WorkOrder }) {
+  return (
+    <div className="text-sm text-[#141a1f] space-y-4 text-left mt-4">
+      <div className="flex gap-3">
+        <div className="flex-1 p-3 bg-black/[0.03] rounded-xl">
+          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Asset</p>
+          <p className="font-medium mt-1">{record.truckReg}</p>
+        </div>
+        <div className="flex-1 p-3 bg-black/[0.03] rounded-xl">
+          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Priority</p>
+          <div className="mt-1"><StatusBadge status={record.priority as any} /></div>
+        </div>
+      </div>
+      <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-900">
+        <p className="text-[10px] text-rose-500 uppercase font-semibold flex items-center gap-1 mb-1">
+          <AlertTriangle className="h-3 w-3" /> Reported Defect
+        </p>
+        <p className="font-medium">{record.defect}</p>
+      </div>
+      <p className="text-[12px] text-muted-foreground px-1 leading-relaxed">
+        Authorizing this will change the truck's status to <strong>Maintenance</strong> and ground it from dispatch operations.
+      </p>
+    </div>
+  );
+}
+
 function ApprovalsPage() {
   const [pendingTrips, setPendingTrips] = useState<Trip[]>([]);
   const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
@@ -48,21 +148,26 @@ function ApprovalsPage() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const [confirmApproval, setConfirmApproval] = useState<{ id: string, type: "Trip" | "Expense" | "Work Order" } | null>(null);
+  type ConfirmState = 
+    | { type: "Trip", record: Trip }
+    | { type: "Expense", record: Expense }
+    | { type: "Work Order", record: WorkOrder };
+
+  const [confirmApproval, setConfirmApproval] = useState<ConfirmState | null>(null);
 
   const executeApproval = async () => {
     if (!confirmApproval) return;
-    const { id, type } = confirmApproval;
+    const { type, record } = confirmApproval;
     
     if (type === "Trip") {
-      await tripService.approveDispatch(id);
-      toast.success(`Trip ${id} approved for dispatch.`);
+      await tripService.approveDispatch(record.id);
+      toast.success(`Trip ${record.id} approved for dispatch.`);
     } else if (type === "Expense") {
-      await accountService.setStatus(id, "Approved");
-      toast.success(`Expense ${id} approved.`);
+      await accountService.setStatus(record.id, "Approved");
+      toast.success(`Expense ${record.id} approved.`);
     } else if (type === "Work Order") {
-      await engineeringService.advance(id);
-      toast.success(`Work Order ${id} approved for diagnosis.`);
+      await engineeringService.advance(record.id);
+      toast.success(`Work Order ${record.id} approved for diagnosis.`);
     }
     
     setConfirmApproval(null);
@@ -86,7 +191,7 @@ function ApprovalsPage() {
       return <span className="num font-bold">{formatNairaFull(margin)}</span>;
     }},
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Trip" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ type: "Trip", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
     )}
   ];
 
@@ -96,7 +201,7 @@ function ApprovalsPage() {
     { key: "req", header: "Requester", cell: r => r.requester },
     { key: "amount", header: "Amount", align: "right", cell: r => <span className="num font-bold">{formatNairaFull(r.amount)}</span> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Expense" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ type: "Expense", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
     )}
   ];
 
@@ -106,7 +211,7 @@ function ApprovalsPage() {
     { key: "defect", header: "Reported Defect", cell: r => r.defect },
     { key: "pri", header: "Priority", cell: r => <StatusBadge status={r.priority as any} /> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ id: r.id, type: "Work Order" })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
+      <Button size="sm" onClick={() => setConfirmApproval({ type: "Work Order", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
     )}
   ];
 
@@ -150,18 +255,29 @@ function ApprovalsPage() {
       </Tabs>
 
       {confirmApproval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[16px] bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-              <ShieldCheck className="h-6 w-6 text-emerald-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+          <div className="w-full max-w-[420px] rounded-[24px] bg-white p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex-shrink-0">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                <ShieldCheck className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#141a1f] tracking-tight">Authorize {confirmApproval.type}</h3>
+              <p className="mt-1 text-sm text-[#8e95a1]">
+                Review the details for <span className="font-semibold text-[#141a1f]">{confirmApproval.record.id}</span> before approving.
+              </p>
             </div>
-            <h3 className="text-lg font-semibold text-[#141a1f]">Confirm {confirmApproval.type} Approval</h3>
-            <p className="mt-2 text-sm text-[#5c6470]">
-              You are about to authorize <strong>{confirmApproval.id}</strong>. This action will advance the workflow and notify relevant parties.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setConfirmApproval(null)}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={executeApproval}>Authorize</Button>
+            
+            <div className="flex-1 overflow-y-auto min-h-0 sleek-scrollbar py-2">
+              {confirmApproval.type === "Trip" && <TripSummary record={confirmApproval.record} />}
+              {confirmApproval.type === "Expense" && <ExpenseSummary record={confirmApproval.record} />}
+              {confirmApproval.type === "Work Order" && <WOSummary record={confirmApproval.record} />}
+            </div>
+            
+            <div className="flex-shrink-0 mt-6 flex justify-end gap-3 pt-4 border-t border-black/[0.05]">
+              <Button variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => setConfirmApproval(null)}>Cancel</Button>
+              <Button className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-6 font-semibold shadow-md hover:shadow-lg transition-all" onClick={executeApproval}>
+                Confirm & Authorize
+              </Button>
             </div>
           </div>
         </div>
