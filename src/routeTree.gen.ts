@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
+import { Route as SuperadminIndexRouteImport } from './routes/superadmin.index'
 import { Route as SuperadminLoginRouteImport } from './routes/superadmin.login'
 import { Route as WorkspaceAccountTypeRouteImport } from './routes/workspace.account-type'
 import { Route as WorkspaceAppRouteImport } from './routes/workspace.app'
@@ -55,20 +55,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SuperadminRoute = SuperadminRouteImport.update({
-  id: '/superadmin',
-  path: '/superadmin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuperadminIndexRoute = SuperadminIndexRouteImport.update({
+  id: '/superadmin/',
+  path: '/superadmin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuperadminLoginRoute = SuperadminLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => SuperadminRoute,
+  id: '/superadmin/login',
+  path: '/superadmin/login',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceAccountTypeRoute = WorkspaceAccountTypeRouteImport.update({
   id: '/account-type',
@@ -266,7 +266,6 @@ const WorkspaceCustomerPortalAuthRequestRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/superadmin': typeof SuperadminRouteWithChildren
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
@@ -274,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/superadmin/': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
@@ -307,12 +307,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/superadmin': typeof SuperadminRouteWithChildren
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/superadmin': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
@@ -347,7 +347,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/superadmin': typeof SuperadminRouteWithChildren
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
@@ -355,6 +354,7 @@ export interface FileRoutesById {
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalRouteWithChildren
   '/workspace/forgot-password': typeof WorkspaceForgotPasswordRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/superadmin/': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
@@ -391,7 +391,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/superadmin'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
@@ -399,6 +398,7 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal'
     | '/workspace/forgot-password'
     | '/workspace/login'
+    | '/superadmin/'
     | '/workspace/app/accounts'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
@@ -432,12 +432,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/superadmin'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
     | '/workspace/forgot-password'
     | '/workspace/login'
+    | '/superadmin'
     | '/workspace/app/accounts'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
@@ -471,7 +471,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/superadmin'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
@@ -479,6 +478,7 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal'
     | '/workspace/forgot-password'
     | '/workspace/login'
+    | '/superadmin/'
     | '/workspace/app/accounts'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
@@ -514,8 +514,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SuperadminRoute: typeof SuperadminRouteWithChildren
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
+  SuperadminLoginRoute: typeof SuperadminLoginRoute
+  SuperadminIndexRoute: typeof SuperadminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -527,13 +528,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/superadmin': {
-      id: '/superadmin'
-      path: '/superadmin'
-      fullPath: '/superadmin'
-      preLoaderRoute: typeof SuperadminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/workspace': {
       id: '/workspace'
       path: '/workspace'
@@ -541,12 +535,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/superadmin/': {
+      id: '/superadmin/'
+      path: '/superadmin'
+      fullPath: '/superadmin/'
+      preLoaderRoute: typeof SuperadminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/superadmin/login': {
       id: '/superadmin/login'
-      path: '/login'
+      path: '/superadmin/login'
       fullPath: '/superadmin/login'
       preLoaderRoute: typeof SuperadminLoginRouteImport
-      parentRoute: typeof SuperadminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/workspace/account-type': {
       id: '/workspace/account-type'
@@ -803,18 +804,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface SuperadminRouteChildren {
-  SuperadminLoginRoute: typeof SuperadminLoginRoute
-}
-
-const SuperadminRouteChildren: SuperadminRouteChildren = {
-  SuperadminLoginRoute: SuperadminLoginRoute,
-}
-
-const SuperadminRouteWithChildren = SuperadminRoute._addFileChildren(
-  SuperadminRouteChildren,
-)
-
 interface WorkspaceAppRouteChildren {
   WorkspaceAppAccountsRoute: typeof WorkspaceAppAccountsRoute
   WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
@@ -937,8 +926,9 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SuperadminRoute: SuperadminRouteWithChildren,
   WorkspaceRoute: WorkspaceRouteWithChildren,
+  SuperadminLoginRoute: SuperadminLoginRoute,
+  SuperadminIndexRoute: SuperadminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

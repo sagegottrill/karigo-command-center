@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/superadmin")({
+export const Route = createFileRoute("/superadmin/")({
   beforeLoad: () => {
     if (!authService.isAuthenticated() || !authService.getRoles().includes("Platform Admin")) {
       throw redirect({ to: "/superadmin/login" });
