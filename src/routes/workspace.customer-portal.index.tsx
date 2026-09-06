@@ -4,6 +4,7 @@
 // workspace.account-type.tsx already funnels partner users here.
 export const Route = createFileRoute("/workspace/customer-portal/")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     throw redirect({ to: "/workspace/customer-portal/login", replace: true });
   },
   component: () => null,

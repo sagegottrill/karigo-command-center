@@ -10,6 +10,7 @@ import { useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
     if (!user) {
       throw redirect({ to: "/workspace/login" });

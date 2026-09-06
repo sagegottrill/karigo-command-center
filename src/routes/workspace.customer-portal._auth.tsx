@@ -3,6 +3,7 @@ import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
     if (!user) {
       throw redirect({ to: "/workspace/customer-portal/login" });

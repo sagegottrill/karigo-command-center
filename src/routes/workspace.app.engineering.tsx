@@ -32,6 +32,7 @@ export const Route = createFileRoute("/workspace/app/engineering")({
     return { trucks: [...heads, ...tails] };
   },
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Engineering"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });

@@ -9,6 +9,7 @@ import type { AuditLog } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/workspace/app/audit")({
   loader: () => auditService.list(),
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const allowed = ["Transport Manager"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });

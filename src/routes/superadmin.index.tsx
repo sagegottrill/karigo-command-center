@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/superadmin/")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     if (!authService.isAuthenticated() || !authService.getRoles().includes("Platform Admin")) {
       throw redirect({ to: "/superadmin/login" });
     }

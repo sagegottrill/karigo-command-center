@@ -26,6 +26,7 @@ export const Route = createFileRoute("/workspace/app/admin")({
     return { tenant, roles, loginReports };
   },
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     // Let any authenticated internal user in, or specific roles.
     // The sidebar checks for "All modules" to show the link, so it's protected there.
     const roles = authService.getRoles();
