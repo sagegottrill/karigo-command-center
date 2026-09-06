@@ -580,6 +580,7 @@ export const ALERTS: AlertItem[] = [
 ];
 
 export const USERS: User[] = [
+  ["Super Admin", "Platform Admin", "Platform Administrator", "System"],
   ["Okwudili Fortune", "Transport Manager", "Transport Manager", "Executive"],
   ["Tunde Balogun", "Fleet Operations", "Fleet Operations", "Operations"],
   ["Adaeze Nwoke", "Fleet Operations", "Dispatcher", "Operations"],

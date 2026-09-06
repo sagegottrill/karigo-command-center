@@ -57,20 +57,37 @@ const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Warri", "O
 function DispatchPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({
-    customer: "", cargo: "", pickup: "", dropoff: "", date: "2026-08-13",
-    priority: "Normal", headId: "", tailId: "", tailNumber: "", driverId: "", 
-    manualDriver: false, manualSalaryNumber: "", manualDriverName: "",
-    costs: {
-      tripAllowance: 0,
-      returnWaybill: 0,
-      motorBoy: 0,
-      ticket: 0,
-      extraAllowance: 0,
-      lubricantType: "Diesel",
-    },
-    notes: "",
+  const [form, setForm] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dispatch_form_draft");
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+    }
+    return {
+      customer: "", cargo: "", pickup: "", dropoff: "", date: new Date().toISOString().split('T')[0],
+      priority: "Normal", headId: "", tailId: "", tailNumber: "", driverId: "", 
+      manualDriver: false, manualSalaryNumber: "", manualDriverName: "",
+      costs: {
+        tripAllowance: 0,
+        returnWaybill: 0,
+        motorBoy: 0,
+        ticket: 0,
+        extraAllowance: 0,
+        lubricantType: "Diesel",
+      },
+      notes: "",
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem("dispatch_form_draft", JSON.stringify(form));
+  }, [form]);
+
+  const clearDraft = () => {
+    localStorage.removeItem("dispatch_form_draft");
+    window.location.reload();
+  };
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
   const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>>>({});
 
@@ -89,13 +106,13 @@ function DispatchPage() {
   };
 
   const tripId = useMemo(() => `TRP-${String(Math.floor(880 + Math.random() * 90)).padStart(5, "0")}`, []);
-  const availableHeads = TRUCK_HEADS.filter((t) => t.status === "Available");
-  const availableTails = TRUCK_TAILS.filter((t) => t.status === "Available");
-  const head = TRUCK_HEADS.find((t) => t.id === form.headId);
-  const tail = TRUCK_TAILS.find((t) => t.id === form.tailId);
-  const driver = drivers.find((d) => d.id === form.driverId);
-  const distance = form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0;
-  const duration = distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—";
+  const availableHeads = useMemo(() => TRUCK_HEADS.filter((t) => t.status === "Available"), [TRUCK_HEADS]);
+  const availableTails = useMemo(() => TRUCK_TAILS.filter((t) => t.status === "Available"), [TRUCK_TAILS]);
+  const head = useMemo(() => TRUCK_HEADS.find((t) => t.id === form.headId), [TRUCK_HEADS, form.headId]);
+  const tail = useMemo(() => TRUCK_TAILS.find((t) => t.id === form.tailId), [TRUCK_TAILS, form.tailId]);
+  const driver = useMemo(() => drivers.find((d) => d.id === form.driverId), [drivers, form.driverId]);
+  const distance = useMemo(() => form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0, [form.pickup, form.dropoff]);
+  const duration = useMemo(() => distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—", [distance]);
 
   const validate = (validateAll = false) => {
     const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>> = {};
@@ -164,17 +181,23 @@ function DispatchPage() {
       lat: head.lat, lng: head.lng, revenue: distance * 4200,
       directCosts: form.costs,
     });
+    localStorage.removeItem("dispatch_form_draft");
     toast.success(`Dispatch ${trip.id} sent for approval`, { description: `Routed to Transport Manager.` });
     navigate({ to: "/workspace/app" });
   };
 
   return (
     <>
-      <PageHeader
-        title="Create Dispatch"
-        description="Create a trip in five steps, then release it to the field."
-        meta={<><StatusBadge status="Scheduled" /><span className="num text-[11px] text-muted-foreground">Draft {tripId}</span></>}
-      />
+      <div className="flex items-start justify-between">
+        <PageHeader
+          title="Create Dispatch"
+          description="Create a trip in five steps, then release it to the field."
+          meta={<><StatusBadge status="Scheduled" /><span className="num text-[11px] text-muted-foreground">Draft {tripId}</span></>}
+        />
+        <Button variant="ghost" size="sm" onClick={clearDraft} className="text-muted-foreground hover:text-red-600">
+          Clear Draft
+        </Button>
+      </div>
 
       <ol className="flex flex-wrap gap-1.5">
         {STEPS.map((label, i) => (
@@ -446,6 +469,15 @@ function DispatchPage() {
                     <SelectItem value="Gas" className="text-xs">Gas</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2 mt-4 p-4 rounded-lg bg-black/[0.02] border border-black/[0.05] flex justify-between items-center">
+                <div>
+                  <Label className="text-sm font-semibold">Total Direct Cost</Label>
+                  <p className="text-xs text-muted-foreground">Sum of all allowances and fees for this trip.</p>
+                </div>
+                <div className="text-xl font-bold font-mono">
+                  &#8358;{(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}
+                </div>
               </div>
             </div>
           )}

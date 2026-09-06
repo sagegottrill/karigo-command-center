@@ -40,6 +40,7 @@ export interface Company {
 }
 
 export type RoleKey =
+  | "Platform Admin"
   | "Transport Manager"
   | "Fleet Operations"
   | "Engineering"

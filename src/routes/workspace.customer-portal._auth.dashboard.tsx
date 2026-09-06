@@ -19,7 +19,6 @@ function PartnerPortalDashboard() {
   // Modals state
   const [sortModalOpen, setSortModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
-  const [detailsModalOpen, setDetailsModalOpen] = useState<Trip | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
 
   // Filters state (mock for UI)
@@ -131,27 +130,27 @@ function PartnerPortalDashboard() {
 
         <div className="px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex flex-col h-full bg-[#f1f2f4]">
           {/* Stats Cards */}
-          <div className="grid grid-cols-6 lg:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8">
-            <div className="col-span-3 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
-              <span className="text-[12px] lg:text-[13px] font-[600] text-[#5c6470]">Total Request</span>
-              <span className="text-[28px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{totalRequests}</span>
+          <div className="grid grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8 overflow-x-auto pb-2 -mb-2">
+            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
+              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Total Requests</span>
+              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{totalRequests}</span>
             </div>
-            <div className="col-span-3 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
-              <span className="text-[12px] lg:text-[13px] font-[600] text-[#5c6470]">In transit</span>
-              <span className="text-[28px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{inTransit}</span>
-              <span className="text-[9px] lg:text-[10px] font-[500] text-[#34c759] mt-1 lg:mt-2 line-clamp-1">Look out for your delivery</span>
+            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
+              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">In transit</span>
+              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{inTransit}</span>
+              <span className="text-[10px] font-[500] text-[#34c759] mt-2">Look out for your delivery</span>
             </div>
-            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
-              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Pending</span>
-              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{pending}</span>
+            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
+              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Pending</span>
+              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{pending}</span>
             </div>
-            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
-              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Declined</span>
-              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{declined}</span>
+            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
+              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Declined</span>
+              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{declined}</span>
             </div>
-            <div className="col-span-2 lg:col-span-1 bg-white rounded-[6px] p-[16px] lg:p-[20px] shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px] lg:min-h-[100px]">
-              <span className="text-[11px] lg:text-[13px] font-[600] text-[#5c6470]">Completed</span>
-              <span className="text-[24px] lg:text-[32px] font-[600] text-[#141a1f] leading-none">{completed}</span>
+            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
+              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Completed</span>
+              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{completed}</span>
             </div>
           </div>
 
@@ -165,8 +164,8 @@ function PartnerPortalDashboard() {
                 </p>
               </div>
               <Link to="/workspace/customer-portal/request" className="w-full lg:w-auto">
-                <button className="w-full h-[44px] lg:h-[36px] px-[16px] rounded-[6px] lg:rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors flex items-center justify-center shadow-sm">
-                  <span className="text-[14px] lg:text-[13px] font-[500] text-white">+ Add New Staff Account</span>
+                <button className="w-full h-[44px] lg:h-[40px] px-[24px] rounded-[6px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors flex items-center justify-center shadow-sm">
+                  <span className="text-[14px] font-[500] text-white">+ New Request</span>
                 </button>
               </Link>
             </div>
@@ -194,11 +193,11 @@ function PartnerPortalDashboard() {
             
             {/* Active Filters Row */}
             <div className="flex gap-2 mt-4 flex-wrap">
-              <div className="bg-[#e3351d] text-white px-3 py-1.5 lg:px-2 lg:py-1 rounded-[6px] lg:rounded-[4px] flex items-center gap-2 text-[11px] lg:text-[10px] font-semibold shadow-sm">
+              <div className="bg-[#e3351d] text-white px-3 py-1.5 rounded-[4px] flex items-center gap-2 text-[12px] font-[500]">
                 Username <X className="w-3 h-3 cursor-pointer" />
               </div>
-              <div className="bg-[#141a1f] text-white px-3 py-1.5 lg:px-2 lg:py-1 rounded-[6px] lg:rounded-[4px] flex items-center gap-2 text-[11px] lg:text-[10px] font-semibold shadow-sm">
-                {sortOrder === "Ascending" ? "Accending" : "Descending"} <X className="w-3 h-3 cursor-pointer" />
+              <div className="bg-[#141a1f] text-white px-3 py-1.5 rounded-[4px] flex items-center gap-2 text-[12px] font-[500]">
+                {sortOrder === "Ascending" ? "Ascending" : "Descending"} <X className="w-3 h-3 cursor-pointer" />
               </div>
             </div>
           </div>
@@ -221,9 +220,9 @@ function PartnerPortalDashboard() {
                       <MoreVertical className="w-4 h-4 text-[#5c6470]" />
                     </button>
                     {rowMenuOpen === r.id && (
-                      <div className="absolute right-0 top-6 bg-white border border-gray-100 rounded-md shadow-xl py-2 w-[140px] z-10">
-                        <button onClick={(e) => { e.stopPropagation(); setDetailsModalOpen(r); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#5c6470] hover:bg-gray-50 font-[500]">Details</button>
-                        <button onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
+                      <div className="absolute right-0 top-6 bg-white border border-gray-100 rounded-[10px] shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-2 w-[160px] z-10">
+                        <button onClick={(e) => { e.stopPropagation(); navigate({ to: `/workspace/customer-portal/${r.id}` as any }); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2.5 text-[14px] text-[#141a1f] hover:bg-gray-50 font-[500]">Details</button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2.5 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
                       </div>
                     )}
                   </div>
@@ -299,16 +298,16 @@ function PartnerPortalDashboard() {
                           <MoreVertical className="w-4 h-4 text-gray-400" />
                         </button>
                         {rowMenuOpen === r.id && (
-                          <div className="absolute right-8 top-10 bg-white border border-gray-100 rounded-md shadow-lg py-2 w-[140px] z-10">
+                          <div className="absolute right-8 top-10 bg-white border border-gray-100 rounded-[10px] shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-2 w-[160px] z-10">
                             <button 
-                              onClick={(e) => { e.stopPropagation(); setDetailsModalOpen(r); setRowMenuOpen(null); }}
-                              className="w-full text-left px-4 py-2 text-[13px] text-[#5c6470] hover:bg-gray-50 font-medium"
+                              onClick={(e) => { e.stopPropagation(); navigate({ to: `/workspace/customer-portal/${r.id}` as any }); setRowMenuOpen(null); }}
+                              className="w-full text-left px-4 py-2.5 text-[14px] text-[#141a1f] hover:bg-gray-50 font-[500]"
                             >
                               Details
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }}
-                              className="w-full text-left px-4 py-2 text-[13px] text-[#e3351d] hover:bg-red-50 font-medium"
+                              className="w-full text-left px-4 py-2.5 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]"
                             >
                               Delete
                             </button>
@@ -383,117 +382,7 @@ function PartnerPortalDashboard() {
         </div>
       )}
 
-      {/* REQUEST DETAILS MODAL */}
-      {detailsModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[600px] overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-[20px] font-[600] text-[#141a1f]">Request Details</h2>
-                <StatusBadge status={detailsModalOpen.status} />
-              </div>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-4 lg:gap-x-6 lg:gap-y-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">ID No.</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.id}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Date</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    02-09-2026
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 col-span-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Customer</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.customerConsignee || "Janeth Doe"}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Product</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.cargo || "Steel"}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Truck Type</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.tailType || "Flat"}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 col-span-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Destination</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.dropoff || "ABC, Alake Estate"}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 col-span-2">
-                  <label className="text-[13px] font-[600] text-[#141a1f]">Loading Site(s)</label>
-                  <div className="h-[44px] bg-[#f1f2f4] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                    {detailsModalOpen.pickup || "Babangida; Happy Home"}
-                  </div>
-                </div>
-              </div>
-
-              {detailsModalOpen.status !== "Requested" && detailsModalOpen.status !== "Scheduled" && (
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <h3 className="text-[15px] font-[600] text-[#141a1f] mb-4">Assigned Fulfillment Details</h3>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-4 lg:gap-x-6 lg:gap-y-6">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[13px] font-[600] text-[#141a1f]">Driver Name</label>
-                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                        {detailsModalOpen.driverName || "—"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[13px] font-[600] text-[#141a1f]">Driver Phone</label>
-                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                        +234 800 000 0000
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[13px] font-[600] text-[#141a1f]">Truck Head</label>
-                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                        {detailsModalOpen.truckReg ? detailsModalOpen.truckReg.split(" / ")[0] : "—"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[13px] font-[600] text-[#141a1f]">Truck Tail</label>
-                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470]">
-                        {detailsModalOpen.tailType || "—"} / {detailsModalOpen.truckReg ? detailsModalOpen.truckReg.split(" / ")[1] : "—"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 col-span-2">
-                      <label className="text-[13px] font-[600] text-[#141a1f]">Serial Number (Provisional)</label>
-                      <div className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 flex items-center text-[13px] text-[#5c6470] font-mono">
-                        SN-{detailsModalOpen.id?.split("-")[1] || "0000"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center pt-6 border-t border-gray-100">
-                <button 
-                  onClick={() => setDetailsModalOpen(null)}
-                  className="text-[#e3351d] text-[14px] font-[500] px-4 hover:underline"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => setDeleteModalOpen(detailsModalOpen.id)}
-                  className="h-[40px] px-6 bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[14px] font-[500]"
-                >
-                  Delete Request
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* DELETE CONFIRMATION MODAL - High Z-Index for Nesting */}
       {deleteModalOpen && (
@@ -513,7 +402,7 @@ function PartnerPortalDashboard() {
                 Cancel
               </button>
               <button 
-                onClick={() => { setDeleteModalOpen(null); setDetailsModalOpen(null); }}
+                onClick={() => { setDeleteModalOpen(null); }}
                 className="h-[40px] px-6 lg:px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
               >
                 Confirm
