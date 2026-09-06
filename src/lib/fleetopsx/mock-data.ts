@@ -594,8 +594,8 @@ export const USERS: User[] = [
 ].map(([name, role, roleName, department], i) => ({
   id: `USR-${pad(i + 1, 4)}`,
   name: name as string,
-  email: `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
-  username: `${(name as string).split(" ")[0]!.charAt(0).toLowerCase()}${(name as string).split(" ")[1]!.toLowerCase()}`,
+  email: role === "Platform Admin" ? "admin@fleetopsx.com" : `${(name as string).toLowerCase().replace(/[^a-z]+/g, ".")}@petroline.ng`,
+  username: role === "Platform Admin" ? "admin" : `${(name as string).split(" ")[0]!.charAt(0).toLowerCase()}${(name as string).split(" ")[1]!.toLowerCase()}`,
   roles: [role as User["roles"][0]],
   roleNames: [roleName as string],
   department: department as string,
@@ -606,8 +606,8 @@ export const USERS: User[] = [
 }));
 
 // Give Okwudili Fortune multiple roles for testing
-USERS[0]!.roles = ["Transport Manager", "HR"];
-USERS[0]!.roleNames = ["Transport Manager", "HR Manager"];
+USERS[1]!.roles = ["Transport Manager", "HR"];
+USERS[1]!.roleNames = ["Transport Manager", "HR Manager"];
 
 export const ROLES: Role[] = [
   { key: "Transport Manager", name: "Transport Admin", description: "Super Admin. Oversees all operations across every department.", modules: ["All modules"], users: 1 },
