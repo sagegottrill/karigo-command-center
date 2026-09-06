@@ -126,6 +126,14 @@ export const companyService = {
 export const fleetService = {
   listHeads: () => settle(isolate([...store.truckHeads])),
   listTails: () => settle(isolate([...store.truckTails])),
+  updateHeadStatus: (id: string, status: import("./types").TruckStatus) => {
+    store.truckHeads = store.truckHeads.map(t => t.id === id ? { ...t, status } : t);
+    return settle(true);
+  },
+  updateTailStatus: (id: string, status: import("./types").TruckStatus) => {
+    store.truckTails = store.truckTails.map(t => t.id === id ? { ...t, status } : t);
+    return settle(true);
+  },
   getHead: (id: string) => settle(store.truckHeads.find((t) => t.id === id) ?? null),
   getTail: (id: string) => settle(store.truckTails.find((t) => t.id === id) ?? null),
   summary: () =>
@@ -223,8 +231,22 @@ export const tripService = {
     
     return settle(trip);
   },
+  approveDispatch: (id: string) => {
+    store.trips = store.trips.map(t => {
+      if (t.id === id && t.status === "Awaiting Approval") {
+        // Calculate gross margin based on direct costs
+        const costs = t.directCosts;
+        const totalCosts = costs ? (costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance) : 0;
+        const grossMargin = t.revenue - totalCosts;
+        
+        return { ...t, status: "Scheduled", totalCosts, grossMargin };
+      }
+      return t;
+    });
+    return settle(true);
+  },
   updateStatus: (id: string) => {
-    const flow = ["Scheduled", "Loaded", "En Route", "Offloading", "Returning", "Completed"] as const;
+    const flow = ["Requested", "Awaiting Approval", "Scheduled", "Loaded", "En Route", "Offloading", "Returning", "Completed"] as const;
     let nextStatus = "Completed";
     store.trips = store.trips.map(t => {
       if (t.id === id) {

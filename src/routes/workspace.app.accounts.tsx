@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-const FILTERS = ["All", "Pending", "Approved", "Rejected", "Clarification"] as const;
+const FILTERS = ["All", "Pending", "Approved", "Disbursed", "Rejected", "Clarification"] as const;
 const EXPENSE_CATEGORIES = ["Brake Pad", "Tire/Rim", "Police", "Medical", "Other"];
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
@@ -62,7 +62,7 @@ function AccountsPage() {
   const pending = rows.filter((e) => e.status === "Pending");
   const approved = rows.filter((e) => e.status === "Approved");
   const rejected = rows.filter((e) => e.status === "Rejected");
-  const disbursed = approved.reduce((s, e) => s + e.amount, 0);
+  const disbursed = rows.filter(e => e.status === "Disbursed").reduce((s, e) => s + e.amount, 0);
   const variance = rows.reduce((s, e) => s + (e.amount - e.standardRate), 0);
   const view = filter === "All" ? rows : rows.filter((e) => e.status === filter);
 
@@ -76,11 +76,11 @@ function AccountsPage() {
     { key: "approval", header: "Approval", cell: (r) => <span className="text-muted-foreground">{r.approvalLevel}</span> },
   ], []);
 
-  const setStatus = async (status: Expense["status"]) => {
+  const setStatus = async (status: Expense["status"] | "Disbursed") => {
     if (!selected) return;
-    await accountService.setStatus(selected.id, status);
-    const labels = { Approved: "approved", Rejected: "rejected", Clarification: "sent for clarification", Pending: "reset to pending" } as const;
-    toast.success(`${selected.id} ${labels[status]}`);
+    await accountService.setStatus(selected.id, status as ExpenseStatus);
+    const labels = { Approved: "approved", Rejected: "rejected", Clarification: "sent for clarification", Pending: "reset to pending", Disbursed: "disbursed" } as const;
+    toast.success(`${selected.id} ${labels[status as keyof typeof labels]}`);
     setTab("detail");
     await refresh();
   };
@@ -182,8 +182,8 @@ function AccountsPage() {
                 {[
                   { step: "Submitted", by: selected?.requester ?? "Requester", state: "done" as const },
                   { step: "Supervisor review", by: "Operations Manager", state: selected && selected.status !== "Pending" ? "done" as const : "current" as const },
-                  { step: "Accounts approval", by: "Accountant", state: selected?.status === "Approved" ? "done" as const : "pending" as const },
-                  { step: "Disbursement", by: "Treasury", state: selected?.status === "Approved" ? "done" as const : "pending" as const },
+                  { step: "Accounts approval", by: "Accountant", state: (selected?.status === "Approved" || selected?.status === "Disbursed") ? "done" as const : "pending" as const },
+                  { step: "Disbursement", by: "Treasury", state: selected?.status === "Disbursed" ? "done" as const : "pending" as const },
                 ].map((h) => (
                   <div key={h.step} className="flex items-start gap-2.5">
                     <span className={cn(
@@ -209,6 +209,13 @@ function AccountsPage() {
                   </Button>
                   <Button size="sm" variant="secondary" className="h-8 gap-1.5 text-xs" onClick={() => void setStatus("Clarification")}>
                     <MessageSquareWarning className="h-3.5 w-3.5" />Request Clarification
+                  </Button>
+                </div>
+              )}
+              {selected?.status === "Approved" && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-black/[0.05]">
+                  <Button size="sm" className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => void setStatus("Disbursed")}>
+                    <Check className="h-3.5 w-3.5" />Disburse Funds
                   </Button>
                 </div>
               )}

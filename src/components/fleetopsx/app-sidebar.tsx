@@ -48,6 +48,7 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
 
 export const NAV: NavItem[] = [
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
+  { label: "Approvals", to: "/workspace/app/approvals", icon: ShieldCheck, badge: 14, group: "Main" },
   { label: "Fleet", to: "/workspace/app/fleet", icon: Truck, badge: 6, group: "Main" },
   { label: "Trips", to: "/workspace/app/trips", icon: Radar, badge: 42, group: "Main" },
   { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, badge: 7, group: "Workshop" },
@@ -115,6 +116,7 @@ export function AppSidebar({
     if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 
     
     const label = item.label;
+    if (label === "Approvals") return allowedModules.includes("All modules") || allowedModules.includes("Approvals");
     if (label === "Fleet" || label === "Dispatch") return allowedModules.includes("Fleet & Dispatch");
     if (label === "Trips") return allowedModules.includes("Trips");
     if (label === "Engineering") return allowedModules.includes("Engineering");

@@ -476,7 +476,7 @@ function DispatchPage() {
                   <Label className="text-sm font-semibold">Total Direct Cost</Label>
                   <p className="text-xs text-muted-foreground">Sum of all allowances and fees for this trip.</p>
                 </div>
-                <div className="text-xl font-bold font-mono">
+                <div className="text-xl font-bold font-mono text-rose-600">
                   &#8358;{(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}
                 </div>
               </div>
@@ -497,8 +497,24 @@ function DispatchPage() {
                 <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
                 <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
                 <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "—")} />
-                <FieldRow label="Total Direct Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
                 <FieldRow label="Lubricant" value={form.costs.lubricantType} />
+              </div>
+              <div className="sm:col-span-2">
+                <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Financials (Estimated)</p>
+                <div className="grid gap-4 sm:grid-cols-3 mt-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Est. Waybill Revenue</Label>
+                    <p className="text-lg font-bold font-mono text-emerald-600">&#8358;{(distance * 4200).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Total Direct Costs</Label>
+                    <p className="text-lg font-bold font-mono text-rose-600">&#8358;{(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Est. Gross Margin</Label>
+                    <p className="text-lg font-bold font-mono">&#8358;{((distance * 4200) - (form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance)).toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

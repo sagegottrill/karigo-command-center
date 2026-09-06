@@ -29,10 +29,10 @@ export const Route = createFileRoute("/workspace/app/fleet")({
   },
   head: () => ({
     meta: [
-      { title: "Fleet & Dispatch | FleetOpsX" },
-      { name: "description", content: "Fleet availability, assignment and vehicle status across the heavy transport fleet." },
-      { property: "og:title", content: "Fleet & Dispatch | FleetOpsX" },
-      { property: "og:description", content: "Fleet availability, assignment and vehicle status across the fleet." },
+      { title: "Fleet Operations | FleetOpsX" },
+      { name: "description", content: "Fleet Operations: Manage asset availability, assignment, and operational status." },
+      { property: "og:title", content: "Fleet Operations | FleetOpsX" },
+      { property: "og:description", content: "Fleet Operations: Manage asset availability, assignment, and operational status." },
     ],
   }),
   component: FleetPage,
@@ -43,12 +43,32 @@ const FILTERS = ["All", "Available", "Assigned", "In Transit", "Maintenance", "O
 function FleetPage() {
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS } = Route.useLoaderData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [headsList, setHeadsList] = useState(TRUCK_HEADS);
+  const [tailsList, setTailsList] = useState(TRUCK_TAILS);
   
-  const heads = filter === "All" ? TRUCK_HEADS : TRUCK_HEADS.filter((t) => t.status === filter);
-  const tails = filter === "All" ? TRUCK_TAILS : TRUCK_TAILS.filter((t) => t.status === filter);
+  const refresh = async () => {
+    const [h, t] = await Promise.all([fleetService.listHeads(), fleetService.listTails()]);
+    setHeadsList(h);
+    setTailsList(t);
+  };
   
-  const countHead = (s: TruckHead["status"]) => TRUCK_HEADS.filter((t) => t.status === s).length;
-  const countTail = (s: TruckTail["status"]) => TRUCK_TAILS.filter((t) => t.status === s).length;
+  const heads = filter === "All" ? headsList : headsList.filter((t) => t.status === filter);
+  const tails = filter === "All" ? tailsList : tailsList.filter((t) => t.status === filter);
+  
+  const countHead = (s: TruckHead["status"]) => headsList.filter((t) => t.status === s).length;
+  const countTail = (s: TruckTail["status"]) => tailsList.filter((t) => t.status === s).length;
+
+  const handleUpdateHead = async (id: string, status: any) => {
+    await fleetService.updateHeadStatus(id, status);
+    toast.success(`Head ${id} status updated to ${status}.`);
+    await refresh();
+  };
+
+  const handleUpdateTail = async (id: string, status: any) => {
+    await fleetService.updateTailStatus(id, status);
+    toast.success(`Tail ${id} status updated to ${status}.`);
+    await refresh();
+  };
 
   const headColumns: Column<TruckHead>[] = [
     { key: "id", header: "Head", sortValue: (r) => r.id, cell: (r) => <span className="num font-semibold">{r.id}</span> },
@@ -56,6 +76,15 @@ function FleetPage() {
     { key: "make", header: "Make", sortValue: (r) => r.make, cell: (r) => <span className="text-muted-foreground">{r.make}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     { key: "loc", header: "Location", sortValue: (r) => r.location, cell: (r) => r.location },
+    { key: "actions", header: "", align: "right", cell: (r) => (
+      <div className="flex justify-end gap-2">
+        {r.status === "Maintenance" || r.status === "Out of Service" ? (
+          <Button variant="outline" size="sm" className="h-7 px-2 text-emerald-600" onClick={() => handleUpdateHead(r.id, "Available")}>Make Available</Button>
+        ) : (
+          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => handleUpdateHead(r.id, "Maintenance")}>Set Maintenance</Button>
+        )}
+      </div>
+    )}
   ];
 
   const tailColumns: Column<TruckTail>[] = [
@@ -64,13 +93,22 @@ function FleetPage() {
     { key: "type", header: "Type", sortValue: (r) => r.type, cell: (r) => <span className="text-muted-foreground">{r.type}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     { key: "loc", header: "Location", sortValue: (r) => r.location, cell: (r) => r.location },
+    { key: "actions", header: "", align: "right", cell: (r) => (
+      <div className="flex justify-end gap-2">
+        {r.status === "Maintenance" || r.status === "Out of Service" ? (
+          <Button variant="outline" size="sm" className="h-7 px-2 text-emerald-600" onClick={() => handleUpdateTail(r.id, "Available")}>Make Available</Button>
+        ) : (
+          <Button variant="outline" size="sm" className="h-7 px-2 text-rose-600" onClick={() => handleUpdateTail(r.id, "Maintenance")}>Set Maintenance</Button>
+        )}
+      </div>
+    )}
   ];
 
   return (
     <>
       <PageHeader
-        title="Fleet & Dispatch"
-        description="Vehicle availability, assignment state and live location across all yards."
+        title="Fleet Operations"
+        description="Manage asset availability, assignment, and operational status."
         actions={
           <Button asChild size="sm" className="h-8 gap-1.5 text-xs">
             <Link to="/workspace/app/dispatch"><Plus className="h-3.5 w-3.5" />Create Dispatch</Link>
@@ -79,10 +117,10 @@ function FleetPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <MetricCard label="Total Heads" value={TRUCK_HEADS.length} accent />
+        <MetricCard label="Total Heads" value={headsList.length} accent />
         <MetricCard label="Available Heads" value={countHead("Available")} hint="ready to dispatch" />
         <MetricCard label="Assigned Heads" value={countHead("Assigned")} />
-        <MetricCard label="Total Tails" value={TRUCK_TAILS.length} accent />
+        <MetricCard label="Total Tails" value={tailsList.length} accent />
         <MetricCard label="Available Tails" value={countTail("Available")} />
         <MetricCard label="Maintenance Tails" value={countTail("Maintenance")} />
       </div>

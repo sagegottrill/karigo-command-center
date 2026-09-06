@@ -185,6 +185,8 @@ export interface Trip {
   lat: number;
   lng: number;
   revenue: number;
+  totalCosts?: number;
+  grossMargin?: number;
 }
 
 export interface TimelineStep {
@@ -265,6 +267,7 @@ export interface ProcurementRequest {
 export type ExpenseStatus =
   | "Pending"
   | "Approved"
+  | "Disbursed"
   | "Rejected"
   | "Clarification";
 
