@@ -49,7 +49,10 @@ function PartnerPortalDashboard() {
     }
   }, []);
 
-  const companyName = mounted && currentUser ? (currentUser.partnerCompanyName || currentUser.department || "Partner") : "Partner Workspace";
+  const companyName = mounted && currentUser ? (
+    currentUser.partnerCompanyName || 
+    (currentUser.roles.includes("Customer Portals (External)") ? "Sabar Electrics" : "Sabar Electrics")
+  ) : "Partner Workspace";
   const userEmail = mounted && currentUser?.email ? currentUser.email : "";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
 
