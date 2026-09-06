@@ -66,13 +66,13 @@ function PartnerPortalDashboard() {
     <div className="flex h-screen w-full bg-[#E5E6EB] font-['Inter',sans-serif]">
       {/* Sidebar */}
       <div className="hidden lg:flex flex-col w-[260px] bg-[#1a232f] h-full shrink-0">
-        <div className="pt-[32px] pb-[40px] px-[24px] flex justify-start">
+        <Link to="/workspace/account-type" className="pt-[32px] pb-[40px] px-[24px] flex justify-start">
           {tenant?.logo ? (
             <img src={tenant.logo} alt={tenant.name} className="h-[40px] object-contain" />
           ) : (
             <img src="/petroline-transparent.png" alt="Platform Tenant" className="h-[40px] object-contain" />
           )}
-        </div>
+        </Link>
         <div className="flex flex-col flex-1">
           <div className="px-[24px] mb-[16px]">
             <span className="text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">TRANSPORT REQUEST</span>

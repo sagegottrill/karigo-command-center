@@ -90,13 +90,13 @@ function PartnerNewRequest() {
     <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
       {/* Sidebar */}
       <div className="hidden lg:flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
-        <div className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
+        <Link to="/workspace/account-type" className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
           {tenant?.logo ? (
             <img src={tenant.logo} alt={tenant.name} className="w-[140px] h-[48px] object-contain" />
           ) : (
             <img src="/petroline-transparent.png" alt="Platform Tenant" className="w-[140px] h-[48px] object-contain" />
           )}
-        </div>
+        </Link>
         <div className="flex flex-col flex-1 py-[24px]">
           <div className="px-[24px] mb-[12px]">
             <span className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">TRANSPORT REQUEST</span>

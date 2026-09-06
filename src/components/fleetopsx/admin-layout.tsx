@@ -13,7 +13,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div className="hidden lg:flex w-[260px] flex-shrink-0 bg-[#1B2432] h-screen flex-col overflow-y-auto">
         <div className="pt-[32px] pb-[40px] px-[24px]">
-          <Link to="/workspace/app" className="flex items-center gap-2 text-white">
+          <Link to="/workspace/account-type" className="flex items-center gap-2 text-white">
             {tenantLogo ? (
               <img src={tenantLogo} alt={tenantName} className="w-[140px] h-[48px] object-contain" />
             ) : (

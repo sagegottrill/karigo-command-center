@@ -157,7 +157,7 @@ export function AppSidebar({
         )}
       >
         {/* Header / Logo */}
-        <Link to="/workspace/app" className={cn("pt-[24px] pb-[24px] flex border-b border-[#ffffff]/5", collapsed ? "justify-center px-[8px]" : "justify-center px-[24px]")}>
+        <Link to="/workspace/account-type" className={cn("pt-[24px] pb-[24px] flex border-b border-[#ffffff]/5", collapsed ? "justify-center px-[8px]" : "justify-center px-[24px]")}>
           {tenantLogo ? (
             <img src={tenantLogo} alt={tenantName} className={cn("object-contain", collapsed ? "w-[40px] h-[40px]" : "w-[140px] h-[48px]")} />
           ) : (
