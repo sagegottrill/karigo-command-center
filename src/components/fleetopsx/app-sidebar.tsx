@@ -159,7 +159,7 @@ export function AppSidebar({
           {tenantLogo ? (
             <img src={tenantLogo} alt={tenantName} className={cn("object-contain", collapsed ? "w-[40px] h-[40px]" : "w-[140px] h-[48px]")} />
           ) : (
-            <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className={cn("object-contain", collapsed ? "w-[40px] h-[40px] object-cover object-left" : "w-[140px] h-[48px]")} />
+            <img src="/petroline-transparent.png" alt={tenantName || "Platform Tenant"} className={cn("object-contain", collapsed ? "w-[40px] h-[40px] object-cover object-left" : "w-[140px] h-[48px]")} />
           )}
         </Link>
 

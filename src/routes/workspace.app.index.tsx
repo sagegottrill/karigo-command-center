@@ -33,9 +33,9 @@ export const Route = createFileRoute("/workspace/app/")({
   head: () => ({
     meta: [
       { title: "Overview | FleetOpsX" },
-      { name: "description", content: "Fleet overview for Petroline Transport." },
+      { name: "description", content: "Fleet overview for Tenant Transport." },
       { property: "og:title", content: "Overview | FleetOpsX" },
-      { property: "og:description", content: "Fleet overview for Petroline Transport." },
+      { property: "og:description", content: "Fleet overview for Tenant Transport." },
     ],
   }),
   component: Dashboard,

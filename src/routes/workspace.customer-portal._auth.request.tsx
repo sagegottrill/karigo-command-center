@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MoreVertical, ArrowLeft, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { orderService, authService } from "@/lib/fleetopsx/services";
+import { orderService, authService, tenantService } from "@/lib/fleetopsx/services";
+import { getTenantSlug } from "@/lib/fleetopsx/hostname";
+import type { PlatformTenant } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/request")({
@@ -68,6 +70,15 @@ function PartnerNewRequest() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  const [tenant, setTenant] = useState<PlatformTenant | null>(null);
+  
+  useEffect(() => {
+    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
+    if (slug !== "localhost" && slug !== "fleetopsx") {
+      tenantService.getBySlug(slug).then(setTenant);
+    }
+  }, []);
+
   const companyName = mounted && currentUser ? (currentUser.partnerCompanyName || currentUser.department || "Partner") : "Partner Workspace";
   const userEmail = mounted && currentUser?.email ? currentUser.email : "";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
@@ -77,7 +88,11 @@ function PartnerNewRequest() {
       {/* Sidebar */}
       <div className="hidden lg:flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
         <div className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
-          <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="w-[140px] h-[48px] object-contain" />
+          {tenant?.logo ? (
+            <img src={tenant.logo} alt={tenant.name} className="w-[140px] h-[48px] object-contain" />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Platform Tenant" className="w-[140px] h-[48px] object-contain" />
+          )}
         </div>
         <div className="flex flex-col flex-1 py-[24px]">
           <div className="px-[24px] mb-[12px]">

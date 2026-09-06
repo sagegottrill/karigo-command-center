@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { tripService, authService } from "@/lib/fleetopsx/services";
-import type { Trip } from "@/lib/fleetopsx/types";
+import { tripService, authService, tenantService } from "@/lib/fleetopsx/services";
+import type { Trip, PlatformTenant } from "@/lib/fleetopsx/types";
+import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { MoreVertical, Search, ListFilter, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,15 @@ function PartnerPortalDashboard() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  const [tenant, setTenant] = useState<PlatformTenant | null>(null);
+  
+  useEffect(() => {
+    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
+    if (slug !== "localhost" && slug !== "fleetopsx") {
+      tenantService.getBySlug(slug).then(setTenant);
+    }
+  }, []);
+
   const companyName = mounted && currentUser ? (currentUser.partnerCompanyName || currentUser.department || "Partner") : "Partner Workspace";
   const userEmail = mounted && currentUser?.email ? currentUser.email : "";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
@@ -54,7 +64,11 @@ function PartnerPortalDashboard() {
       {/* Sidebar */}
       <div className="hidden lg:flex flex-col w-[260px] bg-[#1a232f] h-full shrink-0">
         <div className="pt-[32px] pb-[40px] px-[24px] flex justify-start">
-          <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="h-[40px] object-contain" />
+          {tenant?.logo ? (
+            <img src={tenant.logo} alt={tenant.name} className="h-[40px] object-contain" />
+          ) : (
+            <img src="/petroline-transparent.png" alt="Platform Tenant" className="h-[40px] object-contain" />
+          )}
         </div>
         <div className="flex flex-col flex-1">
           <div className="px-[24px] mb-[16px]">

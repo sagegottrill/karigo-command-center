@@ -1,23 +1,25 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Plus, LayoutGrid, HelpCircle, MoreVertical, ArrowLeft, UserPlus, UserRoundCog, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Route as RootRoute } from "../../routes/__root";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const path = location.pathname;
+  const { tenantName, tenantLogo } = RootRoute.useRouteContext();
 
   return (
     <div className="flex min-h-screen w-full bg-[#f1f2f4] font-['Inter',sans-serif]">
       {/* Sidebar */}
       <div className="hidden lg:flex w-[260px] flex-shrink-0 bg-[#1B2432] h-screen flex-col overflow-y-auto">
         <div className="pt-[32px] pb-[40px] px-[24px]">
-          {/* Logo Placeholder */}
-          <div className="flex items-center gap-2 text-white">
-            <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 20C10 14.4772 14.4772 10 20 10H100C105.523 10 110 14.4772 110 20C110 25.5228 105.523 30 100 30H20C14.4772 30 10 25.5228 10 20Z" fill="#E3351D"/>
-              <text x="20" y="25" fill="white" fontSize="14" fontWeight="bold">PETROLINE</text>
-            </svg>
-          </div>
+          <Link to="/workspace/app" className="flex items-center gap-2 text-white">
+            {tenantLogo ? (
+              <img src={tenantLogo} alt={tenantName} className="w-[140px] h-[48px] object-contain" />
+            ) : (
+              <img src="/petroline-transparent.png" alt={tenantName || "Platform Tenant"} className="w-[140px] h-[48px] object-contain" />
+            )}
+          </Link>
         </div>
 
         <div className="flex flex-col gap-[32px] flex-1">

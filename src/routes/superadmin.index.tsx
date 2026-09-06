@@ -485,7 +485,10 @@ function SuperAdminLayout() {
                                   <p className="text-sm font-medium text-gray-900">{admin.name}</p>
                                   <p className="text-xs text-gray-500 mt-0.5">{admin.email} (Username: {admin.username})</p>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => toast.success(`Password reset link sent to ${admin.email}`)}>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  adminService.resetPassword(admin.id);
+                                  toast.success(`Password reset link sent to ${admin.email}`);
+                                }}>
                                   Reset Password
                                 </Button>
                               </div>
@@ -560,7 +563,12 @@ function SuperAdminLayout() {
                         <p className="text-sm text-red-700 mb-4">Permanently erase this tenant's database, uploaded files, and all associated configurations. This action cannot be undone.</p>
                         <Button 
                           className="bg-red-600 text-white hover:bg-red-700"
-                          onClick={() => toast.error("Deletion requested. An email has been sent to confirm.")}>
+                          onClick={() => {
+                            tenantService.deleteTenant(managingTenant.id);
+                            setManagingTenant(null);
+                            loadTenants();
+                            toast.success("Workspace data permanently deleted.");
+                          }}>
                           Delete Workspace Data
                         </Button>
                       </div>

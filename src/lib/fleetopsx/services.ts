@@ -99,6 +99,12 @@ export const tenantService = {
   updateTenant: (id: string, updates: Partial<PlatformTenant>) => {
     store.platformTenants = store.platformTenants.map((t) => (t.id === id ? { ...t, ...updates } : t));
     return settle(true);
+  },
+  deleteTenant: (id: string) => {
+    store.platformTenants = store.platformTenants.filter(t => t.id !== id);
+    // Cleanup any users associated with this tenant
+    store.users = store.users.filter(u => u.companyId !== id);
+    return settle(true);
   }
 };
 
@@ -681,10 +687,17 @@ export const adminService = {
   createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string }) => {
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
+    
+    // Determine the email domain based on the user's role or partner company
+    let emailDomain = "petroline.ng";
+    if (payload.roles.includes("Customer Portals (External)") && payload.partnerCompanyName) {
+      emailDomain = payload.partnerCompanyName.toLowerCase().replace(/[^a-z]+/g, "") + ".com";
+    }
+
     const newUser: import("./types").User = {
       id,
       name,
-      email: `${payload.username}@petroline.ng`,
+      email: `${payload.username}@${emailDomain}`,
       username: payload.username,
       roles: payload.roles as any,
       roleNames: payload.roles,
@@ -698,6 +711,10 @@ export const adminService = {
     };
     store.users = [newUser, ...store.users];
     return settle(newUser);
+  },
+  resetPassword: (userId: string) => {
+    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: true } : u);
+    return settle(true);
   },
   editUser: (id: string, payload: Partial<import("./types").User>) => {
     store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
