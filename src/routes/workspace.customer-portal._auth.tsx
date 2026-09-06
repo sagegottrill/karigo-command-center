@@ -6,7 +6,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth")({
     if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
     if (!user) {
-      throw redirect({ to: "/workspace/customer-portal/login", search: { redirect: location.href } });
+      throw redirect({ to: "/workspace/customer-portal/login" });
     } else if (user.passwordResetRequired) {
       throw redirect({ to: "/workspace/forgot-password" });
     }

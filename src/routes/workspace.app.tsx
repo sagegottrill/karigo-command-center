@@ -15,7 +15,7 @@ export const Route = createFileRoute("/workspace/app")({
     
     // Strict enforcement: no user = redirect to login immediately
     if (!user) {
-      throw redirect({ to: "/workspace/login", search: { redirect: location.href } });
+      throw redirect({ to: "/workspace/login" });
     }
     
     // Enforce forced password reset before accessing any app dashboard route
