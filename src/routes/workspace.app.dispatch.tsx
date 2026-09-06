@@ -305,7 +305,10 @@ function DispatchPage() {
                     <button
                       key={t.id}
                       disabled={!selectable}
-                      onClick={() => setForm({ ...form, headId: t.id })}
+                      onClick={() => {
+                        setForm({ ...form, headId: t.id });
+                        setStep(2);
+                      }}
                       className={cn(
                         "flex flex-col gap-2 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.headId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
@@ -340,7 +343,10 @@ function DispatchPage() {
                     <button
                       key={t.id}
                       disabled={!selectable}
-                      onClick={() => setForm({ ...form, tailId: t.id, tailNumber: t.registration })}
+                      onClick={() => {
+                        setForm({ ...form, tailId: t.id, tailNumber: t.registration });
+                        setStep(3);
+                      }}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.tailId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
@@ -377,7 +383,10 @@ function DispatchPage() {
                     <button
                       key={d.id}
                       disabled={!selectable || form.manualDriver}
-                      onClick={() => setForm({ ...form, driverId: d.id, manualDriver: false })}
+                      onClick={() => {
+                        setForm({ ...form, driverId: d.id, manualDriver: false });
+                        setStep(4);
+                      }}
                       className={cn(
                         "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
                         form.driverId === d.id && !form.manualDriver ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",

@@ -2,11 +2,11 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth")({
-  beforeLoad: () => {
+  beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
     if (!user) {
-      throw redirect({ to: "/workspace/customer-portal/login" });
+      throw redirect({ to: "/workspace/customer-portal/login", search: { redirect: location.href } });
     } else if (user.passwordResetRequired) {
       throw redirect({ to: "/workspace/forgot-password" });
     }

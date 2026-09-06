@@ -260,7 +260,7 @@ function OrderFormView({ onTabChange, tenantId }: { onTabChange: (tab: CustomerT
               name="contactPhone"
               type="tel"
               required
-              pattern="^\+?[0-9\s\-\(\)]{10,20}$"
+              pattern="^\+?\d[\d\s\-\(\)]{8,19}$"
               title="Enter a valid phone number (e.g. +234 800 000 0000)"
               placeholder="e.g. +234 800 000 0000" 
               className="h-12 bg-slate-50 border-slate-200 px-4 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-slate-100 rounded-xl transition-all shadow-sm" 

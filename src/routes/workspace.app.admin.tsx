@@ -79,9 +79,9 @@ function AdminPage() {
       toast.error("Please fill all required fields");
       return;
     }
-    const phoneRegex = /^\+?[0-9\s\-\(\)]{10,15}$/;
+    const phoneRegex = /^\+?\d[\d\s\-\(\)]{8,19}$/;
     if (!phoneRegex.test(newCompany.phone)) {
-      toast.error("Please enter a valid phone number (10-15 digits, optional +).");
+      toast.error("Please enter a valid phone number (10-20 digits, optional +).");
       return;
     }
     await companyService.create(newCompany);

@@ -9,15 +9,20 @@ import { AdminLayout } from "@/components/fleetopsx/admin-layout";
 import { useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app")({
-  beforeLoad: () => {
+  beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
+    
+    // Strict enforcement: no user = redirect to login immediately
     if (!user) {
-      throw redirect({ to: "/workspace/login" });
+      throw redirect({ to: "/workspace/login", search: { redirect: location.href } });
     }
+    
+    // Enforce forced password reset before accessing any app dashboard route
     if (user.passwordResetRequired) {
       throw redirect({ to: "/workspace/forgot-password" });
     }
+    
     // Block External Partners from Staff Workspace
     const roles = authService.getRoles();
     if (roles.includes("Customer Portals (External)")) {
