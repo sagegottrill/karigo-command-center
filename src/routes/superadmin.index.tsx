@@ -5,7 +5,7 @@ import { DataTable } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import type { Column } from "@/components/fleetopsx/data-table";
 import { useState, useEffect } from "react";
-import { tenantService, authService } from "@/lib/fleetopsx/services";
+import { tenantService, authService, adminService } from "@/lib/fleetopsx/services";
 import type { PlatformTenant } from "@/lib/fleetopsx/types";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -83,7 +83,6 @@ const columns: Column<PlatformTenant>[] = [
               <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('manage-tenant', { detail: { tenant: r, tab: "Billing Plan" } }))}>Billing & Subscription</DropdownMenuItem>
               <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('manage-tenant', { detail: { tenant: r, tab: "Feature Flags" } }))}>Feature Flags</DropdownMenuItem>
               <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('manage-tenant', { detail: { tenant: r, tab: "Danger Zone" } }))}>Suspend / Delete</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -108,7 +107,9 @@ const columns: Column<PlatformTenant>[] = [
 function SuperAdminLayout() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTenant, setNewTenant] = useState({ name: "", domain: "", logo: "" });
+  const [newTenant, setNewTenant] = useState({ name: "", domain: "", logo: "", adminFirstName: "", adminLastName: "", adminEmail: "" });
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState({ username: "", password: "", url: "" });
   const [managingTenant, setManagingTenant] = useState<PlatformTenant | null>(null);
   const [activeTab, setActiveTab] = useState("Overview");
 
@@ -130,12 +131,34 @@ function SuperAdminLayout() {
   }, []);
 
   const handleCreateTenant = async () => {
-    if (!newTenant.name || !newTenant.domain) return;
-    await tenantService.create(newTenant.name, newTenant.domain, newTenant.logo);
-    toast.success("Tenant created successfully");
+    if (!newTenant.name || !newTenant.domain || !newTenant.adminFirstName || !newTenant.adminLastName || !newTenant.adminEmail) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    const tenant = await tenantService.create(newTenant.name, newTenant.domain, newTenant.logo);
+    
+    const defaultPassword = `temp-${Math.random().toString(36).slice(-6)}`;
+    
+    await adminService.createUser({
+      firstName: newTenant.adminFirstName,
+      surname: newTenant.adminLastName,
+      roles: ["Transport Manager"],
+      username: newTenant.adminEmail.split("@")[0],
+      department: "Management",
+      companyId: tenant.id
+    });
+    
+    setCreatedCredentials({
+      username: newTenant.adminEmail,
+      password: defaultPassword,
+      url: `https://${newTenant.domain}.fleetopsx.com/workspace/login`
+    });
+
+    toast.success("Tenant and Transport Manager created successfully");
     setIsDialogOpen(false);
-    setNewTenant({ name: "", domain: "", logo: "" });
+    setNewTenant({ name: "", domain: "", logo: "", adminFirstName: "", adminLastName: "", adminEmail: "" });
     loadTenants();
+    setShowShareModal(true);
   };
 
   return (
@@ -154,44 +177,6 @@ function SuperAdminLayout() {
             <Link to="/superadmin" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] bg-[#e3351d] rounded-md">
               <Building className="h-4 w-4 text-white" />
               <span className="text-[13px] font-[500] text-[#ffffff]">Tenants Directory</span>
-            </Link>
-          </div>
-          
-          <div className="px-[24px] mt-[32px] mb-[12px]">
-            <span className="text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">MODULES</span>
-          </div>
-          <div className="flex flex-col gap-1 px-3">
-            <Link to="/workspace/app" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Activity className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Main Dashboard</span>
-            </Link>
-            <Link to="/workspace/app/fleet" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Server className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Fleet Management</span>
-            </Link>
-            <Link to="/workspace/app/trips" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Activity className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Trips & Dispatch</span>
-            </Link>
-            <Link to="/workspace/app/accounts" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <CreditCard className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Finance & Accounts</span>
-            </Link>
-            <Link to="/workspace/app/engineering" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Settings className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Engineering</span>
-            </Link>
-            <Link to="/workspace/app/inventory" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Server className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Inventory</span>
-            </Link>
-            <Link to="/workspace/app/drivers" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Users className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Drivers & HR</span>
-            </Link>
-            <Link to="/workspace/app/gate" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md group">
-              <Server className="h-4 w-4 text-[#8e95a1] group-hover:text-white transition-colors" />
-              <span className="text-[13px] font-[400] text-[#8e95a1] group-hover:text-white transition-colors">Gate Security</span>
             </Link>
           </div>
         </div>
@@ -239,49 +224,149 @@ function SuperAdminLayout() {
                 <Plus className="h-4 w-4" /> Onboard Tenant
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Onboard New Tenant</DialogTitle>
-                <DialogDescription>
-                  Create a new workspace instance for a customer organization.
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-[#f8f9fa]">
+              <DialogHeader className="bg-white px-6 py-4 border-b border-gray-200">
+                <DialogTitle className="text-xl font-bold text-gray-900">Onboard New Tenant</DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 mt-1">
+                  Provision a new enterprise workspace, configure subscription, and create the initial Transport Manager.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input
-                    id="name"
-                    value={newTenant.name}
-                    onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
-                    placeholder="e.g. Kiuth Logistics"
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="domain" className="text-right">Domain</Label>
-                  <div className="col-span-3 flex items-center gap-2">
-                    <Input
-                      id="domain"
-                      value={newTenant.domain}
-                      onChange={(e) => setNewTenant({ ...newTenant, domain: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
-                      placeholder="kiuth"
-                    />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">.fleetopsx.com</span>
+              <div className="grid gap-6 p-6">
+                
+                {/* Workspace Details Section */}
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
+                    <Building className="h-4 w-4 text-gray-500" />
+                    1. Workspace Profile
+                  </h3>
+                  <div className="grid gap-5">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right text-sm font-medium text-gray-700">Company Name <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="name"
+                        value={newTenant.name}
+                        onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
+                        placeholder="e.g. Kiuth Logistics"
+                        className="col-span-3 h-10"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label htmlFor="domain" className="text-right text-sm font-medium text-gray-700 mt-2">Workspace Domain <span className="text-red-500">*</span></Label>
+                      <div className="col-span-3 flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="domain"
+                            value={newTenant.domain}
+                            onChange={(e) => setNewTenant({ ...newTenant, domain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                            placeholder="kiuth"
+                            className="h-10 flex-1"
+                          />
+                          <span className="text-sm font-mono text-gray-500 bg-gray-100 px-3 py-2 rounded-md border border-gray-200">.fleetopsx.com</span>
+                        </div>
+                        <p className="text-[12px] text-gray-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> Users will log in at: <strong className="font-mono text-blue-600">https://{newTenant.domain || "domain"}.fleetopsx.com/workspace/login</strong>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="logo" className="text-right text-sm font-medium text-gray-700">Logo URL</Label>
+                      <Input
+                        id="logo"
+                        value={newTenant.logo}
+                        onChange={(e) => setNewTenant({ ...newTenant, logo: e.target.value })}
+                        placeholder="e.g. https://example.com/logo.png"
+                        className="col-span-3 h-10"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="logo" className="text-right">Logo URL</Label>
-                  <Input
-                    id="logo"
-                    value={newTenant.logo}
-                    onChange={(e) => setNewTenant({ ...newTenant, logo: e.target.value })}
-                    placeholder="e.g. /petrolline.png"
-                    className="col-span-3"
-                  />
+
+                {/* Administrator Details Section */}
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-gray-500" />
+                    2. Primary Administrator (Transport Manager)
+                  </h3>
+                  <div className="grid gap-5">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="adminFirstName" className="text-sm font-medium text-gray-700">First Name <span className="text-red-500">*</span></Label>
+                        <Input
+                          id="adminFirstName"
+                          value={newTenant.adminFirstName}
+                          onChange={(e) => setNewTenant({ ...newTenant, adminFirstName: e.target.value })}
+                          placeholder="Jane"
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="adminLastName" className="text-sm font-medium text-gray-700">Last Name <span className="text-red-500">*</span></Label>
+                        <Input
+                          id="adminLastName"
+                          value={newTenant.adminLastName}
+                          onChange={(e) => setNewTenant({ ...newTenant, adminLastName: e.target.value })}
+                          placeholder="Doe"
+                          className="h-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="adminEmail" className="text-sm font-medium text-gray-700">Email Address (Used for Login) <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="adminEmail"
+                        type="email"
+                        value={newTenant.adminEmail}
+                        onChange={(e) => setNewTenant({ ...newTenant, adminEmail: e.target.value })}
+                        placeholder="jane.doe@company.com"
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Subscription & Billing (Mock) */}
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-gray-500" />
+                    3. Subscription & Billing Plan
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-sm font-medium text-gray-700">Plan Tier</Label>
+                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
+                        <option>Professional (Up to 50 trucks)</option>
+                        <option>Enterprise (Unlimited)</option>
+                        <option>Starter (Up to 10 trucks)</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-sm font-medium text-gray-700">Billing Cycle</Label>
+                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
+                        <option>Annually (20% Off)</option>
+                        <option>Monthly</option>
+                        <option>Quarterly</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-sm font-medium text-gray-700">Default Currency</Label>
+                      <select className="h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#e3351d]">
+                        <option>NGN (₦)</option>
+                        <option>USD ($)</option>
+                        <option>GBP (£)</option>
+                        <option>EUR (€)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-              <DialogFooter>
-                <Button onClick={handleCreateTenant}>Create Workspace</Button>
+              <DialogFooter className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center sm:justify-between">
+                <p className="text-xs text-gray-500">
+                  Provisioning a tenant will automatically generate a <br/>Transport Manager account and send welcome emails.
+                </p>
+                <Button onClick={handleCreateTenant} className="bg-[#e3351d] hover:bg-[#d62e19] text-white h-10 px-6">
+                  Provision Workspace & Admin
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -370,11 +455,6 @@ function SuperAdminLayout() {
                     Overview
                   </button>
                   <button 
-                    onClick={() => setActiveTab("Billing Plan")}
-                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Billing Plan" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
-                    Billing Plan
-                  </button>
-                  <button 
                     onClick={() => setActiveTab("Feature Flags")}
                     className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Feature Flags" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
                     Feature Flags
@@ -399,13 +479,6 @@ function SuperAdminLayout() {
                           <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Orders</p>
                           <p className="text-2xl font-semibold">{managingTenant.totalOrders.toLocaleString()}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm col-span-2">
-                          <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Current Plan</p>
-                          <div className="flex justify-between items-center mt-1">
-                            <p className="text-lg font-semibold">Enterprise (Annual)</p>
-                            <Button variant="outline" size="sm" onClick={() => setActiveTab("Billing Plan")}>Manage Subscription</Button>
-                          </div>
-                        </div>
                       </div>
 
                       <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Platform Actions</h3>
@@ -426,30 +499,6 @@ function SuperAdminLayout() {
                         </div>
                       </div>
                     </>
-                  )}
-
-                  {activeTab === "Billing Plan" && (
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold mb-2">Billing & Subscription</h3>
-                      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-                        <div className="flex justify-between items-center mb-4 border-b pb-4">
-                          <div>
-                            <h4 className="font-semibold text-gray-900">Enterprise Plan</h4>
-                            <p className="text-sm text-gray-500">Billed annually at $2,400/yr</p>
-                          </div>
-                          <span className="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-green-200">Active</span>
-                        </div>
-                        <div className="space-y-3 text-sm">
-                          <div className="flex justify-between"><span className="text-gray-500">Next billing date</span><span className="font-medium text-gray-900">Oct 14, 2027</span></div>
-                          <div className="flex justify-between"><span className="text-gray-500">Payment method</span><span className="font-medium text-gray-900">Visa ending in 4242</span></div>
-                          <div className="flex justify-between"><span className="text-gray-500">Licenses</span><span className="font-medium text-gray-900">Unlimited users</span></div>
-                        </div>
-                        <div className="mt-6 pt-4 border-t flex gap-2">
-                          <Button className="w-full" onClick={() => toast.success("Redirecting to Stripe...")}>Manage Billing Portal</Button>
-                          <Button variant="outline" className="w-full text-red-600 hover:text-red-700" onClick={() => toast.error("Subscription cancellation initiated")}>Cancel Subscription</Button>
-                        </div>
-                      </div>
-                    </div>
                   )}
 
                   {activeTab === "Feature Flags" && (
@@ -504,6 +553,46 @@ function SuperAdminLayout() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* SHARE SIGN IN DETAILS MODAL */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Share Sign In Details</DialogTitle>
+            <DialogDescription>
+              A Transport Manager account has been created for the new tenant. Share these initial credentials securely.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="bg-[#f9fafb] border border-[#e2e5e9] rounded-lg p-4 space-y-4 my-4">
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Workspace URL</Label>
+              <div className="font-mono text-sm mt-1">{createdCredentials.url}</div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Username / Email</Label>
+              <div className="font-mono text-sm mt-1">{createdCredentials.username}</div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Temporary Password</Label>
+              <div className="font-mono text-sm mt-1 font-bold">{createdCredentials.password}</div>
+            </div>
+          </div>
+          
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              navigator.clipboard.writeText(`Welcome to FleetOpsX!
+Login URL: ${createdCredentials.url}
+Username: ${createdCredentials.username}
+Password: ${createdCredentials.password}`);
+              toast.success("Credentials copied to clipboard");
+            }}>
+              Copy Details
+            </Button>
+            <Button onClick={() => setShowShareModal(false)}>Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/workspace/login")({
   head: ({ routeContext }) => {
@@ -25,8 +24,6 @@ import { Route as RootRoute } from "./__root";
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
-  const DEPARTMENTS = authService.getAllRoles().filter(r => r.key !== "Customer Portals (External)");
-  const [department, setDepartment] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
@@ -41,6 +38,8 @@ function LoginPage() {
       toast.error("Invalid credentials or suspended account.");
       return;
     }
+    // Auto-set the user's roles from their profile — no manual selection needed
+    authService.setRoles(user.roles);
     toast.success(`Welcome back, ${user?.name}`);
     navigate({ to: "/workspace/app" });
   };
@@ -96,7 +95,7 @@ function LoginPage() {
           <div className="flex flex-col gap-[14px] w-full">
             <h1 className="text-[24px] font-[600] leading-[32px] text-[#141a1f]">Internal Portal Sign In</h1>
             <p className="text-[14px] font-[400] leading-[20px] text-[#5c6470]">
-              Enter your provisioned credentials to continue.
+              Enter your provisioned credentials to continue. Your role and permissions are auto-detected.
             </p>
           </div>
 
@@ -110,25 +109,6 @@ function LoginPage() {
                 </p>
               </div>
             )}
-
-            {/* Select Department */}
-            <div className="flex flex-col gap-[8px] w-full">
-              <label className="text-[14px] font-[500] leading-[20px] text-[#141a1f]">
-                Select Department
-              </label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="flex flex-row items-center justify-between py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#141a1f] bg-[#ffffff] h-[36px] w-full text-[14px] font-[400] leading-[20px] text-[#141a1f] shadow-none outline-none focus:ring-0">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
-                    <SelectItem key={dept.key} value={dept.key}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Username Input */}
             <div className="flex flex-col gap-[8px] w-full">
@@ -205,3 +185,4 @@ function LoginPage() {
     </div>
   );
 }
+

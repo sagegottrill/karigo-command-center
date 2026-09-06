@@ -31,12 +31,50 @@ import { getTenantSlug } from "./hostname";
  */
 function isolate<T>(items: T[]): T[] {
   if (typeof window === "undefined") return items;
+  
+  // 1. If user is logged in, their profile is the ultimate source of truth
+  const userId = localStorage.getItem("fleetopsx_user_id");
+  if (userId) {
+    const user = store.users.find(u => u.id === userId);
+    if (user && user.companyId) {
+      // Return mock data only if they belong to Petroline (tnt_001)
+      // New tenants have empty databases initially.
+      return user.companyId === "tnt_001" ? items : [];
+    }
+    // If no companyId, they are a Platform Admin (Super Admin).
+    // Platform Admins shouldn't see tenant data unless explicitly scoped.
+    return [];
+  }
+
+  // 2. Fallback to Hostname Routing (e.g., on Login pages)
   const slug = getTenantSlug();
-  // We simulate that all mock data in db belongs to 'petrolline'. 
-  // Any other tenant will see an empty array (true isolation).
   if (slug === "petrolline") return items;
-  if (slug === "localhost" || slug === "fleetopsx") return items; // dev fallback
+  if (slug === "localhost" || slug === "fleetopsx") return items; // local dev without tenant context
   return [];
+}
+
+function isolateUser<T extends { companyId?: string }>(users: T[]): T[] {
+  if (typeof window === "undefined") return users;
+  
+  // 1. If user is logged in, only show users from THEIR tenant
+  const userId = localStorage.getItem("fleetopsx_user_id");
+  if (userId) {
+    const currentUser = store.users.find(u => u.id === userId);
+    if (currentUser) {
+      if (!currentUser.companyId) return users; // Super Admin sees all users
+      return users.filter(u => u.companyId === currentUser.companyId);
+    }
+  }
+
+  // 2. Fallback to Hostname Routing
+  const slug = getTenantSlug();
+  if (slug === "petrolline") return users;
+  if (slug === "localhost" || slug === "fleetopsx") return users; 
+  
+  const tenant = store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug);
+  if (!tenant) return [];
+  
+  return users.filter(u => u.companyId === tenant.id || u.companyId === tenant.name);
 }
 
 /* -------------------------------- tenants --------------------------------- */
@@ -119,19 +157,19 @@ export const authService = {
     if (user.status === "Suspended" || user.status === "Deleted") return settle(null);
     
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("fleetopsx_user_id", user.id);
-      sessionStorage.setItem("fleetopsx_roles", JSON.stringify(user.roles));
+      localStorage.setItem("fleetopsx_user_id", user.id);
+      localStorage.setItem("fleetopsx_roles", JSON.stringify(user.roles));
     }
     return settle(user);
   },
   getCurrentUser: () => {
     if (typeof window === "undefined") return null;
-    const id = sessionStorage.getItem("fleetopsx_user_id");
+    const id = localStorage.getItem("fleetopsx_user_id");
     return store.users.find(u => u.id === id) || null;
   },
   isAuthenticated: () => {
     if (typeof window === "undefined") return false;
-    return !!sessionStorage.getItem("fleetopsx_user_id");
+    return !!localStorage.getItem("fleetopsx_user_id");
   },
   completeFirstTimeLogin: (userId: string) => {
     store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
@@ -140,18 +178,18 @@ export const authService = {
   getRoles: (): string[] => {
     if (typeof window === "undefined") return [];
     try {
-      const stored = sessionStorage.getItem("fleetopsx_roles");
+      const stored = localStorage.getItem("fleetopsx_roles");
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
     }
   },
   setRoles: (roles: string[]) => {
-    sessionStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
+    localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
   },
   logout: () => {
-    sessionStorage.removeItem("fleetopsx_user_id");
-    sessionStorage.removeItem("fleetopsx_role");
+    localStorage.removeItem("fleetopsx_user_id");
+    localStorage.removeItem("fleetopsx_roles");
   },
   getAllRoles: () => db.ROLES,
   getWorkspaces: () => db.WORKSPACES,
@@ -637,10 +675,10 @@ export const notificationService = {
 export const auditService = { list: () => settle([...store.audit]) };
 export const adminService = {
   tenant: () => settle(db.TENANT),
-  users: () => settle([...store.users]),
+  users: () => settle(isolateUser([...store.users])),
   roles: () => settle(db.ROLES),
   loginReports: () => settle([...store.loginReports]),
-  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string }) => {
+  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string }) => {
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const name = `${payload.firstName} ${payload.surname}`;
     const newUser: import("./types").User = {
@@ -656,6 +694,7 @@ export const adminService = {
       lastActive: "Just now",
       initials: `${payload.firstName[0] || ""}${payload.surname[0] || ""}`,
       companyId: payload.companyId,
+      partnerCompanyName: payload.partnerCompanyName,
     };
     store.users = [newUser, ...store.users];
     return settle(newUser);
@@ -710,8 +749,26 @@ export const dashboardService = {
 };
 
 /* -------------------------- in-memory mutable store ----------------------- */
+// Bump this version whenever mock-data schema changes to force a cache refresh
+const DATA_SCHEMA_VERSION = "2";
+
 const getInitialState = <T>(key: string, fallback: T): T => {
   if (typeof window !== "undefined") {
+    // Check schema version — if it changed, nuke old cached data
+    const storedVersion = localStorage.getItem("fleetopsx_schema_version");
+    if (storedVersion !== DATA_SCHEMA_VERSION) {
+      // Clear all fleetopsx_ keys to force fresh mock data
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("fleetopsx_") && k !== "fleetopsx_user_id" && k !== "fleetopsx_roles") {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem("fleetopsx_schema_version", DATA_SCHEMA_VERSION);
+      return fallback;
+    }
     const saved = localStorage.getItem(`fleetopsx_${key}`);
     if (saved) return JSON.parse(saved);
   }

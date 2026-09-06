@@ -584,7 +584,7 @@ export const USERS: User[] = [
   ["Okwudili Fortune", "Transport Manager", "Transport Manager", "Executive"],
   ["Tunde Balogun", "Fleet Operations", "Fleet Operations", "Operations"],
   ["Adaeze Nwoke", "Fleet Operations", "Dispatcher", "Operations"],
-  ["Musa Danjuma", "Customer Portals (External)", "Customer Portal Rep", "External"],
+  ["Musa Danjuma", "Customer Portals (External)", "Customer Portal Rep", "External Partner"],
   ["Chuka Nwosu", "Engineering", "Engineer", "Engineering"],
   ["Idris Bako", "Parts & Store", "Store Manager", "Engineering"],
   ["Grace Ile", "Accounts", "Accountant", "Accounts"],
@@ -603,6 +603,11 @@ export const USERS: User[] = [
   passwordResetRequired: i === 1,
   lastActive: `${int(1, 59)} min ago`,
   initials: (name as string).split(" ").map((p) => p[0]).join("").slice(0, 2),
+  // Platform Admin (i=0) has no companyId — they're platform-level.
+  // All other Petroline users belong to tenant tnt_001.
+  companyId: i === 0 ? undefined : "tnt_001",
+  // External partner gets their partner company name
+  partnerCompanyName: role === "Customer Portals (External)" ? "Saba Steel" : undefined,
 }));
 
 // Give Okwudili Fortune multiple roles for testing

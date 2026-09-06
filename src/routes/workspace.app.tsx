@@ -5,6 +5,8 @@ import { AppHeader } from "@/components/fleetopsx/app-header";
 import { PageReveal } from "@/components/fleetopsx/page-reveal";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
+import { AdminLayout } from "@/components/fleetopsx/admin-layout";
+import { useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app")({
   beforeLoad: () => {
@@ -39,6 +41,24 @@ function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const matches = useRouterState({ select: (s) => s.matches });
+  const isAdminModule = matches.some((m) => 
+    m.pathname.includes("/workspace/app/add-partner") ||
+    m.pathname.includes("/workspace/app/manage-partner") ||
+    m.pathname.includes("/workspace/app/add-account") ||
+    m.pathname.includes("/workspace/app/manage-account") ||
+    m.pathname.includes("/workspace/app/password-request") ||
+    m.pathname === "/workspace/app/admin"
+  );
+
+  if (isAdminModule) {
+    return (
+      <AdminLayout>
+        <Outlet />
+      </AdminLayout>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-[#f6f7f9]">

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import type { Role } from "@/lib/fleetopsx/types";
 import { toast } from "sonner";
-import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
+
 
 export const Route = createFileRoute("/workspace/app/add-account")({
   component: AdminAddAccount,
@@ -53,6 +53,7 @@ function AdminAddAccount() {
         username: generatedUsername,
         department,
         staffId,
+        companyId: currentUser?.companyId,
       });
       toast.success("User created. Default password requires reset on login.");
       setShowConfirmModal(false);
@@ -86,35 +87,8 @@ function AdminAddAccount() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
-      {/* Desktop Sidebar */}
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-auto relative pb-[80px] lg:pb-0">
-        {/* Mobile Header */}
-        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1B2432]">
-          <div className="flex items-center gap-[12px]">
-            <button onClick={() => navigate({ to: "/workspace/app" })}>
-              <ArrowLeft className="w-[20px] h-[20px] text-[#ffffff]" />
-            </button>
-            <span className="text-[16px] font-[500] text-[#ffffff]">Transport Manager Portal</span>
-          </div>
-          <div className="w-[32px] h-[32px] rounded-full bg-[#ed351d] flex items-center justify-center">
-            <span className="text-[12px] font-[600] text-[#ffffff]">{currentUser?.initials || "JD"}</span>
-          </div>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[24px] border-b-[1px] border-[#e2e5e9] bg-[#f6f7f9]">
-          <h1 className="text-[28px] font-[600] leading-[36px] text-[#141a1f] mb-[8px]">Transport Manager Portal</h1>
-          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
-            MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
-          </p>
-        </div>
-
-        {/* Content Body */}
-        <div className="flex flex-col px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex-1">
+    <>
+      <div className="w-full max-w-[1000px]">
           {/* Title row */}
           <div className="flex flex-row items-start justify-between mb-[16px] lg:mb-[32px]">
             <div className="flex flex-col gap-[4px] lg:gap-[8px]">
@@ -239,24 +213,7 @@ function AdminAddAccount() {
               </button>
             </div>
           </form>
-        </div>
 
-        {/* Mobile Bottom Nav */}
-        <div className="fixed bottom-0 left-0 right-0 flex lg:hidden flex-row items-center justify-around bg-[#ffffff] border-t border-[#e2e5e9] py-[10px] z-30">
-          <Link to="/workspace/app/add-account" className="flex flex-col items-center gap-[4px]">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 4V16M4 10H16" stroke="#141a1f" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <span className="text-[10px] font-[600] text-[#141a1f]">New{"\n"}Account</span>
-            <div className="w-[40px] h-[2px] bg-[#141a1f] rounded-full"></div>
-          </Link>
-          <Link to="/workspace/app/manage-account" className="flex flex-col items-center gap-[4px]">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 14C13 11.79 11.21 10 9 10C6.79 10 5 11.79 5 14" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="6" r="3" stroke="#8e95a1" strokeWidth="1.5"/></svg>
-            <span className="text-[10px] font-[500] text-[#8e95a1]">Manage{"\n"}Account</span>
-          </Link>
-          <Link to="/workspace/app/password-request" className="flex flex-col items-center gap-[4px]">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="9" rx="2" stroke="#8e95a1" strokeWidth="1.5"/><path d="M7 8V6C7 4.34 8.34 3 10 3C11.66 3 13 4.34 13 6V8" stroke="#8e95a1" strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="13" r="1.5" fill="#8e95a1"/></svg>
-            <span className="text-[10px] font-[500] text-[#8e95a1]">Password{"\n"}Requests</span>
-          </Link>
-        </div>
 
         {/* Confirm Modal */}
         {showConfirmModal && (
@@ -354,6 +311,6 @@ function AdminAddAccount() {
 
       {/* Click-away for dropdowns */}
       {(showDeptDropdown || showMoreMenu) && <div className="fixed inset-0 z-30" onClick={() => { setShowDeptDropdown(false); setShowMoreMenu(false); }} />}
-    </div>
+    </>
   );
 }

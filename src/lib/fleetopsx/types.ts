@@ -71,7 +71,8 @@ export interface User {
   passwordResetRequired?: boolean;
   lastActive: string;
   initials: string;
-  companyId?: string;
+  companyId?: string; // The Platform Tenant ID this user belongs to
+  partnerCompanyName?: string; // If this user is an External Partner, their external company name
 }
 
 export type TruckStatus =

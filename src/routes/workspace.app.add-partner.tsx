@@ -1,8 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, X, Upload } from "lucide-react";
+import { ArrowLeft, X, Upload, Download, Copy, Mail, MessageCircle } from "lucide-react";
 import { useState, useRef } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
-import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
@@ -18,11 +17,10 @@ function AddPartner() {
   const [surname, setSurname] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
   
-  const [collapsed, setCollapsed] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const generatedUsername = firstName && surname ? `${firstName.toLowerCase()}.${surname.toLowerCase()}` : "";
+  const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
   const [generatedPassword] = useState(() => Math.random().toString(36).slice(-8));
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,15 +45,20 @@ function AddPartner() {
 
   const handleConfirmAndSend = async () => {
     try {
+      // Get the current logged-in user's tenant ID for proper isolation
+      const currentUser = authService.getCurrentUser();
+      const tenantCompanyId = currentUser?.companyId || "tnt_001";
+      
       await adminService.createUser({
         firstName,
         surname,
         roles: ["Customer Portals (External)"],
         username: generatedUsername,
         department: "External Partner",
-        companyId: companyName, // Map company name for now
+        companyId: tenantCompanyId, // Links partner to the tenant that created them
+        partnerCompanyName: companyName, // The partner's actual company name
       });
-      toast.success("Partner account created. Default password requires reset on login.");
+      toast.success("Partner account created.");
       setShowConfirmModal(false);
       setShowShareModal(true);
     } catch {
@@ -87,189 +90,192 @@ function AddPartner() {
   };
 
   return (
-    <>
-      <form onSubmit={handleSaveAccountClick} className="flex flex-col w-full max-w-[600px] mx-auto rounded-[10px] border-[1px] border-[#e2e5e9] bg-[#ffffff] p-[32px] shadow-[0px_4px_24px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-4 mb-[24px] lg:hidden">
-           <button type="button" onClick={() => navigate({ to: "/workspace/app" })}>
-             <ArrowLeft className="w-[20px] h-[20px] text-[#141a1f]" />
-           </button>
-           <h2 className="text-[20px] font-[600] leading-[28px] text-[#141a1f]">Add A Partner</h2>
+    <div className="w-full max-w-[1000px]">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-[24px] lg:mb-[32px] gap-4">
+        <div className="flex flex-row justify-between items-center w-full lg:w-auto">
+          <div>
+            <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f] mb-[4px]">Create Partner Account</h2>
+            <p className="text-[10px] lg:text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
+              CREATE THE DIGITAL PROFILE OF PARTNER COMPANY
+            </p>
+          </div>
+          <button className="lg:hidden p-2 text-[#141a1f]">
+            <MoreVertical className="w-[20px] h-[20px]" />
+          </button>
         </div>
-        
-        <div className="hidden lg:block">
-          <h2 className="text-[24px] font-[600] leading-[32px] text-[#141a1f] mb-[8px]">Add A Partner</h2>
-          <p className="text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase mb-[32px]">
-            CREATE THE DIGITAL PROFILE OF EXTERNAL PARTNERS
-          </p>
-        </div>
+        <button className="hidden lg:flex items-center gap-[8px] px-[16px] py-[8px] text-[#141a1f] hover:bg-gray-200/50 rounded-md transition-colors font-[500] text-[14px]">
+          <Download className="w-[18px] h-[18px]" />
+          Import CVS
+        </button>
+      </div>
 
-            <div className="flex flex-col gap-[20px] lg:gap-[24px]">
-              {/* Logo Upload */}
-              <div className="flex flex-col gap-[8px] w-full">
-                <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company Logo</label>
-                <div 
-                  className="flex flex-col items-center justify-center w-full h-[120px] border-2 border-dashed border-[#e2e5e9] rounded-[8px] bg-[#f6f7f9] cursor-pointer hover:bg-[#e2e5e9]/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
+      <form onSubmit={handleSaveAccountClick} className="w-full rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] pt-[24px] lg:pt-[32px] pb-[24px] lg:pb-[32px] px-[20px] lg:px-[40px] shadow-sm lg:shadow-[0px_10px_40px_rgba(0,0,0,0.04)]">
+        <h3 className="text-[18px] lg:text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[16px] lg:mb-[24px]">Partner Information</h3>
+        <div className="w-full h-[1px] bg-[#f1f2f4] -mx-[20px] lg:-mx-[40px] px-[40px] lg:px-[80px] mb-[24px] lg:mb-[32px]"></div>
+
+        <div className="flex flex-col gap-[20px] lg:gap-[24px] max-w-[800px]">
+
+          {/* Company Name */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company name</label>
+            <input 
+              type="text" 
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="example: Joe"
+              className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+            />
+          </div>
+
+          {/* First Name */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">First name</label>
+            <input 
+              type="text" 
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="example: Joe"
+              className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+            />
+          </div>
+          
+          {/* Surname */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Surname</label>
+            <input 
+              type="text" 
+              value={surname}
+              onChange={(e) => setSurname(e.target.value)}
+              placeholder="example: Doe"
+              className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+            />
+          </div>
+
+          {/* Logo Upload */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              Attach Company Logo <span className="text-[#8e95a1] font-[400]">(max. 10mb)</span>
+            </label>
+            <div 
+              className="flex items-center justify-center w-full h-[48px] border-[1px] border-[#e3351d] rounded-[4px] bg-[#ffffff] cursor-pointer hover:bg-[#e3351d]/5 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {logo ? (
+                <span className="text-[14px] font-[500] text-[#e3351d]">Logo Selected (Click to change)</span>
+              ) : (
+                <div className="flex items-center gap-[8px]">
+                  <Upload className="w-[18px] h-[18px] text-[#e3351d]" />
+                  <span className="text-[14px] font-[500] text-[#e3351d]">Upload Image</span>
+                </div>
+              )}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={handleLogoUpload}
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="flex items-center justify-center py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors self-end mt-[16px]">
+            <span className="text-[14px] font-[500] text-[#ffffff]">Save Account</span>
+          </button>
+        </div>
+      </form>
+      {/* Confirm Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/40 px-[16px]">
+          <div className="flex flex-col w-full max-w-[540px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
+            <div className="pt-[24px] lg:pt-[40px] pb-[24px] lg:pb-[32px] px-[24px] lg:px-[40px]">
+              <h3 className="text-[20px] lg:text-[24px] font-[600] text-[#141a1f] mb-[16px] lg:mb-[24px]">Confirm Account Details</h3>
+              <div className="w-full h-[1px] bg-[#f1f2f4] -mx-[24px] lg:-mx-[40px] px-[48px] lg:px-[80px] mb-[16px] lg:mb-[24px]"></div>
+              
+              <div className="flex flex-col gap-[20px]">
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] text-[#141a1f]">Company</label>
+                  <input type="text" value={companyName} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+                </div>
+                
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] text-[#141a1f]">First Name</label>
+                  <input type="text" value={firstName} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+                </div>
+                
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] text-[#141a1f]">Last Name</label>
+                  <input type="text" value={surname} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-[8px]">
+                  <label className="text-[14px] font-[600] text-[#141a1f]">Company Logo</label>
                   {logo ? (
-                    <img src={logo} alt="Company Logo" className="h-[80px] object-contain" />
+                    <div className="w-[80px] h-[80px] border border-[#e2e5e9] rounded-[4px] flex items-center justify-center bg-white p-2">
+                      <img src={logo} alt="Company Logo" className="max-w-full max-h-full object-contain" />
+                    </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-[8px]">
-                      <Upload className="w-[24px] h-[24px] text-[#8e95a1]" />
-                      <span className="text-[12px] font-[500] text-[#8e95a1]">Click to upload logo</span>
+                    <div className="h-[44px] px-[16px] rounded-[4px] border border-[#e3351d] text-[15px] font-[400] text-[#8e95a1] flex items-center">
+                      No Logo Attached
                     </div>
                   )}
-                  <input 
-                    type="file" 
-                    ref={fileInputRef}
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                  />
                 </div>
-              </div>
 
-              {/* Company Name */}
-              <div className="flex flex-col gap-[8px] w-full">
-                <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company Name</label>
-                <input 
-                  type="text" 
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="e.g. Acme Logistics"
-                  className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] lg:h-[36px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f]"
-                />
-              </div>
+                <div className="w-full h-[1px] bg-[#f1f2f4] my-[8px]"></div>
 
-              <div className="flex flex-row items-center gap-[16px] lg:gap-[24px] w-full">
-                {/* First Name */}
-                <div className="flex flex-col gap-[8px] flex-1">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">First name</label>
-                  <input 
-                    type="text" 
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="e.g. John"
-                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] lg:h-[36px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f]"
-                  />
-                </div>
-                
-                {/* Surname */}
-                <div className="flex flex-col gap-[8px] flex-1">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Surname</label>
-                  <input 
-                    type="text" 
-                    value={surname}
-                    onChange={(e) => setSurname(e.target.value)}
-                    placeholder="e.g. Doe"
-                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[40px] lg:h-[36px] outline-none focus:border-[#141a1f] text-[14px] font-[400] text-[#141a1f]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-row items-center gap-[16px] lg:gap-[24px] w-full">
-                {/* Username */}
-                <div className="flex flex-col gap-[8px] flex-1">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Username (Auto)</label>
-                  <input 
-                    type="text" 
-                    value={generatedUsername}
-                    disabled
-                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#f6f7f9] h-[40px] lg:h-[36px] outline-none text-[14px] font-[400] text-[#5c6470]"
-                  />
-                </div>
-                
-                {/* Password */}
-                <div className="flex flex-col gap-[8px] flex-1">
-                  <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Password (Auto)</label>
-                  <input 
-                    type="text" 
-                    value={generatedPassword}
-                    disabled
-                    className="flex flex-row items-center py-[8px] px-[12px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#f6f7f9] h-[40px] lg:h-[36px] outline-none text-[14px] font-[400] text-[#5c6470]"
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="flex flex-row items-center justify-center py-[12px] lg:py-[10px] rounded-[4px] lg:rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] transition-colors lg:self-end lg:px-[16px] mt-[8px]">
-                <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Save Account</span>
-              </button>
-            </div>
-          </form>
-        {/* Confirm Modal */}
-        {showConfirmModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60">
-            <div className="flex flex-col w-[calc(100%-32px)] lg:w-[540px] max-h-[90vh] overflow-y-auto rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
-              <div className="px-[24px] lg:px-[32px] pt-[24px] lg:pt-[32px] pb-[16px]">
-                <h3 className="text-[18px] lg:text-[20px] font-[600] leading-[28px] text-[#141a1f]">Confirm Partner Details</h3>
-              </div>
-              <div className="w-full h-[1px] bg-[#e2e5e9]"></div>
-              <div className="flex flex-col px-[24px] lg:px-[32px] py-[24px] gap-[20px] lg:gap-[24px]">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-[20px] lg:gap-[24px] w-full">
-                  <div className="flex flex-col gap-[8px] flex-1">
-                    <label className="text-[14px] font-[600] text-[#141a1f]">Company Name</label>
-                    <div className="flex items-center px-[12px] h-[36px] rounded-[4px] bg-[#f6f7f9]">
-                      <span className="text-[14px] font-[400] text-[#5c6470]">{companyName}</span>
-                    </div>
+                <div className="flex gap-[24px]">
+                  <div className="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <label className="text-[13px] lg:text-[14px] font-[600] text-[#141a1f] whitespace-nowrap">Assigned Username</label>
+                    <input type="text" value={generatedUsername} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
                   </div>
-                  <div className="flex flex-col gap-[8px] flex-1">
-                    <label className="text-[14px] font-[600] text-[#141a1f]">Contact Name</label>
-                    <div className="flex items-center px-[12px] h-[36px] rounded-[4px] bg-[#f6f7f9]">
-                      <span className="text-[14px] font-[400] text-[#5c6470]">{firstName} {surname}</span>
-                    </div>
+                  <div className="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <label className="text-[13px] lg:text-[14px] font-[600] text-[#141a1f] whitespace-nowrap">Default Password</label>
+                    <input type="text" value={generatedPassword} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
                   </div>
                 </div>
-                <div className="flex flex-col lg:flex-row lg:items-center gap-[20px] lg:gap-[24px] w-full">
-                  <div className="flex flex-col gap-[8px] flex-1">
-                    <label className="text-[14px] font-[600] text-[#141a1f]">Default Username</label>
-                    <div className="flex items-center px-[12px] h-[36px] rounded-[4px] bg-[#f6f7f9]">
-                      <span className="text-[14px] font-[400] text-[#5c6470]">{generatedUsername}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-[8px] flex-1">
-                    <label className="text-[14px] font-[600] text-[#141a1f]">Default Password</label>
-                    <div className="flex items-center px-[12px] h-[36px] rounded-[4px] bg-[#f6f7f9]">
-                      <span className="text-[14px] font-[400] text-[#5c6470]">{generatedPassword}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-row justify-between items-center mt-[8px]">
-                  <button type="button" onClick={() => setShowConfirmModal(false)} className="text-[14px] font-[500] text-[#ed351d] hover:underline">Go Back</button>
-                  <button type="button" onClick={handleConfirmAndSend} className="py-[10px] px-[16px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] text-[14px] font-[500] text-[#ffffff]">Confirm and Send</button>
+
+                <div className="flex justify-between items-center mt-[24px]">
+                  <button type="button" onClick={() => setShowConfirmModal(false)} className="text-[15px] font-[500] text-[#e3351d] hover:underline">
+                    Go Back
+                  </button>
+                  <button type="button" onClick={handleConfirmAndSend} className="py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] text-[15px] font-[500] text-[#ffffff] transition-colors">
+                    Confirm and Send
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Share Modal */}
-        {showShareModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60">
-            <div className="flex flex-col w-[320px] lg:w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)] relative">
-              <button onClick={handleShareDone} className="absolute top-[20px] right-[20px] text-[#8e95a1] hover:text-[#141a1f]">
-                <X className="w-[16px] h-[16px]" />
-              </button>
-              <div className="px-[24px] pt-[24px] pb-[16px]">
-                <h3 className="text-[16px] font-[600] text-[#ed351d]">Share Partner Details</h3>
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/40 px-[16px]">
+          <div className="flex flex-col w-full max-w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
+            <button onClick={handleShareDone} className="absolute top-[20px] right-[20px] text-[#5c6470] hover:text-[#141a1f]">
+              <X className="w-[20px] h-[20px]" />
+            </button>
+            <div className="px-[32px] pt-[32px] pb-[20px]">
+              <h3 className="text-[18px] font-[600] text-[#e3351d]">Share Sign In Details</h3>
+            </div>
+            <div className="w-full h-[1px] bg-[#f1f2f4] mb-[8px]"></div>
+            
+            <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
+              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareWhatsApp}>
+                <MessageCircle className="w-[28px] h-[28px] text-[#5c6470]" />
+                <span className="text-[13px] font-[500] text-[#8e95a1]">WhatsApp</span>
               </div>
-              <div className="w-full h-[1px] bg-[#e2e5e9]"></div>
-              <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareWhatsApp}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141a1f"/></svg>
-                  <span className="text-[12px] font-[500] text-[#5c6470]">WhatsApp</span>
-                </div>
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareEmail}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141a1f"/></svg>
-                  <span className="text-[12px] font-[500] text-[#5c6470]">Email</span>
-                </div>
-                <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleCopyLink}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141a1f"/></svg>
-                  <span className="text-[12px] font-[500] text-[#5c6470]">Copy</span>
-                </div>
+              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareEmail}>
+                <Mail className="w-[28px] h-[28px] text-[#5c6470]" />
+                <span className="text-[13px] font-[500] text-[#8e95a1]">Gmail</span>
+              </div>
+              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleCopyLink}>
+                <Copy className="w-[28px] h-[28px] text-[#5c6470]" />
+                <span className="text-[13px] font-[500] text-[#8e95a1]">Copy</span>
               </div>
             </div>
           </div>
-        )}
-      </>
+        </div>
+      )}
+    </div>
   );
 }
