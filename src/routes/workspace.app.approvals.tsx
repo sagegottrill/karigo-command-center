@@ -66,7 +66,7 @@ function TripSummary({ record }: { record: Trip }) {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Direct Costs</span>
-            <span className="font-mono font-medium text-rose-600">-{formatNairaFull(total)}</span>
+            <span className="font-mono font-medium text-[#e3351d]">-{formatNairaFull(total)}</span>
           </div>
           <div className="pt-3 mt-2 border-t border-black/[0.05] flex justify-between items-center">
             <span className="font-semibold text-[15px]">Gross Margin</span>
@@ -98,7 +98,7 @@ function ExpenseSummary({ record }: { record: Expense }) {
       </div>
       <div className="border border-black/[0.05] rounded-xl p-4 flex items-center justify-between">
         <span className="font-semibold text-[15px]">Total Amount</span>
-        <span className="font-mono font-bold text-[18px] text-rose-600 block">{formatNairaFull(record.amount)}</span>
+        <span className="font-mono font-bold text-[18px] text-[#e3351d] block">{formatNairaFull(record.amount)}</span>
       </div>
     </div>
   );
@@ -117,8 +117,8 @@ function WOSummary({ record }: { record: WorkOrder }) {
           <div className="mt-1"><StatusBadge status={record.priority as any} /></div>
         </div>
       </div>
-      <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-900">
-        <p className="text-[10px] text-rose-500 uppercase font-semibold flex items-center gap-1 mb-1">
+      <div className="p-3 bg-[#e3351d]/5 border border-[#e3351d]/20 rounded-xl text-[#e3351d]">
+        <p className="text-[10px] text-[#e3351d]/80 uppercase font-semibold flex items-center gap-1 mb-1">
           <AlertTriangle className="h-3 w-3" /> Reported Defect
         </p>
         <p className="font-medium">{record.defect}</p>
@@ -182,7 +182,7 @@ function ApprovalsPage() {
     { key: "cost", header: "Est. Costs", align: "right", cell: r => {
       const costs = r.directCosts;
       const total = costs ? (costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance) : 0;
-      return <span className="num font-medium text-rose-600">{formatNairaFull(total)}</span>;
+      return <span className="num font-medium text-[#e3351d]">{formatNairaFull(total)}</span>;
     }},
     { key: "margin", header: "Margin", align: "right", cell: r => {
       const costs = r.directCosts;

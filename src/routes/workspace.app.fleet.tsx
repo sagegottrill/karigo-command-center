@@ -98,7 +98,7 @@ function ManageFleetPage() {
         const c = r.directCosts;
         if (!c) return "—";
         const total = c.tripAllowance + c.returnWaybill + c.motorBoy + c.ticket + c.extraAllowance;
-        return <span className="font-medium text-rose-600">{formatNaira(total)}</span>;
+        return <span className="font-medium text-[#e3351d]">{formatNaira(total)}</span>;
       } 
     },
     { 
@@ -125,7 +125,7 @@ function ManageFleetPage() {
         title="Manage Fleet"
         description="View and manage all active dispatch tickets and trip life-cycles."
         actions={
-          <Button asChild size="sm" className="h-8 gap-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white">
+          <Button asChild size="sm" className="h-8 gap-1.5 text-xs bg-[#e3351d] hover:bg-[#d62e19] text-white">
             <Link to="/workspace/app/dispatch"><Plus className="h-3.5 w-3.5" />New Dispatch</Link>
           </Button>
         }
@@ -217,7 +217,7 @@ function ManageFleetPage() {
                   </div>
                   <div className="flex justify-between items-center pt-3 mt-1 border-t border-[#e2e5e9]">
                     <span className="text-[#141a1f] font-bold">Total Configured Expense:</span>
-                    <span className="font-bold text-rose-600 text-[15px]">
+                    <span className="font-bold text-[#e3351d] text-[15px]">
                       {formatNaira(selectedTrip.directCosts ? Object.values(selectedTrip.directCosts).filter(v => typeof v === 'number').reduce((a, b) => (a as number) + (b as number), 0) as number : 0)}
                     </span>
                   </div>
