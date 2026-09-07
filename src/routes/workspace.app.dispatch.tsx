@@ -140,14 +140,14 @@ function DispatchPage() {
   };
 
   const renderForm = () => (
-    <div className="w-full rounded-2xl bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden flex-1">
+    <div className="w-full rounded-md bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden flex-1">
       {/* Form Header */}
       <div className="bg-[#1B2432] p-6 text-white">
         <h2 className="text-xl font-bold tracking-tight">Fleet Dispatch</h2>
         <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">TICKET REQ-8126 &bull; SABA STEEL</p>
       </div>
 
-      <div className="p-6 md:p-8 space-y-8">
+      <div className="p-5 md:p-6 space-y-6">
         
         {/* Step 1 */}
         <div>
@@ -158,7 +158,7 @@ function DispatchPage() {
                 Assign Truck Head <span className="text-red-500">*</span>
               </label>
               <select 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
                 value={headId}
                 onChange={e => setHeadId(e.target.value)}
               >
@@ -174,7 +174,7 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                className="w-full h-10 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-sm text-sm text-[#5c6470]"
                 placeholder="Auto-populated or manual"
                 value={head?.registration || ""}
                 readOnly
@@ -185,7 +185,7 @@ function DispatchPage() {
                 Assign Truck Tail <span className="text-red-500">*</span>
               </label>
               <select 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
                 value={tailId}
                 onChange={e => setTailId(e.target.value)}
               >
@@ -201,7 +201,7 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm"
                 placeholder="eg: TL-999"
                 value={tailNumber}
                 onChange={e => setTailNumber(e.target.value)}
@@ -219,7 +219,7 @@ function DispatchPage() {
                 Salary Number <span className="text-red-500">*</span>
               </label>
               <select 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
                 value={driverId}
                 onChange={e => setDriverId(e.target.value)}
               >
@@ -235,7 +235,7 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                className="w-full h-10 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-sm text-sm text-[#5c6470]"
                 placeholder="Auto-populated or manual"
                 value={driverName}
                 readOnly
@@ -247,7 +247,7 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                className="w-full h-10 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-sm text-sm text-[#5c6470]"
                 placeholder="Auto-populated or manual"
                 value={driverPhone}
                 readOnly
@@ -325,7 +325,7 @@ function DispatchPage() {
                 Lubricant <span className="text-red-500">*</span>
               </label>
               <select 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
                 value={lubricant}
                 onChange={e => setLubricant(e.target.value)}
               >
