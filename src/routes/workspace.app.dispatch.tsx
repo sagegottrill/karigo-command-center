@@ -136,7 +136,7 @@ function DispatchPage() {
     });
     
     toast.success(`Dispatch Request Created`);
-    navigate({ to: "/workspace/app" });
+    navigate({ to: "/workspace/app/fleet" });
   };
 
   const renderForm = () => (
