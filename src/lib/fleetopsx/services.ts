@@ -215,7 +215,7 @@ export const tripService = {
   get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
   create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;
-    const trip: Trip = { ...input, id, progress: 4, eta: "—", status: "Scheduled" };
+    const trip: Trip = { ...input, id, progress: 4, eta: "—", status: input.status || "Scheduled" };
     store.trips = [trip, ...store.trips];
     
     // Assign assets
@@ -238,6 +238,25 @@ export const tripService = {
         const costs = t.directCosts;
         const totalCosts = costs ? (costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance) : 0;
         const grossMargin = t.revenue - totalCosts;
+        
+        // Wire up ecosystem: Push the dispatch expense into the Accounts module
+        if (totalCosts > 0) {
+          store.expenses = [
+            {
+              id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
+              type: "Direct Cost",
+              amount: totalCosts,
+              standardRate: totalCosts * 0.9,
+              requester: t.driverName || "Dispatch Coordinator",
+              tripId: t.id,
+              status: "Pending", // Sent to Accounts queue
+              approvalLevel: "Transport Manager",
+              date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+              documents: [],
+            },
+            ...store.expenses,
+          ];
+        }
         
         return { ...t, status: "Scheduled", totalCosts, grossMargin };
       }
