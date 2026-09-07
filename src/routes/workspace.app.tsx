@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
-import { PageReveal } from "@/components/fleetopsx/page-reveal";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
 import { useRouterState } from "@tanstack/react-router";
@@ -62,9 +61,7 @@ function AppShell() {
           )}
         >
           <div className="mx-auto w-full max-w-[1920px]">
-            <PageReveal>
-              <Outlet />
-            </PageReveal>
+            <Outlet />
           </div>
         </main>
       </div>

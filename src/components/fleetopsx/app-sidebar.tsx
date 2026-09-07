@@ -195,6 +195,7 @@ export function AppSidebar({
                       <Link
                         key={item.to}
                         to={item.to}
+                        preload="intent"
                         title={collapsed ? item.label : undefined}
                         className={cn(
                           "relative flex flex-row items-center transition-colors group",
