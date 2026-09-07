@@ -270,6 +270,20 @@ export const tripService = {
     store.trips = store.trips.map(t => {
       if (t.id === id) {
         nextStatus = flow[Math.min(flow.indexOf(t.status as any) + 1, flow.length - 1)];
+        
+        // Release assets if completed
+        if (nextStatus === "Completed") {
+          if (t.headId) {
+            store.truckHeads = store.truckHeads.map(h => h.id === t.headId ? { ...h, status: "Available" } : h);
+          }
+          if (t.tailId) {
+            store.truckTails = store.truckTails.map(tail => tail.id === t.tailId ? { ...tail, status: "Available" } : tail);
+          }
+          if (t.driverId) {
+            store.drivers = store.drivers.map(d => d.id === t.driverId ? { ...d, status: "Available" } : d);
+          }
+        }
+        
         return { ...t, status: nextStatus as any };
       }
       return t;
@@ -426,9 +440,25 @@ export const engineeringService = {
   },
   advance: (id: string) => {
     const flow = ["Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed"] as const;
-    store.workOrders = store.workOrders.map((w) =>
-      w.id === id ? { ...w, status: flow[Math.min(flow.indexOf(w.status) + 1, flow.length - 1)]! } : w,
-    );
+    store.workOrders = store.workOrders.map((w) => {
+      if (w.id === id) {
+        const nextStatus = flow[Math.min(flow.indexOf(w.status) + 1, flow.length - 1)]!;
+        
+        // Release assets if completed
+        if (nextStatus === "Completed") {
+          const head = store.truckHeads.find(t => t.registration === w.truckReg);
+          if (head) {
+            store.truckHeads = store.truckHeads.map(t => t.id === head.id ? { ...t, status: "Available" } : t);
+          }
+          const tail = store.truckTails.find(t => t.registration === w.truckReg);
+          if (tail) {
+            store.truckTails = store.truckTails.map(t => t.id === tail.id ? { ...t, status: "Available" } : t);
+          }
+        }
+        return { ...w, status: nextStatus };
+      }
+      return w;
+    });
     return settle(true);
   },
   logRepair: (truckReg: string, defect: string, category: string, amount: number) => {
