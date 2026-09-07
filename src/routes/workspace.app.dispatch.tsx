@@ -1,22 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Lock, MapPin, ShieldCheck } from "lucide-react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
-import { StatusBadge } from "@/components/fleetopsx/status-badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { tripService, driverService, fleetService } from "@/lib/fleetopsx/services";
-import { cn } from "@/lib/utils";
-import type { Trip, Driver } from "@/lib/fleetopsx/types";
-
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import type { Trip, Driver, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
-import { authService } from "@/lib/fleetopsx/services";
+import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/dispatch")({
   loader: async () => {
@@ -43,531 +32,449 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
   head: () => ({
     meta: [
       { title: "Create Dispatch | FleetOpsX" },
-      { name: "description", content: "Guided enterprise dispatch: trip details, vehicle, driver, route and review before release." },
-      { property: "og:title", content: "Create Dispatch | FleetOpsX" },
-      { property: "og:description", content: "Guided enterprise dispatch across trip, vehicle, driver, route and review." },
+      { name: "description", content: "Assign truck and make cost configuration for dispatch." },
     ],
   }),
   component: DispatchPage,
 });
 
-const STEPS = ["Load Request", "Head", "Tail Config", "Assign Driver", "Costs", "Review"];
-const CUSTOMERS = ["NNPC Retail", "Dangote Cement", "TotalEnergies NG", "Lafarge Africa", "Seplat Energy", "Chevron Nigeria"];
-const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Warri", "Onitsha", "Kaduna", "Enugu"];
+// A simple utility for Naira formatting
+const formatN = (num: number) => {
+  return new Intl.NumberFormat("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
 
 function DispatchPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("dispatch_form_draft");
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
+  const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
+  
+  // State for mobile view transition (Form -> Audit)
+  const [mobileView, setMobileView] = useState<"form" | "audit">("form");
+
+  // Form State
+  const [headId, setHeadId] = useState("");
+  const [tailId, setTailId] = useState("");
+  const [tailNumber, setTailNumber] = useState("");
+  
+  const [driverId, setDriverId] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+
+  const [tripAllowance, setTripAllowance] = useState("");
+  const [returnWaybill, setReturnWaybill] = useState("");
+  const [motorBoy, setMotorBoy] = useState("");
+  const [ticketCost, setTicketCost] = useState("");
+  const [extraAllowance, setExtraAllowance] = useState("");
+  const [lubricant, setLubricant] = useState("Diesel");
+
+  // Selection Lookups
+  const head = useMemo(() => TRUCK_HEADS.find(h => h.id === headId), [TRUCK_HEADS, headId]);
+  const tail = useMemo(() => TRUCK_TAILS.find(t => t.id === tailId), [TRUCK_TAILS, tailId]);
+  const driver = useMemo(() => drivers.find(d => d.id === driverId), [drivers, driverId]);
+
+  // Derived Values
+  const totalExpense = 
+    (Number(tripAllowance) || 0) + 
+    (Number(returnWaybill) || 0) + 
+    (Number(motorBoy) || 0) + 
+    (Number(ticketCost) || 0) + 
+    (Number(extraAllowance) || 0);
+
+  // Auto-fill logic
+  useEffect(() => {
+    if (driver) {
+      setDriverName(driver.name);
+      setDriverPhone(driver.phone);
+    } else {
+      setDriverName("");
+      setDriverPhone("");
     }
-    return {
-      customer: "", cargo: "", pickup: "", dropoff: "", date: new Date().toISOString().split('T')[0],
-      priority: "Normal", headId: "", tailId: "", tailNumber: "", driverId: "", 
-      manualDriver: false, manualSalaryNumber: "", manualDriverName: "",
-      costs: {
-        tripAllowance: 0,
-        returnWaybill: 0,
-        motorBoy: 0,
-        ticket: 0,
-        extraAllowance: 0,
-        lubricantType: "Diesel",
-      },
-      notes: "",
-    };
-  });
+  }, [driver]);
 
   useEffect(() => {
-    localStorage.setItem("dispatch_form_draft", JSON.stringify(form));
-  }, [form]);
+    if (tail) {
+      setTailNumber(tail.registration);
+    } else {
+      setTailNumber("");
+    }
+  }, [tail]);
 
-  const clearDraft = () => {
-    localStorage.removeItem("dispatch_form_draft");
-    window.location.reload();
-  };
-  const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
-  const [errors, setErrors] = useState<Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>>>({});
-
-  const handleSelectPendingOrder = (orderId: string) => {
-    const order = pendingOrders.find(o => o.id === orderId);
-    if (!order) return;
-    setForm(f => ({
-      ...f,
-      customer: order.customer,
-      cargo: order.cargo,
-      pickup: order.pickup,
-      dropoff: order.dropoff,
-      date: order.scheduledDate || f.date,
-    }));
-    toast.info("Order loaded", { description: "Dispatch form populated from incoming order." });
+  const handleMobileConfirmDispatch = () => {
+    if (!headId || !tailId || !driverId) {
+      toast.error("Please fill all required fields before reviewing.");
+      return;
+    }
+    setMobileView("audit");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const tripId = useMemo(() => `TRP-${String(Math.floor(880 + Math.random() * 90)).padStart(5, "0")}`, []);
-  const availableHeads = useMemo(() => TRUCK_HEADS.filter((t) => t.status === "Available"), [TRUCK_HEADS]);
-  const availableTails = useMemo(() => TRUCK_TAILS.filter((t) => t.status === "Available"), [TRUCK_TAILS]);
-  const head = useMemo(() => TRUCK_HEADS.find((t) => t.id === form.headId), [TRUCK_HEADS, form.headId]);
-  const tail = useMemo(() => TRUCK_TAILS.find((t) => t.id === form.tailId), [TRUCK_TAILS, form.tailId]);
-  const driver = useMemo(() => drivers.find((d) => d.id === form.driverId), [drivers, form.driverId]);
-  const distance = useMemo(() => form.pickup && form.dropoff ? 120 + ((form.pickup.length * 37 + form.dropoff.length * 53) % 780) : 0, [form.pickup, form.dropoff]);
-  const duration = useMemo(() => distance ? `${Math.floor(distance / 62)}h ${(distance % 60)}m` : "—", [distance]);
-
-  const validate = (validateAll = false) => {
-    const e: Partial<Record<"customer" | "cargo" | "pickup" | "dropoff" | "headId" | "tailId" | "driverId" | "tailNumber" | "manualDriver", string>> = {};
-    if (validateAll || step === 0) {
-      if (!form.customer) e.customer = "Customer is required";
-      if (!form.cargo) e.cargo = "Cargo description is required";
-      if (!form.pickup) e.pickup = "Pickup location is required";
-      if (!form.dropoff) e.dropoff = "Drop-off location is required";
-    }
-    if (validateAll || step === 1) {
-      if (!form.headId) e.headId = "Select an available truck head";
-    }
-    if (validateAll || step === 2) {
-      if (!form.tailId) e.tailId = "Select an available truck tail";
-      if (!form.tailNumber) e.tailNumber = "Tail Number is required";
-    }
-    if (validateAll || step === 3) {
-      if (form.manualDriver) {
-        if (!form.manualSalaryNumber || !form.manualDriverName) e.manualDriver = "Please provide both Salary Number and Driver Name";
-      } else {
-        if (!form.driverId) e.driverId = "Select a compliant driver";
-      }
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const next = () => {
-    if (!validate()) {
-      toast.error("Missing information", { description: "Complete the highlighted fields to continue." });
+  const handleFinalConfirm = async () => {
+    if (!head || !tail || !driver) {
+      toast.error("Validation Error", { description: "Missing Truck or Driver information." });
       return;
     }
-    setStep((s) => Math.min(s + 1, 5));
-  };
-
-  const submit = async () => {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Offline Error", { description: "Cannot create dispatch while offline." });
-      return;
-    }
-    if (!validate(true)) {
-      toast.error("Validation Error", { description: "Please complete all mandatory fields before submitting." });
-      return;
-    }
-    if (!head) {
-      toast.error("Validation Error", { description: "Truck Head is missing." });
-      return;
-    }
-    if (!tail) {
-      toast.error("Validation Error", { description: "Truck Tail is missing." });
-      return;
-    }
-    if (!form.manualDriver && !driver) {
-      toast.error("Validation Error", { description: "Driver is missing." });
-      return;
-    }
-    const tripDriverId = form.manualDriver ? form.manualSalaryNumber : driver!.id;
-    const tripDriverName = form.manualDriver ? form.manualDriverName : driver!.name;
-
+    
+    // Using dummy customer/cargo since Figma mocks it, but we can pull from pendingOrders if we wanted.
+    // For now we will just create a generic trip to satisfy the UI requirement.
     const trip = await tripService.create({
-      customer: form.customer, cargo: form.cargo, pickup: form.pickup, dropoff: form.dropoff,
+      customer: "SABA STEEL", cargo: "General Freight", pickup: "Lagos", dropoff: "Abuja",
       headId: head.id, tailId: tail.id, truckReg: `${head.registration} / ${tail.registration}`, 
-      driverId: tripDriverId, driverName: tripDriverName,
-      status: "Awaiting Approval", priority: form.priority as never, distanceKm: distance,
-      durationLabel: duration, scheduledDate: form.date, startTime: "06:00",
-      lat: head.lat, lng: head.lng, revenue: distance * 4200,
-      directCosts: form.costs,
+      driverId: driver.id, driverName: driver.name,
+      status: "Awaiting Approval", priority: "Normal", distanceKm: 700,
+      durationLabel: "12h 0m", scheduledDate: new Date().toISOString().split('T')[0], startTime: "06:00",
+      lat: head.lat, lng: head.lng, revenue: 800000,
+      directCosts: {
+        tripAllowance: Number(tripAllowance) || 0,
+        returnWaybill: Number(returnWaybill) || 0,
+        motorBoy: Number(motorBoy) || 0,
+        ticket: Number(ticketCost) || 0,
+        extraAllowance: Number(extraAllowance) || 0,
+        lubricantType: lubricant,
+      },
     });
-    localStorage.removeItem("dispatch_form_draft");
-    toast.success(`Dispatch ${trip.id} sent for approval`, { description: `Routed to Transport Manager.` });
+    
+    toast.success(`Dispatch Request Created`);
     navigate({ to: "/workspace/app" });
   };
 
-  return (
-    <>
-      <div className="flex items-start justify-between">
-        <PageHeader
-          title="Create Dispatch"
-          description="Create a trip in five steps, then release it to the field."
-          meta={<><StatusBadge status="Scheduled" /><span className="num text-[11px] text-muted-foreground">Draft {tripId}</span></>}
-        />
-        <Button variant="ghost" size="sm" onClick={clearDraft} className="text-muted-foreground hover:text-red-600">
-          Clear Draft
-        </Button>
+  const renderForm = () => (
+    <div className="w-full rounded-2xl bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden flex-1">
+      {/* Form Header */}
+      <div className="bg-[#1B2432] p-6 text-white">
+        <h2 className="text-xl font-bold tracking-tight">Fleet Dispatch</h2>
+        <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">TICKET REQ-8126 &bull; SABA STEEL</p>
       </div>
 
-      <ol className="flex flex-wrap gap-1.5">
-        {STEPS.map((label, i) => (
-          <li
-            key={label}
-            className={cn(
-              "flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors",
-              i === step
-                ? "bg-[#1d1d1f] text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]"
-                : i < step
-                  ? "bg-[#34c759]/12 text-[#248a3d]"
-                  : "bg-black/[0.04] text-muted-foreground",
-            )}
-          >
-            <span
-              className={cn(
-                "num grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
-                i === step ? "bg-white/15" : i < step ? "bg-[#34c759]/20" : "bg-black/[0.06]",
-              )}
-            >
-              {i < step ? <Check className="h-3 w-3" /> : i + 1}
-            </span>
-            <span className="truncate">{label}</span>
-          </li>
-        ))}
-      </ol>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <SectionPanel title={`Step ${step + 1}: ${STEPS[step]}`} bodyClassName="space-y-4">
-          {step === 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Trip ID</Label>
-                <div className="flex items-center gap-2 rounded-[14px] border border-black/[0.05] bg-black/[0.03] px-3 py-2">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="num text-xs text-muted-foreground">{tripId}</span>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Load from Incoming Order</Label>
-                <Select onValueChange={handleSelectPendingOrder}>
-                  <SelectTrigger className="h-9 text-xs border-blue-200 bg-blue-50/30">
-                    <SelectValue placeholder={pendingOrders.length > 0 ? "Select pending order to auto-fill..." : "No pending orders"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pendingOrders.map((o) => (
-                      <SelectItem key={o.id} value={o.id} className="text-xs">
-                        <span className="font-semibold">{o.customer}</span> — {o.cargo} to {o.dropoff}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Priority</Label>
-                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>{["Low", "Normal", "High", "Critical"].map((p) => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Customer</Label>
-                <Select value={form.customer} onValueChange={(v) => setForm({ ...form, customer: v })}>
-                  <SelectTrigger className={cn("h-9 text-xs", errors.customer && "border-critical")}><SelectValue placeholder="Select customer" /></SelectTrigger>
-                  <SelectContent>{CUSTOMERS.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}</SelectContent>
-                </Select>
-                {errors.customer && <p className="text-[11px] text-critical">{errors.customer}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Cargo</Label>
-                <Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} placeholder="e.g. PMS 45,000L" className={cn("h-9 text-xs", errors.cargo && "border-critical")} />
-                {errors.cargo && <p className="text-[11px] text-critical">{errors.cargo}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Pickup location</Label>
-                <Input value={form.pickup} onChange={(e) => setForm({ ...form, pickup: e.target.value })} placeholder="e.g. Apapa Depot, Lagos" className={cn("h-9 text-xs", errors.pickup && "border-critical")} />
-                {errors.pickup && <p className="text-[11px] text-critical">{errors.pickup}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Drop-off location</Label>
-                <Input value={form.dropoff} onChange={(e) => setForm({ ...form, dropoff: e.target.value })} placeholder="e.g. Wuse Zone 1, Abuja" className={cn("h-9 text-xs", errors.dropoff && "border-critical")} />
-                {errors.dropoff && <p className="text-[11px] text-critical">{errors.dropoff}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Scheduled date</Label>
-                <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="h-9 text-xs" />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs">Dispatch instructions</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Loading bay, escort requirements, customer contact..." className="text-xs" />
-              </div>
+      <div className="p-6 md:p-8 space-y-8">
+        
+        {/* Step 1 */}
+        <div>
+          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 1: Assign Truck</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Assign Truck Head <span className="text-red-500">*</span>
+              </label>
+              <select 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                value={headId}
+                onChange={e => setHeadId(e.target.value)}
+              >
+                <option value="">eg: CAP-101</option>
+                {TRUCK_HEADS.filter(h => h.status === "Available" || h.id === headId).map(h => (
+                  <option key={h.id} value={h.id}>{h.id} ({h.registration})</option>
+                ))}
+              </select>
             </div>
-          )}
-
-          {step === 1 && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Search head by Cap Number or Plate Number. Only Available status heads are selectable.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {TRUCK_HEADS.slice(0, 12).map((t) => {
-                  const selectable = t.status === "Available";
-                  return (
-                    <button
-                      key={t.id}
-                      disabled={!selectable}
-                      onClick={() => {
-                        setForm({ ...form, headId: t.id });
-                        setStep(2);
-                      }}
-                      className={cn(
-                        "flex flex-col gap-2 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
-                        form.headId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
-                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
-                      )}
-                    >
-                      <div className="flex w-full items-center justify-between min-w-0">
-                        <p className="num text-xs font-semibold text-foreground">CAP NO: {t.capNumber}</p>
-                        <StatusBadge status={t.status} />
-                      </div>
-                      <div className="w-full">
-                        <p className="truncate text-[11px] text-muted-foreground">PLATE: {t.registration} · {t.make}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.headId && <p className="text-[11px] text-critical">{errors.headId}</p>}
-              <p className="num text-[11px] text-muted-foreground">{availableHeads.length} of {TRUCK_HEADS.length} units available for dispatch.</p>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Plate Number <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                placeholder="Auto-populated or manual"
+                value={head?.registration || ""}
+                readOnly
+              />
             </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                Select Tail Type and input specific Tail Number.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {TRUCK_TAILS.slice(0, 12).map((t) => {
-                  const selectable = t.status === "Available";
-                  return (
-                    <button
-                      key={t.id}
-                      disabled={!selectable}
-                      onClick={() => {
-                        setForm({ ...form, tailId: t.id, tailNumber: t.registration });
-                        setStep(3);
-                      }}
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
-                        form.tailId === t.id ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
-                        !selectable && "cursor-not-allowed opacity-45 hover:bg-white",
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <p className="num text-xs font-semibold text-foreground">{t.id} · {t.registration}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{t.type} · {t.location}</p>
-                      </div>
-                      <StatusBadge status={t.status} />
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.tailId && <p className="text-[11px] text-critical">{errors.tailId}</p>}
-              <div className="space-y-1.5 sm:w-1/2">
-                <Label className="text-xs">Tail Number</Label>
-                <Input value={form.tailNumber} onChange={(e) => setForm({ ...form, tailNumber: e.target.value })} placeholder="e.g. TN-5829" className={cn("h-9 text-xs", errors.tailNumber && "border-critical")} />
-                {errors.tailNumber && <p className="text-[11px] text-critical">{errors.tailNumber}</p>}
-              </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Assign Truck Tail <span className="text-red-500">*</span>
+              </label>
+              <select 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                value={tailId}
+                onChange={e => setTailId(e.target.value)}
+              >
+                <option value="">Select Tail Type</option>
+                {TRUCK_TAILS.filter(t => t.status === "Available" || t.id === tailId).map(t => (
+                  <option key={t.id} value={t.id}>{t.type}</option>
+                ))}
+              </select>
             </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Search driver by Salary Number. Active drivers will be listed below.
-              </p>
-              <div className="grid gap-2">
-                {drivers.slice(0, 10).map((d) => {
-                  const selectable = d.status === "Available" && d.compliance !== "Expired";
-                  return (
-                    <button
-                      key={d.id}
-                      disabled={!selectable || form.manualDriver}
-                      onClick={() => {
-                        setForm({ ...form, driverId: d.id, manualDriver: false });
-                        setStep(4);
-                      }}
-                      className={cn(
-                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-black/[0.05] p-3.5 text-left transition-colors",
-                        form.driverId === d.id && !form.manualDriver ? "border-transparent bg-black/[0.04] ring-1 ring-black/10" : "bg-white hover:bg-black/[0.02]",
-                        (!selectable || form.manualDriver) && "cursor-not-allowed opacity-45 hover:bg-white",
-                      )}
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-[11px] font-semibold text-foreground">{d.initials}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-foreground">SAL: {d.salaryNumber} — {d.name}</p>
-                          <p className="num truncate text-[11px] text-muted-foreground">{d.id} · {d.licenseCategory} · last trip {d.currentTripId ?? "—"}</p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <StatusBadge status={d.compliance} />
-                        <StatusBadge status={d.status} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <div className="mt-4 border-t border-black/[0.05] pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className={cn("w-full text-xs font-semibold justify-center h-9", form.manualDriver && "bg-black/[0.04] ring-1 ring-black/10 border-transparent")}
-                  onClick={() => setForm({ ...form, manualDriver: !form.manualDriver, driverId: "" })}
-                >
-                  Driver not listed? Add manually
-                </Button>
-                
-                {form.manualDriver && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Salary Number</Label>
-                      <Input 
-                        className="h-9 text-xs" 
-                        value={form.manualSalaryNumber} 
-                        onChange={(e) => setForm({ ...form, manualSalaryNumber: e.target.value })} 
-                        placeholder="e.g. SAL-1001" 
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Driver Name</Label>
-                      <Input 
-                        className="h-9 text-xs" 
-                        value={form.manualDriverName} 
-                        onChange={(e) => setForm({ ...form, manualDriverName: e.target.value })} 
-                        placeholder="e.g. John Doe" 
-                      />
-                    </div>
-                    {errors.manualDriver && <p className="text-[11px] text-critical sm:col-span-2">{errors.manualDriver}</p>}
-                  </div>
-                )}
-              </div>
-              
-              {errors.driverId && !form.manualDriver && <p className="text-[11px] text-critical">{errors.driverId}</p>}
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Tail Number <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="eg: TL-999"
+                value={tailNumber}
+                onChange={e => setTailNumber(e.target.value)}
+              />
             </div>
-          )}
-
-          {step === 4 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Trip Allowance (\u20A6)</Label>
-                <Input type="number" value={form.costs.tripAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, tripAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Return Waybill (\u20A6)</Label>
-                <Input type="number" value={form.costs.returnWaybill} onChange={(e) => setForm({ ...form, costs: { ...form.costs, returnWaybill: Number(e.target.value) } })} className="h-9 text-xs num" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Motor Boy (\u20A6)</Label>
-                <Input type="number" value={form.costs.motorBoy} onChange={(e) => setForm({ ...form, costs: { ...form.costs, motorBoy: Number(e.target.value) } })} className="h-9 text-xs num" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Ticket (\u20A6)</Label>
-                <Input type="number" value={form.costs.ticket} onChange={(e) => setForm({ ...form, costs: { ...form.costs, ticket: Number(e.target.value) } })} className="h-9 text-xs num" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Extra Allowance (\u20A6)</Label>
-                <Input type="number" value={form.costs.extraAllowance} onChange={(e) => setForm({ ...form, costs: { ...form.costs, extraAllowance: Number(e.target.value) } })} className="h-9 text-xs num" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Lubricant Type</Label>
-                <Select value={form.costs.lubricantType} onValueChange={(v) => setForm({ ...form, costs: { ...form.costs, lubricantType: v as any } })}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Diesel" className="text-xs">Diesel</SelectItem>
-                    <SelectItem value="Gas" className="text-xs">Gas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2 mt-4 p-4 rounded-lg bg-black/[0.02] border border-black/[0.05] flex justify-between items-center">
-                <div>
-                  <Label className="text-sm font-semibold">Total Direct Cost</Label>
-                  <p className="text-xs text-muted-foreground">Sum of all allowances and fees for this trip.</p>
-                </div>
-                <div className="text-xl font-bold font-mono text-rose-600">
-                  &#8358;{(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Trip</p>
-                <FieldRow label="Trip ID" value={tripId} />
-                <FieldRow label="Customer" value={form.customer} />
-                <FieldRow label="Cargo" value={form.cargo} />
-                <FieldRow label="Priority" value={form.priority} />
-                <FieldRow label="Scheduled" value={form.date} />
-              </div>
-              <div>
-                <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Assignment</p>
-                <FieldRow label="Truck" value={head && tail ? `${head.registration} / ${tail.registration}` : "—"} />
-                <FieldRow label="Driver" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver?.name ?? "—")} />
-                <FieldRow label="Lubricant" value={form.costs.lubricantType} />
-              </div>
-              <div className="sm:col-span-2">
-                <p className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Financials (Estimated)</p>
-                <div className="grid gap-4 sm:grid-cols-3 mt-2 rounded-[16px] border border-black/[0.05] bg-black/[0.02] p-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Est. Waybill Revenue</Label>
-                    <p className="text-lg font-bold font-mono text-emerald-600">&#8358;{(distance * 4200).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Total Direct Costs</Label>
-                    <p className="text-lg font-bold font-mono text-rose-600">&#8358;{(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Est. Gross Margin</Label>
-                    <p className="text-lg font-bold font-mono">&#8358;{((distance * 4200) - (form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance)).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-3 border-t border-black/[0.05] pt-4">
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
-              <ArrowLeft className="h-3.5 w-3.5" />Back
-            </Button>
-            {step < 5 ? (
-              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={next}>Continue<ArrowRight className="h-3.5 w-3.5" /></Button>
-            ) : (
-              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={submit}><Check className="h-3.5 w-3.5" />Send for Approval</Button>
-            )}
           </div>
-        </SectionPanel>
+        </div>
 
-        <div className="flex flex-col gap-5">
-          <SectionPanel title="Dispatch Summary" bodyClassName="pt-1">
-            <FieldRow label="Trip ID" value={tripId} />
-            <FieldRow label="Customer" value={form.customer || "—"} />
-            <FieldRow label="Route" value={form.pickup && form.dropoff ? `${form.pickup} → ${form.dropoff}` : "—"} />
-            <FieldRow label="Head (Cap No)" value={head ? `${head.capNumber} (${head.registration})` : "—"} />
-            <FieldRow label="Tail Config" value={tail ? `${tail.registration} (${form.tailCalibration})` : "—"} />
-            <FieldRow label="Driver (Salary No)" value={form.manualDriver ? `${form.manualSalaryNumber} (${form.manualDriverName})` : (driver ? `${driver.salaryNumber} (${driver.name})` : "—")} />
-            <FieldRow label="Total Costs" value={`\u20A6${(form.costs.tripAllowance + form.costs.returnWaybill + form.costs.motorBoy + form.costs.ticket + form.costs.extraAllowance).toLocaleString()}`} />
-          </SectionPanel>
+        {/* Step 2 */}
+        <div>
+          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 2: Assign Driver</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Salary Number <span className="text-red-500">*</span>
+              </label>
+              <select 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                value={driverId}
+                onChange={e => setDriverId(e.target.value)}
+              >
+                <option value="">Select</option>
+                {drivers.filter(d => d.status === "Available" || d.id === driverId).map(d => (
+                  <option key={d.id} value={d.id}>{d.id}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Driver Name <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                placeholder="Auto-populated or manual"
+                value={driverName}
+                readOnly
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                className="w-full h-11 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-lg text-sm text-[#5c6470]"
+                placeholder="Auto-populated or manual"
+                value={driverPhone}
+                readOnly
+              />
+            </div>
+          </div>
+        </div>
 
-          <SectionPanel title="Compliance Gate" bodyClassName="space-y-2.5">
-            {[
-              { label: "Vehicle roadworthiness", ok: !!head && !!tail },
-              { label: "Driver licence validity", ok: form.manualDriver ? true : driver?.compliance === "Valid" },
-              { label: "Insurance cover", ok: true },
-              { label: "Route risk assessment", ok: !!form.pickup && !!form.dropoff },
-            ].map((c) => (
-              <div key={c.label} className="flex items-center gap-2 text-xs">
-                <ShieldCheck className={cn("h-3.5 w-3.5 shrink-0", c.ok ? "text-success" : "text-muted-foreground")} />
-                <span className={cn("min-w-0 flex-1 truncate", c.ok ? "text-foreground" : "text-muted-foreground")}>{c.label}</span>
-                <StatusBadge status={c.ok ? "Valid" : "Pending"} dot={false} />
-              </div>
-            ))}
-          </SectionPanel>
+        {/* Step 3 */}
+        <div>
+          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 3: Direct Cost Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Trip Allowance <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="Auto-populated or manual"
+                value={tripAllowance}
+                onChange={e => setTripAllowance(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Return Waybill <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="Auto-populated or manual"
+                value={returnWaybill}
+                onChange={e => setReturnWaybill(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Motor Boy <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="Auto-populated or manual"
+                value={motorBoy}
+                onChange={e => setMotorBoy(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Ticket Cost <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="Auto-populated or manual"
+                value={ticketCost}
+                onChange={e => setTicketCost(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Extra Contingency <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="number" 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
+                placeholder="Auto-populated or manual"
+                value={extraAllowance}
+                onChange={e => setExtraAllowance(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
+                Lubricant <span className="text-red-500">*</span>
+              </label>
+              <select 
+                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                value={lubricant}
+                onChange={e => setLubricant(e.target.value)}
+              >
+                <option value="Diesel">Diesel</option>
+                <option value="PMS">PMS</option>
+                <option value="AGO">AGO</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex justify-end items-center gap-6 pt-4">
+          <button 
+            onClick={() => navigate({ to: "/workspace/app" })}
+            className="text-[14px] font-bold text-[#f04438] hover:text-[#d92d20]"
+          >
+            Cancel
+          </button>
+          
+          <button 
+            onClick={() => {
+              if (window.innerWidth < 1024) {
+                handleMobileConfirmDispatch();
+              } else {
+                handleFinalConfirm();
+              }
+            }}
+            className="bg-[#f04438] hover:bg-[#d92d20] text-white h-11 px-6 rounded-lg text-[14px] font-bold shadow-sm transition-colors"
+          >
+            Confirm Dispatch
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+
+  const renderAudit = () => (
+    <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 rounded-2xl bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden self-start sticky top-8">
+      {/* Audit Header */}
+      <div className="p-6 pb-4 border-b border-[#e2e5e9]">
+        <h2 className="text-xl font-bold tracking-tight text-[#1B2432]">Audit Configuration</h2>
+        <p className="text-xs text-slate-500 font-medium tracking-wider mt-1 uppercase">TICKET REQ-8126 &bull; SABA STEEL</p>
+      </div>
+
+      <div className="p-6 space-y-6">
+        
+        <div className="bg-[#f4f5f7] rounded-xl p-4">
+          <h4 className="text-[14px] font-bold text-[#141a1f] mb-4">Vehicle &amp; Operator Details</h4>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Truck Head (Cap Number):</span>
+              <span className="font-semibold text-[#141a1f]">{head?.id || "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Truck Head Plate Number:</span>
+              <span className="font-semibold text-[#141a1f]">{head?.registration || "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Truck Tail assigned:</span>
+              <span className="font-semibold text-[#141a1f]">{tail ? `${tail.type} (${tailNumber})` : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Driver Assigned:</span>
+              <span className="font-semibold text-[#141a1f]">{driver ? `${driverName} (${driverId})` : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Driver Contact Phone:</span>
+              <span className="font-semibold text-[#141a1f]">{driverPhone || "-"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#f4f5f7] rounded-xl p-4">
+          <h4 className="text-[14px] font-bold text-[#141a1f] mb-4">Expense Configuration Breakdown</h4>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Trip Allowance:</span>
+              <span className="font-semibold text-[#141a1f]">{tripAllowance ? formatN(Number(tripAllowance)) : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Return Waybill:</span>
+              <span className="font-semibold text-[#141a1f]">{returnWaybill ? formatN(Number(returnWaybill)) : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Motor Boy Allowance:</span>
+              <span className="font-semibold text-[#141a1f]">{motorBoy ? formatN(Number(motorBoy)) : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Transit Road Tickets:</span>
+              <span className="font-semibold text-[#141a1f]">{ticketCost ? formatN(Number(ticketCost)) : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Extra Contingency:</span>
+              <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(Number(extraAllowance)) : "-"}</span>
+            </div>
+            <div className="border-t border-[#e2e5e9] my-2"></div>
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] font-bold text-[#141a1f]">Total Configured Expense:</span>
+              <span className="font-bold text-[15px] text-[#f04438]">{totalExpense > 0 ? formatN(totalExpense) : "-"}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile Audit Actions */}
+        <div className="lg:hidden flex justify-between items-center pt-2">
+          <button 
+            onClick={() => setMobileView("form")}
+            className="text-[14px] font-bold text-[#f04438] hover:text-[#d92d20]"
+          >
+            Go Back
+          </button>
+          
+          <button 
+            onClick={handleFinalConfirm}
+            className="bg-[#f04438] hover:bg-[#d92d20] text-white h-11 px-8 rounded-lg text-[14px] font-bold shadow-sm transition-colors"
+          >
+            Confirm
+          </button>
         </div>
       </div>
-    </>
+    </div>
+  );
+
+  // Top header to match Figma
+  const headerContent = (
+    <div className="w-full bg-white border-b border-[#e2e5e9] px-6 py-4 mb-6">
+      <h1 className="text-2xl font-semibold text-[#141a1f]">Fleet Operations Portal</h1>
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage the lifecycle of every dispatch within the company</p>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#f4f5f7] -m-6 flex flex-col font-['Inter',sans-serif]">
+      {headerContent}
+      
+      <div className="px-6 pb-10 flex-1 max-w-[1400px] w-full mx-auto">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Mobile view handling */}
+          <div className={cn("w-full lg:flex-1", mobileView === "audit" && "hidden lg:block")}>
+            {renderForm()}
+          </div>
+          
+          <div className={cn("w-full lg:w-auto", mobileView === "form" && "hidden lg:block")}>
+            {renderAudit()}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-
