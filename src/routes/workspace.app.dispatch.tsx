@@ -460,7 +460,7 @@ function DispatchPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] -m-6 flex flex-col font-['Inter',sans-serif]">
+    <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-['Inter',sans-serif]">
       {headerContent}
       
       <div className="px-6 pb-10 flex-1 max-w-[1400px] w-full mx-auto">

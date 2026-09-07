@@ -58,6 +58,8 @@ function AppShell() {
     m.pathname === "/workspace/app/admin"
   );
 
+  const isDispatchModule = matches.some((m) => m.pathname === "/workspace/app/dispatch");
+
   if (isAdminModule) {
     return (
       <AdminLayout>
@@ -70,10 +72,11 @@ function AppShell() {
     <div className="flex min-h-screen w-full bg-[#f6f7f9]">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />
+        {!isDispatchModule && <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />}
         <main
           className={cn(
-            "scroll-edge min-w-0 flex-1 overflow-auto px-4 py-5 sm:px-5 lg:px-8 lg:py-7",
+            "scroll-edge min-w-0 flex-1 overflow-auto",
+            !isDispatchModule && "px-4 py-5 sm:px-5 lg:px-8 lg:py-7"
           )}
         >
           <div className="mx-auto w-full max-w-[1920px]">
