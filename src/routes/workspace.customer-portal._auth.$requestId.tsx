@@ -16,6 +16,36 @@ function RequestTrackingPage() {
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ customer: "", cargo: "", type: "", dropoff: "", sites: "" });
+
+  const handleOpenModify = () => {
+    if (trip) {
+      setEditForm({
+        customer: trip.customerConsignee,
+        cargo: trip.cargo,
+        type: trip.tailType,
+        dropoff: trip.dropoff,
+        sites: trip.loadingSite?.join(", ") || trip.pickup,
+      });
+    }
+    setIsModifyModalOpen(true);
+  };
+
+  const handleSaveModify = async () => {
+    if (!trip) return;
+    const loadingSite = editForm.sites.split(",").map(s => s.trim()).filter(Boolean);
+    const updates = {
+      customerConsignee: editForm.customer,
+      cargo: editForm.cargo,
+      tailType: editForm.type,
+      dropoff: editForm.dropoff,
+      loadingSite,
+      pickup: loadingSite[0] || editForm.sites,
+    };
+    await tripService.update(trip.id, updates);
+    setTrip({ ...trip, ...updates });
+    setIsModifyModalOpen(false);
+  };
 
   useEffect(() => {
     tripService.get(requestId).then((t) => {
@@ -56,7 +86,7 @@ function RequestTrackingPage() {
             <div className="flex items-center gap-2 lg:gap-4 flex-wrap">
               {trip.status !== 'In transit' && trip.status !== 'Completed' && (
                 <button 
-                  onClick={() => setIsModifyModalOpen(true)}
+                  onClick={handleOpenModify}
                   className="flex items-center gap-2 px-3 lg:px-4 h-[40px] text-[13px] font-[600] text-[#141a1f] bg-transparent hover:bg-gray-100 rounded-[4px] transition-colors lg:border lg:border-gray-200"
                 >
                   <Pencil className="w-4 h-4" /> Modify
@@ -119,12 +149,17 @@ function RequestTrackingPage() {
               <div className="flex flex-col gap-2 lg:col-span-2">
                 <label className="text-[12px] lg:text-[13px] font-[500] lg:font-[600] text-[#5c6470] lg:text-[#141a1f]">Loading Site(s)</label>
                 <div className="flex flex-col gap-2">
-                  <div className="h-[40px] lg:h-[44px] bg-[#f1f2f4] rounded-[4px] px-3 lg:px-4 flex items-center text-[13px] text-[#141a1f] lg:text-[#5c6470] border border-transparent">
-                    Babangida
-                  </div>
-                  <div className="h-[40px] lg:h-[44px] bg-[#f1f2f4] rounded-[4px] px-3 lg:px-4 flex items-center text-[13px] text-[#141a1f] lg:text-[#5c6470] border border-transparent">
-                    Happy Home
-                  </div>
+                  {trip.loadingSite && trip.loadingSite.length > 0 ? (
+                    trip.loadingSite.map((site, index) => (
+                      <div key={index} className="h-[40px] lg:h-[44px] bg-[#f1f2f4] rounded-[4px] px-3 lg:px-4 flex items-center text-[13px] text-[#141a1f] lg:text-[#5c6470] border border-transparent">
+                        {site}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="h-[40px] lg:h-[44px] bg-[#f1f2f4] rounded-[4px] px-3 lg:px-4 flex items-center text-[13px] text-[#141a1f] lg:text-[#5c6470] border border-transparent">
+                      {trip.pickup}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -276,23 +311,23 @@ function RequestTrackingPage() {
               <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-[12px] font-[500] text-[#5c6470]">Customer Name</label>
-                  <input type="text" defaultValue={trip.customerConsignee || "Janeth Doe"} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
+                  <input type="text" value={editForm.customer} onChange={e => setEditForm({...editForm, customer: e.target.value})} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-[12px] font-[500] text-[#5c6470]">Product</label>
-                  <input type="text" defaultValue={trip.cargo || "Steel"} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
+                  <input type="text" value={editForm.cargo} onChange={e => setEditForm({...editForm, cargo: e.target.value})} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-[12px] font-[500] text-[#5c6470]">Truck Type</label>
-                  <input type="text" defaultValue={trip.tailType || "Flat"} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
+                  <input type="text" value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
                 </div>
                 <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-[12px] font-[500] text-[#5c6470]">Destination</label>
-                  <input type="text" defaultValue={trip.dropoff || "ABC, Alake Estate"} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
+                  <input type="text" value={editForm.dropoff} onChange={e => setEditForm({...editForm, dropoff: e.target.value})} className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
                 </div>
                 <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-[12px] font-[500] text-[#5c6470]">Loading Site(s)</label>
-                  <input type="text" defaultValue="Babangida, Happy Home" className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
+                  <input type="text" value={editForm.sites} onChange={e => setEditForm({...editForm, sites: e.target.value})} placeholder="Comma separated sites" className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-[#e3351d]" />
                 </div>
               </div>
 
@@ -304,7 +339,7 @@ function RequestTrackingPage() {
                   Cancel
                 </button>
                 <button 
-                  onClick={() => setIsModifyModalOpen(false)}
+                  onClick={handleSaveModify}
                   className="h-[44px] lg:h-[40px] px-6 bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[14px] font-[500]"
                 >
                   Save changes

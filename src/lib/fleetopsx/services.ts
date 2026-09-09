@@ -290,6 +290,10 @@ export const tripService = {
     
     return settle(trip);
   },
+  update: (id: string, payload: Partial<Trip>) => {
+    store.trips = store.trips.map(t => (t.id === id ? { ...t, ...payload } : t));
+    return settle(true);
+  },
   approveDispatch: (id: string) => {
     store.trips = store.trips.map(t => {
       if (t.id === id && t.status === "Awaiting Approval") {

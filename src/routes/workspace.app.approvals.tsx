@@ -154,6 +154,8 @@ function ApprovalsPage() {
     | { type: "Work Order", record: WorkOrder };
 
   const [confirmApproval, setConfirmApproval] = useState<ConfirmState | null>(null);
+  const [confirmReject, setConfirmReject] = useState<ConfirmState | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const executeApproval = async () => {
     if (!confirmApproval) return;
@@ -174,6 +176,31 @@ function ApprovalsPage() {
     await refresh();
   };
 
+  const executeReject = async () => {
+    if (!confirmReject) return;
+    if (!rejectReason.trim()) {
+      toast.error("Rejection reason is required.");
+      return;
+    }
+    const { type, record } = confirmReject;
+    
+    if (type === "Trip") {
+      await tripService.update(record.id, { status: "Rejected" });
+      toast.success(`Trip ${record.id} rejected.`);
+    } else if (type === "Expense") {
+      await accountService.setStatus(record.id, "Rejected");
+      toast.success(`Expense ${record.id} rejected.`);
+    } else if (type === "Work Order") {
+      // Mark as completed/cancelled since there's no explicit reject status
+      await tripService.update(record.id, { status: "Rejected" } as any);
+      toast.success(`Work Order ${record.id} rejected.`);
+    }
+    
+    setConfirmReject(null);
+    setRejectReason("");
+    await refresh();
+  };
+
   const tripCols: Column<Trip>[] = [
     { key: "id", header: "Trip ID", cell: r => <span className="num font-semibold">{r.id}</span> },
     { key: "route", header: "Route", cell: r => `${r.pickup} → ${r.dropoff}` },
@@ -191,7 +218,10 @@ function ApprovalsPage() {
       return <span className="num font-bold">{formatNairaFull(margin)}</span>;
     }},
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ type: "Trip", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={() => { setConfirmReject({ type: "Trip", record: r }); setRejectReason(""); }} className="h-7 text-xs text-[#e3351d] border-[#e3351d]/30 hover:bg-[#e3351d]/5">Reject</Button>
+        <Button size="sm" onClick={() => setConfirmApproval({ type: "Trip", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      </div>
     )}
   ];
 
@@ -201,7 +231,10 @@ function ApprovalsPage() {
     { key: "req", header: "Requester", cell: r => r.requester },
     { key: "amount", header: "Amount", align: "right", cell: r => <span className="num font-bold">{formatNairaFull(r.amount)}</span> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ type: "Expense", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={() => { setConfirmReject({ type: "Expense", record: r }); setRejectReason(""); }} className="h-7 text-xs text-[#e3351d] border-[#e3351d]/30 hover:bg-[#e3351d]/5">Reject</Button>
+        <Button size="sm" onClick={() => setConfirmApproval({ type: "Expense", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      </div>
     )}
   ];
 
@@ -211,7 +244,10 @@ function ApprovalsPage() {
     { key: "defect", header: "Reported Defect", cell: r => r.defect },
     { key: "pri", header: "Priority", cell: r => <StatusBadge status={r.priority as any} /> },
     { key: "actions", header: "", align: "right", cell: r => (
-      <Button size="sm" onClick={() => setConfirmApproval({ type: "Work Order", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={() => { setConfirmReject({ type: "Work Order", record: r }); setRejectReason(""); }} className="h-7 text-xs text-[#e3351d] border-[#e3351d]/30 hover:bg-[#e3351d]/5">Reject</Button>
+        <Button size="sm" onClick={() => setConfirmApproval({ type: "Work Order", record: r })} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow">Approve</Button>
+      </div>
     )}
   ];
 
@@ -277,6 +313,32 @@ function ApprovalsPage() {
               <Button variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => setConfirmApproval(null)}>Cancel</Button>
               <Button className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-6 font-semibold shadow-md hover:shadow-lg transition-all" onClick={executeApproval}>
                 Confirm & Authorize
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+          <div className="w-full max-w-[420px] rounded-[24px] bg-white p-6 shadow-2xl flex flex-col">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <X className="h-6 w-6 text-[#e3351d]" />
+            </div>
+            <h3 className="text-xl font-bold text-[#141a1f] tracking-tight">Reject {confirmReject.type}</h3>
+            <p className="mt-1 text-sm text-[#8e95a1]">
+              Please provide a reason for rejecting <span className="font-semibold text-[#141a1f]">{confirmReject.record.id}</span>.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter rejection reason (required)..."
+              className="mt-4 w-full h-24 rounded-xl border border-[#e2e5e9] p-3 text-sm resize-none focus:outline-none focus:border-[#e3351d]"
+            />
+            <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-black/[0.05]">
+              <Button variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => { setConfirmReject(null); setRejectReason(""); }}>Cancel</Button>
+              <Button className="h-10 rounded-xl bg-[#e3351d] hover:bg-[#c92a16] text-white px-6 font-semibold shadow-md hover:shadow-lg transition-all" onClick={executeReject}>
+                Confirm Rejection
               </Button>
             </div>
           </div>
