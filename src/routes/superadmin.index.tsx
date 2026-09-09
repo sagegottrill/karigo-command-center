@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Plus, Server, Users, CreditCard, Settings, Activity, Building, LogOut, ArrowLeft, MoreHorizontal, AlertCircle } from "lucide-react";
 import { DataTable } from "@/components/fleetopsx/data-table";
@@ -106,6 +106,15 @@ const columns: Column<PlatformTenant>[] = [
 ];
 
 function SuperAdminLayout() {
+  const navigate = useNavigate({ from: "/superadmin/" });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!authService.isAuthenticated() || !authService.getRoles().includes("Platform Admin")) {
+      navigate({ to: "/superadmin/login" });
+    }
+  }, [navigate]);
+
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTenant, setNewTenant] = useState({ name: "", domain: "", logo: "", adminFirstName: "", adminLastName: "", adminEmail: "" });

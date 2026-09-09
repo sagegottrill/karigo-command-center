@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { StaffBottomNav } from "@/components/fleetopsx/staff-bottom-nav";
@@ -31,10 +31,23 @@ export const Route = createFileRoute("/workspace/app")({
   component: AppShell,
 });
 function AppShell() {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") return window.innerWidth < 768;
     return false;
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const user = authService.getCurrentUser();
+    if (!user) {
+      navigate({ to: "/workspace/login" });
+    } else if (user.passwordResetRequired) {
+      navigate({ to: "/workspace/forgot-password" });
+    } else if (authService.getRoles().includes("Customer Portals (External)")) {
+      navigate({ to: "/workspace/customer-portal/dashboard" });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
