@@ -117,7 +117,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
 
       // Ensure custom popup styles are injected for leaflet
       const style = document.createElement('style');
-      style.innerHTML = \`
+      style.innerHTML = `
         .fleetopsx-custom-popup .leaflet-popup-content-wrapper {
           padding: 0;
           background: transparent;
@@ -131,7 +131,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
         .fleetopsx-custom-popup .leaflet-popup-tip-container {
           display: none;
         }
-      \`;
+      `;
       document.head.appendChild(style);
 
       // Define some hardcoded points near Abuja to ensure they show up in the zoom
