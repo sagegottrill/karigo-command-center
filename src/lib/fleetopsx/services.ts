@@ -840,7 +840,7 @@ export const dashboardService = {
 
 /* -------------------------- in-memory mutable store ----------------------- */
 // Bump this version whenever mock-data schema changes to force a cache refresh
-const DATA_SCHEMA_VERSION = "2";
+const DATA_SCHEMA_VERSION = "3";
 
 const getInitialState = <T>(key: string, fallback: T): T => {
   if (typeof window !== "undefined") {

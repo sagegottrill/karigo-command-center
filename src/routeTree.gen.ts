@@ -23,10 +23,12 @@ import { Route as WorkspaceAppAccountsRouteImport } from './routes/workspace.app
 import { Route as WorkspaceAppAddAccountRouteImport } from './routes/workspace.app.add-account'
 import { Route as WorkspaceAppAddPartnerRouteImport } from './routes/workspace.app.add-partner'
 import { Route as WorkspaceAppAdminRouteImport } from './routes/workspace.app.admin'
+import { Route as WorkspaceAppApprovalsRouteImport } from './routes/workspace.app.approvals'
 import { Route as WorkspaceAppAuditRouteImport } from './routes/workspace.app.audit'
 import { Route as WorkspaceAppComplianceRouteImport } from './routes/workspace.app.compliance'
 import { Route as WorkspaceAppDepreciationRouteImport } from './routes/workspace.app.depreciation'
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
+import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
@@ -120,6 +122,11 @@ const WorkspaceAppAdminRoute = WorkspaceAppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppApprovalsRoute = WorkspaceAppApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppAuditRoute = WorkspaceAppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -141,6 +148,12 @@ const WorkspaceAppDispatchRoute = WorkspaceAppDispatchRouteImport.update({
   path: '/dispatch',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppDispatchHistoryRoute =
+  WorkspaceAppDispatchHistoryRouteImport.update({
+    id: '/dispatch-history',
+    path: '/dispatch-history',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppEngineeringRoute = WorkspaceAppEngineeringRouteImport.update({
   id: '/engineering',
   path: '/engineering',
@@ -278,10 +291,12 @@ export interface FileRoutesByFullPath {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
@@ -317,10 +332,12 @@ export interface FileRoutesByTo {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
@@ -359,10 +376,12 @@ export interface FileRoutesById {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
+  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
+  '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
@@ -403,10 +422,12 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
+    | '/workspace/app/approvals'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
     | '/workspace/app/dispatch'
+    | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
@@ -442,10 +463,12 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
+    | '/workspace/app/approvals'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
     | '/workspace/app/dispatch'
+    | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
@@ -483,10 +506,12 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
+    | '/workspace/app/approvals'
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
     | '/workspace/app/dispatch'
+    | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
@@ -619,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppAdminRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/approvals': {
+      id: '/workspace/app/approvals'
+      path: '/approvals'
+      fullPath: '/workspace/app/approvals'
+      preLoaderRoute: typeof WorkspaceAppApprovalsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/audit': {
       id: '/workspace/app/audit'
       path: '/audit'
@@ -645,6 +677,13 @@ declare module '@tanstack/react-router' {
       path: '/dispatch'
       fullPath: '/workspace/app/dispatch'
       preLoaderRoute: typeof WorkspaceAppDispatchRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/dispatch-history': {
+      id: '/workspace/app/dispatch-history'
+      path: '/dispatch-history'
+      fullPath: '/workspace/app/dispatch-history'
+      preLoaderRoute: typeof WorkspaceAppDispatchHistoryRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/engineering': {
@@ -809,10 +848,12 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
   WorkspaceAppAddPartnerRoute: typeof WorkspaceAppAddPartnerRoute
   WorkspaceAppAdminRoute: typeof WorkspaceAppAdminRoute
+  WorkspaceAppApprovalsRoute: typeof WorkspaceAppApprovalsRoute
   WorkspaceAppAuditRoute: typeof WorkspaceAppAuditRoute
   WorkspaceAppComplianceRoute: typeof WorkspaceAppComplianceRoute
   WorkspaceAppDepreciationRoute: typeof WorkspaceAppDepreciationRoute
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
+  WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
@@ -837,10 +878,12 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppAddAccountRoute: WorkspaceAppAddAccountRoute,
   WorkspaceAppAddPartnerRoute: WorkspaceAppAddPartnerRoute,
   WorkspaceAppAdminRoute: WorkspaceAppAdminRoute,
+  WorkspaceAppApprovalsRoute: WorkspaceAppApprovalsRoute,
   WorkspaceAppAuditRoute: WorkspaceAppAuditRoute,
   WorkspaceAppComplianceRoute: WorkspaceAppComplianceRoute,
   WorkspaceAppDepreciationRoute: WorkspaceAppDepreciationRoute,
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
+  WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
