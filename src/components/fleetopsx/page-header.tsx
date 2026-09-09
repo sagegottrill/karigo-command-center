@@ -80,10 +80,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-[8px] rounded-[10px] border border-dashed border-[#e2e5e9] bg-[#f6f7f9] px-6 py-16 text-center">
-      <p className="text-[16px] font-[600] text-[#141a1f]">{title}</p>
-      <p className="max-w-sm text-[14px] font-[400] text-[#5c6470]">{description}</p>
-      {action && <div className="mt-[12px]">{action}</div>}
+    <div className="flex flex-col items-center justify-center gap-[6px] rounded-[10px] border border-dashed border-[#e2e5e9] bg-[#f6f7f9] px-6 py-8 text-center">
+      <p className="text-[14px] font-[600] text-[#141a1f]">{title}</p>
+      <p className="max-w-sm text-[13px] font-[400] text-[#5c6470]">{description}</p>
+      {action && <div className="mt-[8px]">{action}</div>}
     </div>
   );
 }
