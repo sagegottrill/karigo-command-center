@@ -118,7 +118,39 @@ function DispatchPage() {
       return;
     }
     
-    toast.success(`Dispatch Request Created`);
+    // Create the trip record in the store
+    const trip = await tripService.create({
+      customer: selectedOrder?.customer || "Walk-in Customer",
+      cargo: selectedOrder?.cargo || "General Cargo",
+      pickup: selectedOrder?.pickup || "Lagos",
+      dropoff: selectedOrder?.dropoff || "Abuja",
+      headId: head.id,
+      tailId: tail.id,
+      tailType: tail.type,
+      tailNumber: tail.number,
+      truckReg: `${head.registration} / ${tail.registration}`,
+      driverId: driver.id,
+      driverName: driver.name,
+      directCosts: {
+        tripAllowance: Number(tripAllowance) || 0,
+        returnWaybill: Number(returnWaybill) || 0,
+        motorBoy: Number(motorBoy) || 0,
+        ticket: Number(ticketCost) || 0,
+        extraAllowance: Number(extraAllowance) || 0,
+        lubricantType: lubricant,
+      },
+      status: "Awaiting Approval",
+      priority: "Normal",
+      distanceKm: 0,
+      durationLabel: "-",
+      scheduledDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      startTime: "-",
+      lat: 6.524,
+      lng: 3.379,
+      revenue: 0,
+    });
+    
+    toast.success(`Dispatch ${trip.id} Created`, { description: `${head.registration} → ${selectedOrder?.dropoff || "Abuja"}` });
     navigate({ to: "/workspace/app/dispatch-history" });
   };
 

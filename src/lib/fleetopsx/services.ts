@@ -126,6 +126,40 @@ export const companyService = {
 export const fleetService = {
   listHeads: () => settle(isolate([...store.truckHeads])),
   listTails: () => settle(isolate([...store.truckTails])),
+  createHead: (input: { registration: string; make: string; year: number; location: string }) => {
+    const id = `TRH-${String(101 + store.truckHeads.length).padStart(3, "0")}`;
+    const number = `H${String(101 + store.truckHeads.length).padStart(3, "0")}`;
+    const city = input.location || "Lagos";
+    const coords: Record<string, [number, number]> = {
+      Lagos: [6.5244, 3.3792], Abuja: [9.0765, 7.3986], "Port Harcourt": [4.8156, 7.0498],
+      Kano: [12.0022, 8.592], Ibadan: [7.3775, 3.947],
+    };
+    const [lat, lng] = coords[city] || [6.5244, 3.3792];
+    const head: TruckHead = {
+      id, number, capNumber: `CAP-${String(101 + store.truckHeads.length).padStart(3, "0")}`,
+      registration: input.registration, make: input.make, year: input.year,
+      status: "Available", location: city, odometer: 0,
+      standardEfficiency: 3.2, lat, lng,
+    };
+    store.truckHeads = [head, ...store.truckHeads];
+    return settle(head);
+  },
+  createTail: (input: { registration: string; type: string; location: string }) => {
+    const id = `TRT-${String(101 + store.truckTails.length).padStart(3, "0")}`;
+    const number = `T${String(101 + store.truckTails.length).padStart(3, "0")}`;
+    const city = input.location || "Lagos";
+    const coords: Record<string, [number, number]> = {
+      Lagos: [6.5244, 3.3792], Abuja: [9.0765, 7.3986], "Port Harcourt": [4.8156, 7.0498],
+      Kano: [12.0022, 8.592], Ibadan: [7.3775, 3.947],
+    };
+    const [lat, lng] = coords[city] || [6.5244, 3.3792];
+    const tail: TruckTail = {
+      id, number, registration: input.registration, type: input.type,
+      status: "Available", location: city, lat, lng,
+    };
+    store.truckTails = [tail, ...store.truckTails];
+    return settle(tail);
+  },
   updateHeadStatus: (id: string, status: import("./types").TruckStatus) => {
     store.truckHeads = store.truckHeads.map(t => t.id === id ? { ...t, status } : t);
     return settle(true);
@@ -151,6 +185,31 @@ export const fleetService = {
 export const driverService = {
   list: () => settle(isolate([...store.drivers])),
   get: (id: string) => settle(store.drivers.find((d) => d.id === id) ?? null),
+  create: (input: { name: string; phone: string; licenseNumber: string; licenseCategory: string; licenseExpiry: string }) => {
+    const id = `DRV-${String(1 + store.drivers.length).padStart(3, "0")}`;
+    const driver: Driver = {
+      id,
+      name: input.name,
+      employeeId: `PTL-EMP-${String(1200 + store.drivers.length).padStart(4, "0")}`,
+      salaryNumber: `SAL-${String(1000 + store.drivers.length).padStart(4, "0")}`,
+      phone: input.phone,
+      department: "Transport Operations",
+      dateJoined: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      licenseNumber: input.licenseNumber,
+      licenseCategory: input.licenseCategory,
+      licenseExpiry: input.licenseExpiry,
+      compliance: "Valid",
+      experienceYears: 0,
+      status: "Available",
+      assignedTruck: null,
+      currentTripId: null,
+      tripsCompleted: 0,
+      safetyScore: 100,
+      initials: input.name.split(" ").map((p) => p[0]).join("").slice(0, 2),
+    };
+    store.drivers = [driver, ...store.drivers];
+    return settle(driver);
+  },
 };
 
 /* --------------------------------- auth ----------------------------------- */
