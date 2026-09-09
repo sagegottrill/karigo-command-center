@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip, Driver, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
 
 export const Route = createFileRoute("/workspace/app/dispatch")({
   loader: async () => {
@@ -19,7 +21,7 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
       heads,
       tails,
       drivers,
-      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch")
+      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch" || t.status === "Awaiting Approval" || t.status === "Requested" || t.status === "Scheduled")
     };
   },
   beforeLoad: () => {
@@ -38,7 +40,6 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
   component: DispatchPage,
 });
 
-// A simple utility for Naira formatting
 const formatN = (num: number) => {
   return new Intl.NumberFormat("en-NG", {
     minimumFractionDigits: 2,
@@ -50,8 +51,9 @@ function DispatchPage() {
   const navigate = useNavigate();
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
   
-  // State for mobile view transition (Form -> Audit)
+  const [selectedOrder, setSelectedOrder] = useState<Trip | null>(null);
   const [mobileView, setMobileView] = useState<"form" | "audit">("form");
+  const [viewMode, setViewMode] = useState<"queue" | "tracking">("queue");
 
   // Form State
   const [headId, setHeadId] = useState("");
@@ -116,28 +118,115 @@ function DispatchPage() {
       return;
     }
     
-    // Using dummy customer/cargo since Figma mocks it, but we can pull from pendingOrders if we wanted.
-    // For now we will just create a generic trip to satisfy the UI requirement.
-    const trip = await tripService.create({
-      customer: "SABA STEEL", cargo: "General Freight", pickup: "Lagos", dropoff: "Abuja",
-      headId: head.id, tailId: tail.id, truckReg: `${head.registration} / ${tail.registration}`, 
-      driverId: driver.id, driverName: driver.name,
-      status: "Awaiting Approval", priority: "Normal", distanceKm: 700,
-      durationLabel: "12h 0m", scheduledDate: new Date().toISOString().split('T')[0], startTime: "06:00",
-      lat: head.lat, lng: head.lng, revenue: 800000,
-      directCosts: {
-        tripAllowance: Number(tripAllowance) || 0,
-        returnWaybill: Number(returnWaybill) || 0,
-        motorBoy: Number(motorBoy) || 0,
-        ticket: Number(ticketCost) || 0,
-        extraAllowance: Number(extraAllowance) || 0,
-        lubricantType: lubricant,
-      },
-    });
-    
     toast.success(`Dispatch Request Created`);
     navigate({ to: "/workspace/app/fleet" });
   };
+
+  const handleBackToQueue = () => {
+    setSelectedOrder(null);
+    setMobileView("form");
+  };
+
+  const activeTrips = pendingOrders;
+
+  const queueColumns: Column<Trip>[] = [
+    { key: "id", header: "ID No.", sortValue: (r) => r.id, cell: (r) => <span className="font-semibold text-[#5c6470]">{r.id}</span> },
+    { key: "customer", header: "Customer Name", sortValue: (r) => r.customer, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.customer}</span> },
+    { key: "cargo", header: "Product", sortValue: (r) => r.cargo, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.cargo}</span> },
+    { key: "truckType", header: "Truck Type", sortValue: () => "Flat", cell: () => <span className="font-semibold text-[#141a1f]">Flat</span> },
+    { key: "pickup", header: "Pickup Location", sortValue: (r) => r.pickup, cell: (r) => <span className="text-[#5c6470]">{r.pickup}</span> },
+    { key: "dropoff", header: "Destination", sortValue: (r) => r.dropoff, cell: (r) => <span className="text-[#5c6470]">{r.dropoff}</span> },
+    {
+      key: "action",
+      header: "Action",
+      cell: (r) => (
+        <button 
+          onClick={() => setSelectedOrder(r)}
+          className="bg-[#1B2432] hover:bg-black text-white text-[12px] font-medium h-8 px-4 rounded-[4px] flex items-center gap-1.5 transition-colors"
+        >
+          Assign Dispatch
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </button>
+      )
+    }
+  ];
+
+  const renderQueue = () => (
+    <div className="w-full mt-4">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+        {/* Toggle Button for mobile and desktop */}
+        <div className="flex bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm shrink-0 w-full sm:w-auto">
+          <button 
+            onClick={() => setViewMode("queue")}
+            className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "queue" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+          >
+            Dispatch Queue
+          </button>
+          <button 
+            onClick={() => setViewMode("tracking")}
+            className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "tracking" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+          >
+            Dispatch Live Tracking
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 md:hidden">
+        <h2 className="text-lg font-bold text-[#141a1f]">Fleet Register</h2>
+        <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
+          {pendingOrders.length}
+        </span>
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden hidden md:block">
+        <div className="p-4 border-b border-[#e2e5e9] flex items-center gap-2">
+          <h2 className="text-lg font-bold text-[#141a1f]">Dispatch Queue</h2>
+          <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
+            {pendingOrders.length}
+          </span>
+        </div>
+        <DataTable
+          rows={pendingOrders.slice(0, 4)} 
+          columns={queueColumns}
+          pageSize={10}
+        />
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden flex flex-col gap-3 pb-24">
+        {pendingOrders.map(r => (
+          <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9]">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <div className="text-[11px] text-[#5c6470] mb-1">02 Sept 2026</div>
+                <h3 className="font-bold text-[#1a2332] text-[15px]">{r.customer}</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedOrder(r)}
+                className="bg-[#1B2432] hover:bg-black text-white text-[11px] font-medium h-7 px-3 rounded-[4px] flex items-center gap-1.5 transition-colors"
+              >
+                Assign Dispatch
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-[90px_1fr] gap-y-1.5 text-[13px]">
+              <span className="text-[#5c6470]">ID No:</span>
+              <span className="text-[#ea3a3d] font-semibold">{r.id}</span>
+              
+              <span className="text-[#5c6470]">Product:</span>
+              <span className="text-[#3c4250]">{r.cargo}</span>
+              
+              <span className="text-[#5c6470]">Truck Type:</span>
+              <span className="text-[#3c4250]">Flat</span>
+              
+              <span className="text-[#5c6470]">Destination:</span>
+              <span className="text-[#3c4250]">{r.dropoff}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderForm = () => (
     <div className="w-full rounded-md bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden flex-1">
@@ -451,29 +540,66 @@ function DispatchPage() {
     </div>
   );
 
-  // Top header to match Figma
-  const headerContent = (
-    <div className="w-full bg-white border-b border-[#e2e5e9] px-6 py-4 mb-6">
-      <h1 className="text-2xl font-semibold text-[#141a1f]">Fleet Operations Portal</h1>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage the lifecycle of every dispatch within the company</p>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-['Inter',sans-serif]">
-      {headerContent}
+      {/* Desktop Page Header */}
+      <div className="hidden md:flex w-full bg-white border-b border-[#e2e5e9] px-6 py-4 mb-6 flex-col justify-center">
+        <h1 className="text-xl font-bold text-[#141a1f]">Fleet Operations Portal</h1>
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage the lifecycle of every dispatch within the company</p>
+      </div>
       
-      <div className="px-6 pb-10 flex-1 max-w-[1400px] w-full mx-auto">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Mobile view handling */}
-          <div className={cn("w-full lg:flex-1", mobileView === "audit" && "hidden lg:block")}>
-            {renderForm()}
-          </div>
-          
-          <div className={cn("w-full lg:w-auto", mobileView === "form" && "hidden lg:block")}>
-            {renderAudit()}
-          </div>
+      <div className="px-4 md:px-6 pb-10 flex-1 max-w-[1400px] w-full mx-auto">
+        {/* Mobile Page Header */}
+        <div className="md:hidden mt-4 mb-6">
+          <h1 className="text-[22px] font-bold text-[#141a1f]">Fleet Dispatch</h1>
+          <p className="text-[13px] text-slate-500 leading-snug mt-1.5">
+            Dispatch vehicles, assign trips to drivers and track live fleet status.
+          </p>
         </div>
+
+        {!selectedOrder ? (
+          viewMode === "queue" ? renderQueue() : (
+            <div className="w-full mt-4">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                {/* Toggle Button for mobile and desktop */}
+                <div className="flex bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm shrink-0 w-full sm:w-auto">
+                  <button 
+                    onClick={() => setViewMode("queue")}
+                    className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "queue" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+                  >
+                    Dispatch Queue
+                  </button>
+                  <button 
+                    onClick={() => setViewMode("tracking")}
+                    className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "tracking" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+                  >
+                    Dispatch Live Tracking
+                  </button>
+                </div>
+              </div>
+              <DispatchLiveMap trips={activeTrips} />
+            </div>
+          )
+        ) : (
+          <div>
+            <button 
+              onClick={handleBackToQueue} 
+              className="flex items-center gap-2 text-[13px] md:text-[14px] font-bold text-[#141a1f] mb-6 hover:text-black transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={2.5}/>
+              <span className="hidden md:inline">Assign Truck and make Cost Configuration for Dispatch</span>
+              <span className="md:hidden text-[12px] leading-tight text-left">Assign Truck and make Cost Configuration<br/>for Dispatch</span>
+            </button>
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className={cn("w-full lg:flex-1", mobileView === "audit" && "hidden lg:block")}>
+                {renderForm()}
+              </div>
+              <div className={cn("w-full lg:w-auto", mobileView === "form" && "hidden lg:block")}>
+                {renderAudit()}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

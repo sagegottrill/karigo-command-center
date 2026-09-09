@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
+import { StaffBottomNav } from "@/components/fleetopsx/staff-bottom-nav";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
 import { useRouterState } from "@tanstack/react-router";
@@ -53,12 +54,13 @@ function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} />
         <main
-          className="scroll-edge min-w-0 flex-1 overflow-auto px-4 py-5 sm:px-5 lg:px-8 lg:py-7"
+          className="scroll-edge min-w-0 flex-1 overflow-auto px-0 sm:px-5 lg:px-8 py-0 sm:py-5 lg:py-7 pb-20 md:pb-5 lg:pb-7"
         >
           <div className="mx-auto w-full max-w-[1920px]">
             <Outlet />
           </div>
         </main>
+        <StaffBottomNav />
       </div>
     </div>
   );

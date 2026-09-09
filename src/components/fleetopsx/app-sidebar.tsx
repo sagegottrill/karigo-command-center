@@ -51,6 +51,7 @@ export const NAV: NavItem[] = [
   { label: "Authorization", to: "/workspace/app/approvals", icon: ShieldCheck, group: "Fleet Operations" },
   { label: "Dispatch", to: "/workspace/app/dispatch", icon: Truck, group: "Fleet Operations" },
   { label: "Manage Fleet", to: "/workspace/app/fleet", icon: Truck, group: "Fleet Operations" },
+  { label: "Dispatch History", to: "/workspace/app/dispatch-history", icon: ScrollText, group: "Fleet Operations" },
   { label: "Tracking", to: "/workspace/app/trips", icon: Radar, group: "Tracking" },
   { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, group: "Workshop" },
   { label: "Inventory", to: "/workspace/app/inventory", icon: Boxes, group: "Workshop" },
