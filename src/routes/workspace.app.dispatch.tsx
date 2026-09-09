@@ -119,7 +119,7 @@ function DispatchPage() {
     }
     
     toast.success(`Dispatch Request Created`);
-    navigate({ to: "/workspace/app/fleet" });
+    navigate({ to: "/workspace/app/dispatch-history" });
   };
 
   const handleBackToQueue = () => {
@@ -429,7 +429,7 @@ function DispatchPage() {
         {/* Form Actions */}
         <div className="flex justify-end items-center gap-6 pt-4">
           <button 
-            onClick={() => navigate({ to: "/workspace/app" })}
+            onClick={handleBackToQueue}
             className="text-[14px] font-bold text-[#f04438] hover:text-[#d92d20]"
           >
             Cancel

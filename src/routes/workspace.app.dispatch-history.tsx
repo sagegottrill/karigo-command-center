@@ -6,6 +6,7 @@ import type { Trip } from "@/lib/fleetopsx/types";
 import { ArrowLeft, Download, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/app/dispatch-history")({
   loader: async () => {
@@ -212,12 +213,18 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
 
                     {/* Arrival Confirmation Button */}
                     {step.confirmable && step.done && (
-                      <div className="flex items-center gap-2 mt-2">
+                      <button 
+                        className="flex items-center gap-2 mt-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toast.success("Arrival confirmed", { description: "Timestamp and location logged." });
+                        }}
+                      >
                         <span className="w-3 h-3 rounded-full bg-[#34c759]"></span>
-                        <span className="bg-[#1B2432] text-white text-[10px] font-semibold px-3 py-1 rounded-full">
+                        <span className="bg-[#1B2432] text-white text-[10px] font-semibold px-3 py-1 rounded-full hover:bg-black transition-colors">
                           Arrival Confirmation
                         </span>
-                      </div>
+                      </button>
                     )}
                   </li>
                 ))}
@@ -299,7 +306,10 @@ function DispatchHistoryPage() {
 
         {/* Export Button */}
         <div className="flex justify-end mb-4">
-          <button className="flex items-center gap-2 bg-[#1B2432] text-white text-[12px] font-semibold h-9 px-4 rounded-[4px] hover:bg-black transition-colors">
+          <button 
+            className="flex items-center gap-2 bg-[#1B2432] text-white text-[12px] font-semibold h-9 px-4 rounded-[4px] hover:bg-black transition-colors"
+            onClick={() => toast.success("Export queued")}
+          >
             <Download className="h-4 w-4" />
             Export CVS
           </button>
