@@ -242,59 +242,44 @@ export const ROLES: Role[] = [
 ];
 
 export const CHART_UTILISATION = [
-  { label: "Mon", utilisation: 74, target: 80 },
-  { label: "Tue", utilisation: 78, target: 80 },
-  { label: "Wed", utilisation: 82, target: 80 },
-  { label: "Thu", utilisation: 71, target: 80 },
-  { label: "Fri", utilisation: 88, target: 80 },
-  { label: "Sat", utilisation: 64, target: 80 },
-  { label: "Sun", utilisation: 52, target: 80 },
+  { label: "Mon", utilisation: 0, target: 80 },
+  { label: "Tue", utilisation: 0, target: 80 },
+  { label: "Wed", utilisation: 0, target: 80 },
+  { label: "Thu", utilisation: 0, target: 80 },
+  { label: "Fri", utilisation: 0, target: 80 },
+  { label: "Sat", utilisation: 0, target: 80 },
+  { label: "Sun", utilisation: 0, target: 80 },
 ];
 
 export const CHART_TRIP_PERFORMANCE = [
-  { label: "Wk 28", completed: 168, delayed: 22 },
-  { label: "Wk 29", completed: 181, delayed: 19 },
-  { label: "Wk 30", completed: 175, delayed: 31 },
-  { label: "Wk 31", completed: 194, delayed: 14 },
-  { label: "Wk 32", completed: 202, delayed: 17 },
-  { label: "Wk 33", completed: 188, delayed: 26 },
+  { label: "Wk 28", completed: 0, delayed: 0 },
+  { label: "Wk 29", completed: 0, delayed: 0 },
+  { label: "Wk 30", completed: 0, delayed: 0 },
+  { label: "Wk 31", completed: 0, delayed: 0 },
+  { label: "Wk 32", completed: 0, delayed: 0 },
+  { label: "Wk 33", completed: 0, delayed: 0 },
 ];
 
 export const CHART_FUEL = [
-  { label: "Wk 28", actual: 3.0, standard: 3.2 },
-  { label: "Wk 29", actual: 3.1, standard: 3.2 },
-  { label: "Wk 30", actual: 2.8, standard: 3.2 },
-  { label: "Wk 31", actual: 3.3, standard: 3.2 },
-  { label: "Wk 32", actual: 3.2, standard: 3.2 },
-  { label: "Wk 33", actual: 3.4, standard: 3.2 },
+  { label: "Wk 28", actual: 0, standard: 0 },
+  { label: "Wk 29", actual: 0, standard: 0 },
+  { label: "Wk 30", actual: 0, standard: 0 },
+  { label: "Wk 31", actual: 0, standard: 0 },
+  { label: "Wk 32", actual: 0, standard: 0 },
+  { label: "Wk 33", actual: 0, standard: 0 },
 ];
 
-export const CHART_EXPENSE_SPLIT = [
-  { name: "Fuel", value: 42 },
-  { name: "Repairs", value: 24 },
-  { name: "Tolls", value: 14 },
-  { name: "Allowances", value: 12 },
-  { name: "Other", value: 8 },
-];
+export const CHART_EXPENSE_SPLIT = [];
 
 export const CHART_COST_REVENUE = [
-  { label: "Mar", revenue: 218, cost: 154 },
-  { label: "Apr", revenue: 241, cost: 168 },
-  { label: "May", revenue: 262, cost: 171 },
-  { label: "Jun", revenue: 249, cost: 180 },
-  { label: "Jul", revenue: 288, cost: 186 },
-  { label: "Aug", revenue: 312, cost: 194 },
+  { label: "Mar", revenue: 0, cost: 0 },
+  { label: "Apr", revenue: 0, cost: 0 },
+  { label: "May", revenue: 0, cost: 0 },
+  { label: "Jun", revenue: 0, cost: 0 },
+  { label: "Jul", revenue: 0, cost: 0 },
+  { label: "Aug", revenue: 0, cost: 0 },
 ];
 
 import type { LoginReport } from "./types";
-export const LOGIN_REPORTS: LoginReport[] = USERS.map((u, i) => ({
-  id: `LOG-${pad(i + 1, 5)}`,
-  userId: u.id,
-  name: u.name,
-  role: u.role,
-  timestamp: `12 Aug 2026 ${pad(int(6, 11), 2)}:${pad(int(0, 59), 2)}`,
-  device: pick(["Web", "Web", "Mobile (Android)", "Mobile (iOS)"]),
-  ip: `102.${int(10, 250)}.${int(1, 250)}.${int(2, 250)}`,
-  status: "Success",
-}));
+export const LOGIN_REPORTS: LoginReport[] = [];
 
