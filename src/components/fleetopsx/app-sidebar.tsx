@@ -56,6 +56,7 @@ export const NAV: NavItem[] = [
   { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, group: "Workshop" },
   { label: "Inventory", to: "/workspace/app/inventory", icon: Boxes, group: "Workshop" },
   { label: "Drivers", to: "/workspace/app/drivers", icon: Users, group: "People" },
+  { label: "HR Module", to: "/workspace/app/hr", icon: Users, group: "People" },
   { label: "Accounts", to: "/workspace/app/accounts", icon: Gauge, group: "Finance" },
   { label: "Gate", to: "/workspace/app/gate", icon: ShieldCheck, group: "Yard" },
   { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, group: "Inbox" },

@@ -6,16 +6,33 @@ import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
+import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   loader: async () => {
-    const [heads, tails] = await Promise.all([
-      fleetService.listHeads(),
-      fleetService.listTails(),
-    ]);
+    let heads = [];
+    try {
+      const rawTrucks = await fetchApi('/trucks');
+      heads = rawTrucks.map((t: any) => ({
+        id: t.id,
+        number: t.cabId,
+        registration: t.registration,
+        make: t.category || "Unknown Category",
+        year: 2024,
+        status: t.status === "Active" ? "Available" : "Out of Service",
+        location: t.destination || "Depot",
+        odometer: 0,
+        standardEfficiency: 0,
+        lastMaintenance: new Date().toISOString().split('T')[0],
+      }));
+    } catch(e) {
+      console.warn("Live API failed, using mock", e);
+      heads = await fleetService.listHeads();
+    }
+    const tails = await fleetService.listTails();
     return { heads, tails };
   },
   beforeLoad: () => {
