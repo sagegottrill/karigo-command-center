@@ -18,7 +18,7 @@ export function MetricCard({
   unit?: string;
   delta?: string;
   deltaTone?: "up" | "down" | "neutral";
-  hint?: string;
+  hint?: React.ReactNode;
   icon?: LucideIcon;
   accent?: boolean;
   className?: string;

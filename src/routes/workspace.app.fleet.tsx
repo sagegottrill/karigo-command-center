@@ -1,244 +1,228 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { Button } from "@/components/ui/button";
-import { X, ExternalLink } from "lucide-react";
-import type { Trip } from "@/lib/fleetopsx/types";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { authService, fleetService } from "@/lib/fleetopsx/services";
+import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
+import { cn } from "@/lib/utils";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   loader: async () => {
-    return await tripService.list();
+    const [heads, tails] = await Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+    ]);
+    return { heads, tails };
   },
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations"];
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
     if (!authService.getRoles().some(r => allowed.includes(r as any))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
   head: () => ({
     meta: [
-      { title: "Manage Fleet | FleetOpsX" },
-      { name: "description", content: "Manage the lifecycle of every dispatch within the company." },
+      { title: "Fleet Registry | FleetOpsX" },
+      { name: "description", content: "Manage fleet availability, dispatch, and live location" },
     ],
   }),
-  component: ManageFleetPage,
+  component: FleetRegistryPage,
 });
 
-const FILTERS = ["All", "Awaiting Approval", "Scheduled", "En Route", "Completed"] as const;
+const FILTERS = ["All", "Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as const;
 
-function formatNaira(amount: number | undefined) {
-  if (amount === undefined) return "—";
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function ManageFleetPage() {
-  const TRIPS = Route.useLoaderData();
+function FleetRegistryPage() {
+  const { heads, tails } = Route.useLoaderData();
+  const [activeTab, setActiveTab] = useState<"head" | "tail">("head");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  
-  const filteredTrips = filter === "All" ? TRIPS : TRIPS.filter(t => t.status === filter);
-  
-  const countByStatus = (status: string) => TRIPS.filter(t => t.status === status).length;
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const tripColumns: Column<Trip>[] = [
-    { 
-      key: "id", 
-      header: "Ticket ID", 
-      sortValue: (r) => r.id, 
-      cell: (r) => (
-        <div>
-          <div className="font-semibold text-[#141a1f]">{r.id}</div>
-          <div className="text-xs text-slate-500">{r.customer}</div>
-        </div>
-      ) 
-    },
-    { 
-      key: "truck", 
-      header: "Asset Assigned", 
-      sortValue: (r) => r.truckReg, 
-      cell: (r) => (
-        <div>
-          <div className="font-medium text-[#141a1f]">{r.headId || "—"}</div>
-          <div className="text-xs text-slate-500">{r.truckReg || "—"}</div>
-        </div>
-      ) 
-    },
-    { 
-      key: "driver", 
-      header: "Driver", 
-      sortValue: (r) => r.driverName, 
-      cell: (r) => (
-        <div>
-          <div className="font-medium text-[#141a1f]">{r.driverName || "—"}</div>
-          <div className="text-xs text-slate-500">{r.driverId || "—"}</div>
-        </div>
-      ) 
-    },
-    { 
-      key: "expenses", 
-      header: "Total Expenses", 
-      align: "right",
-      sortValue: (r) => {
-        const c = r.directCosts;
-        return c ? c.tripAllowance + c.returnWaybill + c.motorBoy + c.ticket + c.extraAllowance : 0;
-      }, 
-      cell: (r) => {
-        const c = r.directCosts;
-        if (!c) return "—";
-        const total = c.tripAllowance + c.returnWaybill + c.motorBoy + c.ticket + c.extraAllowance;
-        return <span className="font-medium text-[#e3351d]">{formatNaira(total)}</span>;
-      } 
-    },
-    { 
-      key: "status", 
-      header: "Status", 
-      sortValue: (r) => r.status, 
-      cell: (r) => <StatusBadge status={r.status} /> 
-    },
-    { 
-      key: "actions", 
-      header: "", 
-      align: "right", 
-      cell: (r) => (
-        <Button variant="outline" size="sm" onClick={() => setSelectedTrip(r)}>
-          View Details
-        </Button>
-      ) 
-    }
+  const countHeads = (status?: string) => status ? heads.filter(h => h.status === status).length : heads.length;
+  const countTails = (status?: string) => status ? tails.filter(t => t.status === status).length : tails.length;
+
+  const filteredHeads = heads.filter(h => {
+    if (filter !== "All" && h.status !== filter) return false;
+    if (searchQuery && !`${h.number} ${h.registration} ${h.status}`.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const filteredTails = tails.filter(t => {
+    if (filter !== "All" && t.status !== filter) return false;
+    if (searchQuery && !`${t.type} ${t.registration} ${t.status}`.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const headColumns: Column<TruckHead>[] = [
+    { key: "headNo", header: "Head No", sortValue: (r) => r.number, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.number}</span> },
+    { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
+    { key: "brand", header: "Truck Brand", sortValue: (r) => r.make, cell: (r) => <span className="text-[#5c6470]">{r.make}</span> },
+    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
+    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> }
+  ];
+
+  const tailColumns: Column<TruckTail>[] = [
+    { key: "tailType", header: "Tail Type", sortValue: (r) => r.type, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.type}</span> },
+    { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
+    { key: "brand", header: "Truck Brand", cell: () => <span className="text-[#5c6470]">IVECO Stralis</span> },
+    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
+    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> }
   ];
 
   return (
     <>
       <PageHeader
-        title="Manage Fleet"
-        description="View and manage all active dispatch tickets and trip life-cycles."
-        actions={
-          <Button asChild size="sm" className="h-8 gap-1.5 text-xs bg-[#e3351d] hover:bg-[#d62e19] text-white">
-            <Link to="/workspace/app/dispatch"><Plus className="h-3.5 w-3.5" />New Dispatch</Link>
-          </Button>
-        }
+        title="Fleet Registry"
+        description="Manage fleet availability, dispatch, and live location"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard label="Total Dispatches" value={TRIPS.length} accent />
-        <MetricCard label="Awaiting Approval" value={countByStatus("Awaiting Approval")} hint="Needs review" />
-        <MetricCard label="Scheduled" value={countByStatus("Scheduled")} />
-        <MetricCard label="En Route" value={countByStatus("En Route")} />
-        <MetricCard label="Completed" value={countByStatus("Completed")} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6 mt-4">
+        {/* Mobile Interleaved Layout */}
+        <div className="contents lg:hidden">
+          <MetricCard label="Total Head" value={countHeads()} />
+          <MetricCard label="Total Tails" value={countTails()} />
+          
+          <MetricCard label="Available Head" value={countHeads("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
+          <MetricCard label="Available Tail" value={countTails("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
+          
+          <MetricCard label="Head In Transit" value={countHeads("In Transit")} />
+          <MetricCard label="Tail In Transit" value={countTails("In Transit")} />
+          
+          <MetricCard label="Head in Maintenance" value={countHeads("Maintenance")} />
+          <MetricCard label="Tail in Maintenance" value={countTails("Maintenance")} />
+          
+          <MetricCard label="Head Out of Service" value={countHeads("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
+          <MetricCard label="Head Out of Service" value={countTails("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
+        </div>
+
+        {/* Desktop Block Layout */}
+        <div className="hidden lg:contents">
+          {/* Row 1 */}
+          <MetricCard label="Total Head" value={countHeads()} />
+          <MetricCard label="Available Head" value={countHeads("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
+          <MetricCard label="Head In Transit" value={countHeads("In Transit")} />
+          <MetricCard label="Head in Maintenance" value={countHeads("Maintenance")} />
+          <MetricCard label="Head Out of Service" value={countHeads("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
+          
+          {/* Row 2 */}
+          <MetricCard label="Total Tail" value={countTails()} />
+          <MetricCard label="Available Tail" value={countTails("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
+          <MetricCard label="Tail In Transit" value={countTails("In Transit")} />
+          <MetricCard label="Tail in Maintenance" value={countTails("Maintenance")} />
+          <MetricCard label="Tail Out of Service" value={countTails("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
+        </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-bold text-[#141a1f]">Dispatch Register</h2>
-        <FilterPills options={FILTERS} value={filter} onChange={setFilter} />
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex w-full md:w-auto bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm">
+          <button
+            className={cn("flex-1 md:flex-none px-5 py-2 md:py-1.5 text-sm font-semibold rounded-[4px] transition-colors", activeTab === 'head' ? "bg-[#1B2432] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+            onClick={() => setActiveTab('head')}
+          >
+            Truck Head
+          </button>
+          <button
+            className={cn("flex-1 md:flex-none px-5 py-2 md:py-1.5 text-sm font-semibold rounded-[4px] transition-colors", activeTab === 'tail' ? "bg-[#1B2432] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
+            onClick={() => setActiveTab('tail')}
+          >
+            Truck Tails
+          </button>
+        </div>
+
+        <FilterPills options={FILTERS} value={filter} onChange={setFilter} className="flex-wrap" />
       </div>
 
-      <SectionPanel className="mt-4" bodyClassName="p-0">
-        <DataTable
-          rows={filteredTrips}
-          columns={tripColumns}
-          searchKeys={(r) => `${r.id} ${r.customer} ${r.truckReg} ${r.driverName} ${r.status}`}
-          pageSize={12}
-        />
-      </SectionPanel>
-
-      {/* Dispatch Details Modal */}
-      {selectedTrip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col font-['Inter',sans-serif]">
+      <SectionPanel bodyClassName="p-0 border-t-0 shadow-none bg-transparent">
+        <div className="md:bg-white md:rounded-xl md:border border-[#e2e5e9] overflow-hidden md:shadow-sm">
+          <div className="p-0 md:p-4 md:border-b border-[#e2e5e9] flex flex-col md:flex-row justify-between md:items-center mb-4 md:mb-0 gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-[#141a1f]">Fleet Register</h2>
+              <span className="flex items-center justify-center bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px]">
+                {activeTab === "head" ? filteredHeads.length : filteredTails.length}
+              </span>
+            </div>
             
-            <div className="bg-[#1B2432] p-5 flex items-center justify-between text-white">
-              <div>
-                <h3 className="text-lg font-bold tracking-tight">Dispatch Configuration</h3>
-                <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">TICKET {selectedTrip.id} &bull; {selectedTrip.customer}</p>
+            {/* Mobile Search */}
+            <div className="flex md:hidden gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 pl-9 pr-3 rounded-[4px] border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                />
               </div>
-              <button onClick={() => setSelectedTrip(null)} className="text-slate-400 hover:text-white transition-colors">
-                <X className="h-5 w-5" />
+              <button className="h-10 w-10 bg-[#ea3a3d] text-white rounded-[4px] flex items-center justify-center shrink-0">
+                <SlidersHorizontal className="h-4 w-4" />
               </button>
             </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[70vh] bg-[#f4f5f7]">
-              
-              <div className="bg-white rounded-xl border border-[#e2e5e9] p-5 shadow-sm mb-5">
-                <h4 className="text-[13px] font-bold text-[#141a1f] mb-4 uppercase tracking-wide border-b border-[#e2e5e9] pb-2">Vehicle & Operator Details</h4>
-                <div className="space-y-3 text-[13px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Truck Head:</span>
-                    <span className="font-semibold text-[#141a1f]">{selectedTrip.headId || "—"}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Head Plate Number:</span>
-                    <span className="font-semibold text-[#141a1f]">{selectedTrip.truckReg || "—"}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Truck Tail assigned:</span>
-                    <span className="font-semibold text-[#141a1f]">{selectedTrip.tailType ? `${selectedTrip.tailType} (${selectedTrip.tailNumber || ''})` : "—"}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-dashed border-[#e2e5e9]">
-                    <span className="text-[#5c6470] font-medium">Driver Assigned:</span>
-                    <span className="font-semibold text-[#141a1f]">{selectedTrip.driverName || "—"} ({selectedTrip.driverId || "—"})</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-[#e2e5e9] p-5 shadow-sm">
-                <h4 className="text-[13px] font-bold text-[#141a1f] mb-4 uppercase tracking-wide border-b border-[#e2e5e9] pb-2">Expense Breakdown</h4>
-                <div className="space-y-3 text-[13px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Trip Allowance:</span>
-                    <span className="font-semibold text-[#141a1f]">{formatNaira(selectedTrip.directCosts?.tripAllowance)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Return Waybill:</span>
-                    <span className="font-semibold text-[#141a1f]">{formatNaira(selectedTrip.directCosts?.returnWaybill)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Motor Boy Allowance:</span>
-                    <span className="font-semibold text-[#141a1f]">{formatNaira(selectedTrip.directCosts?.motorBoy)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Transit Road Tickets:</span>
-                    <span className="font-semibold text-[#141a1f]">{formatNaira(selectedTrip.directCosts?.ticket)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#5c6470] font-medium">Extra Contingency:</span>
-                    <span className="font-semibold text-[#141a1f]">{formatNaira(selectedTrip.directCosts?.extraAllowance)}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 mt-1 border-t border-[#e2e5e9]">
-                    <span className="text-[#141a1f] font-bold">Total Configured Expense:</span>
-                    <span className="font-bold text-[#e3351d] text-[15px]">
-                      {formatNaira(selectedTrip.directCosts ? Object.values(selectedTrip.directCosts).filter(v => typeof v === 'number').reduce((a, b) => (a as number) + (b as number), 0) as number : 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-            
-            <div className="p-5 border-t border-[#e2e5e9] bg-white flex justify-end gap-3">
-              <Button variant="outline" className="h-10 px-5 font-semibold text-sm" onClick={() => setSelectedTrip(null)}>
-                Close
-              </Button>
-              <Button asChild className="h-10 px-5 font-semibold text-sm bg-blue-600 hover:bg-blue-700 text-white gap-2">
-                <Link to="/workspace/app/trips/$tripId" params={{ tripId: selectedTrip.id }}>
-                  Track Journey <ExternalLink className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
           </div>
+          
+          <div className="hidden md:block">
+            <DataTable
+              rows={activeTab === "head" ? filteredHeads : filteredTails}
+              columns={activeTab === "head" ? (headColumns as any) : (tailColumns as any)}
+              pageSize={10}
+            />
+          </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden flex flex-col gap-3">
+            {activeTab === "head" ? (
+              filteredHeads.map(r => (
+                <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-bold text-[#1a2332] text-[14px]">Head No: {r.number}</h3>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="grid grid-cols-[90px_1fr] gap-y-1 text-[13px]">
+                    <span className="text-[#5c6470]">Registration:</span>
+                    <span className="text-[#ea3a3d] font-medium">{r.registration}</span>
+                    
+                    <span className="text-[#5c6470]">Truck Brand:</span>
+                    <span className="text-[#3c4250]">{r.make}</span>
+                    
+                    <span className="text-[#5c6470]">Location:</span>
+                    <span className="text-[#3c4250]">{r.location}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              filteredTails.map(r => (
+                <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-bold text-[#1a2332] text-[14px]">Tail Type: {r.type}</h3>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="grid grid-cols-[90px_1fr] gap-y-1 text-[13px]">
+                    <span className="text-[#5c6470]">Registration:</span>
+                    <span className="text-[#ea3a3d] font-medium">{r.registration}</span>
+                    
+                    <span className="text-[#5c6470]">Truck Brand:</span>
+                    <span className="text-[#3c4250]">IVECO Stralis</span>
+                    
+                    <span className="text-[#5c6470]">Location:</span>
+                    <span className="text-[#3c4250]">{r.location}</span>
+                  </div>
+                </div>
+              ))
+            )}
+            
+            {(activeTab === "head" ? filteredHeads : filteredTails).length === 0 && (
+              <div className="p-8 text-center text-slate-500 text-sm bg-white rounded-lg">
+                No records found matching your filters.
+              </div>
+            )}
+          </div>
+          
         </div>
-      )}
+      </SectionPanel>
     </>
   );
 }
