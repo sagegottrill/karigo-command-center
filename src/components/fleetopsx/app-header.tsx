@@ -31,16 +31,8 @@ import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
 
-const ADMIN_PORTAL_PREFIXES = [
-  "/workspace/app/add-account",
-  "/workspace/app/manage-account",
-  "/workspace/app/password-request",
-  "/workspace/app/add-partner",
-  "/workspace/app/manage-partner",
-];
-
 function isAdminPortalPath(pathname: string) {
-  return ADMIN_PORTAL_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return pathname === "/workspace/app" || pathname.startsWith("/workspace/app/");
 }
 
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {

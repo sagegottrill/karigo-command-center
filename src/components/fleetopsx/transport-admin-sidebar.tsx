@@ -76,9 +76,15 @@ export function TransportAdminSidebar({
   const [mounted, setMounted] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
 
+  const onExtraRoute = EXTRA_ITEMS.some((item) => isPathActive(pathname, item.to));
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (onExtraRoute) setExtrasOpen(true);
+  }, [onExtraRoute]);
 
   const currentUser = authService.getCurrentUser();
   const userName = mounted && currentUser?.name ? currentUser.name : "J.Doe";
