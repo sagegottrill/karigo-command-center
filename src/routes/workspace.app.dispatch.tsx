@@ -1,11 +1,15 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, useRouter } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip, Driver, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
-import { ChevronLeft, ArrowUpRight } from "lucide-react";
+import { ChevronLeft, ArrowUpRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
 
@@ -51,9 +55,38 @@ function DispatchPage() {
   const navigate = useNavigate();
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
   
+  const router = useRouter();
   const [selectedOrder, setSelectedOrder] = useState<Trip | null>(null);
   const [mobileView, setMobileView] = useState<"form" | "audit">("form");
   const [viewMode, setViewMode] = useState<"queue" | "tracking">("queue");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTrip, setNewTrip] = useState({ customer: "", cargo: "", pickup: "", dropoff: "" });
+
+  const handleCreateTrip = async () => {
+    if (!newTrip.customer || !newTrip.pickup || !newTrip.dropoff) {
+      toast.error("Please fill in customer, pickup, and dropoff.");
+      return;
+    }
+    await tripService.create({
+      customer: newTrip.customer,
+      cargo: newTrip.cargo || "General Cargo",
+      pickup: newTrip.pickup,
+      dropoff: newTrip.dropoff,
+      priority: "Normal",
+      distanceKm: 150,
+      durationLabel: "2 days",
+      scheduledDate: new Date().toLocaleDateString(),
+      startTime: "08:00",
+      lat: 6.524,
+      lng: 3.379,
+      revenue: 150000,
+      status: "Requested",
+    } as any);
+    toast.success("Trip requested successfully! Sent to Approvals.");
+    setIsCreateOpen(false);
+    setNewTrip({ customer: "", cargo: "", pickup: "", dropoff: "" });
+    router.invalidate();
+  };
 
   // Form State
   const [headId, setHeadId] = useState("");
@@ -189,6 +222,44 @@ function DispatchPage() {
             Dispatch Live Tracking
           </button>
         </div>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button className="h-[36px] sm:h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] px-4 text-[13px] sm:text-[14px] font-[500] text-white shadow-none transition-colors ml-auto sm:ml-0">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New Dispatch
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Create New Trip Request</DialogTitle>
+              <DialogDescription>
+                Initiate a new dispatch request for Transport Manager approval.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="customer" className="text-right">Customer</Label>
+                <Input id="customer" value={newTrip.customer} onChange={(e) => setNewTrip({...newTrip, customer: e.target.value})} placeholder="e.g. Dangote Refinery" className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="cargo" className="text-right">Cargo</Label>
+                <Input id="cargo" value={newTrip.cargo} onChange={(e) => setNewTrip({...newTrip, cargo: e.target.value})} placeholder="e.g. AGO" className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="pickup" className="text-right">Pickup</Label>
+                <Input id="pickup" value={newTrip.pickup} onChange={(e) => setNewTrip({...newTrip, pickup: e.target.value})} placeholder="e.g. Lagos" className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dropoff" className="text-right">Dropoff</Label>
+                <Input id="dropoff" value={newTrip.dropoff} onChange={(e) => setNewTrip({...newTrip, dropoff: e.target.value})} placeholder="e.g. Abuja" className="col-span-3" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateTrip} className="bg-[#1d1d1f] text-white">Submit Request</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-2 mb-4 md:hidden">
