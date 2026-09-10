@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useRouter, createFileRoute } from "@tanstack/react-router";
+import { useNavigate, useRouter, createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight,
   ChevronsUpDown, Download, MessageSquare, Phone, Plus, Truck, Wrench,
