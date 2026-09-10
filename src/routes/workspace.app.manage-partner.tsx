@@ -1,83 +1,73 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, MoreVertical, X, ArrowLeft, AlertCircle, Upload, AlertOctagon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { adminService, authService } from "@/lib/fleetopsx/services";
-import type { User } from "@/lib/fleetopsx/types";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { adminService } from "@/lib/fleetopsx/services";
+import type { User } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
   component: AdminManagePartner,
 });
 
+type ConfirmKind = "password" | "suspend" | "activate" | "delete";
+type SortKey = "name" | "username" | "company";
+type SortDir = "asc" | "desc";
+
+function isPartnerUser(user: User) {
+  return (
+    user.department === "External Partner" ||
+    user.roles.includes("Customer Portals (External)") ||
+    Boolean(user.partnerCompanyName)
+  );
+}
+
 function AdminManagePartner() {
   const [users, setUsers] = useState<User[]>([]);
-  const navigate = useNavigate();
-
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [showSortModal, setShowSortModal] = useState(false);
-
-  // Confirmation modals
-  const [confirmAction, setConfirmAction] = useState<{ type: "password" | "suspend" | "activate" | "delete"; userId: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void adminService.users().then(setUsers);
   }, []);
 
-  // ONLY show External Partners
-  const filtered = users.filter(u => u.status !== "Deleted" && u.department === "External Partner");
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (filterRef.current && !filterRef.current.contains(t)) setFilterOpen(false);
+      if (menuRef.current && !menuRef.current.contains(t)) setMenuFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
-  const handleAction = (type: "password" | "suspend" | "activate" | "delete", userId: string) => {
-    setActiveMenu(null);
-    setConfirmAction({ type, userId });
-  };
-
-  const handleConfirmAction = async () => {
-    if (!confirmAction) return;
-    if (confirmAction.type === "password") {
-      await adminService.resetPassword(confirmAction.userId);
-      toast.success("Password reset initiated. Partner must change password on next login.");
-      setConfirmAction(null);
-      setShowShareModal(true);
-    } else if (confirmAction.type === "suspend") {
-      await adminService.suspendUser(confirmAction.userId);
-      toast.warning("Partner account suspended.");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    } else if (confirmAction.type === "activate") {
-      await adminService.activateUser(confirmAction.userId);
-      toast.success("Partner account activated.");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    } else if (confirmAction.type === "delete") {
-      await adminService.deleteUser(confirmAction.userId);
-      toast.error("Partner account deleted.");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    }
-  };
-
-  const shareText = `Hello,\n\nYour account password has been reset for the Partner Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
-
-  const handleShareWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
-    setShowShareModal(false);
-  };
-
-  const handleShareEmail = () => {
-    window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
-    setShowShareModal(false);
-  };
-
-  const handleCopyLink = () => {
-    void navigator.clipboard.writeText(shareText);
-    toast.success("Details copied to clipboard");
-    setShowShareModal(false);
-  };
+  const listing = users.filter((u) => u.status !== "Deleted" && isPartnerUser(u));
+  const filtered = listing
+    .filter((u) => {
+      const hay = `${u.name} ${u.username ?? ""} ${u.partnerCompanyName ?? ""}`.toLowerCase();
+      return !query || hay.includes(query.toLowerCase());
+    })
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      const dir = sortDir === "asc" ? 1 : -1;
+      const av =
+        sortKey === "company" ? (a.partnerCompanyName ?? "") : sortKey === "username" ? (a.username ?? "") : a.name;
+      const bv =
+        sortKey === "company" ? (b.partnerCompanyName ?? "") : sortKey === "username" ? (b.username ?? "") : b.name;
+      return av.localeCompare(bv) * dir;
+    });
 
   const exportCSV = () => {
-    const headers = "S/N,Company Name,Contact Person,Username,Status\n";
-    const csv = filtered.map((u, i) => `${i + 1},${u.partnerCompanyName || "-"},${u.name},${u.username},${u.status}`).join("\n");
+    const headers = "S/N,Name,Company Name,Username,Status\n";
+    const csv = filtered
+      .map((u, i) => `${i + 1},${u.name},${u.partnerCompanyName || "-"},${u.username ?? ""},${u.status}`)
+      .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -87,250 +77,320 @@ function AdminManagePartner() {
     toast.success("Exported CSV successfully.");
   };
 
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    switch (confirmAction.type) {
+      case "password":
+        await adminService.resetPassword(confirmAction.userId);
+        toast.success("Password reset initiated. Partner must change password on next login.");
+        setConfirmAction(null);
+        setShowShareModal(true);
+        break;
+      case "suspend":
+        await adminService.suspendUser(confirmAction.userId);
+        toast.warning("Partner account suspended.");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      case "activate":
+        await adminService.activateUser(confirmAction.userId);
+        toast.success("Partner account activated.");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      case "delete":
+        await adminService.deleteUser(confirmAction.userId);
+        toast.error("Partner account deleted.");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      default: {
+        const _exhaustive: never = confirmAction.type;
+        return _exhaustive;
+      }
+    }
+  };
+
+  const shareText = `Hello,\n\nYour account password has been reset for the Partner Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
+
   return (
     <>
-      <div className="w-full max-w-[1000px]">
-        {/* Title row */}
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-[24px] lg:mb-[32px] gap-[16px]">
-          <div className="flex flex-col gap-[4px] lg:gap-[8px]">
-            <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f]">Manage Partner Account</h2>
-            <p className="text-[13px] lg:text-[12px] font-[400] lg:font-[500] leading-[14.52px] lg:tracking-[0.05em] text-[#8e95a1] lowercase lg:uppercase first-letter:uppercase">
-              Manage listing of partner company
+      {/* Figma 327:11712 */}
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-[5px]">
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Partner Account</h2>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              manage listing of partner companies
             </p>
           </div>
-          <div className="flex flex-col items-center gap-[8px] w-full lg:w-auto mt-[8px] lg:mt-0">
-            <Link to="/workspace/app/add-partner" className="flex items-center justify-center py-[12px] lg:py-[10px] px-[16px] rounded-[6px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors w-full lg:w-auto">
-              <span className="text-[15px] lg:text-[14px] font-[500] leading-[20px] text-[#ffffff]">+ Add New Account</span>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              to="/workspace/app/add-partner"
+              className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] text-white hover:bg-[#d62e19]"
+            >
+              + Add New Account
             </Link>
-            <button onClick={exportCSV} className="hidden lg:flex items-center justify-center gap-[8px] py-[8px] px-[12px] rounded-[4px] bg-[#141a1f] hover:bg-[#2a3441] transition-colors self-end w-full lg:w-auto">
-              <Upload className="w-[16px] h-[16px] text-white" />
-              <span className="text-[12px] font-[500] text-white">Export CVS</span>
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+            >
+              <Download className="size-4" strokeWidth={1.75} />
+              Export CVS
             </button>
           </div>
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col gap-[12px] mb-[24px]">
-          <div className="flex items-center gap-[12px]">
-            <div className="relative flex-1 lg:flex-none lg:w-[400px]">
-              <Search className="absolute left-[16px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[#8e95a1]" />
-              <input 
-                type="text" 
-                placeholder="Search" 
-                className="w-full pl-[40px] pr-[16px] py-[10px] bg-[#f6f7f9] lg:bg-[#ffffff] border border-[#e2e5e9] rounded-[4px] text-[14px] outline-none focus:border-[#141a1f]" 
-              />
-            </div>
-            <button onClick={() => setShowSortModal(true)} className="w-[44px] h-[44px] shrink-0 bg-[#ed351d] hover:bg-[#d62e19] flex items-center justify-center rounded-[4px] transition-colors">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 5.83333H17.5M5 10H15M8.33333 14.1667H11.6667" stroke="white" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-[540px] min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              className="h-10 w-full rounded border border-[#E2E5E9] bg-white pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+            />
           </div>
-          {/* Active Sort Tags */}
-          <div className="flex items-center gap-[8px]">
-            <div className="flex items-center gap-[8px] px-[12px] py-[4px] rounded-[4px] bg-[#ed351d]">
-              <span className="text-[12px] font-[500] text-[#ffffff]">Username</span>
-              <X className="w-[12px] h-[12px] text-[#ffffff] cursor-pointer" />
-            </div>
-            <div className="flex items-center gap-[8px] px-[12px] py-[4px] rounded-[4px] bg-[#141a1f]">
-              <span className="text-[12px] font-[500] text-[#ffffff]">Accending</span>
-              <X className="w-[12px] h-[12px] text-[#ffffff] cursor-pointer" />
-            </div>
+          <div ref={filterRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              className="flex size-10 items-center justify-center rounded bg-[#ED351D] text-white"
+              aria-label="Filter"
+            >
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            </button>
+            {filterOpen && (
+              <div className="absolute top-12 right-0 z-40 w-56 rounded border border-[#E2E5E9] bg-white py-3 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                <p className="px-4 pb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#ED351D]">Sort by</p>
+                {(
+                  [
+                    ["name", "Full Name"],
+                    ["username", "Username"],
+                    ["company", "Company"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSortKey(key)}
+                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
+                      sortKey === key ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <div className="my-2 h-px bg-[#E2E5E9]" />
+                <p className="px-4 pb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#ED351D]">Order</p>
+                {(
+                  [
+                    ["asc", "Ascending"],
+                    ["desc", "Descending"],
+                  ] as const
+                ).map(([dir, label]) => (
+                  <button
+                    key={dir}
+                    type="button"
+                    onClick={() => setSortDir(dir)}
+                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
+                      sortDir === dir ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="mt-2 w-full px-4 py-2 text-left text-[13px] text-[#8E95A1] hover:bg-[#F1F2F4]"
+                  onClick={() => {
+                    setSortKey(null);
+                    setSortDir("asc");
+                    setFilterOpen(false);
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Table Container Desktop */}
-        <div className="hidden lg:block w-full bg-[#ffffff] border border-[#e2e5e9] rounded-[10px] shadow-[0px_10px_40px_rgba(0,0,0,0.04)] px-[32px] py-[24px]">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-[#f1f2f4]">
-                <th className="py-[16px] text-[14px] font-[600] text-[#141a1f] w-[60px]">S/N</th>
-                <th className="py-[16px] text-[14px] font-[600] text-[#141a1f]">Name</th>
-                <th className="py-[16px] text-[14px] font-[600] text-[#141a1f]">Company Name</th>
-                <th className="py-[16px] text-[14px] font-[600] text-[#141a1f]">Username</th>
-                <th className="py-[16px] w-[120px]"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u, i) => (
-                <tr key={u.id} className="border-b border-[#f1f2f4] last:border-0 hover:bg-[#f6f7f9]/50 transition-colors">
-                  <td className="py-[20px] text-[14px] text-[#5c6470] font-[400]">{i + 1}</td>
-                  <td className="py-[20px] text-[14px] text-[#5c6470] font-[400]">{u.name}</td>
-                  <td className="py-[20px] text-[14px] text-[#5c6470] font-[400]">{u.partnerCompanyName || "—"}</td>
-                  <td className="py-[20px] text-[14px] text-[#5c6470] font-[400]">{u.username}</td>
-                  <td className="py-[20px]">
-                    <div className="flex items-center justify-end gap-[16px] relative">
-                      {u.status === "Suspended" && (
-                        <div className="px-[12px] py-[4px] rounded-[4px] bg-[#ed351d]">
-                          <span className="text-[11px] font-[500] text-white">Suspended</span>
-                        </div>
-                      )}
-                      <button onClick={() => setActiveMenu(activeMenu === u.id ? null : u.id)} className="p-[4px]">
-                        <MoreVertical className="w-[20px] h-[20px] text-[#141a1f]" />
+        <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white">
+          <div className="hidden grid-cols-[48px_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+            {["S/N", "Name", "Company Name", "Username", ""].map((h) => (
+              <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ))}
+          </div>
+          {filtered.map((u, i) => (
+            <div
+              key={u.id}
+              className="relative grid grid-cols-[48px_1fr] items-center gap-2 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid-cols-[48px_1fr_1fr_1fr_40px]"
+            >
+              <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
+              <span className="text-[14px] capitalize text-[#5C6470]">{u.name}</span>
+              <span className="hidden text-[14px] capitalize text-[#5C6470] md:block">{u.partnerCompanyName || "—"}</span>
+              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.username ?? "—"}</span>
+              <div className="flex items-center justify-end gap-2">
+                {u.status === "Suspended" && (
+                  <span className="hidden rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white md:inline">
+                    Suspended
+                  </span>
+                )}
+                <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                  <button
+                    type="button"
+                    className="grid size-8 place-items-center text-[#1B2432]"
+                    onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                  >
+                    <MoreVertical className="size-4" />
+                  </button>
+                  {menuFor === u.id && (
+                    <div className="absolute top-8 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          toast.message("Account details", {
+                            description: `${u.name} · ${u.partnerCompanyName || "Partner"} · ${u.email}`,
+                          });
+                        }}
+                      >
+                        View details
                       </button>
-                      {activeMenu === u.id && (
-                        <div className="absolute top-[40px] right-0 z-40 w-[150px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
-                          <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Reset Password</button>
-                          {u.status !== "Suspended" ? (
-                             <button onClick={() => handleAction("suspend", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Suspend</button>
-                          ) : (
-                             <button onClick={() => handleAction("activate", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Activate</button>
-                          )}
-                          <button onClick={() => handleAction("delete", u.id)} className="w-full text-left px-[16px] py-[10px] text-[13px] font-[500] text-[#ed351d] hover:bg-[#f6f7f9]">Delete</button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile List Container */}
-        <div className="flex lg:hidden flex-col gap-[16px]">
-           {filtered.map((u, i) => (
-              <div key={u.id} className="flex flex-col bg-[#ffffff] border border-[#e2e5e9] rounded-[8px] p-[16px] relative shadow-[0px_2px_8px_rgba(0,0,0,0.04)]">
-                 <div className="flex items-center justify-between mb-[12px]">
-                    <div className="px-[8px] py-[4px] rounded-[4px] bg-[#f1f2f4]">
-                       <span className="text-[12px] font-[600] text-[#5c6470]">#{i + 1}</span>
-                    </div>
-                    <button onClick={() => setActiveMenu(activeMenu === u.id ? null : u.id)} className="p-[4px] -mr-[4px]">
-                      <MoreVertical className="w-[20px] h-[20px] text-[#141a1f]" />
-                    </button>
-                 </div>
-                 
-                 <h3 className="text-[18px] font-[600] text-[#141a1f] mb-[12px]">{u.partnerCompanyName || "—"}</h3>
-                 
-                 <div className="flex items-center justify-between relative">
-                   <div className="flex flex-col gap-[8px]">
-                      <div className="flex items-center gap-[8px]">
-                         <span className="text-[14px] font-[400] text-[#8e95a1] w-[80px]">Name:</span>
-                         <span className="text-[14px] font-[400] text-[#141a1f]">{u.name}</span>
-                      </div>
-                      <div className="flex items-center gap-[8px]">
-                         <span className="text-[14px] font-[400] text-[#8e95a1] w-[80px]">Username:</span>
-                         <span className="text-[14px] font-[400] text-[#141a1f]">{u.username}</span>
-                      </div>
-                   </div>
-                   
-                   {u.status === "Suspended" && (
-                      <div className="absolute top-0 right-0 px-[10px] py-[4px] rounded-[4px] bg-[#ed351d]">
-                        <span className="text-[11px] font-[500] text-white">Suspended</span>
-                      </div>
-                   )}
-                 </div>
-                 
-                 {activeMenu === u.id && (
-                    <div className="absolute top-[48px] right-[16px] z-40 w-[140px] rounded-[8px] bg-[#ffffff] border border-[#e2e5e9] shadow-[0px_4px_16px_rgba(0,0,0,0.1)] py-[8px]">
-                      <button onClick={() => handleAction("password", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Reset Password</button>
-                      {u.status !== "Suspended" ? (
-                         <button onClick={() => handleAction("suspend", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Suspend</button>
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setConfirmAction({ type: "password", userId: u.id });
+                        }}
+                      >
+                        Reset password
+                      </button>
+                      {u.status === "Suspended" ? (
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "activate", userId: u.id });
+                          }}
+                        >
+                          Activate
+                        </button>
                       ) : (
-                         <button onClick={() => handleAction("activate", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#5c6470] hover:bg-[#f6f7f9]">Activate</button>
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "suspend", userId: u.id });
+                          }}
+                        >
+                          Suspend
+                        </button>
                       )}
-                      <button onClick={() => handleAction("delete", u.id)} className="w-full text-left px-[16px] py-[10px] text-[14px] font-[500] text-[#ed351d] hover:bg-[#f6f7f9]">Delete</button>
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setConfirmAction({ type: "delete", userId: u.id });
+                        }}
+                      >
+                        Delete
+                      </button>
                     </div>
                   )}
+                </div>
               </div>
-           ))}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-5 py-10 text-center text-[14px] text-[#5C6470]">No partner accounts match this search.</p>
+          )}
         </div>
       </div>
 
-      {/* Confirmation Modals */}
       {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60 px-[16px]">
-          <div className="flex flex-col items-center w-full max-w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)] pt-[32px] pb-[24px] px-[24px]">
-            <AlertOctagon className="w-[48px] h-[48px] text-[#ed351d] mb-[16px]" strokeWidth={1.5} />
-            <p className="text-[14px] font-[400] text-[#5c6470] text-center mb-[32px] max-w-[240px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-full max-w-[440px] flex-col items-center rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+            <div className="mb-5 flex size-14 items-center justify-center rounded-full border-[3px] border-[#ED351D]">
+              <AlertCircle className="size-7 text-[#ED351D]" />
+            </div>
+            <p className="mb-8 whitespace-pre-line text-center text-[16px] text-[#5C6470]">
               {confirmAction.type === "password" && "Are you sure you want to\nreset this partner's password?"}
               {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
               {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
             </p>
-            <div className="flex flex-row items-center justify-between w-full gap-[16px]">
-              <button onClick={() => setConfirmAction(null)} className="flex-1 py-[10px] text-[14px] font-[500] text-[#ed351d] hover:underline text-center">Cancel</button>
-              <button onClick={handleConfirmAction} className="flex-1 py-[10px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] text-[14px] font-[500] text-[#ffffff] transition-colors text-center">Confirm</button>
+            <div className="flex w-full items-center justify-between gap-6">
+              <button type="button" onClick={() => setConfirmAction(null)} className="text-[14px] font-medium text-[#ED351D]">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className="flex-1 rounded bg-[#ED351D] py-2.5 text-[14px] font-medium text-white hover:bg-[#d62e19]"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Share Sign In Details Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60 px-[16px]">
-          <div className="flex flex-col w-full max-w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
-            <button onClick={() => setShowShareModal(false)} className="absolute top-[20px] right-[20px] text-[#5c6470] hover:text-[#141a1f]">
-              <X className="w-[20px] h-[20px]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+            <button type="button" onClick={() => setShowShareModal(false)} className="absolute top-5 right-5 text-[#8E95A1]">
+              <X className="size-4" />
             </button>
-            <div className="px-[32px] pt-[32px] pb-[20px]">
-              <h3 className="text-[18px] font-[600] text-[#e3351d]">Share Sign In Details</h3>
+            <div className="px-6 pt-6 pb-4">
+              <h3 className="text-[16px] font-semibold text-[#ED351D]">Share Sign In Details</h3>
             </div>
-            <div className="w-full h-[1px] bg-[#f1f2f4] mb-[8px]"></div>
-            
-            <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareWhatsApp}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#5c6470" /></svg>
-                <span className="text-[13px] font-[500] text-[#8e95a1]">WhatsApp</span>
-              </div>
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareEmail}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#5c6470" /></svg>
-                <span className="text-[13px] font-[500] text-[#8e95a1]">Gmail</span>
-              </div>
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleCopyLink}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#5c6470" /></svg>
-                <span className="text-[13px] font-[500] text-[#8e95a1]">Copy</span>
-              </div>
+            <div className="h-px bg-[#E2E5E9]" />
+            <div className="flex justify-between px-10 py-8">
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+                  setShowShareModal(false);
+                }}
+              >
+                <span className="text-[12px] font-medium text-[#5C6470]">WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
+                  setShowShareModal(false);
+                }}
+              >
+                <span className="text-[12px] font-medium text-[#5C6470]">Gmail</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  void navigator.clipboard.writeText(shareText);
+                  toast.success("Details copied to clipboard");
+                  setShowShareModal(false);
+                }}
+              >
+                <span className="text-[12px] font-medium text-[#5C6470]">Copy</span>
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Sort Modal */}
-      {showSortModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60 px-[16px]">
-          <div className="flex flex-col w-full max-w-[400px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative p-[32px]">
-             <h3 className="text-[16px] font-[600] text-[#ed351d] mb-[16px]">Sort By</h3>
-             <div className="flex flex-col gap-[12px] mb-[24px]">
-               <label className="flex items-center gap-[12px] cursor-pointer group">
-                  <div className="w-[16px] h-[16px] rounded-[4px] border border-[#e2e5e9] flex items-center justify-center group-hover:border-[#8e95a1] transition-colors"></div>
-                  <span className="text-[14px] font-[500] text-[#8e95a1]">Full Name</span>
-               </label>
-               <label className="flex items-center gap-[12px] cursor-pointer">
-                  <div className="w-[16px] h-[16px] rounded-[4px] bg-[#ed351d] flex items-center justify-center">
-                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 4L4 6.5L8.5 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </div>
-                  <span className="text-[14px] font-[500] text-[#8e95a1]">Username</span>
-               </label>
-               <label className="flex items-center gap-[12px] cursor-pointer group">
-                  <div className="w-[16px] h-[16px] rounded-[4px] border border-[#e2e5e9] flex items-center justify-center group-hover:border-[#8e95a1] transition-colors"></div>
-                  <span className="text-[14px] font-[500] text-[#8e95a1]">Company</span>
-               </label>
-             </div>
-             
-             <div className="w-full h-[1px] bg-[#f1f2f4] mb-[24px]"></div>
-             
-             <h3 className="text-[16px] font-[600] text-[#ed351d] mb-[16px]">Order By</h3>
-             <div className="flex flex-col gap-[12px] mb-[32px]">
-               <label className="flex items-center gap-[12px] cursor-pointer">
-                  <div className="w-[16px] h-[16px] rounded-[4px] bg-[#ed351d] flex items-center justify-center">
-                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 4L4 6.5L8.5 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </div>
-                  <span className="text-[14px] font-[500] text-[#8e95a1]">Ascending</span>
-               </label>
-               <label className="flex items-center gap-[12px] cursor-pointer group">
-                  <div className="w-[16px] h-[16px] rounded-[4px] border border-[#e2e5e9] flex items-center justify-center group-hover:border-[#8e95a1] transition-colors"></div>
-                  <span className="text-[14px] font-[500] text-[#8e95a1]">Descending</span>
-               </label>
-             </div>
-
-             <button onClick={() => setShowSortModal(false)} className="w-[100px] self-end py-[10px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] text-[14px] font-[500] text-[#ffffff] transition-colors">
-               Save
-             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Click away for row menu */}
-      {activeMenu && <div className="fixed inset-0 z-30" onClick={() => setActiveMenu(null)}></div>}
     </>
   );
 }

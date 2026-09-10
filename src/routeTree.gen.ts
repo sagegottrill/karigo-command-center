@@ -39,6 +39,7 @@ import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspac
 import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
 import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
+import { Route as WorkspaceAppPartnerRequestsRouteImport } from './routes/workspace.app.partner-requests'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
 import { Route as WorkspaceAppReportsRouteImport } from './routes/workspace.app.reports'
 import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace.app.unauthorized'
@@ -208,6 +209,12 @@ const WorkspaceAppNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppPartnerRequestsRoute =
+  WorkspaceAppPartnerRequestsRouteImport.update({
+    id: '/partner-requests',
+    path: '/partner-requests',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppPasswordRequestRoute =
   WorkspaceAppPasswordRequestRouteImport.update({
     id: '/password-request',
@@ -313,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -355,6 +363,7 @@ export interface FileRoutesByTo {
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -400,6 +409,7 @@ export interface FileRoutesById {
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
@@ -533,6 +545,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
     | '/workspace/app/notifications'
+    | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
     | '/workspace/app/reports'
     | '/workspace/app/unauthorized'
@@ -768,6 +781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppNotificationsRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/partner-requests': {
+      id: '/workspace/app/partner-requests'
+      path: '/partner-requests'
+      fullPath: '/workspace/app/partner-requests'
+      preLoaderRoute: typeof WorkspaceAppPartnerRequestsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/password-request': {
       id: '/workspace/app/password-request'
       path: '/password-request'
@@ -883,6 +903,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
   WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
+  WorkspaceAppPartnerRequestsRoute: typeof WorkspaceAppPartnerRequestsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
   WorkspaceAppReportsRoute: typeof WorkspaceAppReportsRoute
   WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
@@ -914,6 +935,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
   WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
+  WorkspaceAppPartnerRequestsRoute: WorkspaceAppPartnerRequestsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
   WorkspaceAppReportsRoute: WorkspaceAppReportsRoute,
   WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,

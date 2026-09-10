@@ -28,7 +28,7 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "New Account", to: "/workspace/app/add-partner", icon: UserPlus },
       { label: "Account Management", to: "/workspace/app/manage-partner", icon: UserCog },
-      { label: "Partner Requests", to: "/workspace/app/manage-partner", icon: HelpCircle, dot: true },
+      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: HelpCircle, dot: true },
     ],
   },
   {
