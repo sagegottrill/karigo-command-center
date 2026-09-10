@@ -132,7 +132,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
               <div>
                 <h4 className="text-[14px] font-bold text-[#141a1f] mb-3 border-b border-[#e2e5e9] pb-2">Customer Details</h4>
                 <div className="space-y-2.5">
-                  <DetailRow label="Customer Name:" value={trip.customer || "Janeth Doe"} />
+                  <DetailRow label="Customer Name:" value={trip.customer || "—"} />
                   <DetailRow label="Destination:" value={trip.dropoff || "ABC, Alake Estate"} />
                   <DetailRow label="Loading Site(s):" value="Babangida\nHappy Home" />
                 </div>
@@ -142,10 +142,10 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
               <div>
                 <h4 className="text-[14px] font-bold text-[#141a1f] mb-3 border-b border-[#e2e5e9] pb-2">Vehicle & Operator Details</h4>
                 <div className="space-y-2.5">
-                  <DetailRow label="Truck Head (Cap Number):" value={trip.headId || "CAP-9921-X"} />
+                  <DetailRow label="Truck Head (Cap Number):" value={trip.headId || trip.truckReg || "—"} />
                   <DetailRow label="Truck Head Plate Number:" value="LA-223-XA" />
                   <DetailRow label="Truck Tail assigned:" value="Semi Sided (TL-4402-A)" />
-                  <DetailRow label="Driver Assigned:" value={`${trip.driverName || "Marcus Sterling"} (${trip.driverId || "SL-00829"})`} />
+                  <DetailRow label="Driver Assigned:" value={trip.driverName ? `${trip.driverName}${trip.driverId ? ` (${trip.driverId})` : ""}` : "—"} />
                   <DetailRow label="Driver Contact Phone:" value="+234 803 111 2222" />
                 </div>
               </div>

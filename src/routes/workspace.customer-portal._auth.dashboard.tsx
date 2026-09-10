@@ -274,7 +274,7 @@ function PartnerPortalDashboard() {
                 </div>
                 
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-[16px] font-[600] text-[#141a1f]">{r.customerConsignee || "Janeth Doe"}</h3>
+                  <h3 className="text-[16px] font-[600] text-[#141a1f]">{r.customerConsignee || "—"}</h3>
                   <StatusBadge status={r.status} />
                 </div>
                 
@@ -328,7 +328,7 @@ function PartnerPortalDashboard() {
                     >
                       <td className="px-6 py-4 text-[13px] font-[600] text-[#5c6470]">{r.id}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.scheduledDate || new Date().toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.customerConsignee || "Janeth Doe"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.customerConsignee || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.cargo || "Steel"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.tailType || "Flat"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.dropoff || "ABC, Alake Estate"}</td>

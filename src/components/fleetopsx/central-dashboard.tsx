@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { allowMockFallback } from "@/lib/fleetopsx/apiClient";
 import { adminService, fleetService } from "@/lib/fleetopsx/services";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -66,9 +65,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
   useEffect(() => {
     void adminService.users().then(setUsers);
-    if (allowMockFallback()) {
-      void fleetService.listTails().then(setTails);
-    }
+    void fleetService.listTails().then(setTails);
   }, []);
 
   const stats = useMemo(() => {

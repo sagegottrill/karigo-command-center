@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 
@@ -23,6 +24,7 @@ function requestId(trip: Trip) {
 
 function AdminPartnerRequests() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -31,7 +33,10 @@ function AdminPartnerRequests() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void tripService.list().then(setTrips);
+    void tripService
+      .list()
+      .then(setTrips)
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -137,16 +142,16 @@ function AdminPartnerRequests() {
             >
               <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
               <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
-                {trip.customer === "Customer Portal" ? "—" : trip.customer}
+                {trip.customer === "Customer Portal" ? "" : trip.customer}
               </span>
               <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
-                {trip.customerConsignee || "—"}
+                {trip.customerConsignee}
               </span>
-              <span className="hidden text-[12px] tracking-[0.4px] text-[#627084] md:block">{trip.cargo || "—"}</span>
+              <span className="hidden text-[12px] tracking-[0.4px] text-[#627084] md:block">{trip.cargo}</span>
               <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
-                {trip.tailType || "—"}
+                {trip.tailType}
               </span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff || "—"}</span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
               <div ref={menuFor === trip.id ? menuRef : undefined} className="relative justify-self-end">
                 <button
                   type="button"
@@ -187,44 +192,54 @@ function AdminPartnerRequests() {
             </div>
           ))}
 
-          {filtered.length === 0 && (
-            <p className="px-2 py-10 text-center text-[14px] text-[#5C6470]">No partner delivery requests yet.</p>
+          {loading && <FigmaLoadingState />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState
+              title={query ? "No matching partner requests" : "No partner requests yet"}
+              body={
+                query
+                  ? "Try a different request ID, partner, or destination."
+                  : "Delivery requests partners submit will list here from the live API."
+              }
+            />
           )}
 
-          <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
-            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-              {from} - {to}
-            </span>
-            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
-            <div className="ml-2 flex items-center gap-2.5">
-              <button
-                type="button"
-                disabled={currentPage === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="size-[18px] text-[#627084]" />
-              </button>
-              <button
-                type="button"
-                disabled={currentPage >= pageCount - 1}
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="size-[18px] text-[#627084]" />
-              </button>
-              <button
-                type="button"
-                onClick={exportCSV}
-                className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-              >
-                <Download className="size-[18px]" strokeWidth={1.75} />
-                Export CVS
-              </button>
+          {!loading && filtered.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {from} - {to}
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+              <div className="ml-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={currentPage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-[18px] text-[#627084]" />
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage >= pageCount - 1}
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-[18px] text-[#627084]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCSV}
+                  className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
+                >
+                  <Download className="size-[18px]" strokeWidth={1.75} />
+                  Export CVS
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -233,18 +248,42 @@ function AdminPartnerRequests() {
           <div className="w-full max-w-[480px] rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
             <h3 className="mb-4 text-[18px] font-semibold text-[#1B2432]">{requestId(detail)}</h3>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
-              <dt className="text-[#8E95A1]">Partner</dt>
-              <dd className="text-[#1B2432]">{detail.customer === "Customer Portal" ? "—" : detail.customer}</dd>
-              <dt className="text-[#8E95A1]">Customer</dt>
-              <dd className="text-[#1B2432]">{detail.customerConsignee || "—"}</dd>
-              <dt className="text-[#8E95A1]">Product</dt>
-              <dd className="text-[#1B2432]">{detail.cargo || "—"}</dd>
-              <dt className="text-[#8E95A1]">Truck type</dt>
-              <dd className="text-[#1B2432]">{detail.tailType || "—"}</dd>
-              <dt className="text-[#8E95A1]">Destination</dt>
-              <dd className="text-[#1B2432]">{detail.dropoff || "—"}</dd>
-              <dt className="text-[#8E95A1]">Pickup</dt>
-              <dd className="text-[#1B2432]">{detail.pickup || "—"}</dd>
+              {detail.customer && detail.customer !== "Customer Portal" && (
+                <>
+                  <dt className="text-[#8E95A1]">Partner</dt>
+                  <dd className="text-[#1B2432]">{detail.customer}</dd>
+                </>
+              )}
+              {detail.customerConsignee && (
+                <>
+                  <dt className="text-[#8E95A1]">Customer</dt>
+                  <dd className="text-[#1B2432]">{detail.customerConsignee}</dd>
+                </>
+              )}
+              {detail.cargo && (
+                <>
+                  <dt className="text-[#8E95A1]">Product</dt>
+                  <dd className="text-[#1B2432]">{detail.cargo}</dd>
+                </>
+              )}
+              {detail.tailType && (
+                <>
+                  <dt className="text-[#8E95A1]">Truck type</dt>
+                  <dd className="text-[#1B2432]">{detail.tailType}</dd>
+                </>
+              )}
+              {detail.dropoff && (
+                <>
+                  <dt className="text-[#8E95A1]">Destination</dt>
+                  <dd className="text-[#1B2432]">{detail.dropoff}</dd>
+                </>
+              )}
+              {detail.pickup && (
+                <>
+                  <dt className="text-[#8E95A1]">Pickup</dt>
+                  <dd className="text-[#1B2432]">{detail.pickup}</dd>
+                </>
+              )}
             </dl>
             <div className="mt-6 flex justify-end">
               <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium text-[#ED351D]">

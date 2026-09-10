@@ -35,7 +35,7 @@ function popupHtml(trip: Trip, status: string, color: string) {
   return `
     <div style="background-color: #1B2432; color: white; padding: 12px; border-radius: 8px; width: 260px; font-family: Inter, sans-serif;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-weight: 600; font-size: 13px;">${trip.headId || "CAP-9921-X"}</span>
+        <span style="font-weight: 600; font-size: 13px;">${trip.headId || trip.truckReg || "—"}</span>
         <span style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: #d1d5db;">
           <span style="display: block; width: 8px; height: 8px; border-radius: 999px; background-color: ${color};"></span>
           ${status}
@@ -46,7 +46,7 @@ function popupHtml(trip: Trip, status: string, color: string) {
         <span style="color: #f3f4f6; font-weight: 500;">${trip.truckReg || "LAG-223-XA"}</span>
         
         <span style="color: #9ca3af;">Driver:</span>
-        <span style="color: #f3f4f6;">${trip.driverName || "Marcus Sterling"}</span>
+        <span style="color: #f3f4f6;">${trip.driverName || "—"}</span>
         
         <span style="color: #9ca3af;">Location:</span>
         <span style="color: #f3f4f6;">${mockAddress}</span>

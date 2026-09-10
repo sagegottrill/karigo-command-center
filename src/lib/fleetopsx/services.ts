@@ -197,8 +197,14 @@ export const companyService = {
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
-  listHeads: () => settle(isolate([...store.truckHeads])),
-  listTails: () => settle(isolate([...store.truckTails])),
+  listHeads: async () => {
+    if (!useMock()) return liveListTrucks();
+    return settle(isolate([...store.truckHeads]));
+  },
+  listTails: async () => {
+    if (!useMock()) return [] as TruckTail[];
+    return settle(isolate([...store.truckTails]));
+  },
   createHead: async (input: { registration: string; make: string; year: number; location: string }) => {
     if (!useMock()) {
       return liveCreateTruck({

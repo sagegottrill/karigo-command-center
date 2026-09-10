@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { adminService } from "@/lib/fleetopsx/services";
 import type { User } from "@/lib/fleetopsx/types";
 
@@ -23,6 +24,7 @@ function isPartnerUser(user: User) {
 
 function AdminManagePartner() {
   const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -34,7 +36,10 @@ function AdminManagePartner() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void adminService.users().then(setUsers);
+    void adminService
+      .users()
+      .then(setUsers)
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -218,6 +223,8 @@ function AdminManagePartner() {
         </div>
 
         <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white">
+          {!loading && filtered.length > 0 && (
+            <>
           <div className="hidden grid-cols-[48px_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3 md:grid">
             {["S/N", "Name", "Company Name", "Username", ""].map((h) => (
               <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
@@ -232,8 +239,8 @@ function AdminManagePartner() {
             >
               <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
               <span className="text-[14px] capitalize text-[#5C6470]">{u.name}</span>
-              <span className="hidden text-[14px] capitalize text-[#5C6470] md:block">{u.partnerCompanyName || "—"}</span>
-              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.username ?? "—"}</span>
+              <span className="hidden text-[14px] capitalize text-[#5C6470] md:block">{u.partnerCompanyName}</span>
+              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.username}</span>
               <div className="flex items-center justify-end gap-2">
                 {u.status === "Suspended" && (
                   <span className="hidden rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white md:inline">
@@ -311,8 +318,28 @@ function AdminManagePartner() {
               </div>
             </div>
           ))}
-          {filtered.length === 0 && (
-            <p className="px-5 py-10 text-center text-[14px] text-[#5C6470]">No partner accounts match this search.</p>
+            </>
+          )}
+          {loading && <FigmaLoadingState />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState
+              title={query ? "No matching partner accounts" : "No partner accounts yet"}
+              body={
+                query
+                  ? "Try a different name, company, or username."
+                  : "Partner companies you create will list here from the live API."
+              }
+              action={
+                !query ? (
+                  <Link
+                    to="/workspace/app/add-partner"
+                    className="flex h-10 items-center rounded bg-[#ED351D] px-4 text-[14px] font-medium text-white"
+                  >
+                    + Add New Account
+                  </Link>
+                ) : undefined
+              }
+            />
           )}
         </div>
       </div>

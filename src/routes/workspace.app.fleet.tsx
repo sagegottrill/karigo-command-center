@@ -1,423 +1,309 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
-import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
-import { MetricCard } from "@/components/fleetopsx/metric-card";
-import { DataTable, type Column } from "@/components/fleetopsx/data-table";
-import { StatusBadge } from "@/components/fleetopsx/status-badge";
-import { FilterPills } from "@/components/fleetopsx/filter-pills";
-import { authService, fleetService } from "@/lib/fleetopsx/services";
-import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
-import { cn } from "@/lib/utils";
-import { Search, SlidersHorizontal, Plus, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from "@tanstack/react-router";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import type { Driver, Trip } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
-  loader: async () => {
-    const [heads, tails] = await Promise.all([
-      fleetService.listHeads(),
-      fleetService.listTails(),
-    ]);
-    return { heads, tails };
-  },
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
-    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
+    if (!authService.getRoles().some((r) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
-  head: () => ({
-    meta: [
-      { title: "Fleet Registry | FleetOpsX" },
-      { name: "description", content: "Manage fleet availability, dispatch, and live location" },
-    ],
-  }),
-  component: FleetRegistryPage,
+  component: FleetDispatchRequests,
 });
 
-const FILTERS = ["All", "Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as const;
+const PAGE_SIZE = 4;
 
-function FleetRegistryPage() {
-  const { heads, tails } = Route.useLoaderData();
-  const [activeTab, setActiveTab] = useState<"head" | "tail">("head");
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const router = useRouter();
+function isDispatchRequest(trip: Trip) {
+  return trip.status === "Requested" || trip.status === "Awaiting Approval";
+}
 
-  const [newAsset, setNewAsset] = useState({
-    type: "Head",
-    registration: "",
-    makeOrType: "",
-    location: "Lagos",
+function dispatchId(trip: Trip) {
+  if (/^DIS-/i.test(trip.id)) return trip.id;
+  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
+  return `DIS-${digits.padStart(5, "0")}`;
+}
+
+function FleetDispatchRequests() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [declinedIds, setDeclinedIds] = useState<string[]>([]);
+  const [detail, setDetail] = useState<Trip | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    void Promise.all([tripService.list(), driverService.list()])
+      .then(([nextTrips, nextDrivers]) => {
+        setTrips(nextTrips);
+        setDrivers(nextDrivers);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const driverById = useMemo(() => {
+    const map = new Map<string, Driver>();
+    for (const d of drivers) map.set(d.id, d);
+    return map;
+  }, [drivers]);
+
+  const listing = useMemo(
+    () => trips.filter((t) => isDispatchRequest(t) && !declinedIds.includes(t.id)),
+    [trips, declinedIds],
+  );
+
+  const filtered = listing.filter((t) => {
+    const driver = t.driverId ? driverById.get(t.driverId) : undefined;
+    const hay = `${dispatchId(t)} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${t.tailType ?? ""} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
+    return !query || hay.includes(query.toLowerCase());
   });
 
-  const [editingAsset, setEditingAsset] = useState<{ id: string; type: "Head" | "Tail"; registration: string; makeOrType: string; location: string } | null>(null);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
-  const handleEditAsset = async () => {
-    if (!editingAsset) return;
-    if (editingAsset.type === "Head") {
-      await fleetService.updateHead(editingAsset.id, {
-        registration: editingAsset.registration,
-        make: editingAsset.makeOrType,
-        location: editingAsset.location
-      });
-    } else {
-      await fleetService.updateTail(editingAsset.id, {
-        registration: editingAsset.registration,
-        type: editingAsset.makeOrType,
-        location: editingAsset.location
-      });
-    }
-    toast.success(`${editingAsset.type} updated successfully!`);
-    setEditingAsset(null);
-    router.invalidate();
+  const exportCSV = () => {
+    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Phone Number,Destination\n";
+    const csv = filtered
+      .map((t) => {
+        const driver = t.driverId ? driverById.get(t.driverId) : undefined;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${t.headId || t.truckReg || ""},${t.tailType || ""},${driver?.phone || ""},${t.dropoff}`;
+      })
+      .join("\n");
+    const blob = new Blob([headers + csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dispatch_requests.csv";
+    a.click();
+    toast.success("Exported CSV successfully.");
   };
 
-  const handleDeleteAsset = async (id: string, type: "Head" | "Tail") => {
-    if (confirm(`Are you sure you want to delete this ${type}?`)) {
-      if (type === "Head") {
-        await fleetService.deleteHead(id);
-      } else {
-        await fleetService.deleteTail(id);
-      }
-      toast.success(`${type} deleted.`);
-      router.invalidate();
-    }
+  const handleApprove = async (trip: Trip) => {
+    setMenuFor(null);
+    await tripService.initialApprove(trip.id);
+    toast.success(`Dispatch ${dispatchId(trip)} approved.`);
+    void tripService.list().then(setTrips);
   };
 
-  const handleAddAsset = async () => {
-    if (!newAsset.registration || !newAsset.makeOrType) {
-      toast.error("Registration and Make/Type are required.");
-      return;
-    }
-    
-    if (newAsset.type === "Head") {
-      await fleetService.createHead({
-        registration: newAsset.registration,
-        make: newAsset.makeOrType,
-        year: 2024,
-        location: newAsset.location
-      });
-    } else {
-      await fleetService.createTail({
-        registration: newAsset.registration,
-        type: newAsset.makeOrType,
-        location: newAsset.location
-      });
-    }
-    
-    toast.success(`${newAsset.type} added successfully!`);
-    setIsAddOpen(false);
-    setNewAsset({ type: "Head", registration: "", makeOrType: "", location: "Lagos" });
-    router.invalidate();
+  const handleDecline = (trip: Trip) => {
+    setMenuFor(null);
+    setDeclinedIds((ids) => [...ids, trip.id]);
+    toast.warning(`Dispatch ${dispatchId(trip)} declined.`);
   };
-
-  const countHeads = (status?: string) => status ? heads.filter(h => h.status === status).length : heads.length;
-  const countTails = (status?: string) => status ? tails.filter(t => t.status === status).length : tails.length;
-
-  const filteredHeads = heads.filter(h => {
-    if (filter !== "All" && h.status !== filter) return false;
-    if (searchQuery && !`${h.number} ${h.registration} ${h.status}`.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
-
-  const filteredTails = tails.filter(t => {
-    if (filter !== "All" && t.status !== filter) return false;
-    if (searchQuery && !`${t.type} ${t.registration} ${t.status}`.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
-
-  const headColumns: Column<TruckHead>[] = [
-    { key: "headNo", header: "Head No", sortValue: (r) => r.id, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.id}</span> },
-    { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
-    { key: "brand", header: "Truck Brand", sortValue: (r) => r.make, cell: (r) => <span className="text-[#5c6470]">{r.make}</span> },
-    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> },
-    {
-      key: "actions", header: "",
-      cell: (r) => (
-        <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditingAsset({ id: r.id, type: "Head", registration: r.registration, makeOrType: r.make, location: r.location })}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => handleDeleteAsset(r.id, "Head")}>
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
-    },
-  ];
-
-  const tailColumns: Column<TruckTail>[] = [
-    { key: "tailType", header: "Tail Type", sortValue: (r) => r.type, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.type}</span> },
-    { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
-    { key: "brand", header: "Truck Brand", cell: () => <span className="text-[#5c6470]">IVECO Stralis</span> },
-    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> },
-    {
-      key: "actions", header: "",
-      cell: (r) => (
-        <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditingAsset({ id: r.id, type: "Tail", registration: r.registration, makeOrType: r.type, location: r.location })}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => handleDeleteAsset(r.id, "Tail")}>
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
-    },
-  ];
 
   return (
     <>
-      <PageHeader
-        title="Fleet Registry"
-        description="Manage fleet availability, dispatch, and live location"
-        actions={
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-[#ed351d] hover:bg-[#d62e19] text-white gap-2">
-                <Plus className="w-4 h-4" /> Add Asset
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Asset</DialogTitle>
-                <DialogDescription>Register a new Truck Head or Tail to the fleet.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Asset Type</Label>
-                  <Select value={newAsset.type} onValueChange={v => setNewAsset({...newAsset, type: v})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Head">Truck Head</SelectItem>
-                      <SelectItem value="Tail">Truck Tail</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Registration</Label>
-                  <Input value={newAsset.registration} onChange={e => setNewAsset({...newAsset, registration: e.target.value})} placeholder="e.g. EPE 903 FS" className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">{newAsset.type === "Head" ? "Make" : "Type"}</Label>
-                  <Input value={newAsset.makeOrType} onChange={e => setNewAsset({...newAsset, makeOrType: e.target.value})} placeholder={newAsset.type === "Head" ? "e.g. IVECO" : "e.g. Flatbed"} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Location</Label>
-                  <Input value={newAsset.location} onChange={e => setNewAsset({...newAsset, location: e.target.value})} placeholder="e.g. Lagos" className="col-span-3" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddAsset} className="bg-[#1d1d1f] text-white">Add Asset</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-      />
-
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6 mt-4">
-        {/* Mobile Interleaved Layout */}
-        <div className="contents lg:hidden">
-          <MetricCard label="Total Head" value={countHeads()} />
-          <MetricCard label="Total Tails" value={countTails()} />
-          
-          <MetricCard label="Available Head" value={countHeads("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
-          <MetricCard label="Available Tail" value={countTails("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
-          
-          <MetricCard label="Head In Transit" value={countHeads("In Transit")} />
-          <MetricCard label="Tail In Transit" value={countTails("In Transit")} />
-          
-          <MetricCard label="Head in Maintenance" value={countHeads("Maintenance")} />
-          <MetricCard label="Tail in Maintenance" value={countTails("Maintenance")} />
-          
-          <MetricCard label="Head Out of Service" value={countHeads("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
-          <MetricCard label="Head Out of Service" value={countTails("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
+      {/* Figma 480:15035 layout — rows from live /trips + /drivers */}
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <div className="flex flex-col gap-[5px]">
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Dispatch Requests</h2>
+          <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            take action on dispatch requests
+          </p>
         </div>
 
-        {/* Desktop Block Layout */}
-        <div className="hidden lg:contents">
-          {/* Row 1 */}
-          <MetricCard label="Total Head" value={countHeads()} />
-          <MetricCard label="Available Head" value={countHeads("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
-          <MetricCard label="Head In Transit" value={countHeads("In Transit")} />
-          <MetricCard label="Head in Maintenance" value={countHeads("Maintenance")} />
-          <MetricCard label="Head Out of Service" value={countHeads("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
-          
-          {/* Row 2 */}
-          <MetricCard label="Total Tail" value={countTails()} />
-          <MetricCard label="Available Tail" value={countTails("Available")} hint={<span className="text-[#34c759]">ready for dispatch</span>} />
-          <MetricCard label="Tail In Transit" value={countTails("In Transit")} />
-          <MetricCard label="Tail in Maintenance" value={countTails("Maintenance")} />
-          <MetricCard label="Tail Out of Service" value={countTails("Out of Service")} hint={<span className="text-[#ff3b30]">unavailable</span>} />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex w-full md:w-auto bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm">
-          <button
-            className={cn("flex-1 md:flex-none px-5 py-2 md:py-1.5 text-sm font-semibold rounded-[4px] transition-colors", activeTab === 'head' ? "bg-[#1B2432] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-            onClick={() => setActiveTab('head')}
-          >
-            Truck Head
-          </button>
-          <button
-            className={cn("flex-1 md:flex-none px-5 py-2 md:py-1.5 text-sm font-semibold rounded-[4px] transition-colors", activeTab === 'tail' ? "bg-[#1B2432] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-            onClick={() => setActiveTab('tail')}
-          >
-            Truck Tails
-          </button>
-        </div>
-
-        <FilterPills options={FILTERS} value={filter} onChange={setFilter} className="flex-wrap" />
-      </div>
-
-      <SectionPanel bodyClassName="p-0 border-t-0 shadow-none bg-transparent">
-        <div className="md:bg-white md:rounded-xl md:border border-[#e2e5e9] overflow-hidden md:shadow-sm">
-          <div className="p-0 md:p-4 md:border-b border-[#e2e5e9] flex flex-col md:flex-row justify-between md:items-center mb-4 md:mb-0 gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-[#141a1f]">Fleet Register</h2>
-              <span className="flex items-center justify-center bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px]">
-                {activeTab === "head" ? filteredHeads.length : filteredTails.length}
-              </span>
+        <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
+            <div className="relative w-full max-w-[400px]">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search"
+                className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+              />
             </div>
-            
-            {/* Mobile Search */}
-            <div className="flex md:hidden gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-9 pr-3 rounded-[4px] border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                />
+            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            </button>
+          </div>
+
+          <div className="hidden grid-cols-[110px_156px_144px_144px_140px_1fr_40px] items-center gap-6 border-b border-[#E2E5E9] py-[15px] md:grid">
+            {["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Destination"].map((h) => (
+              <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ))}
+            <span />
+          </div>
+
+          {slice.map((trip) => {
+            const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
+            return (
+              <div
+                key={trip.id}
+                className="relative grid grid-cols-[1fr_40px] items-center gap-2 border-b border-[#E2E5E9] py-2.5 md:grid-cols-[110px_156px_144px_144px_140px_1fr_40px] md:gap-6"
+              >
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
+                <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+                  {trip.driverName || driver?.name}
+                </span>
+                <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">
+                  {trip.headId || trip.truckReg}
+                </span>
+                <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+                  {trip.tailType}
+                </span>
+                <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver?.phone}</span>
+                <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
+                <div ref={menuFor === trip.id ? menuRef : undefined} className="relative justify-self-end">
+                  <button
+                    type="button"
+                    className="grid size-8 place-items-center text-[#1B2432]"
+                    onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
+                  >
+                    <MoreVertical className="size-5" />
+                  </button>
+                  {menuFor === trip.id && (
+                    <div className="absolute top-8 right-0 z-30 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                      <button
+                        type="button"
+                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setDetail(trip);
+                        }}
+                      >
+                        View Details
+                      </button>
+                      <button
+                        type="button"
+                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                        onClick={() => void handleApprove(trip)}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                        onClick={() => handleDecline(trip)}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <button className="h-10 w-10 bg-[#ea3a3d] text-white rounded-[4px] flex items-center justify-center shrink-0">
-                <SlidersHorizontal className="h-4 w-4" />
+            );
+          })}
+
+          {loading && <FigmaLoadingState />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState
+              title={query ? "No matching dispatch requests" : "No dispatch requests yet"}
+              body={
+                query
+                  ? "Try a different dispatch ID, driver, or destination."
+                  : "Requests waiting for dispatch will list here from the live API."
+              }
+            />
+          )}
+
+          {!loading && filtered.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {from} - {to}
+            </span>
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+            <div className="ml-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-[18px] text-[#627084]" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= pageCount - 1}
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-[18px] text-[#627084]" />
+              </button>
+              <button
+                type="button"
+                onClick={exportCSV}
+                className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
+              >
+                <Download className="size-[18px]" strokeWidth={1.75} />
+                Export CVS
+              </button>
+            </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="w-full max-w-[480px] rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+            <h3 className="mb-4 text-[18px] font-semibold text-[#1B2432]">{dispatchId(detail)}</h3>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
+              {detail.driverName && (
+                <>
+                  <dt className="text-[#8E95A1]">Driver</dt>
+                  <dd className="text-[#1B2432]">{detail.driverName}</dd>
+                </>
+              )}
+              {(detail.headId || detail.truckReg) && (
+                <>
+                  <dt className="text-[#8E95A1]">Truck head</dt>
+                  <dd className="text-[#1B2432]">{detail.headId || detail.truckReg}</dd>
+                </>
+              )}
+              {detail.tailType && (
+                <>
+                  <dt className="text-[#8E95A1]">Tail type</dt>
+                  <dd className="text-[#1B2432]">{detail.tailType}</dd>
+                </>
+              )}
+              {detail.dropoff && (
+                <>
+                  <dt className="text-[#8E95A1]">Destination</dt>
+                  <dd className="text-[#1B2432]">{detail.dropoff}</dd>
+                </>
+              )}
+              {detail.pickup && (
+                <>
+                  <dt className="text-[#8E95A1]">Pickup</dt>
+                  <dd className="text-[#1B2432]">{detail.pickup}</dd>
+                </>
+              )}
+            </dl>
+            <div className="mt-6 flex justify-end">
+              <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium text-[#ED351D]">
+                Close
               </button>
             </div>
           </div>
-          
-          <div className="hidden md:block">
-            <DataTable
-              rows={activeTab === "head" ? filteredHeads : filteredTails}
-              columns={activeTab === "head" ? (headColumns as any) : (tailColumns as any)}
-              pageSize={10}
-              onRowClick={(r) => toast.info(`Truck Profile for ${r.registration} coming soon.`)}
-            />
-          </div>
-
-          {/* Mobile Card List */}
-          <div className="md:hidden flex flex-col gap-3">
-            {activeTab === "head" ? (
-              filteredHeads.map(r => (
-                <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold text-[#1a2332] text-[14px]">Head No: {r.id}</h3>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr] gap-y-1 text-[13px]">
-                    <span className="text-[#5c6470]">Registration:</span>
-                    <span className="text-[#ea3a3d] font-medium">{r.registration}</span>
-                    
-                    <span className="text-[#5c6470]">Truck Brand:</span>
-                    <span className="text-[#3c4250]">{r.make}</span>
-                    
-                    <span className="text-[#5c6470]">Location:</span>
-                    <span className="text-[#3c4250]">{r.location}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              filteredTails.map(r => (
-                <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold text-[#1a2332] text-[14px]">Tail Type: {r.type}</h3>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr] gap-y-1 text-[13px]">
-                    <span className="text-[#5c6470]">Registration:</span>
-                    <span className="text-[#ea3a3d] font-medium">{r.registration}</span>
-                    
-                    <span className="text-[#5c6470]">Truck Brand:</span>
-                    <span className="text-[#3c4250]">IVECO Stralis</span>
-                    
-                    <span className="text-[#5c6470]">Location:</span>
-                    <span className="text-[#3c4250]">{r.location}</span>
-                  </div>
-                </div>
-              ))
-            )}
-            
-            {(activeTab === "head" ? filteredHeads : filteredTails).length === 0 && (
-              <div className="p-8 text-center text-slate-500 text-sm bg-white rounded-lg">
-                No records found matching your filters.
-              </div>
-            )}
-          </div>
-          
         </div>
-      </SectionPanel>
-
-      <Dialog open={!!editingAsset} onOpenChange={(open) => !open && setEditingAsset(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit {editingAsset?.type}</DialogTitle>
-            <DialogDescription>Update asset records.</DialogDescription>
-          </DialogHeader>
-          {editingAsset && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Registration</Label>
-                <Input value={editingAsset.registration} onChange={e => setEditingAsset({...editingAsset, registration: e.target.value})} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{editingAsset.type === "Head" ? "Make" : "Type"}</Label>
-                <Input value={editingAsset.makeOrType} onChange={e => setEditingAsset({...editingAsset, makeOrType: e.target.value})} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Location</Label>
-                <Input value={editingAsset.location} onChange={e => setEditingAsset({...editingAsset, location: e.target.value})} className="col-span-3" />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingAsset(null)}>Cancel</Button>
-            <Button onClick={handleEditAsset} className="bg-[#1d1d1f] text-white">Update Asset</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      )}
     </>
   );
 }
