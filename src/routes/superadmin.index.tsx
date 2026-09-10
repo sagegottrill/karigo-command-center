@@ -370,7 +370,6 @@ function SuperAdminLayout() {
                 </div>
                 <div className="flex items-end gap-[12px]">
                   <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.length}</span>
-                  <span className="text-[13px] font-[500] text-[#00b050] bg-[#00b050]/10 px-2 py-0.5 rounded-full mb-1">+1 this month</span>
                 </div>
               </div>
               
@@ -380,7 +379,6 @@ function SuperAdminLayout() {
                 </div>
                 <div className="flex items-end gap-[12px]">
                   <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.reduce((sum, t) => sum + t.activeTrucks, 0).toLocaleString()}</span>
-                  <span className="text-[13px] font-[500] text-[#00b050] bg-[#00b050]/10 px-2 py-0.5 rounded-full mb-1">+12</span>
                 </div>
               </div>
 
@@ -390,7 +388,6 @@ function SuperAdminLayout() {
                 </div>
                 <div className="flex items-end gap-[12px]">
                   <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.reduce((sum, t) => sum + t.totalOrders, 0).toLocaleString()}</span>
-                  <span className="text-[13px] font-[500] text-[#00b050] bg-[#00b050]/10 px-2 py-0.5 rounded-full mb-1">+8</span>
                 </div>
               </div>
 
@@ -400,7 +397,6 @@ function SuperAdminLayout() {
                 </div>
                 <div className="flex items-end gap-[12px]">
                   <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.filter(t => t.status === "Active").length}</span>
-                  <span className="text-[13px] font-[500] text-[#8e95a1] bg-[#f3f4f6] px-2 py-0.5 rounded-full mb-1">0</span>
                 </div>
               </div>
             </div>

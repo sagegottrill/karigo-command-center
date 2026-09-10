@@ -46,18 +46,7 @@ export const Route = createFileRoute("/workspace/app/")({
   component: Dashboard,
 });
 
-const DAILY_STATS = [
-  { day: "10", trip: 38, delivery: 28 },
-  { day: "11", trip: 44, delivery: 31 },
-  { day: "12", trip: 52, delivery: 36 },
-  { day: "13", trip: 41, delivery: 29 },
-  { day: "14", trip: 58, delivery: 42 },
-  { day: "15", trip: 47, delivery: 34 },
-  { day: "16", trip: 55, delivery: 40 },
-  { day: "17", trip: 62, delivery: 45 },
-  { day: "18", trip: 49, delivery: 33 },
-  { day: "19", trip: 56, delivery: 39 },
-];
+
 
 const FILTERS = ["All Trips", "En Route", "Delayed", "Completed"] as const;
 
@@ -157,7 +146,31 @@ function ManagementDashboard({ data }: { data: any }) {
   const rows = useMemo(() => {
     if (filter === "All Trips") return TRIPS;
     return TRIPS.filter((t) => t.status === filter);
-  }, [filter]);
+  }, [filter, TRIPS]);
+
+  const liveDailyStats = useMemo(() => {
+    const statsMap: Record<string, { day: string, trip: number, delivery: number }> = {};
+    for (let i = 9; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.getDate().toString().padStart(2, '0');
+      statsMap[dayStr] = { day: dayStr, trip: 0, delivery: 0 };
+    }
+    
+    TRIPS.forEach((t: any) => {
+      const d = new Date(t.scheduledDate || Date.now());
+      if (!isNaN(d.getTime())) {
+        const dayStr = d.getDate().toString().padStart(2, '0');
+        if (statsMap[dayStr]) {
+          statsMap[dayStr].trip += 1;
+          if (t.status === "Completed") {
+            statsMap[dayStr].delivery += 1;
+          }
+        }
+      }
+    });
+    return Object.values(statsMap);
+  }, [TRIPS]);
 
   const pageSize = 8;
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -314,7 +327,7 @@ function ManagementDashboard({ data }: { data: any }) {
           <div className="h-[240px] w-full sm:h-[280px] xl:h-[300px]">
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={DAILY_STATS} barGap={4} barCategoryGap="28%">
+                <BarChart data={liveDailyStats} barGap={4} barCategoryGap="28%">
                   <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.05)" />
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#86868b", fontSize: 11 }} />
                   <YAxis axisLine={false} tickLine={false} width={28} tick={{ fill: "#86868b", fontSize: 11 }} />

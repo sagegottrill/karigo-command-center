@@ -26,6 +26,25 @@ function PartnerPortalDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending");
 
+  const filteredRequests = React.useMemo(() => {
+    let result = requests;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(r => 
+        (r.customerConsignee && r.customerConsignee.toLowerCase().includes(q)) ||
+        (r.id && r.id.toLowerCase().includes(q)) ||
+        (r.dropoff && r.dropoff.toLowerCase().includes(q)) ||
+        (r.cargo && r.cargo.toLowerCase().includes(q))
+      );
+    }
+    if (sortOrder === "Descending") {
+      result = [...result].sort((a, b) => b.id.localeCompare(a.id));
+    } else {
+      result = [...result].sort((a, b) => a.id.localeCompare(b.id));
+    }
+    return result;
+  }, [requests, searchQuery, sortOrder]);
+
   useEffect(() => {
     tripService.list().then((allTrips) => {
       setRequests(allTrips.filter((t) => t.customer === "Customer Portal"));
@@ -35,6 +54,15 @@ function PartnerPortalDashboard() {
   const handleLogout = () => {
     authService.logout();
     navigate({ to: "/workspace/customer-portal/login" });
+  };
+
+  const handleDelete = async () => {
+    if (deleteModalOpen) {
+      await tripService.delete(deleteModalOpen);
+      setDeleteModalOpen(null);
+      const allTrips = await tripService.list();
+      setRequests(allTrips.filter((t) => t.customer === "Customer Portal"));
+    }
   };
 
   const [mounted, setMounted] = useState(false);
@@ -221,14 +249,14 @@ function PartnerPortalDashboard() {
 
           {/* Mobile Card List (Hidden on Desktop) */}
           <div className="flex lg:hidden flex-col gap-3 pb-[40px]">
-            {requests.map((r) => (
+            {filteredRequests.map((r) => (
               <div 
                 key={r.id} 
                 className="bg-white rounded-[10px] border border-gray-200 p-4 shadow-sm relative cursor-pointer hover:border-gray-300 transition-colors"
                 onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-[11px] font-[500] text-[#8e95a1]">02 Sept 2026</span>
+                  <span className="text-[11px] font-[500] text-[#8e95a1]">{r.scheduledDate || new Date().toLocaleDateString()}</span>
                   <div className="relative">
                     <button 
                       onClick={(e) => { e.stopPropagation(); setRowMenuOpen(rowMenuOpen === r.id ? null : r.id); }} 
@@ -291,15 +319,15 @@ function PartnerPortalDashboard() {
                     <th className="px-6 py-4 w-[60px]"></th>
                   </tr>
                 </thead>
-                <tbody>
-                  {requests.map((r, i) => (
+                  <tbody>
+                    {filteredRequests.map((r) => (
                     <tr 
                       key={r.id} 
                       className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
                       onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
                     >
                       <td className="px-6 py-4 text-[13px] font-[600] text-[#5c6470]">{r.id}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">02 Sept 2026</td>
+                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.scheduledDate || new Date().toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.customerConsignee || "Janeth Doe"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.cargo || "Steel"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.tailType || "Flat"}</td>
@@ -333,7 +361,7 @@ function PartnerPortalDashboard() {
                       </td>
                     </tr>
                   ))}
-                  {requests.length === 0 && (
+                  {filteredRequests.length === 0 && (
                     <tr><td colSpan={8} className="text-center p-8 text-sm text-gray-500">No requests found.</td></tr>
                   )}
                 </tbody>
@@ -346,56 +374,26 @@ function PartnerPortalDashboard() {
       {/* SORT MODAL */}
       {sortModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] overflow-hidden">
-            <div className="p-6">
-              <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Sort By</h3>
-              <div className="flex flex-col gap-3 mb-6">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">ID No.</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Date</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Product</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Truck Type</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Status</span>
-                </label>
+          <div className="bg-white p-6 rounded-lg w-[90%] max-w-[400px]">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-[#141a1f]">Sort Requests</h3>
+                <button onClick={() => setSortModalOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
               </div>
-              
-              <div className="h-px bg-gray-100 w-full mb-6"></div>
-              
-              <h3 className="text-[#e3351d] text-[15px] font-[600] mb-4">Order By</h3>
-              <div className="flex flex-col gap-3 mb-8">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Ascending</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#e3351d] focus:ring-[#e3351d]" />
-                  <span className="text-[13px] font-[500] text-[#5c6470]">Descending</span>
-                </label>
-              </div>
-              
-              <div className="flex justify-end">
+              <div className="space-y-4">
                 <button 
-                  onClick={() => setSortModalOpen(false)}
-                  className="h-[40px] px-[24px] bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[13px] font-[500]"
+                  className={`w-full text-left p-4 rounded-[6px] border ${sortOrder === "Ascending" ? "border-[#e3351d] bg-[#e3351d]/5" : "border-gray-200"}`}
+                  onClick={() => { setSortOrder("Ascending"); setSortModalOpen(false); }}
                 >
-                  Save
+                  <div className="font-semibold text-[14px]">Ascending (Oldest First)</div>
+                </button>
+                <button 
+                  className={`w-full text-left p-4 rounded-[6px] border ${sortOrder === "Descending" ? "border-[#e3351d] bg-[#e3351d]/5" : "border-gray-200"}`}
+                  onClick={() => { setSortOrder("Descending"); setSortModalOpen(false); }}
+                >
+                  <div className="font-semibold text-[14px]">Descending (Newest First)</div>
                 </button>
               </div>
             </div>
-          </div>
         </div>
       )}
 
@@ -419,7 +417,7 @@ function PartnerPortalDashboard() {
                 Cancel
               </button>
               <button 
-                onClick={() => { setDeleteModalOpen(null); }}
+                onClick={handleDelete}
                 className="h-[40px] px-6 lg:px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
               >
                 Confirm

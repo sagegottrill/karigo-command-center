@@ -420,6 +420,10 @@ export const tripService = {
     });
     return settle(newStatus);
   },
+  delete: (id: string) => {
+    store.trips = store.trips.filter(t => t.id !== id);
+    return settle(true);
+  },
   timeline: (trip: Trip): TimelineStep[] => {
     const order = [
       "Dispatch Created",

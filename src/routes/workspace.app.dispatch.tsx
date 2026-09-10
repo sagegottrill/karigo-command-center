@@ -289,7 +289,7 @@ function DispatchPage() {
           <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9]">
             <div className="flex justify-between items-start mb-3">
               <div>
-                <div className="text-[11px] text-[#5c6470] mb-1">02 Sept 2026</div>
+                <div className="text-[11px] text-[#5c6470] mb-1">{r.scheduledDate || new Date().toLocaleDateString()}</div>
                 <h3 className="font-bold text-[#1a2332] text-[15px]">{r.customer}</h3>
               </div>
               <button 

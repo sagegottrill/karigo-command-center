@@ -397,7 +397,7 @@ function DispatchHistoryPage() {
                 className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9] cursor-pointer active:bg-slate-50 transition-colors"
               >
                 <div className="flex justify-between items-start mb-1">
-                  <div className="text-[11px] text-[#5c6470]">02 Sept 2026</div>
+                  <div className="text-[11px] text-[#5c6470]">{r.scheduledDate || new Date().toLocaleDateString()}</div>
                   <StatusPill status={displayStatus} />
                 </div>
                 <h3 className="font-bold text-[#1a2332] text-[15px] mb-3">{r.customer}</h3>
@@ -409,10 +409,10 @@ function DispatchHistoryPage() {
                   <span className="text-[#3c4250]">{r.cargo}</span>
                   
                   <span className="text-[#5c6470]">Truck Type:</span>
-                  <span className="text-[#3c4250]">Flat</span>
+                  <span className="text-[#3c4250]">{r.tailType || "Flat"}</span>
                   
                   <span className="text-[#5c6470]">Destination:</span>
-                  <span className="text-[#3c4250]">{r.dropoff || "ABC, Alake Estate"}</span>
+                  <span className="text-[#3c4250]">{r.dropoff}</span>
                 </div>
               </div>
             );
