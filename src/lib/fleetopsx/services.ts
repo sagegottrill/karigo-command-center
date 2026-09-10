@@ -17,24 +17,33 @@ import type {
   Company,
   PlatformTenant,
   User,
+  WorkOrder,
 } from "./types";
 import { allowMockFallback, getStoredUser } from "./apiClient";
 import {
   applyLoginSession,
   liveCreateDriver,
+  liveCreateExpense,
+  liveCreateGate,
   liveCreateTrip,
   liveCreateTruck,
+  liveCreateWorkOrder,
   liveDeleteDriver,
   liveDeleteTrip,
   liveDeleteTruck,
   liveGetTrip,
   liveListDrivers,
+  liveListExpenses,
+  liveListGate,
   liveListTrips,
   liveListTrucks,
+  liveListWorkOrders,
   liveLogin,
   liveUpdateDriver,
+  liveUpdateExpense,
   liveUpdateTrip,
   liveUpdateTruck,
+  liveUpdateWorkOrder,
   logoutLive,
 } from "./live-api";
 
@@ -145,12 +154,7 @@ export const companyService = {
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
-  listHeads: async () => {
-    if (!useMock()) {
-      return liveListTrucks();
-    }
-    return settle(isolate([...store.truckHeads]));
-  },
+  listHeads: () => settle(isolate([...store.truckHeads])),
   listTails: () => settle(isolate([...store.truckTails])),
   createHead: async (input: { registration: string; make: string; year: number; location: string }) => {
     if (!useMock()) {
@@ -326,13 +330,12 @@ export const authService = {
         applyLoginSession(result.token, result.user);
         return result.user;
       } catch (err) {
-        // Backend currently returns 502 — keep local directory as emergency bridge
-        // so operators can still sign in while Hetzner API is restored.
-        console.error("Live auth failed; using local directory bridge", err);
+        console.error("Live auth failed", err);
+        throw err;
       }
     }
 
-    // Check tenant status first
+    // Local/dev mock directory only when VITE_USE_MOCK=true
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug !== "localhost" && slug !== "fleetopsx") {
       const tenant = store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug);
@@ -443,16 +446,42 @@ export const tripService = {
     store.trips = store.trips.filter((t) => t.id !== id);
     return settle(true);
   },
-  initialApprove: (id: string) => {
+  initialApprove: async (id: string) => {
+    if (!useMock()) {
+      await liveUpdateTrip(id, { status: "Awaiting Approval" });
+      return true;
+    }
     store.trips = store.trips.map(t => {
       if (t.id === id && t.status === "Requested") {
-        return { ...t, status: "Approved for Dispatch" };
+        return { ...t, status: "Approved for Dispatch" as never };
       }
       return t;
     });
     return settle(true);
   },
-  approveDispatch: (id: string) => {
+  approveDispatch: async (id: string) => {
+    if (!useMock()) {
+      const trip = await liveGetTrip(id);
+      if (!trip) return false;
+      await liveUpdateTrip(id, { status: "Scheduled" });
+      const costs = trip.directCosts;
+      const totalCosts = costs
+        ? costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance
+        : 0;
+      if (totalCosts > 0) {
+        await liveCreateExpense({
+          requester: trip.driverName || "Dispatch Coordinator",
+          department: "Transport Manager",
+          type: "Allowance",
+          category: "Direct Cost",
+          amount: totalCosts,
+          description: `Dispatch costs for ${trip.id}`,
+          status: "Pending",
+          tripId: trip.id,
+        });
+      }
+      return true;
+    }
     store.trips = store.trips.map(t => {
       if (t.id === id && t.status === "Awaiting Approval") {
         // Calculate gross margin based on direct costs
@@ -465,7 +494,7 @@ export const tripService = {
           store.expenses = [
             {
               id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
-              type: "Direct Cost",
+              type: "Direct Cost" as never,
               amount: totalCosts,
               standardRate: totalCosts * 0.9,
               requester: t.driverName || "Dispatch Coordinator",
@@ -485,7 +514,15 @@ export const tripService = {
     });
     return settle(true);
   },
-  updateStatus: (id: string) => {
+  updateStatus: async (id: string) => {
+    if (!useMock()) {
+      const trip = await liveGetTrip(id);
+      if (!trip) return "Completed";
+      const flow = ["Requested", "Awaiting Approval", "Scheduled", "Loaded", "En Route", "Offloading", "Returning", "Completed"] as const;
+      const nextStatus = flow[Math.min(Math.max(flow.indexOf(trip.status as typeof flow[number]), 0) + 1, flow.length - 1)]!;
+      await liveUpdateTrip(id, { status: nextStatus });
+      return nextStatus;
+    }
     const flow = ["Requested", "Awaiting Approval", "Scheduled", "Loaded", "En Route", "Offloading", "Returning", "Completed"] as const;
     let nextStatus = "Completed";
     store.trips = store.trips.map(t => {
@@ -526,7 +563,11 @@ export const tripService = {
     }
     return settle(nextStatus);
   },
-  setStatus: (id: string, newStatus: string) => {
+  setStatus: async (id: string, newStatus: string) => {
+    if (!useMock()) {
+      await liveUpdateTrip(id, { status: newStatus as Trip["status"] });
+      return newStatus;
+    }
     store.trips = store.trips.map(t => {
       if (t.id === id) {
         return { ...t, status: newStatus as any };
@@ -572,7 +613,30 @@ export const tripService = {
 
 /* --------------------------------- orders --------------------------------- */
 export const orderService = {
-  submitCustomerOrder: (payload: { customerConsignee: string; pickup: string; dropoff: string; cargo: string; tailType: string; loadingRoutingType: "Single"|"Multiple"; loadingSite: string[] }) => {
+  submitCustomerOrder: async (payload: { customerConsignee: string; pickup: string; dropoff: string; cargo: string; tailType: string; loadingRoutingType: "Single"|"Multiple"; loadingSite: string[] }) => {
+    if (!useMock()) {
+      return liveCreateTrip({
+        customer: "Customer Portal",
+        customerConsignee: payload.customerConsignee,
+        cargo: payload.cargo,
+        pickup: payload.pickup,
+        loadingSite: payload.loadingSite,
+        loadingRoutingType: payload.loadingRoutingType,
+        tailType: payload.tailType,
+        dropoff: payload.dropoff,
+        status: "Requested",
+        priority: "Normal",
+        distanceKm: 0,
+        durationLabel: "-",
+        scheduledDate: new Date().toISOString(),
+        startTime: "-",
+        eta: "-",
+        progress: 0,
+        lat: 6.524,
+        lng: 3.379,
+        revenue: 0,
+      });
+    }
     const id = `TRP-${String(850 + store.trips.length).padStart(5, "0")}`;
     const newOrder: Trip = {
       id,
@@ -639,8 +703,20 @@ export const fuelService = {
 
 /* ------------------------------- engineering ------------------------------ */
 export const engineeringService = {
-  listWorkOrders: () => settle([...store.workOrders]),
-  createDefect: (input: { truckReg: string; defect: string; category: string; priority: string; reportedBy: string }) => {
+  listWorkOrders: async () => {
+    if (!useMock()) return liveListWorkOrders();
+    return settle([...store.workOrders]);
+  },
+  createDefect: async (input: { truckReg: string; defect: string; category: string; priority: string; reportedBy: string }) => {
+    if (!useMock()) {
+      const wo = await liveCreateWorkOrder({
+        truckReg: input.truckReg,
+        defect: input.defect,
+        priority: input.priority,
+        status: "Reported",
+      });
+      return wo.id;
+    }
     const id = `ENG-${String(480 + store.workOrders.length).padStart(5, "0")}`;
     store.workOrders = [
       {
@@ -652,20 +728,28 @@ export const engineeringService = {
         mechanic: "Unassigned",
         status: "Reported",
         reportedBy: input.reportedBy,
-        reportedAt: "12 Aug 2026 10:42",
+        reportedAt: new Date().toLocaleString(),
         cost: 0,
       },
       ...store.workOrders,
     ];
     return settle(id);
   },
-  advance: (id: string) => {
+  advance: async (id: string) => {
+    if (!useMock()) {
+      const list = await liveListWorkOrders();
+      const current = list.find((w) => w.id === id);
+      if (!current) return false;
+      const flow = ["Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed"] as const;
+      const idx = flow.indexOf(current.status as typeof flow[number]);
+      const nextStatus = flow[Math.min(Math.max(idx, 0) + 1, flow.length - 1)]!;
+      await liveUpdateWorkOrder(id, { status: nextStatus });
+      return true;
+    }
     const flow = ["Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed"] as const;
     store.workOrders = store.workOrders.map((w) => {
       if (w.id === id) {
         const nextStatus = flow[Math.min(flow.indexOf(w.status) + 1, flow.length - 1)]!;
-        
-        // Release assets if completed
         if (nextStatus === "Completed") {
           const head = store.truckHeads.find(t => t.registration === w.truckReg);
           if (head) {
@@ -682,8 +766,26 @@ export const engineeringService = {
     });
     return settle(true);
   },
-  logRepair: (truckReg: string, defect: string, category: string, amount: number) => {
-    // 1. Create a Work Order
+  logRepair: async (truckReg: string, defect: string, category: string, amount: number) => {
+    if (!useMock()) {
+      const wo = await liveCreateWorkOrder({
+        truckReg,
+        defect,
+        priority: "High",
+        status: "Reported",
+      });
+      await liveCreateExpense({
+        requester: "Engineering",
+        department: "Engineering",
+        type: "Repairs",
+        category,
+        amount,
+        description: `Repair for ${truckReg}: ${defect}`,
+        status: "Pending",
+        tripId: wo.id,
+      });
+      return wo.id;
+    }
     const id = `ENG-${String(480 + store.workOrders.length).padStart(5, "0")}`;
     store.workOrders = [
       {
@@ -693,7 +795,6 @@ export const engineeringService = {
       ...store.workOrders,
     ];
     
-    // 2. Mark the truck as Out of Service
     const head = store.truckHeads.find(t => t.registration === truckReg);
     if (head) {
       store.truckHeads = store.truckHeads.map(t => t.id === head.id ? { ...t, status: "Out of Service" } : t);
@@ -703,29 +804,15 @@ export const engineeringService = {
       store.truckTails = store.truckTails.map(t => t.id === tail.id ? { ...t, status: "Out of Service" } : t);
     }
 
-    // 3. Create Expense in Accounts
     store.expenses = [
       {
         id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
-        type: "Indirect Cost", amount, standardRate: amount, requester: "Engineering", tripId: "—",
+        type: "Repairs", amount, standardRate: amount, requester: "Engineering", tripId: "—",
         status: "Pending", approvalLevel: "Operations Manager", date: new Date().toLocaleDateString(),
         documents: [],
       },
       ...store.expenses,
     ];
-
-    // 4. Check Inventory and generate Procurement Request if out of stock
-    const part = store.inventory.find(i => i.name.toLowerCase().includes(category.toLowerCase()));
-    if (part && part.stock === 0) {
-      store.procurement = [
-        {
-          id: `PRC-${String(100 + store.procurement.length).padStart(3, "0")}`,
-          part: part.name, quantity: 1, truckReg, priority: "High", status: "Requested",
-          requestedBy: "Engineering", date: new Date().toLocaleDateString(),
-        },
-        ...store.procurement,
-      ];
-    }
     
     return settle(id);
   }
@@ -871,9 +958,22 @@ export const depreciationService = {
 
 /* --------------------------------- accounts ------------------------------- */
 export const accountService = {
-  list: () => settle([...store.expenses]),
-  get: (id: string) => settle(store.expenses.find((e) => e.id === id) ?? null),
-  setStatus: (id: string, status: ExpenseStatus) => {
+  list: async () => {
+    if (!useMock()) return liveListExpenses();
+    return settle([...store.expenses]);
+  },
+  get: async (id: string) => {
+    if (!useMock()) {
+      const list = await liveListExpenses();
+      return list.find((e) => e.id === id) ?? null;
+    }
+    return settle(store.expenses.find((e) => e.id === id) ?? null);
+  },
+  setStatus: async (id: string, status: ExpenseStatus) => {
+    if (!useMock()) {
+      await liveUpdateExpense(id, { status });
+      return true;
+    }
     store.expenses = store.expenses.map((e) => (e.id === id ? { ...e, status } : e));
     return settle(true);
   },
@@ -881,13 +981,24 @@ export const accountService = {
 
 /* ----------------------------------- gate --------------------------------- */
 export const gateService = {
-  list: () => settle([...store.gate]),
-  create: (entry: Omit<GateEntry, "id">) => {
+  list: async () => {
+    if (!useMock()) return liveListGate();
+    return settle([...store.gate]);
+  },
+  create: async (entry: Omit<GateEntry, "id">) => {
+    if (!useMock()) {
+      const created = await liveCreateGate(entry);
+      if (entry.purpose === "Trip return" && entry.asset) {
+        const trips = await liveListTrips();
+        const trip = trips.find((t) => (t.truckReg || "").includes(entry.asset) && t.status !== "Completed");
+        if (trip) await liveUpdateTrip(trip.id, { status: "Completed" });
+      }
+      return created.id;
+    }
     const id = `GTE-${String(330 + store.gate.length).padStart(5, "0")}`;
     store.gate = [{ ...entry, id }, ...store.gate];
     
     if (entry.purpose === "Trip return") {
-      // Find the truck in trips to get the trip ID and driver
       const truckReg = entry.asset;
       const head = store.truckHeads.find(t => t.registration === truckReg);
       if (head) {
@@ -899,14 +1010,12 @@ export const gateService = {
         store.truckTails = store.truckTails.map(t => t.id === tail.id ? { ...t, status: "Available" } : t);
       }
       
-      // We don't have driver name mapped directly to driver ID in gate entry, but we can try
       const driver = store.drivers.find(d => d.name === entry.driver);
       if (driver) {
         store.drivers = store.drivers.map(d => d.id === driver.id ? { ...d, status: "Available" } : d);
       }
       
-      // Update the trip to Completed
-      const trip = store.trips.find(t => t.truckReg.includes(truckReg) && t.status !== "Completed");
+      const trip = store.trips.find(t => t.truckReg?.includes(truckReg) && t.status !== "Completed");
       if (trip) {
         store.trips = store.trips.map(t => t.id === trip.id ? { ...t, status: "Completed" } : t);
       }
@@ -1039,19 +1148,22 @@ export const dashboardService = {
   }),
   getOverview: async () => {
     if (!useMock()) {
-      const [trips, trucks, drivers] = await Promise.all([
+      const [trips, trucks, drivers, expenses, gateEntries, workOrders] = await Promise.all([
         liveListTrips().catch(() => [] as Trip[]),
         liveListTrucks().catch(() => [] as TruckHead[]),
         liveListDrivers().catch(() => [] as Driver[]),
+        liveListExpenses().catch(() => [] as Expense[]),
+        liveListGate().catch(() => [] as GateEntry[]),
+        liveListWorkOrders().catch(() => [] as WorkOrder[]),
       ]);
       return {
         trips,
         trucks,
         drivers,
-        expenses: [],
-        gateEntries: [],
+        expenses,
+        gateEntries,
         alerts: [],
-        workOrders: [],
+        workOrders,
         inventory: [],
         procurement: [],
         charts: {
