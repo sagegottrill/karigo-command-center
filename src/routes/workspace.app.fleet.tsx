@@ -10,6 +10,7 @@ import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import { Search, SlidersHorizontal } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   loader: async () => {
@@ -75,7 +76,7 @@ function FleetRegistryPage() {
   });
 
   const headColumns: Column<TruckHead>[] = [
-    { key: "headNo", header: "Head No", sortValue: (r) => r.number, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.number}</span> },
+    { key: "headNo", header: "Head No", sortValue: (r) => r.id, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.id}</span> },
     { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
     { key: "brand", header: "Truck Brand", sortValue: (r) => r.make, cell: (r) => <span className="text-[#5c6470]">{r.make}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
@@ -186,6 +187,7 @@ function FleetRegistryPage() {
               rows={activeTab === "head" ? filteredHeads : filteredTails}
               columns={activeTab === "head" ? (headColumns as any) : (tailColumns as any)}
               pageSize={10}
+              onRowClick={(r) => toast.info(`Truck Profile for ${r.registration} coming soon.`)}
             />
           </div>
 
@@ -195,7 +197,7 @@ function FleetRegistryPage() {
               filteredHeads.map(r => (
                 <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold text-[#1a2332] text-[14px]">Head No: {r.number}</h3>
+                    <h3 className="font-bold text-[#1a2332] text-[14px]">Head No: {r.id}</h3>
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="grid grid-cols-[90px_1fr] gap-y-1 text-[13px]">
