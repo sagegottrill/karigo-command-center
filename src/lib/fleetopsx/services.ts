@@ -292,6 +292,25 @@ export const tripService = {
   },
   update: (id: string, payload: Partial<Trip>) => {
     store.trips = store.trips.map(t => (t.id === id ? { ...t, ...payload } : t));
+    
+    // Check if assets need to be updated due to status change during update
+    if (payload.status === "Awaiting Approval") {
+      const t = store.trips.find(x => x.id === id);
+      if (t) {
+        if (t.headId) store.truckHeads = store.truckHeads.map(h => h.id === t.headId ? { ...h, status: "Assigned" } : h);
+        if (t.tailId) store.truckTails = store.truckTails.map(tail => tail.id === t.tailId ? { ...tail, status: "Assigned" } : tail);
+        if (t.driverId) store.drivers = store.drivers.map(d => d.id === t.driverId ? { ...d, status: "On Trip" } : d);
+      }
+    }
+    return settle(true);
+  },
+  initialApprove: (id: string) => {
+    store.trips = store.trips.map(t => {
+      if (t.id === id && t.status === "Requested") {
+        return { ...t, status: "Approved for Dispatch" };
+      }
+      return t;
+    });
     return settle(true);
   },
   approveDispatch: (id: string) => {

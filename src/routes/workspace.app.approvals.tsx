@@ -131,6 +131,7 @@ function WOSummary({ record }: { record: WorkOrder }) {
 }
 
 function ApprovalsPage() {
+  const [initialTrips, setInitialTrips] = useState<Trip[]>([]);
   const [pendingTrips, setPendingTrips] = useState<Trip[]>([]);
   const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
   const [pendingWO, setPendingWO] = useState<WorkOrder[]>([]);
@@ -141,6 +142,7 @@ function ApprovalsPage() {
       accountService.list(),
       engineeringService.listWorkOrders(),
     ]);
+    setInitialTrips(trips.filter(t => t.status === "Requested"));
     setPendingTrips(trips.filter(t => t.status === "Awaiting Approval"));
     setPendingExpenses(expenses.filter(e => e.status === "Pending"));
     setPendingWO(wos.filter(w => w.status === "Reported"));
@@ -162,8 +164,13 @@ function ApprovalsPage() {
     const { type, record } = confirmApproval;
     
     if (type === "Trip") {
-      await tripService.approveDispatch(record.id);
-      toast.success(`Trip ${record.id} approved for dispatch.`);
+      if (record.status === "Requested") {
+        await tripService.initialApprove(record.id);
+        toast.success(`Request ${record.id} approved for dispatch assignment.`);
+      } else {
+        await tripService.approveDispatch(record.id);
+        toast.success(`Trip ${record.id} approved for dispatch.`);
+      }
     } else if (type === "Expense") {
       await accountService.setStatus(record.id, "Approved");
       toast.success(`Expense ${record.id} approved.`);
@@ -258,21 +265,29 @@ function ApprovalsPage() {
         description="Centralized authorization for Dispatches, Expenses, and Fleet Maintenance."
       />
 
-      <div className="grid gap-3 sm:grid-cols-3 mb-6">
-        <MetricCard label="Pending Dispatches" value={pendingTrips.length} accent />
+      <div className="grid gap-3 sm:grid-cols-4 mb-6">
+        <MetricCard label="New Requests" value={initialTrips.length} accent />
+        <MetricCard label="Pending Dispatches" value={pendingTrips.length} />
         <MetricCard label="Pending Expenses" value={pendingExpenses.length} />
         <MetricCard label="Maintenance Requests" value={pendingWO.length} />
       </div>
 
-      <Tabs defaultValue="trips">
+      <Tabs defaultValue="requests">
         <TabsList className="h-9 mb-4">
+          <TabsTrigger value="requests" className="text-xs flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5"/> Initial Requests ({initialTrips.length})</TabsTrigger>
           <TabsTrigger value="trips" className="text-xs flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5"/> Dispatches ({pendingTrips.length})</TabsTrigger>
           <TabsTrigger value="expenses" className="text-xs flex items-center gap-2"><FileText className="h-3.5 w-3.5"/> Expenses ({pendingExpenses.length})</TabsTrigger>
           <TabsTrigger value="maintenance" className="text-xs flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5"/> Maintenance ({pendingWO.length})</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="requests">
+          <SectionPanel title="Initial Approvals" description="Review and approve new truck requests before they are sent to Dispatch for assignment." bodyClassName="p-0">
+            <DataTable rows={initialTrips} columns={tripCols} searchKeys={(r) => r.id} />
+          </SectionPanel>
+        </TabsContent>
+
         <TabsContent value="trips">
-          <SectionPanel title="Dispatch Authorization" description="Review estimated margins before authorizing trucks to leave the gate." bodyClassName="p-0">
+          <SectionPanel title="Final Dispatch Authorization" description="Review estimated margins before authorizing assigned trucks to leave the gate." bodyClassName="p-0">
             <DataTable rows={pendingTrips} columns={tripCols} searchKeys={(r) => r.id} />
           </SectionPanel>
         </TabsContent>

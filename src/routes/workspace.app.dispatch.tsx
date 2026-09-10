@@ -21,7 +21,7 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
       heads,
       tails,
       drivers,
-      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch" || t.status === "Awaiting Approval" || t.status === "Requested" || t.status === "Scheduled")
+      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch")
     };
   },
   beforeLoad: () => {
@@ -118,12 +118,8 @@ function DispatchPage() {
       return;
     }
     
-    // Create the trip record in the store
-    const trip = await tripService.create({
-      customer: selectedOrder?.customer || "Walk-in Customer",
-      cargo: selectedOrder?.cargo || "General Cargo",
-      pickup: selectedOrder?.pickup || "Lagos",
-      dropoff: selectedOrder?.dropoff || "Abuja",
+    // Update the existing trip record in the store instead of creating a new one
+    await tripService.update(selectedOrder!.id, {
       headId: head.id,
       tailId: tail.id,
       tailType: tail.type,
@@ -140,17 +136,9 @@ function DispatchPage() {
         lubricantType: lubricant,
       },
       status: "Awaiting Approval",
-      priority: "Normal",
-      distanceKm: 0,
-      durationLabel: "-",
-      scheduledDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-      startTime: "-",
-      lat: 6.524,
-      lng: 3.379,
-      revenue: 0,
     });
     
-    toast.success(`Dispatch ${trip.id} Created`, { description: `${head.registration} → ${selectedOrder?.dropoff || "Abuja"}` });
+    toast.success(`Dispatch Configured`, { description: `${selectedOrder!.id} assigned to ${head.registration}` });
     navigate({ to: "/workspace/app/dispatch-history" });
   };
 

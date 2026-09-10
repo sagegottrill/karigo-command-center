@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { DataTable } from "@/components/fleetopsx/data-table";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
+import { driverService } from "@/lib/fleetopsx/services";
 import { Upload, Users, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +21,9 @@ function HrStaffDirectory() {
         const data = await fetchApi('/drivers');
         setDrivers(data);
       } catch (err) {
-        console.error("Failed to load staff", err);
+        console.warn("Live API failed, using mock", err);
+        const mockDrivers = await driverService.list();
+        setDrivers(mockDrivers);
       } finally {
         setIsLoading(false);
       }
