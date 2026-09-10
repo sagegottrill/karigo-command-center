@@ -43,8 +43,8 @@ export function DataTable<T extends { id: string }>({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let out = rows;
-    if (q && searchKeys) out = rows.filter((r) => searchKeys(r).toLowerCase().includes(q));
+    let out = rows || [];
+    if (q && searchKeys) out = (rows || []).filter((r) => searchKeys(r).toLowerCase().includes(q));
     if (sortKey) {
       const col = columns.find((c) => c.key === sortKey);
       if (col?.sortValue) {
