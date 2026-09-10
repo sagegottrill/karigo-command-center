@@ -1,4 +1,6 @@
-export const API_URL = 'http://2.28.45.216/api';
+export const API_URL = typeof window !== 'undefined' && window.location.protocol === 'https:' 
+  ? 'https://2.28.45.216/api' 
+  : 'http://2.28.45.216/api';
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('fleetopsx_token');
