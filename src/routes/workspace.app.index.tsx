@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useNavigate, useRouter, createFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight,
   ChevronsUpDown, Download, MessageSquare, Phone, Plus, Truck, Wrench,
@@ -121,7 +121,8 @@ function ManagementDashboard({ data }: { data: any }) {
       startTime: "08:00",
       lat: 6.524,
       lng: 3.379,
-      revenue: 150000
+      revenue: 150000,
+      status: "Requested",
     } as any);
     toast.success("Trip requested successfully!");
     setIsCreateOpen(false);
@@ -152,7 +153,6 @@ function ManagementDashboard({ data }: { data: any }) {
   ).length;
   const tripsDelayed = TRIPS.filter((t: any) => t.status === "Delayed").length;
   const approvals = EXPENSES.filter((e: any) => e.status === "Pending" || e.status === "Clarification").length;
-  const revenue = 272_980_190;
 
   const rows = useMemo(() => {
     if (filter === "All Trips") return TRIPS;

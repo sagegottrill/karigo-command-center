@@ -33,6 +33,7 @@ import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
+import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
 import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
 import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
@@ -174,6 +175,11 @@ const WorkspaceAppGodViewRoute = WorkspaceAppGodViewRouteImport.update({
   path: '/god-view',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppHrRoute = WorkspaceAppHrRouteImport.update({
+  id: '/hr',
+  path: '/hr',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
@@ -301,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
@@ -342,6 +349,7 @@ export interface FileRoutesByTo {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
@@ -386,6 +394,7 @@ export interface FileRoutesById {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
+  '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
@@ -432,6 +441,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
+    | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
+    | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
@@ -516,6 +527,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
+    | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
@@ -714,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppGodViewRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/hr': {
+      id: '/workspace/app/hr'
+      path: '/hr'
+      fullPath: '/workspace/app/hr'
+      preLoaderRoute: typeof WorkspaceAppHrRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/inventory': {
       id: '/workspace/app/inventory'
       path: '/inventory'
@@ -858,6 +877,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
+  WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
   WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
   WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
@@ -888,6 +908,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
+  WorkspaceAppHrRoute: WorkspaceAppHrRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
   WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
   WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,

@@ -9,10 +9,11 @@ import { authService, fleetService } from "@/lib/fleetopsx/services";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
-import { Search, SlidersHorizontal, Plus } from "lucide-react";
+import { Search, SlidersHorizontal, Plus, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,6 +76,40 @@ function FleetRegistryPage() {
     location: "Lagos",
   });
 
+  const [editingAsset, setEditingAsset] = useState<{ id: string; type: "Head" | "Tail"; registration: string; makeOrType: string; location: string } | null>(null);
+
+  const handleEditAsset = async () => {
+    if (!editingAsset) return;
+    if (editingAsset.type === "Head") {
+      await fleetService.updateHead(editingAsset.id, {
+        registration: editingAsset.registration,
+        make: editingAsset.makeOrType,
+        location: editingAsset.location
+      });
+    } else {
+      await fleetService.updateTail(editingAsset.id, {
+        registration: editingAsset.registration,
+        type: editingAsset.makeOrType,
+        location: editingAsset.location
+      });
+    }
+    toast.success(`${editingAsset.type} updated successfully!`);
+    setEditingAsset(null);
+    router.invalidate();
+  };
+
+  const handleDeleteAsset = async (id: string, type: "Head" | "Tail") => {
+    if (confirm(`Are you sure you want to delete this ${type}?`)) {
+      if (type === "Head") {
+        await fleetService.deleteHead(id);
+      } else {
+        await fleetService.deleteTail(id);
+      }
+      toast.success(`${type} deleted.`);
+      router.invalidate();
+    }
+  };
+
   const handleAddAsset = async () => {
     if (!newAsset.registration || !newAsset.makeOrType) {
       toast.error("Registration and Make/Type are required.");
@@ -122,7 +157,28 @@ function FleetRegistryPage() {
     { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
     { key: "brand", header: "Truck Brand", sortValue: (r) => r.make, cell: (r) => <span className="text-[#5c6470]">{r.make}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> }
+    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> },
+    {
+      key: "actions", header: "",
+      cell: (r) => (
+        <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditingAsset({ id: r.id, type: "Head", registration: r.registration, makeOrType: r.make, location: r.location })}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => handleDeleteAsset(r.id, "Head")}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
   ];
 
   const tailColumns: Column<TruckTail>[] = [
@@ -130,7 +186,28 @@ function FleetRegistryPage() {
     { key: "registration", header: "Registration", sortValue: (r) => r.registration, cell: (r) => <span className="text-[#ea3a3d] font-medium">{r.registration}</span> },
     { key: "brand", header: "Truck Brand", cell: () => <span className="text-[#5c6470]">IVECO Stralis</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> }
+    { key: "location", header: "Location", sortValue: (r) => r.location, cell: (r) => <span className="text-[#5c6470]">{r.location}</span> },
+    {
+      key: "actions", header: "",
+      cell: (r) => (
+        <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditingAsset({ id: r.id, type: "Tail", registration: r.registration, makeOrType: r.type, location: r.location })}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => handleDeleteAsset(r.id, "Tail")}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -329,6 +406,35 @@ function FleetRegistryPage() {
           
         </div>
       </SectionPanel>
+
+      <Dialog open={!!editingAsset} onOpenChange={(open) => !open && setEditingAsset(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit {editingAsset?.type}</DialogTitle>
+            <DialogDescription>Update asset records.</DialogDescription>
+          </DialogHeader>
+          {editingAsset && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Registration</Label>
+                <Input value={editingAsset.registration} onChange={e => setEditingAsset({...editingAsset, registration: e.target.value})} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{editingAsset.type === "Head" ? "Make" : "Type"}</Label>
+                <Input value={editingAsset.makeOrType} onChange={e => setEditingAsset({...editingAsset, makeOrType: e.target.value})} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Location</Label>
+                <Input value={editingAsset.location} onChange={e => setEditingAsset({...editingAsset, location: e.target.value})} className="col-span-3" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingAsset(null)}>Cancel</Button>
+            <Button onClick={handleEditAsset} className="bg-[#1d1d1f] text-white">Update Asset</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

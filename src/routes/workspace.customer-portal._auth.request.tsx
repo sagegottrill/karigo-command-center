@@ -27,8 +27,8 @@ function PartnerNewRequest() {
   const [showTruckDropdown, setShowTruckDropdown] = useState(false);
   const [destination, setDestination] = useState("");
   const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
-  const [loadingSites, setLoadingSites] = useState<{ type: string; customValue: string }[]>([
-    { type: "", customValue: "" },
+  const [loadingSites, setLoadingSites] = useState<{ id: string; type: string; customValue: string }[]>([
+    { id: "initial", type: "", customValue: "" },
   ]);
   const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
   const [showLogout, setShowLogout] = useState(false);
@@ -263,7 +263,7 @@ function PartnerNewRequest() {
                       <div className={`w-[18px] h-[18px] rounded-full border-[2px] flex items-center justify-center ${routingType === "Single" ? "border-[#ed351d]" : "border-[#8e95a1]"}`}>
                         {routingType === "Single" && <div className="w-[10px] h-[10px] rounded-full bg-[#ed351d]"></div>}
                       </div>
-                      <input type="radio" className="hidden" checked={routingType === "Single"} onChange={() => { setRoutingType("Single"); setLoadingSites([loadingSites[0] || { type: "", customValue: "" }]); }} />
+                        <input type="radio" className="hidden" checked={routingType === "Single"} onChange={() => { setRoutingType("Single"); setLoadingSites([loadingSites[0] || { id: Math.random().toString(), type: "", customValue: "" }]); }} />
                       <span className="text-[14px] font-[400] text-[#5c6470]">Single Site Loading</span>
                     </label>
                     <label className="flex items-center gap-[8px] cursor-pointer">
@@ -280,7 +280,7 @@ function PartnerNewRequest() {
                 <div className="flex flex-col gap-[12px]">
                   <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Select Loading Site</label>
                   {loadingSites.map((site, index) => (
-                    <div key={index} className="flex flex-col gap-[8px] relative">
+                    <div key={site.id} className={`flex flex-col gap-[8px] relative ${openDropdownIndex === index ? 'z-50' : 'z-10'}`}>
                       <div className="flex flex-row items-center gap-[12px]">
                         <div className="flex-1 relative">
                           <button
@@ -296,7 +296,7 @@ function PartnerNewRequest() {
                               {LOADING_SITE_OPTIONS.map(opt => (
                                 <button key={opt} type="button" onClick={() => {
                                   const newSites = [...loadingSites];
-                                  newSites[index].type = opt;
+                                  newSites[index] = { ...newSites[index], type: opt };
                                   if (opt !== "Others") newSites[index].customValue = "";
                                   setLoadingSites(newSites);
                                   setOpenDropdownIndex(null);
@@ -321,7 +321,7 @@ function PartnerNewRequest() {
                           value={site.customValue}
                           onChange={(e) => {
                             const newSites = [...loadingSites];
-                            newSites[index].customValue = e.target.value;
+                            newSites[index] = { ...newSites[index], customValue: e.target.value };
                             setLoadingSites(newSites);
                           }}
                           placeholder="Enter specific loading address"
@@ -334,7 +334,7 @@ function PartnerNewRequest() {
                   {routingType === "Multiple" && (
                     <button
                       type="button"
-                      onClick={() => setLoadingSites([...loadingSites, { type: "", customValue: "" }])}
+                      onClick={() => setLoadingSites([...loadingSites, { id: Math.random().toString(), type: "", customValue: "" }])}
                       className="mt-[4px] flex flex-row items-center justify-center py-[10px] px-[24px] rounded-[4px] bg-[#1B2432] hover:bg-[#2c3a50] transition-colors"
                     >
                       <span className="text-[14px] font-[500] leading-[20px] text-[#ffffff]">Add Another Site</span>

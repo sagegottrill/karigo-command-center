@@ -168,6 +168,22 @@ export const fleetService = {
     store.truckTails = store.truckTails.map(t => t.id === id ? { ...t, status } : t);
     return settle(true);
   },
+  updateHead: (id: string, updates: Partial<TruckHead>) => {
+    store.truckHeads = store.truckHeads.map(t => t.id === id ? { ...t, ...updates } : t);
+    return settle(true);
+  },
+  deleteHead: (id: string) => {
+    store.truckHeads = store.truckHeads.filter(t => t.id !== id);
+    return settle(true);
+  },
+  updateTail: (id: string, updates: Partial<TruckTail>) => {
+    store.truckTails = store.truckTails.map(t => t.id === id ? { ...t, ...updates } : t);
+    return settle(true);
+  },
+  deleteTail: (id: string) => {
+    store.truckTails = store.truckTails.filter(t => t.id !== id);
+    return settle(true);
+  },
   getHead: (id: string) => settle(store.truckHeads.find((t) => t.id === id) ?? null),
   getTail: (id: string) => settle(store.truckTails.find((t) => t.id === id) ?? null),
   summary: () =>
@@ -209,6 +225,14 @@ export const driverService = {
     };
     store.drivers = [driver, ...store.drivers];
     return settle(driver);
+  },
+  update: (id: string, updates: Partial<Driver>) => {
+    store.drivers = store.drivers.map(d => d.id === id ? { ...d, ...updates } : d);
+    return settle(true);
+  },
+  delete: (id: string) => {
+    store.drivers = store.drivers.filter(d => d.id !== id);
+    return settle(true);
   },
 };
 
