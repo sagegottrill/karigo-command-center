@@ -69,13 +69,14 @@ export function mapDriver(d: Record<string, unknown>): Driver {
 }
 
 export async function liveLogin(username: string, password: string): Promise<LoginResponse> {
+  const body = { email: username, username, password };
   // Prefer /auth/login; some stacks use /login
   try {
-    return await api.post<LoginResponse>("/auth/login", { username, password });
+    return await api.post<LoginResponse>("/auth/login", body);
   } catch (err) {
     const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
     if (status === 404) {
-      return await api.post<LoginResponse>("/login", { username, password });
+      return await api.post<LoginResponse>("/login", body);
     }
     throw err;
   }
