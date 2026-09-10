@@ -1,22 +1,9 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import {
-  Activity,
-  Bell,
-  HelpCircle,
-  LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  MoreVertical,
-  ScrollText,
-  Settings,
-  Truck,
-  UserCog,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { HelpCircle, LayoutDashboard, LogOut, MoreVertical, Truck, UserCog, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
+import { NAV } from "@/components/fleetopsx/app-sidebar";
 import { Route as RootRoute } from "../../routes/__root";
 
 type AdminNavItem = {
@@ -31,10 +18,10 @@ type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
-/** Figma Transport Admin sidebar (59:1020) — IA source for Admin portal */
+/** Figma Admin sidebar — Overview is the live dashboard, not “Central Dashboard” */
 const ADMIN_GROUPS: AdminNavGroup[] = [
   {
-    items: [{ label: "Central Dashboard", to: "/workspace/app", icon: LayoutDashboard }],
+    items: [{ label: "Overview", to: "/workspace/app", icon: LayoutDashboard }],
   },
   {
     label: "PARTNER Account",
@@ -61,14 +48,14 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
   },
 ];
 
-/** Non-Figma modules parked lower per product rule */
-const EXTRA_ITEMS: AdminNavItem[] = [
-  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
-  { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
-  { label: "Reports", to: "/workspace/app/reports", icon: Activity },
-  { label: "Audit", to: "/workspace/app/audit", icon: ScrollText },
-  { label: "Settings", to: "/workspace/app/admin", icon: Settings },
-];
+const FIGMA_PATHS = new Set(ADMIN_GROUPS.flatMap((g) => g.items.map((i) => i.to)));
+
+/** Live modules that are not on the Figma Admin sidebar — folded under More */
+const EXTRA_ITEMS: AdminNavItem[] = NAV.filter((item) => !FIGMA_PATHS.has(item.to)).map((item) => ({
+  label: item.label,
+  to: item.to,
+  icon: LayoutDashboard,
+}));
 
 function isPathActive(pathname: string, to: string) {
   if (to === "/workspace/app") return pathname === "/workspace/app" || pathname === "/workspace/app/";

@@ -90,13 +90,13 @@ function AddPartner() {
   };
 
   return (
-    <div className="w-full max-w-[1000px]">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-[24px] lg:mb-[32px] gap-4">
+    <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex flex-row justify-between items-center w-full lg:w-auto">
-          <div>
-            <h2 className="text-[20px] lg:text-[24px] font-[600] leading-[28px] lg:leading-[32px] text-[#141a1f] mb-[4px]">Create Partner Account</h2>
-            <p className="text-[10px] lg:text-[12px] font-[500] leading-[14.52px] tracking-[0.05em] text-[#8e95a1] uppercase">
-              CREATE THE DIGITAL PROFILE OF PARTNER COMPANY
+          <div className="flex flex-col gap-[5px]">
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Create Partner Account</h2>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              create the digital profile of partner company
             </p>
           </div>
           <button className="lg:hidden p-2 text-[#141a1f]">

@@ -17,10 +17,8 @@ const ADMIN_SHELL_PREFIXES = [
 
 function useAdminShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const roles = authService.getRoles();
-  const isTransportAdmin = roles.some((r) => /transport\s*admin/i.test(r));
-  const onAdminRoute = ADMIN_SHELL_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  return isTransportAdmin || onAdminRoute;
+  // Figma Admin chrome only on Admin account pages — Overview keeps the live sidebar
+  return ADMIN_SHELL_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export const Route = createFileRoute("/workspace/app")({

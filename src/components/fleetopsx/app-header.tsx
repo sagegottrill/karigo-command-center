@@ -37,7 +37,6 @@ const ADMIN_PORTAL_PREFIXES = [
   "/workspace/app/password-request",
   "/workspace/app/add-partner",
   "/workspace/app/manage-partner",
-  "/workspace/app/admin",
 ];
 
 function isAdminPortalPath(pathname: string) {
