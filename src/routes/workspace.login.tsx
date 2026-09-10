@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown, UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
@@ -20,29 +20,40 @@ export const Route = createFileRoute("/workspace/login")({
   component: LoginPage,
 });
 
-/** Figma frame 37:35 — Internal Portal Sign In */
+/** Figma 42:700 Workplace List labels */
 const DEPARTMENTS = [
-  "Transport Manager",
+  "Transport Admin",
   "Fleet Operations",
+  "Fuel Management",
+  "Engineering and Maintenance",
+  "Parts and Store",
   "Accounts",
-  "Engineering",
-  "HR & Compliance",
+  "HR and Personnel",
   "Security",
-  "Diesel",
-  "Parts & Store",
+  "Drivers",
 ] as const;
 
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
   const [department, setDepartment] = useState("");
+  const [deptOpen, setDeptOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
+  const deptRef = useRef<HTMLDivElement>(null);
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   const canSubmit = Boolean(department && username && password);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!deptRef.current?.contains(e.target as Node)) setDeptOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +67,10 @@ function LoginPage() {
       }
       authService.setRoles(user.roles ?? []);
       toast.success(`Welcome back, ${user?.name}`);
+      if (user.passwordResetRequired) {
+        navigate({ to: "/workspace/forgot-password" });
+        return;
+      }
       navigate({ to: "/workspace/app" });
     } catch (err) {
       setLoginError(true);
@@ -65,11 +80,9 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">
-      {/* Left — Figma 37:35 branding panel */}
       <div className="relative hidden lg:flex flex-col bg-[#1B2432] w-[720px] pt-[68px] pb-[68px] px-[67px] text-[#ffffff] h-screen justify-between shrink-0">
         <div className="flex flex-col w-full gap-[85px]">
           <img src={logoSrc} alt={tenantName || "Petroline Transport Ltd"} className="w-[178px] h-[100px] object-contain object-left" />
-
           <div className="flex flex-col gap-[18px]">
             <h2 className="text-[24px] font-[500] leading-[32px] text-[#ffffff]">
               Welcome to {tenantName || "Petroline"} Portal
@@ -82,13 +95,11 @@ function LoginPage() {
             </p>
           </div>
         </div>
-
         <p className="text-[11.41px] font-[400] leading-normal text-white/70 uppercase tracking-[0.4px]">
           {(tenantName || "PETROLINE").toUpperCase()} FLEET OPERATION PORTAL | POWERED BY FLEETOPSX
         </p>
       </div>
 
-      {/* Right — sign-in card */}
       <div className="flex flex-col justify-center items-center bg-[#1B2432] lg:bg-[#ffffff] w-full h-screen px-[24px] lg:px-0">
         <div className="lg:hidden flex justify-center mb-[40px]">
           <img src={logoSrc} alt={tenantName || "Petroline"} className="w-[178px] h-[60px] object-contain" />
@@ -114,23 +125,39 @@ function LoginPage() {
               </div>
             )}
 
-            <div className="flex flex-col gap-[12px] w-full">
+            {/* Figma 42:700 — department dropdown + workplace list */}
+            <div className="relative flex flex-col gap-[12px] w-full" ref={deptRef}>
               <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">Select Department</label>
-              <div className="relative">
-                <select
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full h-[32px] appearance-none rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] pr-[36px] text-[14px] font-[500] leading-[20px] text-[#5c6470] tracking-[0.4px] outline-none shadow-[0px_1px_2px_rgba(12,12,13,0.1)]"
+              <button
+                type="button"
+                onClick={() => setDeptOpen((o) => !o)}
+                className="flex h-[32px] w-full items-center justify-between rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] text-left shadow-[0px_1px_2px_rgba(12,12,13,0.1)]"
+              >
+                <span className={`text-[14px] font-[500] leading-[20px] tracking-[0.4px] ${department ? "text-[#141a1f]" : "text-[#5c6470]"}`}>
+                  {department || "Select"}
+                </span>
+                <ChevronDown className="h-4 w-4 text-[#5c6470]" />
+              </button>
+              {deptOpen ? (
+                <div
+                  className="absolute left-0 right-0 top-[50px] z-20 rounded-[6px] border border-[#e2e5e9] bg-white p-[10px]"
+                  style={{ boxShadow: "0px 4px 8px rgba(0,0,0,0.15), 0px 1px 3px rgba(0,0,0,0.3)" }}
                 >
-                  <option value="">Select</option>
                   {DEPARTMENTS.map((d) => (
-                    <option key={d} value={d}>
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDepartment(d);
+                        setDeptOpen(false);
+                      }}
+                      className="flex h-[36px] w-full items-center rounded-[4px] px-[25px] text-left text-[14px] font-[500] leading-[20px] tracking-[0.4px] text-[rgba(92,100,112,0.6)] hover:bg-[#f6f7f9] hover:text-[#141a1f]"
+                    >
                       {d}
-                    </option>
+                    </button>
                   ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-[12px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#5c6470]" />
-              </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-[12px] w-full">
@@ -162,11 +189,7 @@ function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between w-full">
-              <button
-                type="button"
-                className="flex items-center gap-[10px]"
-                onClick={() => setKeepSignedIn(!keepSignedIn)}
-              >
+              <button type="button" className="flex items-center gap-[10px]" onClick={() => setKeepSignedIn(!keepSignedIn)}>
                 <span
                   className={`grid h-4 w-4 place-items-center rounded-[4px] border ${
                     keepSignedIn ? "border-[#ed351d] bg-[#ed351d]" : "border-[#e2e5e9] bg-white"
@@ -180,7 +203,11 @@ function LoginPage() {
                 </span>
                 <span className="text-[14px] font-[400] text-[#1b2432]">Keep me signed in</span>
               </button>
-              <Link to="/workspace/forgot-password" className="text-[14px] font-[400] text-[#1b2432] hover:underline">
+              <Link
+                to="/workspace/forgot-password"
+                search={{ mode: "request" }}
+                className="text-[14px] font-[400] text-[#1b2432] hover:underline"
+              >
                 Forgot Password?
               </Link>
             </div>
