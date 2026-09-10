@@ -37,12 +37,12 @@ function HrStaffDirectory() {
 
   const columns = [
     {
-      accessorKey: "employeeId",
+      key: "employeeId",
       header: "Staff ID",
       cell: (row: any) => <span className="font-semibold">{row.employeeId || row.staffId}</span>,
     },
     {
-      accessorKey: "name",
+      key: "name",
       header: "Name",
       cell: (row: any) => (
         <div className="flex items-center gap-3">
@@ -57,7 +57,7 @@ function HrStaffDirectory() {
       ),
     },
     {
-      accessorKey: "category",
+      key: "category",
       header: "Category",
       cell: (row: any) => (
         <span className="text-sm font-medium">
@@ -66,7 +66,7 @@ function HrStaffDirectory() {
       ),
     },
     {
-      accessorKey: "truckReg",
+      key: "truckReg",
       header: "Assigned Asset",
       cell: (row: any) => (
         <span className="text-sm">
@@ -75,7 +75,7 @@ function HrStaffDirectory() {
       ),
     },
     {
-      accessorKey: "status",
+      key: "status",
       header: "Status",
       cell: (row: any) => (
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${row.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
@@ -136,8 +136,8 @@ function HrStaffDirectory() {
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <DataTable
-          columns={columns}
-          data={drivers}
+          columns={columns as any}
+          rows={drivers}
           isLoading={isLoading}
           emptyMessage="No staff members found."
           emptyIcon={<Users className="w-10 h-10 text-muted-foreground/30" />}
