@@ -6,6 +6,12 @@ import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import { driverService } from "@/lib/fleetopsx/services";
 import { Upload, Users, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { useRouter } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app/hr")({
   component: HrStaffDirectory,
@@ -14,6 +20,32 @@ export const Route = createFileRoute("/workspace/app/hr")({
 function HrStaffDirectory() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const router = useRouter();
+  
+  const [newStaff, setNewStaff] = useState({
+    name: "",
+    phone: "",
+    licenseNumber: "",
+    licenseCategory: "Professional",
+    licenseExpiry: "2026-12-31"
+  });
+
+  const handleAddStaff = async () => {
+    if (!newStaff.name || !newStaff.phone) {
+      toast.error("Name and Phone are required.");
+      return;
+    }
+    await driverService.create(newStaff);
+    toast.success("Staff added successfully!");
+    setIsAddOpen(false);
+    setNewStaff({ name: "", phone: "", licenseNumber: "", licenseCategory: "Professional", licenseExpiry: "2026-12-31" });
+    router.invalidate();
+    
+    // Refresh local list since loader might not refetch instantly
+    const mockDrivers = await driverService.list();
+    setDrivers(mockDrivers);
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -96,9 +128,37 @@ function HrStaffDirectory() {
               <Button onClick={handleUpload} variant="outline" className="gap-2">
                 <Upload className="w-4 h-4" /> Upload List
               </Button>
-              <Button className="gap-2 bg-primary text-primary-foreground">
-                <UserPlus className="w-4 h-4" /> Add Staff
-              </Button>
+              <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2 bg-primary text-primary-foreground">
+                    <UserPlus className="w-4 h-4" /> Add Staff
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Add New Staff</DialogTitle>
+                    <DialogDescription>Register a new driver or staff member.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">Name</Label>
+                      <Input id="name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="phone" className="text-right">Phone</Label>
+                      <Input id="phone" value={newStaff.phone} onChange={e => setNewStaff({...newStaff, phone: e.target.value})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="license" className="text-right">License</Label>
+                      <Input id="license" value={newStaff.licenseNumber} onChange={e => setNewStaff({...newStaff, licenseNumber: e.target.value})} className="col-span-3" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddStaff}>Add Staff</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           }
         />

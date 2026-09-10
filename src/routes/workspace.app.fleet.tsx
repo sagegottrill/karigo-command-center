@@ -9,8 +9,14 @@ import { authService, fleetService } from "@/lib/fleetopsx/services";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import type { TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRouter } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   loader: async () => {
@@ -59,6 +65,42 @@ function FleetRegistryPage() {
   const [activeTab, setActiveTab] = useState<"head" | "tail">("head");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const router = useRouter();
+
+  const [newAsset, setNewAsset] = useState({
+    type: "Head",
+    registration: "",
+    makeOrType: "",
+    location: "Lagos",
+  });
+
+  const handleAddAsset = async () => {
+    if (!newAsset.registration || !newAsset.makeOrType) {
+      toast.error("Registration and Make/Type are required.");
+      return;
+    }
+    
+    if (newAsset.type === "Head") {
+      await fleetService.createHead({
+        registration: newAsset.registration,
+        make: newAsset.makeOrType,
+        year: 2024,
+        location: newAsset.location
+      });
+    } else {
+      await fleetService.createTail({
+        registration: newAsset.registration,
+        type: newAsset.makeOrType,
+        location: newAsset.location
+      });
+    }
+    
+    toast.success(`${newAsset.type} added successfully!`);
+    setIsAddOpen(false);
+    setNewAsset({ type: "Head", registration: "", makeOrType: "", location: "Lagos" });
+    router.invalidate();
+  };
 
   const countHeads = (status?: string) => status ? heads.filter(h => h.status === status).length : heads.length;
   const countTails = (status?: string) => status ? tails.filter(t => t.status === status).length : tails.length;
@@ -96,6 +138,51 @@ function FleetRegistryPage() {
       <PageHeader
         title="Fleet Registry"
         description="Manage fleet availability, dispatch, and live location"
+        actions={
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-[#ed351d] hover:bg-[#d62e19] text-white gap-2">
+                <Plus className="w-4 h-4" /> Add Asset
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Asset</DialogTitle>
+                <DialogDescription>Register a new Truck Head or Tail to the fleet.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Asset Type</Label>
+                  <Select value={newAsset.type} onValueChange={v => setNewAsset({...newAsset, type: v})}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Head">Truck Head</SelectItem>
+                      <SelectItem value="Tail">Truck Tail</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Registration</Label>
+                  <Input value={newAsset.registration} onChange={e => setNewAsset({...newAsset, registration: e.target.value})} placeholder="e.g. EPE 903 FS" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">{newAsset.type === "Head" ? "Make" : "Type"}</Label>
+                  <Input value={newAsset.makeOrType} onChange={e => setNewAsset({...newAsset, makeOrType: e.target.value})} placeholder={newAsset.type === "Head" ? "e.g. IVECO" : "e.g. Flatbed"} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Location</Label>
+                  <Input value={newAsset.location} onChange={e => setNewAsset({...newAsset, location: e.target.value})} placeholder="e.g. Lagos" className="col-span-3" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button onClick={handleAddAsset} className="bg-[#1d1d1f] text-white">Add Asset</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6 mt-4">
