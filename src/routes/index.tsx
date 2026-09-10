@@ -253,7 +253,7 @@ function TenantLandingPage() {
       <div className="w-full bg-[#1b2432] border-b border-[#e2e5e9] flex justify-center">
         <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] flex flex-row items-center md:py-[12px] md:px-[32px] py-[5px] px-[19px] gap-[10px]">
           <div className="flex flex-row items-center gap-[16px]">
-             <img src="/petroline-transparent.png" alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
+             <img src={tenantLogo || "/figma/petroline-logo.png"} alt="Petroline Transport Ltd" className="h-[40px] md:h-[60px] object-contain" />
           </div>
         </header>
       </div>
@@ -264,7 +264,7 @@ function TenantLandingPage() {
         {/* HERO — 1380x800 desktop / calc(100%-30px)x560 mobile */}
         <section 
           className="bg-[#000000] rounded-[10px] md:w-[1380px] md:h-[800px] w-[calc(100%-30px)] h-[560px] flex flex-col md:pt-[102px] md:pb-[102px] md:px-[209px] p-[20px] md:gap-[30px] gap-[20px] items-center justify-center text-center mx-auto overflow-hidden relative bg-center bg-cover bg-no-repeat"
-          style={{ backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url('/hero.jpeg')" }}
+          style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/figma/landing-hero.jpg')" }}
         >
           <h1 className="md:text-[90px] text-[36px] md:font-[500] font-[700] md:leading-[90px] leading-[40px] text-[#ffffff] md:w-[1160px] w-[329px] md:h-[180px] h-[120px] flex items-center justify-center font-['Space_Grotesk',sans-serif]">
             Manage your fleet operation with confidence
@@ -367,8 +367,8 @@ function TenantLandingPage() {
 
       {/* FOOTER — 1440x100 desktop / 390x70 mobile, bg=#1b2432 */}
       <div className="w-full bg-[#1b2432] flex justify-center">
-        <footer className="w-full max-w-[1440px] md:h-[100px] h-[70px] flex items-center justify-center">
-          <p className="md:text-[12px] text-[11.41px] font-[400] md:leading-[16px] leading-[13.81px] text-[#ffffff] text-center w-[250px] md:w-auto">
+        <footer className="w-full max-w-[1440px] md:h-[100px] h-[70px] flex items-center md:justify-start justify-center md:px-[38px] px-4">
+          <p className="md:text-[12px] text-[11.41px] font-[400] md:leading-[16px] leading-[13.81px] text-[#ffffff] uppercase tracking-[0.4px]">
             POWERED BY FLEETOPSX | COPYRIGHT {new Date().getFullYear()}
           </p>
         </footer>
