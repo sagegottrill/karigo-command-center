@@ -54,7 +54,7 @@ function DriverProfilePage() {
     <>
       <PageHeader
         title={driver.name}
-        description={`${driver.id} · ${driver.department} · Employee ${driver.employeeId}`}
+        description={`${driver.department} · Employee ${driver.employeeId}`}
         meta={
           <>
             <StatusBadge status={driver.status} />

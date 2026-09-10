@@ -37,9 +37,9 @@ function HrStaffDirectory() {
 
   const columns = [
     {
-      accessorKey: "staffId",
+      accessorKey: "employeeId",
       header: "Staff ID",
-      cell: (row: any) => <span className="font-semibold">{row.staffId}</span>,
+      cell: (row: any) => <span className="font-semibold">{row.employeeId || row.staffId}</span>,
     },
     {
       accessorKey: "name",

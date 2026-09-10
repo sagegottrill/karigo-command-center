@@ -55,7 +55,7 @@ function DriversPage() {
         </span>
       ),
     },
-    { key: "id", header: "ID", sortValue: (r) => r.id, cell: (r) => <span className="num">{r.id}</span> },
+    { key: "id", header: "ID", sortValue: (r) => r.employeeId, cell: (r) => <span className="num font-semibold">{r.employeeId}</span> },
     { key: "license", header: "License", cell: (r) => <span className="num text-muted-foreground">{r.licenseNumber}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     {
