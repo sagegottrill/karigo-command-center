@@ -24,25 +24,54 @@ import {
   applyLoginSession,
   liveCreateDriver,
   liveCreateExpense,
+  liveCreateFuel,
   liveCreateGate,
+  liveCreateInventory,
+  liveCreateInventoryRequisition,
+  liveCreateProcurement,
+  liveCreateTenant,
   liveCreateTrip,
   liveCreateTruck,
+  liveCreateUser,
   liveCreateWorkOrder,
   liveDeleteDriver,
+  liveDeleteTenant,
   liveDeleteTrip,
   liveDeleteTruck,
+  liveDeleteUser,
+  liveGetTenantBySlug,
   liveGetTrip,
+  liveListAudit,
+  liveListConversations,
   liveListDrivers,
   liveListExpenses,
+  liveListFuel,
   liveListGate,
+  liveListInventory,
+  liveListInventoryRequisitions,
+  liveListLoginReports,
+  liveListNotifications,
+  liveListProcurement,
+  liveListTenants,
   liveListTrips,
   liveListTrucks,
+  liveListUsers,
   liveListWorkOrders,
   liveLogin,
+  liveMarkAllNotificationsRead,
+  liveMarkConversationRead,
+  liveReleaseInventory,
+  liveSendMessage,
+  liveToggleNotification,
   liveUpdateDriver,
   liveUpdateExpense,
+  liveUpdateFuel,
+  liveUpdateInventory,
+  liveUpdateProcurement,
+  liveUpdateTenant,
   liveUpdateTrip,
   liveUpdateTruck,
+  liveUpdateUser,
   liveUpdateWorkOrder,
   logoutLive,
 } from "./live-api";
@@ -109,16 +138,23 @@ function isolateUser<T extends { companyId?: string }>(users: T[]): T[] {
 
 /* -------------------------------- tenants --------------------------------- */
 export const tenantService = {
-  list: () => settle([...store.platformTenants]),
-  getBySlug: (slug: string) => settle(store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug) || null),
-  create: (name: string, domain: string, logo?: string) => {
+  list: async () => {
+    if (!useMock()) return liveListTenants();
+    return settle([...store.platformTenants]);
+  },
+  getBySlug: async (slug: string) => {
+    if (!useMock()) return liveGetTenantBySlug(slug);
+    return settle(store.platformTenants.find(t => t.tenantSlug === slug || t.domain === slug) || null);
+  },
+  create: async (name: string, domain: string, logo?: string) => {
+    if (!useMock()) return liveCreateTenant(name, domain, logo);
     const id = `tnt_${String(100 + store.platformTenants.length).padStart(3, "0")}`;
     const newTenant = {
       id,
       name,
       domain,
       logo,
-      status: "Active" as const, // For demo, immediately active
+      status: "Active" as const,
       activeTrucks: 0,
       totalOrders: 0,
       joinedAt: new Date().toISOString().split("T")[0]!,
@@ -126,13 +162,20 @@ export const tenantService = {
     store.platformTenants = [...store.platformTenants, newTenant];
     return settle(newTenant);
   },
-  updateTenant: (id: string, updates: Partial<PlatformTenant>) => {
+  updateTenant: async (id: string, updates: Partial<PlatformTenant>) => {
+    if (!useMock()) {
+      await liveUpdateTenant(id, updates);
+      return true;
+    }
     store.platformTenants = store.platformTenants.map((t) => (t.id === id ? { ...t, ...updates } : t));
     return settle(true);
   },
-  deleteTenant: (id: string) => {
+  deleteTenant: async (id: string) => {
+    if (!useMock()) {
+      await liveDeleteTenant(id);
+      return true;
+    }
     store.platformTenants = store.platformTenants.filter(t => t.id !== id);
-    // Cleanup any users associated with this tenant
     store.users = store.users.filter(u => u.companyId !== id);
     return settle(true);
   }
@@ -667,15 +710,24 @@ export const orderService = {
 
 /* ----------------------------------- fuel --------------------------------- */
 export const fuelService = {
-  list: () => settle([...store.fuel]),
-  approve: (id: string) => {
+  list: async () => {
+    if (!useMock()) return liveListFuel();
+    return settle([...store.fuel]);
+  },
+  approve: async (id: string) => {
+    if (!useMock()) {
+      const list = await liveListFuel();
+      const f = list.find((x) => x.id === id);
+      if (!f) return false;
+      await liveUpdateFuel(id, { status: "Approved", approvedLitres: f.expectedConsumption });
+      return true;
+    }
     store.fuel = store.fuel.map((f) => {
       if (f.id === id) {
-        // Generate an expense in accounts
         store.expenses = [
           {
             id: `EXP-${String(300 + store.expenses.length).padStart(5, "0")}`,
-            type: "Direct Cost",
+            type: "Fuel",
             amount: f.cost,
             standardRate: f.cost * 0.9,
             requester: f.driverName,
@@ -693,7 +745,11 @@ export const fuelService = {
     });
     return settle(true);
   },
-  reject: (id: string) => {
+  reject: async (id: string) => {
+    if (!useMock()) {
+      await liveUpdateFuel(id, { status: "Rejected", approvedLitres: 0 });
+      return true;
+    }
     store.fuel = store.fuel.map((f) =>
       f.id === id ? { ...f, status: "Rejected" as const, approvedLitres: 0 } : f,
     );
@@ -784,6 +840,13 @@ export const engineeringService = {
         status: "Pending",
         tripId: wo.id,
       });
+      await liveCreateProcurement({
+        partName: category || defect,
+        quantity: 1,
+        linkedId: truckReg,
+        status: "Requested",
+        date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      });
       return wo.id;
     }
     const id = `ENG-${String(480 + store.workOrders.length).padStart(5, "0")}`;
@@ -820,15 +883,24 @@ export const engineeringService = {
 
 /* -------------------------------- inventory ------------------------------- */
 export const inventoryService = {
-  list: () => settle([...store.inventory]),
-  requisitions: () => settle([...store.inventoryRequisitions]),
-  release: (itemId: string, qty: number, reqId?: string) => {
+  list: async () => {
+    if (!useMock()) return liveListInventory();
+    return settle([...store.inventory]);
+  },
+  requisitions: async () => {
+    if (!useMock()) return liveListInventoryRequisitions();
+    return settle([...store.inventoryRequisitions]);
+  },
+  release: async (itemId: string, qty: number, reqId?: string) => {
     if (!reqId) return Promise.reject(new Error("Release requires a valid requisition ID."));
+    if (!useMock()) {
+      await liveReleaseInventory(itemId, qty, reqId);
+      return true;
+    }
     const req = store.inventoryRequisitions.find((r) => r.id === reqId);
     if (!req) return Promise.reject(new Error("Requisition not found."));
     if (req.status !== "Pending") return Promise.reject(new Error("Requisition is already processed."));
     
-    // Check if WO is active (not completed)
     const wo = store.workOrders.find(w => w.id === req.workOrder);
     if (!wo || wo.status === "Completed") return Promise.reject(new Error("Requisition is not linked to an active repair order."));
 
@@ -848,7 +920,11 @@ export const inventoryService = {
 
     return settle(true);
   },
-  updateReorderLevel: (itemId: string, level: number) => {
+  updateReorderLevel: async (itemId: string, level: number) => {
+    if (!useMock()) {
+      await liveUpdateInventory(itemId, { reorderLevel: level });
+      return true;
+    }
     store.inventory = store.inventory.map((i) => {
       if (i.id !== itemId) return i;
       return {
@@ -863,32 +939,19 @@ export const inventoryService = {
 
 /* ------------------------------- procurement ------------------------------ */
 export const procurementService = {
-  list: () => settle([...store.procurement]),
-  markProcured: (id: string) => {
+  list: async () => {
+    if (!useMock()) return liveListProcurement();
+    return settle([...store.procurement]);
+  },
+  markProcured: async (id: string) => {
+    if (!useMock()) {
+      await liveUpdateProcurement(id, { status: "Procured" });
+      return true;
+    }
     const pr = store.procurement.find(p => p.id === id);
     if (!pr) return settle(false);
 
     store.procurement = store.procurement.map((p) => (p.id === id ? { ...p, status: "Procured" } : p));
-    
-    // Automatically advance engineering work order if waiting on parts
-    const wo = store.workOrders.find(w => w.truckReg === pr.truckReg && w.status === "Awaiting Parts");
-    if (wo) {
-      store.workOrders = store.workOrders.map(w => w.id === wo.id ? { ...w, status: "Repairing" } : w);
-    }
-    
-    // Auto-notify engineering and fleet mgr
-    store.notifications = [
-      {
-        id: `NTF-${Date.now()}`,
-        category: "Engineering",
-        title: "Part Procured",
-        body: `Procurement request ${id} (${pr.part}) marked as Procured.`,
-        time: "Just now",
-        read: false,
-        severity: "success",
-      },
-      ...store.notifications,
-    ];
     return settle(true);
   },
 };
@@ -1027,8 +1090,16 @@ export const gateService = {
 
 /* ------------------------------- collaboration ---------------------------- */
 export const messageService = {
-  list: () => settle([...store.conversations]),
-  send: (conversationId: string, body: string) => {
+  list: async () => {
+    if (!useMock()) return liveListConversations();
+    return settle([...store.conversations]);
+  },
+  send: async (conversationId: string, body: string) => {
+    if (!useMock()) {
+      const user = authService.getCurrentUser();
+      await liveSendMessage(conversationId, body, user?.name || "You", user?.roles?.[0] || "Ops");
+      return true;
+    }
     store.conversations = store.conversations.map((c) =>
       c.id === conversationId
         ? {
@@ -1044,7 +1115,11 @@ export const messageService = {
     );
     return settle(true);
   },
-  markRead: (conversationId: string) => {
+  markRead: async (conversationId: string) => {
+    if (!useMock()) {
+      await liveMarkConversationRead(conversationId);
+      return true;
+    }
     store.conversations = store.conversations.map((c) =>
       c.id === conversationId ? { ...c, unread: 0 } : c,
     );
@@ -1053,7 +1128,8 @@ export const messageService = {
 };
 
 export const notificationService = {
-  list: () => {
+  list: async () => {
+    if (!useMock()) return liveListNotifications();
     let notifications = [...store.notifications];
     const roles = authService.getRoles();
     if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
@@ -1061,7 +1137,11 @@ export const notificationService = {
     }
     return settle(notifications);
   },
-  getUnreadCount: () => {
+  getUnreadCount: async () => {
+    if (!useMock()) {
+      const list = await liveListNotifications();
+      return list.filter((n) => !n.read).length;
+    }
     let notifications = [...store.notifications];
     const roles = authService.getRoles();
     if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
@@ -1069,34 +1149,62 @@ export const notificationService = {
     }
     return notifications.filter(n => !n.read).length;
   },
-  markAllRead: () => {
+  markAllRead: async () => {
+    if (!useMock()) {
+      await liveMarkAllNotificationsRead();
+      return true;
+    }
     store.notifications = store.notifications.map((n) => ({ ...n, read: true }));
     return settle(true);
   },
-  toggleRead: (id: string) => {
+  toggleRead: async (id: string) => {
+    if (!useMock()) {
+      const list = await liveListNotifications();
+      const current = list.find((n) => n.id === id);
+      await liveToggleNotification(id, !(current?.read ?? false));
+      return true;
+    }
     store.notifications = store.notifications.map((n) => (n.id === id ? { ...n, read: !n.read } : n));
     return settle(true);
   },
 };
 
-export const auditService = { list: () => settle([...store.audit]) };
+export const auditService = {
+  list: async () => {
+    if (!useMock()) return liveListAudit();
+    return settle([...store.audit]);
+  },
+};
+
 export const adminService = {
   tenant: () => settle(db.TENANT),
-  users: () => settle(isolateUser([...store.users])),
+  users: async () => {
+    if (!useMock()) return liveListUsers();
+    return settle(isolateUser([...store.users]));
+  },
   roles: () => settle(db.ROLES),
-  loginReports: () => settle([...store.loginReports]),
-  createUser: (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string; email?: string }) => {
-    const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
+  loginReports: async () => {
+    if (!useMock()) return liveListLoginReports();
+    return settle([...store.loginReports]);
+  },
+  createUser: async (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string; email?: string }) => {
     const name = `${payload.firstName} ${payload.surname}`;
-    
-    // Determine the email domain based on the user's role or partner company
     let emailDomain = "petroline.ng";
     if (payload.roles.includes("Customer Portals (External)") && payload.partnerCompanyName) {
       emailDomain = payload.partnerCompanyName.toLowerCase().replace(/[^a-z]+/g, "") + ".com";
     }
-    
     const email = payload.email || `${payload.username}@${emailDomain}`;
-
+    if (!useMock()) {
+      return liveCreateUser({
+        email,
+        name,
+        role: payload.roles[0] || "Transport Manager",
+        password: "ChangeMe@2026",
+        tenantId: payload.companyId,
+        status: "Active",
+      });
+    }
+    const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
     const newUser: import("./types").User = {
       id,
       name,
@@ -1115,23 +1223,48 @@ export const adminService = {
     store.users = [newUser, ...store.users];
     return settle(newUser);
   },
-  resetPassword: (userId: string) => {
+  resetPassword: async (userId: string) => {
+    if (!useMock()) {
+      await liveUpdateUser(userId, { password: "ChangeMe@2026" });
+      return true;
+    }
     store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: true } : u);
     return settle(true);
   },
-  editUser: (id: string, payload: Partial<import("./types").User>) => {
+  editUser: async (id: string, payload: Partial<import("./types").User>) => {
+    if (!useMock()) {
+      await liveUpdateUser(id, {
+        name: payload.name,
+        role: payload.roles?.[0],
+        status: payload.status,
+        tenantId: payload.companyId,
+      });
+      return true;
+    }
     store.users = store.users.map(u => u.id === id ? { ...u, ...payload, roleNames: payload.roles || u.roleNames } : u);
     return settle(true);
   },
-  activateUser: (id: string) => {
+  activateUser: async (id: string) => {
+    if (!useMock()) {
+      await liveUpdateUser(id, { status: "Active" });
+      return true;
+    }
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Active" } : u);
     return settle(true);
   },
-  suspendUser: (id: string) => {
+  suspendUser: async (id: string) => {
+    if (!useMock()) {
+      await liveUpdateUser(id, { status: "Suspended" });
+      return true;
+    }
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Suspended" } : u);
     return settle(true);
   },
-  deleteUser: (id: string) => {
+  deleteUser: async (id: string) => {
+    if (!useMock()) {
+      await liveDeleteUser(id);
+      return true;
+    }
     store.users = store.users.map(u => u.id === id ? { ...u, status: "Deleted" } : u);
     return settle(true);
   },
@@ -1148,13 +1281,16 @@ export const dashboardService = {
   }),
   getOverview: async () => {
     if (!useMock()) {
-      const [trips, trucks, drivers, expenses, gateEntries, workOrders] = await Promise.all([
+      const [trips, trucks, drivers, expenses, gateEntries, workOrders, inventory, procurement, alerts] = await Promise.all([
         liveListTrips().catch(() => [] as Trip[]),
         liveListTrucks().catch(() => [] as TruckHead[]),
         liveListDrivers().catch(() => [] as Driver[]),
         liveListExpenses().catch(() => [] as Expense[]),
         liveListGate().catch(() => [] as GateEntry[]),
         liveListWorkOrders().catch(() => [] as WorkOrder[]),
+        liveListInventory().catch(() => [] as InventoryItem[]),
+        liveListProcurement().catch(() => [] as import("./types").ProcurementRequest[]),
+        liveListNotifications().catch(() => [] as import("./types").Notification[]),
       ]);
       return {
         trips,
@@ -1162,10 +1298,15 @@ export const dashboardService = {
         drivers,
         expenses,
         gateEntries,
-        alerts: [],
+        alerts: alerts.map((n) => ({
+          id: n.id,
+          level: (n.severity === "critical" ? "Critical" : n.severity === "warning" ? "Warning" : "System") as "Critical" | "Warning" | "Approval" | "System",
+          message: `${n.title}: ${n.body}`,
+          reference: n.category,
+        })),
         workOrders,
-        inventory: [],
-        procurement: [],
+        inventory,
+        procurement,
         charts: {
           costRevenue: db.CHART_COST_REVENUE,
           utilisation: db.CHART_UTILISATION,

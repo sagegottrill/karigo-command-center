@@ -125,8 +125,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       throw redirect({ to: "/" });
     }
     
-    const platformTenants = await tenantService.list();
-    const platformTenant = platformTenants.find(t => t.tenantSlug === tenantSlug || t.domain === tenantSlug);
+    const platformTenant = tenantSlug
+      ? await tenantService.getBySlug(tenantSlug)
+      : null;
     const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? "Unknown Tenant" : "FleetOpsX");
     const tenantLogo = platformTenant?.logo;
 

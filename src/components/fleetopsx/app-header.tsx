@@ -33,7 +33,19 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hits = globalSearch(query);
   const groups = [...new Set(hits.map((h) => h.group))];
-  const unread = notificationService.getUnreadCount();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void notificationService.getUnreadCount().then((count) => {
+      if (!cancelled) setUnread(count);
+    }).catch(() => {
+      if (!cancelled) setUnread(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const active = NAV.find((n) =>
     n.to === "/workspace/app" ? pathname === "/workspace/app" || pathname === "/workspace/app/" : pathname.startsWith(n.to),

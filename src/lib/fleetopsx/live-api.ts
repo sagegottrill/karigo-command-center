@@ -3,10 +3,19 @@
  */
 import { api, allowMockFallback, setToken, clearSession, setStoredUser } from "./apiClient";
 import type {
+  AuditLog,
+  Conversation,
   Driver,
   Expense,
   ExpenseStatus,
+  FuelRequisition,
   GateEntry,
+  InventoryItem,
+  InventoryRequisition,
+  LoginReport,
+  Notification,
+  PlatformTenant,
+  ProcurementRequest,
   Trip,
   TripStatus,
   TruckHead,
@@ -413,6 +422,221 @@ export async function liveCreateGate(entry: Partial<GateEntry>): Promise<GateEnt
       status: "Logged",
     }),
   );
+}
+
+/* ---------------------------- inventory / parts --------------------------- */
+export function mapInventoryItem(i: Record<string, unknown>): InventoryItem {
+  return {
+    id: String(i.id ?? ""),
+    name: String(i.name ?? ""),
+    sku: String(i.sku ?? ""),
+    category: String(i.category ?? ""),
+    stock: Number(i.stock ?? 0),
+    reorderLevel: Number(i.reorderLevel ?? 0),
+    unitCost: Number(i.unitCost ?? 0),
+    location: String(i.location ?? "Main Store"),
+    status: (i.status as InventoryItem["status"]) || "In Stock",
+  };
+}
+
+export function mapInventoryRequisition(r: Record<string, unknown>): InventoryRequisition {
+  return {
+    id: String(r.id ?? ""),
+    workOrder: String(r.workOrder ?? ""),
+    truckReg: String(r.truckReg ?? ""),
+    mechanic: String(r.mechanic ?? ""),
+    part: String(r.part ?? ""),
+    quantity: Number(r.quantity ?? 0),
+    reason: String(r.reason ?? ""),
+    status: (r.status as InventoryRequisition["status"]) || "Pending",
+    date: String(r.date ?? r.createdAt ?? ""),
+  };
+}
+
+export function mapProcurement(p: Record<string, unknown>): ProcurementRequest {
+  return {
+    id: String(p.id ?? ""),
+    partName: String(p.partName ?? p.part ?? ""),
+    quantity: Number(p.quantity ?? 0),
+    linkedId: String(p.linkedId ?? p.truckReg ?? ""),
+    status: (p.status as ProcurementRequest["status"]) || "Requested",
+    date: String(p.date ?? p.createdAt ?? ""),
+  };
+}
+
+export function mapFuel(f: Record<string, unknown>): FuelRequisition {
+  return {
+    id: String(f.id ?? ""),
+    tripId: String(f.tripId ?? ""),
+    truckReg: String(f.truckReg ?? ""),
+    driverName: String(f.driverName ?? ""),
+    requiredLitres: Number(f.requiredLitres ?? 0),
+    approvedLitres: f.approvedLitres == null ? null : Number(f.approvedLitres),
+    expectedConsumption: Number(f.expectedConsumption ?? 0),
+    standardEfficiency: Number(f.standardEfficiency ?? 0),
+    odometer: Number(f.odometer ?? 0),
+    status: (f.status as FuelRequisition["status"]) || "Pending",
+    date: String(f.date ?? f.createdAt ?? ""),
+    cost: Number(f.cost ?? 0),
+  };
+}
+
+export function mapNotification(n: Record<string, unknown>): Notification {
+  return {
+    id: String(n.id ?? ""),
+    category: (n.category as Notification["category"]) || "System",
+    title: String(n.title ?? ""),
+    body: String(n.body ?? ""),
+    time: String(n.time ?? "Just now"),
+    read: Boolean(n.read),
+    severity: (n.severity as Notification["severity"]) || "info",
+  };
+}
+
+export function mapConversation(c: Record<string, unknown>): Conversation {
+  return {
+    id: String(c.id ?? ""),
+    kind: (c.kind as Conversation["kind"]) || "direct",
+    name: String(c.name ?? ""),
+    subtitle: String(c.subtitle ?? ""),
+    unread: Number(c.unread ?? 0),
+    lastAt: String(c.lastAt ?? "now"),
+    tripId: c.tripId ? String(c.tripId) : undefined,
+    participants: Array.isArray(c.participants) ? c.participants.map(String) : [],
+    messages: Array.isArray(c.messages) ? (c.messages as Conversation["messages"]) : [],
+  };
+}
+
+export function mapTenant(t: Record<string, unknown>): PlatformTenant {
+  return {
+    id: String(t.id ?? ""),
+    name: String(t.name ?? ""),
+    domain: String(t.domain ?? ""),
+    tenantSlug: t.tenantSlug ? String(t.tenantSlug) : undefined,
+    logo: t.logo ? String(t.logo) : undefined,
+    status: (t.status as PlatformTenant["status"]) || "Active",
+    activeTrucks: Number(t.activeTrucks ?? 0),
+    totalOrders: Number(t.totalOrders ?? 0),
+    joinedAt: String(t.joinedAt ?? "").slice(0, 10),
+  };
+}
+
+export async function liveListInventory(): Promise<InventoryItem[]> {
+  return asList(await api.get("/inventory")).map(mapInventoryItem);
+}
+export async function liveCreateInventory(body: Record<string, unknown>): Promise<InventoryItem> {
+  return mapInventoryItem(await api.post("/inventory", body));
+}
+export async function liveUpdateInventory(id: string, body: Record<string, unknown>): Promise<InventoryItem> {
+  return mapInventoryItem(await api.patch(`/inventory/${id}`, body));
+}
+export async function liveListInventoryRequisitions(): Promise<InventoryRequisition[]> {
+  return asList(await api.get("/inventory-requisitions")).map(mapInventoryRequisition);
+}
+export async function liveCreateInventoryRequisition(body: Record<string, unknown>): Promise<InventoryRequisition> {
+  return mapInventoryRequisition(await api.post("/inventory-requisitions", body));
+}
+export async function liveReleaseInventory(itemId: string, qty: number, reqId: string): Promise<void> {
+  await api.post(`/inventory/${itemId}/release`, { qty, reqId });
+}
+
+export async function liveListProcurement(): Promise<ProcurementRequest[]> {
+  return asList(await api.get("/procurement")).map(mapProcurement);
+}
+export async function liveCreateProcurement(body: Record<string, unknown>): Promise<ProcurementRequest> {
+  return mapProcurement(await api.post("/procurement", body));
+}
+export async function liveUpdateProcurement(id: string, body: Record<string, unknown>): Promise<ProcurementRequest> {
+  return mapProcurement(await api.patch(`/procurement/${id}`, body));
+}
+
+export async function liveListFuel(): Promise<FuelRequisition[]> {
+  return asList(await api.get("/fuel")).map(mapFuel);
+}
+export async function liveCreateFuel(body: Record<string, unknown>): Promise<FuelRequisition> {
+  return mapFuel(await api.post("/fuel", body));
+}
+export async function liveUpdateFuel(id: string, body: Record<string, unknown>): Promise<FuelRequisition> {
+  return mapFuel(await api.patch(`/fuel/${id}`, body));
+}
+
+export async function liveListNotifications(): Promise<Notification[]> {
+  return asList(await api.get("/notifications")).map(mapNotification);
+}
+export async function liveMarkAllNotificationsRead(): Promise<void> {
+  await api.post("/notifications/mark-all-read");
+}
+export async function liveToggleNotification(id: string, read: boolean): Promise<void> {
+  await api.patch(`/notifications/${id}`, { read });
+}
+
+export async function liveListConversations(): Promise<Conversation[]> {
+  return asList(await api.get("/conversations")).map(mapConversation);
+}
+export async function liveSendMessage(conversationId: string, body: string, author?: string, role?: string): Promise<void> {
+  await api.post(`/conversations/${conversationId}/messages`, { body, author, role });
+}
+export async function liveMarkConversationRead(conversationId: string): Promise<void> {
+  await api.patch(`/conversations/${conversationId}`, { unread: 0 });
+}
+
+export async function liveListTenants(): Promise<PlatformTenant[]> {
+  return asList(await api.get("/tenants")).map(mapTenant);
+}
+export async function liveGetTenantBySlug(slug: string): Promise<PlatformTenant | null> {
+  try {
+    return mapTenant((await api.get(`/tenants/slug/${slug}`)) as Record<string, unknown>);
+  } catch (err) {
+    const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
+    if (status === 404) return null;
+    throw err;
+  }
+}
+export async function liveCreateTenant(name: string, domain: string, logo?: string): Promise<PlatformTenant> {
+  return mapTenant(await api.post("/tenants", { name, domain, tenantSlug: domain, logo, status: "Active" }));
+}
+export async function liveUpdateTenant(id: string, updates: Partial<PlatformTenant>): Promise<PlatformTenant> {
+  return mapTenant(await api.patch(`/tenants/${id}`, updates));
+}
+export async function liveDeleteTenant(id: string): Promise<void> {
+  await api.delete(`/tenants/${id}`);
+}
+
+export async function liveListUsers(): Promise<User[]> {
+  return asList(await api.get("/users")).map((u) => normalizeUser(u as User & { role?: string; roles?: string[] }));
+}
+export async function liveCreateUser(body: Record<string, unknown>): Promise<User> {
+  return normalizeUser(await api.post("/users", body));
+}
+export async function liveUpdateUser(id: string, body: Record<string, unknown>): Promise<User> {
+  return normalizeUser(await api.patch(`/users/${id}`, body));
+}
+export async function liveDeleteUser(id: string): Promise<void> {
+  await api.delete(`/users/${id}`);
+}
+export async function liveListAudit(): Promise<AuditLog[]> {
+  return asList(await api.get("/audit")).map((a) => ({
+    id: String(a.id ?? ""),
+    timestamp: String(a.timestamp ?? ""),
+    user: String(a.user ?? ""),
+    module: String(a.module ?? ""),
+    action: String(a.action ?? ""),
+    record: String(a.record ?? ""),
+    device: String(a.device ?? "Web"),
+    ip: String(a.ip ?? "—"),
+  }));
+}
+export async function liveListLoginReports(): Promise<LoginReport[]> {
+  return asList(await api.get("/login-reports")).map((r) => ({
+    id: String(r.id ?? ""),
+    userId: String(r.userId ?? ""),
+    name: String(r.name ?? ""),
+    role: String(r.role ?? ""),
+    timestamp: String(r.timestamp ?? ""),
+    device: String(r.device ?? "Web"),
+    ip: String(r.ip ?? "—"),
+    status: (r.status as LoginReport["status"]) || "Success",
+  }));
 }
 
 export function applyLoginSession(token: string, user: User & { roles?: string[]; role?: string }) {

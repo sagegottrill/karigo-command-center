@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ClipboardList, Truck, History, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -5,7 +6,19 @@ import { notificationService } from "@/lib/fleetopsx/services";
 
 export function StaffBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const unreadCount = notificationService.getUnreadCount();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void notificationService.getUnreadCount().then((count) => {
+      if (!cancelled) setUnreadCount(count);
+    }).catch(() => {
+      if (!cancelled) setUnreadCount(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const navItems = [
     {

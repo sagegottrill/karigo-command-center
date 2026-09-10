@@ -143,7 +143,7 @@ export function HRDashboard({ alerts }: DashboardProps) {
 
 export function EngineerDashboard({ workOrders, inventory }: DashboardProps) {
   const activeRepairs = workOrders.filter(w => w.status === "Repairing");
-  const lowStock = inventory.filter(i => i.stock < i.min);
+  const lowStock = inventory.filter(i => i.stock <= i.reorderLevel);
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Engineering Dashboard</h2>
@@ -165,7 +165,7 @@ export function ProcurementDashboard({ procurement }: DashboardProps) {
         <h3 className="font-semibold mb-4">Requests Queue</h3>
         {pendingRequests.map(p => (
           <div key={p.id} className="flex justify-between py-2 border-b last:border-0">
-            <span>{p.item} ({p.quantity})</span>
+            <span>{p.partName} ({p.quantity})</span>
             <StatusBadge status={p.status} />
           </div>
         ))}
