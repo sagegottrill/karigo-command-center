@@ -63,9 +63,17 @@ const tooltipStyle = {
 };
 
 function Dashboard() {
-  const roles = authService.getRoles();
   const data = Route.useLoaderData();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
+  // Roles come from localStorage — keep SSR and first client paint identical
+  // so React does not throw hydration error #418.
+  if (!mounted) {
+    return <ManagementDashboard data={data} />;
+  }
+
+  const roles = authService.getRoles();
   if (roles.includes("Transport Manager")) return <ManagementDashboard data={data} />;
   if (roles.includes("Fleet Operations")) return <FleetManagerDashboard {...data} />;
   if (roles.includes("Diesel")) return <FuelManagerDashboard {...data} />;
@@ -74,12 +82,13 @@ function Dashboard() {
   if (roles.includes("HR")) return <HRDashboard {...data} />;
   if (roles.includes("Engineering")) return <EngineerDashboard {...data} />;
   if (roles.includes("Parts & Store")) return <ProcurementDashboard {...data} />;
-  
-  // Fallback
-  return <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground flex-col gap-4">
-    <p>No dashboard available for this role.</p>
-    <p>Debug roles: {JSON.stringify(roles)}</p>
-  </div>;
+
+  return (
+    <div className="p-8 flex items-center justify-center min-h-[50vh] text-muted-foreground flex-col gap-4">
+      <p>No dashboard available for this role.</p>
+      <p>Debug roles: {JSON.stringify(roles)}</p>
+    </div>
+  );
 }
 
 function ManagementDashboard({ data }: { data: any }) {
@@ -176,8 +185,12 @@ function ManagementDashboard({ data }: { data: any }) {
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const view = rows.slice(page * pageSize, page * pageSize + pageSize);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = !mounted
+    ? "Good day"
+    : (() => {
+        const hour = new Date().getHours();
+        return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+      })();
 
   const truckZones = [
     { title: "Ready to go", value: ready, color: "#34c759", soft: "rgba(52,199,89,0.12)", icon: Truck, to: "/workspace/app/fleet" as const, hint: "Can leave the yard today" },

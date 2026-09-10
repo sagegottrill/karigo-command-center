@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, X, Upload, Download, Copy, Mail, MessageCircle } from "lucide-react";
+import { ArrowLeft, X, Upload, Download, Copy, Mail, MessageCircle, MoreVertical } from "lucide-react";
 import { useState, useRef } from "react";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
