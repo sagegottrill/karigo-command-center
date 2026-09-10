@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/fleetopsx/page-header";
 import { DataTable } from "@/components/fleetopsx/data-table";
-import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import { driverService } from "@/lib/fleetopsx/services";
 import { Upload, Users, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,31 +30,34 @@ function HrStaffDirectory() {
     licenseExpiry: "2026-12-31"
   });
 
+  const refreshDrivers = async () => {
+    const list = await driverService.list();
+    setDrivers(list);
+  };
+
   const handleAddStaff = async () => {
     if (!newStaff.name || !newStaff.phone) {
       toast.error("Name and Phone are required.");
       return;
     }
-    await driverService.create(newStaff);
-    toast.success("Staff added successfully!");
-    setIsAddOpen(false);
-    setNewStaff({ name: "", phone: "", licenseNumber: "", licenseCategory: "Professional", licenseExpiry: "2026-12-31" });
-    router.invalidate();
-    
-    // Refresh local list since loader might not refetch instantly
-    const mockDrivers = await driverService.list();
-    setDrivers(mockDrivers);
+    try {
+      await driverService.create(newStaff);
+      toast.success("Staff added successfully!");
+      setIsAddOpen(false);
+      setNewStaff({ name: "", phone: "", licenseNumber: "", licenseCategory: "Professional", licenseExpiry: "2026-12-31" });
+      await refreshDrivers();
+      router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add staff");
+    }
   };
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await fetchApi('/drivers');
-        setDrivers(data);
+        await refreshDrivers();
       } catch (err) {
-        console.warn("Live API failed, using mock", err);
-        const mockDrivers = await driverService.list();
-        setDrivers(mockDrivers);
+        toast.error(err instanceof Error ? err.message : "Failed to load staff directory");
       } finally {
         setIsLoading(false);
       }
@@ -64,7 +66,7 @@ function HrStaffDirectory() {
   }, []);
 
   const handleUpload = () => {
-    alert("Upload functionality to be integrated. The current list was seeded from your Excel file!");
+    toast.message("Bulk upload", { description: "Connect your HR import endpoint to enable CSV/Excel upload." });
   };
 
   const columns = [
@@ -79,7 +81,7 @@ function HrStaffDirectory() {
       cell: (row: any) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-semibold text-xs border border-slate-200">
-            {row.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+            {row.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || "—"}
           </div>
           <div>
             <div className="font-medium">{row.name}</div>

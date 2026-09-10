@@ -12,4 +12,14 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      proxy: {
+        "/api": {
+          target: "http://2.28.45.216",
+          changeOrigin: true,
+        },
+      },
+    },
+  },
 });

@@ -39,21 +39,26 @@ function CustomerLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(false);
-    const user = await authService.login(username);
-    if (!user) {
+    try {
+      const user = await authService.login(username, password);
+      if (!user) {
+        setLoginError(true);
+        toast.error("Invalid credentials.");
+        return;
+      }
+      if (!user.roles.includes("Customer Portals (External)")) {
+        setLoginError(true);
+        toast.error("Access denied. Please use the main employee login portal.");
+        authService.logout();
+        return;
+      }
+      authService.setRoles(user.roles ?? []);
+      toast.success("Welcome back", { description: `Signed in as ${user.name}` });
+      navigate({ to: "/workspace/customer-portal/dashboard" });
+    } catch (err) {
       setLoginError(true);
-      toast.error("Invalid credentials.");
-      return;
+      toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
     }
-    if (!user.roles.includes("Customer Portals (External)")) {
-      setLoginError(true);
-      toast.error("Access denied. Please use the main employee login portal.");
-      authService.logout();
-      return;
-    }
-    
-    toast.success("Welcome back", { description: `Signed in as ${user.name}` });
-    navigate({ to: "/workspace/customer-portal/dashboard" });
   };
 
   return (

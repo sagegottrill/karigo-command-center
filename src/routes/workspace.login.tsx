@@ -32,16 +32,20 @@ function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(false);
-    const user = await authService.login(username);
-    if (!user) {
+    try {
+      const user = await authService.login(username, password);
+      if (!user) {
+        setLoginError(true);
+        toast.error("Invalid credentials or suspended account.");
+        return;
+      }
+      authService.setRoles(user.roles ?? []);
+      toast.success(`Welcome back, ${user?.name}`);
+      navigate({ to: "/workspace/app" });
+    } catch (err) {
       setLoginError(true);
-      toast.error("Invalid credentials or suspended account.");
-      return;
+      toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
     }
-    // Auto-set the user's roles from their profile — no manual selection needed
-    authService.setRoles(user.roles);
-    toast.success(`Welcome back, ${user?.name}`);
-    navigate({ to: "/workspace/app" });
   };
 
   return (

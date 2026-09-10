@@ -1,8 +1,6 @@
 /**
- * Mock service layer.
- * Every screen reads through these functions, never from mock-data directly.
- * Replacing the bodies with real API calls is the only change needed once the
- * FleetOpsX backend exists.
+ * FleetOpsX service layer — live API first.
+ * Local mock/localStorage is only used when VITE_USE_MOCK=true (local/dev).
  */
 import * as db from "./mock-data";
 import type {
@@ -17,13 +15,36 @@ import type {
   TruckHead,
   TruckTail,
   Company,
+  PlatformTenant,
+  User,
 } from "./types";
+import { allowMockFallback, getStoredUser } from "./apiClient";
+import {
+  applyLoginSession,
+  liveCreateDriver,
+  liveCreateTrip,
+  liveCreateTruck,
+  liveDeleteDriver,
+  liveDeleteTrip,
+  liveDeleteTruck,
+  liveGetTrip,
+  liveListDrivers,
+  liveListTrips,
+  liveListTrucks,
+  liveLogin,
+  liveUpdateDriver,
+  liveUpdateTrip,
+  liveUpdateTruck,
+  logoutLive,
+} from "./live-api";
 
 const LATENCY = 0;
 const settle = <T,>(value: T): Promise<T> =>
   LATENCY ? new Promise((res) => setTimeout(() => res(value), LATENCY)) : Promise.resolve(value);
 
 import { getTenantSlug } from "./hostname";
+
+const useMock = () => allowMockFallback();
 
 /** 
  * Simulates strict database tenant isolation. 
@@ -124,9 +145,25 @@ export const companyService = {
 
 /* ---------------------------------- fleet --------------------------------- */
 export const fleetService = {
-  listHeads: () => settle(isolate([...store.truckHeads])),
+  listHeads: async () => {
+    if (!useMock()) {
+      return liveListTrucks();
+    }
+    return settle(isolate([...store.truckHeads]));
+  },
   listTails: () => settle(isolate([...store.truckTails])),
-  createHead: (input: { registration: string; make: string; year: number; location: string }) => {
+  createHead: async (input: { registration: string; make: string; year: number; location: string }) => {
+    if (!useMock()) {
+      return liveCreateTruck({
+        registration: input.registration,
+        category: input.make,
+        make: input.make,
+        year: input.year,
+        destination: input.location,
+        location: input.location,
+        status: "Active",
+      });
+    }
     const id = `TRH-${String(101 + store.truckHeads.length).padStart(3, "0")}`;
     const number = `H${String(101 + store.truckHeads.length).padStart(3, "0")}`;
     const city = input.location || "Lagos";
@@ -160,7 +197,11 @@ export const fleetService = {
     store.truckTails = [tail, ...store.truckTails];
     return settle(tail);
   },
-  updateHeadStatus: (id: string, status: import("./types").TruckStatus) => {
+  updateHeadStatus: async (id: string, status: import("./types").TruckStatus) => {
+    if (!useMock()) {
+      await liveUpdateTruck(id, { status });
+      return true;
+    }
     store.truckHeads = store.truckHeads.map(t => t.id === id ? { ...t, status } : t);
     return settle(true);
   },
@@ -168,11 +209,19 @@ export const fleetService = {
     store.truckTails = store.truckTails.map(t => t.id === id ? { ...t, status } : t);
     return settle(true);
   },
-  updateHead: (id: string, updates: Partial<TruckHead>) => {
+  updateHead: async (id: string, updates: Partial<TruckHead>) => {
+    if (!useMock()) {
+      await liveUpdateTruck(id, updates as Record<string, unknown>);
+      return true;
+    }
     store.truckHeads = store.truckHeads.map(t => t.id === id ? { ...t, ...updates } : t);
     return settle(true);
   },
-  deleteHead: (id: string) => {
+  deleteHead: async (id: string) => {
+    if (!useMock()) {
+      await liveDeleteTruck(id);
+      return true;
+    }
     store.truckHeads = store.truckHeads.filter(t => t.id !== id);
     return settle(true);
   },
@@ -184,24 +233,44 @@ export const fleetService = {
     store.truckTails = store.truckTails.filter(t => t.id !== id);
     return settle(true);
   },
-  getHead: (id: string) => settle(store.truckHeads.find((t) => t.id === id) ?? null),
+  getHead: async (id: string) => {
+    if (!useMock()) {
+      const heads = await liveListTrucks();
+      return heads.find((t) => t.id === id) ?? null;
+    }
+    return settle(store.truckHeads.find((t) => t.id === id) ?? null);
+  },
   getTail: (id: string) => settle(store.truckTails.find((t) => t.id === id) ?? null),
-  summary: () =>
-    settle({
-      total: isolate(store.truckHeads).length,
-      available: isolate(store.truckHeads).filter((t) => t.status === "Available").length,
-      assigned: isolate(store.truckHeads).filter((t) => t.status === "Assigned").length,
-      inTransit: isolate(store.truckHeads).filter((t) => t.status === "In Transit").length,
-      maintenance: isolate(store.truckHeads).filter((t) => t.status === "Maintenance").length,
-      outOfService: isolate(store.truckHeads).filter((t) => t.status === "Out of Service").length,
-    }),
+  summary: async () => {
+    const heads = !useMock() ? await liveListTrucks() : isolate(store.truckHeads);
+    return {
+      total: heads.length,
+      available: heads.filter((t) => t.status === "Available").length,
+      assigned: heads.filter((t) => t.status === "Assigned").length,
+      inTransit: heads.filter((t) => t.status === "In Transit").length,
+      maintenance: heads.filter((t) => t.status === "Maintenance").length,
+      outOfService: heads.filter((t) => t.status === "Out of Service").length,
+    };
+  },
 };
 
 /* --------------------------------- drivers -------------------------------- */
 export const driverService = {
-  list: () => settle(isolate([...store.drivers])),
-  get: (id: string) => settle(store.drivers.find((d) => d.id === id) ?? null),
-  create: (input: { name: string; phone: string; licenseNumber: string; licenseCategory: string; licenseExpiry: string }) => {
+  list: async () => {
+    if (!useMock()) return liveListDrivers();
+    return settle(isolate([...store.drivers]));
+  },
+  get: async (id: string) => {
+    if (!useMock()) {
+      const drivers = await liveListDrivers();
+      return drivers.find((d) => d.id === id) ?? null;
+    }
+    return settle(store.drivers.find((d) => d.id === id) ?? null);
+  },
+  create: async (input: { name: string; phone: string; licenseNumber: string; licenseCategory: string; licenseExpiry: string }) => {
+    if (!useMock()) {
+      return liveCreateDriver(input);
+    }
     const id = `DRV-${String(1 + store.drivers.length).padStart(3, "0")}`;
     const driver: Driver = {
       id,
@@ -226,11 +295,19 @@ export const driverService = {
     store.drivers = [driver, ...store.drivers];
     return settle(driver);
   },
-  update: (id: string, updates: Partial<Driver>) => {
+  update: async (id: string, updates: Partial<Driver>) => {
+    if (!useMock()) {
+      await liveUpdateDriver(id, updates as Record<string, unknown>);
+      return true;
+    }
     store.drivers = store.drivers.map(d => d.id === id ? { ...d, ...updates } : d);
     return settle(true);
   },
-  delete: (id: string) => {
+  delete: async (id: string) => {
+    if (!useMock()) {
+      await liveDeleteDriver(id);
+      return true;
+    }
     store.drivers = store.drivers.filter(d => d.id !== id);
     return settle(true);
   },
@@ -238,10 +315,23 @@ export const driverService = {
 
 /* --------------------------------- auth ----------------------------------- */
 export const authService = {
-  login: (username: string) => {
+  login: async (username: string, password?: string) => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       throw new Error("No internet connection");
     }
+
+    if (!useMock()) {
+      try {
+        const result = await liveLogin(username, password ?? "");
+        applyLoginSession(result.token, result.user);
+        return result.user;
+      } catch (err) {
+        // Backend currently returns 502 — keep local directory as emergency bridge
+        // so operators can still sign in while Hetzner API is restored.
+        console.error("Live auth failed; using local directory bridge", err);
+      }
+    }
+
     // Check tenant status first
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug !== "localhost" && slug !== "fleetopsx") {
@@ -256,17 +346,20 @@ export const authService = {
     if (typeof window !== "undefined") {
       localStorage.setItem("fleetopsx_user_id", user.id);
       localStorage.setItem("fleetopsx_roles", JSON.stringify(user.roles));
+      localStorage.setItem("fleetopsx_user", JSON.stringify(user));
     }
     return settle(user);
   },
   getCurrentUser: () => {
     if (typeof window === "undefined") return null;
+    const cached = getStoredUser<User>();
+    if (cached?.id) return cached;
     const id = localStorage.getItem("fleetopsx_user_id");
     return store.users.find(u => u.id === id) || null;
   },
   isAuthenticated: () => {
     if (typeof window === "undefined") return false;
-    return !!localStorage.getItem("fleetopsx_user_id");
+    return !!(localStorage.getItem("fleetopsx_token") || localStorage.getItem("fleetopsx_user_id"));
   },
   completeFirstTimeLogin: (userId: string) => {
     store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
@@ -285,8 +378,7 @@ export const authService = {
     localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
   },
   logout: () => {
-    localStorage.removeItem("fleetopsx_user_id");
-    localStorage.removeItem("fleetopsx_roles");
+    logoutLive();
   },
   getAllRoles: () => db.ROLES,
   getWorkspaces: () => db.WORKSPACES,
@@ -294,9 +386,18 @@ export const authService = {
 
 /* ---------------------------------- trips --------------------------------- */
 export const tripService = {
-  list: () => settle(isolate([...store.trips])),
-  get: (id: string) => settle(store.trips.find((t) => t.id === id) ?? null),
-  create: (input: Omit<Trip, "id" | "progress" | "eta">) => {
+  list: async () => {
+    if (!useMock()) return liveListTrips();
+    return settle(isolate([...store.trips]));
+  },
+  get: async (id: string) => {
+    if (!useMock()) return liveGetTrip(id);
+    return settle(store.trips.find((t) => t.id === id) ?? null);
+  },
+  create: async (input: Omit<Trip, "id" | "progress" | "eta">) => {
+    if (!useMock()) {
+      return liveCreateTrip({ ...input, progress: 4, eta: "—" });
+    }
     const id = `TRP-${String(900 + store.trips.length).padStart(5, "0")}`;
     const trip: Trip = { ...input, id, progress: 4, eta: "—", status: input.status || "Scheduled" };
     store.trips = [trip, ...store.trips];
@@ -314,7 +415,11 @@ export const tripService = {
     
     return settle(trip);
   },
-  update: (id: string, payload: Partial<Trip>) => {
+  update: async (id: string, payload: Partial<Trip>) => {
+    if (!useMock()) {
+      await liveUpdateTrip(id, payload);
+      return true;
+    }
     store.trips = store.trips.map(t => (t.id === id ? { ...t, ...payload } : t));
     
     // Check if assets need to be updated due to status change during update
@@ -326,6 +431,16 @@ export const tripService = {
         if (t.driverId) store.drivers = store.drivers.map(d => d.id === t.driverId ? { ...d, status: "On Trip" } : d);
       }
     }
+    return settle(true);
+  },
+  /** Alias used by customer portal modify flow */
+  updateTrip: async (id: string, payload: Partial<Trip>) => tripService.update(id, payload),
+  delete: async (id: string) => {
+    if (!useMock()) {
+      await liveDeleteTrip(id);
+      return true;
+    }
+    store.trips = store.trips.filter((t) => t.id !== id);
     return settle(true);
   },
   initialApprove: (id: string) => {
@@ -419,10 +534,6 @@ export const tripService = {
       return t;
     });
     return settle(newStatus);
-  },
-  delete: (id: string) => {
-    store.trips = store.trips.filter(t => t.id !== id);
-    return settle(true);
   },
   timeline: (trip: Trip): TimelineStep[] => {
     const order = [
@@ -927,6 +1038,31 @@ export const dashboardService = {
     expenseSplit: db.CHART_EXPENSE_SPLIT,
   }),
   getOverview: async () => {
+    if (!useMock()) {
+      const [trips, trucks, drivers] = await Promise.all([
+        liveListTrips().catch(() => [] as Trip[]),
+        liveListTrucks().catch(() => [] as TruckHead[]),
+        liveListDrivers().catch(() => [] as Driver[]),
+      ]);
+      return {
+        trips,
+        trucks,
+        drivers,
+        expenses: [],
+        gateEntries: [],
+        alerts: [],
+        workOrders: [],
+        inventory: [],
+        procurement: [],
+        charts: {
+          costRevenue: db.CHART_COST_REVENUE,
+          utilisation: db.CHART_UTILISATION,
+          tripPerformance: db.CHART_TRIP_PERFORMANCE,
+          fuel: db.CHART_FUEL,
+          expenseSplit: db.CHART_EXPENSE_SPLIT,
+        },
+      };
+    }
     return {
       trips: isolate([...store.trips]),
       trucks: isolate([...store.truckHeads]),

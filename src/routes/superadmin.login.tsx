@@ -24,19 +24,20 @@ function SuperAdminLoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(false);
-    
-    // Using standard auth, super admin has username "sadmin" typically, 
-    // but any user with "Platform Admin" role works.
-    const user = await authService.login(username);
-    
-    if (!user || !user.roles.includes("Platform Admin")) {
+    try {
+      const user = await authService.login(username, password);
+      if (!user || !user.roles.includes("Platform Admin")) {
+        setLoginError(true);
+        toast.error("Invalid credentials or unauthorized.");
+        return;
+      }
+      authService.setRoles(user.roles ?? []);
+      toast.success(`Welcome back, ${user.name}`);
+      navigate({ to: "/superadmin" });
+    } catch (err) {
       setLoginError(true);
-      toast.error("Invalid credentials or unauthorized.");
-      return;
+      toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
     }
-    
-    toast.success(`Welcome back, ${user.name}`);
-    navigate({ to: "/superadmin" });
   };
 
   return (
