@@ -120,6 +120,13 @@ export async function fetchApi<T = unknown>(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined" && !path.includes("/auth/login")) {
+      clearSession();
+      const next = `${window.location.pathname}${window.location.search}`;
+      if (!window.location.pathname.includes("/workspace/login")) {
+        window.location.assign(`/workspace/login?next=${encodeURIComponent(next)}`);
+      }
+    }
     const message =
       (data && typeof data === "object" && "error" in data && String((data as { error: unknown }).error)) ||
       (data && typeof data === "object" && "message" in data && String((data as { message: unknown }).message)) ||

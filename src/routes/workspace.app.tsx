@@ -5,15 +5,22 @@ import { AppHeader } from "@/components/fleetopsx/app-header";
 import { StaffBottomNav } from "@/components/fleetopsx/staff-bottom-nav";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
+import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
 import { useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/app")({
   beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
-    
-    // Strict enforcement: no user = redirect to login immediately
-    if (!user) {
+    const hasLiveToken = !!getToken();
+
+    // Live mode requires a JWT — clear stale mock/local sessions that only have a user profile
+    if (!allowMockFallback() && user && !hasLiveToken) {
+      clearSession();
+      throw redirect({ to: "/workspace/login" });
+    }
+
+    if (!user || (!allowMockFallback() && !hasLiveToken)) {
       throw redirect({ to: "/workspace/login" });
     }
     

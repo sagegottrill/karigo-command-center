@@ -398,6 +398,7 @@ export const authService = {
   },
   getCurrentUser: () => {
     if (typeof window === "undefined") return null;
+    if (!useMock() && !localStorage.getItem("fleetopsx_token")) return null;
     const cached = getStoredUser<User>();
     if (cached?.id) return cached;
     const id = localStorage.getItem("fleetopsx_user_id");
@@ -405,6 +406,7 @@ export const authService = {
   },
   isAuthenticated: () => {
     if (typeof window === "undefined") return false;
+    if (!useMock()) return !!localStorage.getItem("fleetopsx_token");
     return !!(localStorage.getItem("fleetopsx_token") || localStorage.getItem("fleetopsx_user_id"));
   },
   completeFirstTimeLogin: (userId: string) => {
