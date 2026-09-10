@@ -72,11 +72,6 @@ function DriversPage() {
       <PageHeader
         title="Drivers & HR"
         description="Drivers on duty, licences and who is assigned where."
-        actions={
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => navigate({ to: "/workspace/app/drivers/$driverId", params: { driverId: rows[0]?.id ?? "DRV-001" } })}>
-            Open sample profile
-          </Button>
-        }
       />
 
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">

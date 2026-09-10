@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight,
   ChevronsUpDown, Download, MessageSquare, Phone, Plus, Truck, Wrench,
@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatNaira, tripService, dashboardService, authService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -94,6 +99,35 @@ function ManagementDashboard({ data }: { data: any }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All Trips");
   const [page, setPage] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  
+  const router = useRouter();
+  const [newTrip, setNewTrip] = useState({ customer: "", cargo: "", pickup: "", dropoff: "" });
+
+  const handleCreateTrip = async () => {
+    if (!newTrip.customer || !newTrip.pickup || !newTrip.dropoff) {
+      toast.error("Please fill in customer, pickup, and dropoff.");
+      return;
+    }
+    await tripService.create({
+      customer: newTrip.customer,
+      cargo: newTrip.cargo || "General Cargo",
+      pickup: newTrip.pickup,
+      dropoff: newTrip.dropoff,
+      priority: "Normal",
+      distanceKm: 150,
+      durationLabel: "2 days",
+      scheduledDate: new Date().toLocaleDateString(),
+      startTime: "08:00",
+      lat: 6.524,
+      lng: 3.379,
+      revenue: 150000
+    } as any);
+    toast.success("Trip requested successfully!");
+    setIsCreateOpen(false);
+    setNewTrip({ customer: "", cargo: "", pickup: "", dropoff: "" });
+    router.invalidate();
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -166,12 +200,44 @@ function ManagementDashboard({ data }: { data: any }) {
               <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
               Export CSV
             </Button>
-            <Button asChild className="h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] px-[16px] text-[14px] font-[500] text-white shadow-none transition-colors">
-              <Link to="/workspace/app/dispatch">
-                <Plus className="h-3.5 w-3.5" />
-                Create Dispatch
-              </Link>
-            </Button>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] px-[16px] text-[14px] font-[500] text-white shadow-none transition-colors">
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Create Dispatch
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Trip Request</DialogTitle>
+                  <DialogDescription>
+                    Initiate a new dispatch request for Transport Manager approval.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="customer" className="text-right">Customer</Label>
+                    <Input id="customer" value={newTrip.customer} onChange={(e) => setNewTrip({...newTrip, customer: e.target.value})} placeholder="e.g. Dangote Refinery" className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="cargo" className="text-right">Cargo</Label>
+                    <Input id="cargo" value={newTrip.cargo} onChange={(e) => setNewTrip({...newTrip, cargo: e.target.value})} placeholder="e.g. AGO" className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="pickup" className="text-right">Pickup</Label>
+                    <Input id="pickup" value={newTrip.pickup} onChange={(e) => setNewTrip({...newTrip, pickup: e.target.value})} placeholder="e.g. Lagos" className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dropoff" className="text-right">Dropoff</Label>
+                    <Input id="dropoff" value={newTrip.dropoff} onChange={(e) => setNewTrip({...newTrip, dropoff: e.target.value})} placeholder="e.g. Abuja" className="col-span-3" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                  <Button onClick={handleCreateTrip} className="bg-[#1d1d1f] text-white">Submit Request</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
@@ -263,41 +329,26 @@ function ManagementDashboard({ data }: { data: any }) {
 
         {/* Right column — Analytic stacked on Fleet so neither stretches empty */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-5 xl:grid-cols-1 xl:content-stretch">
-          {/* Analytic View */}
+          {/* Quick Actions */}
           <section className={cn(card, "flex flex-col p-[24px]")}>
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[18px] font-[600] text-[#141a1f]">Analytic View</h2>
-              <span className="rounded-[4px] bg-[#f6f7f9] px-[10px] py-[4px] text-[12px] font-[500] text-[#141a1f]">Monthly</span>
+              <h2 className="text-[18px] font-[600] text-[#141a1f]">Quick Actions</h2>
             </div>
-
-            <div className="mt-2 flex items-center gap-3">
-              <svg viewBox="0 0 200 112" className="h-[112px] w-[160px] shrink-0 sm:h-[120px] sm:w-[170px]" aria-hidden>
-                <path d="M 18 100 A 82 82 0 0 1 182 100" fill="none" stroke="#eef2f6" strokeWidth="16" strokeLinecap="round" />
-                <path d="M 18 100 A 82 82 0 0 1 173.5 48.8" fill="none" stroke="#1d1d1f" strokeWidth="16" strokeLinecap="round" />
-                <path d="M 18 100 A 82 82 0 0 1 173.5 48.8" fill="none" stroke="#a8c5e2" strokeWidth="6" strokeLinecap="round" opacity="0.55" />
-                <text x="100" y="78" textAnchor="middle" fill="#6e6e73" style={{ fontSize: 10 }}>Of target</text>
-                <text x="100" y="98" textAnchor="middle" fill="#1d1d1f" style={{ fontSize: 24, fontWeight: 600, fontFamily: "ui-monospace, SF Mono, Menlo, monospace", letterSpacing: "-0.04em" }}>78%</text>
-              </svg>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-[500] tracking-[0.05em] text-[#8e95a1] uppercase">Operating revenue</p>
-                <p className="num mt-[4px] text-[24px] leading-none font-[600] text-[#141a1f]">
-                  {formatNaira(revenue)}
-                </p>
-                <p className="mt-[6px] inline-flex items-center gap-[4px] text-[12px] font-[600] text-[#34c759]">
-                  +2.45% <ArrowUpRight className="h-3.5 w-3.5" />
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-1.5">
-                  <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
-                    <p className="text-[10px] text-muted-foreground">Target</p>
-                    <p className="num text-[12px] font-semibold">{"\u20A6"}350M</p>
-                  </div>
-                  <div className="rounded-[12px] bg-black/[0.03] px-2.5 py-2">
-                    <p className="text-[10px] text-muted-foreground">Left</p>
-                    <p className="num text-[12px] font-semibold">{"\u20A6"}77M</p>
-                  </div>
+            <div className="mt-4 flex flex-col gap-3">
+              <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-semibold">New Trip Request</span>
+                  <span className="text-[10px] text-muted-foreground">Initiate a dispatch flow</span>
                 </div>
-              </div>
+              </Button>
+              <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => toast("HR Module", { description: "Use the HR directory to add staff." })}>
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-semibold">Add New Driver</span>
+                  <span className="text-[10px] text-muted-foreground">Register staff in the system</span>
+                </div>
+              </Button>
             </div>
           </section>
 
