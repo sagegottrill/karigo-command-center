@@ -1,108 +1,59 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, MoreVertical, X, ArrowLeft, AlertCircle } from "lucide-react";
-import { useEffect, useState } from "react";
-import { adminService, authService } from "@/lib/fleetopsx/services";
-import { AppSidebar } from "@/components/fleetopsx/app-sidebar";
-import type { User } from "@/lib/fleetopsx/types";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-
-import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
-import { DataTable, type Column } from "@/components/fleetopsx/data-table";
-import { StatusBadge } from "@/components/fleetopsx/status-badge";
-import { Button } from "@/components/ui/button";
+import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
+import { adminService } from "@/lib/fleetopsx/services";
+import type { User } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
   component: AdminManageAccount,
 });
 
+type ConfirmKind = "password" | "suspend" | "activate" | "delete";
+
+function staffIdLabel(user: User) {
+  const raw = user.id;
+  if (/^id:/i.test(raw)) return raw;
+  return `ID:${raw}`;
+}
+
 function AdminManageAccount() {
   const [users, setUsers] = useState<User[]>([]);
-  const currentUser = authService.getCurrentUser();
-  const navigate = useNavigate();
-
-  // Confirmation modals
-  const [confirmAction, setConfirmAction] = useState<{ type: "password" | "suspend" | "delete"; userId: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [deptFilter, setDeptFilter] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void adminService.users().then(setUsers);
   }, []);
 
-  const filtered = users.filter(u => u.status !== "Deleted" && u.department !== "External Partner");
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (filterRef.current && !filterRef.current.contains(t)) setFilterOpen(false);
+      if (menuRef.current && !menuRef.current.contains(t)) setMenuFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
-  const columns: Column<User>[] = [
-    { key: "sn", header: "S/N", cell: (_, i) => <span className="text-[14px] font-[400] text-[#5c6470]">{i + 1}</span> },
-    { key: "name", header: "Name", sortValue: (r) => r.name, cell: (r) => r.name },
-    { key: "dept", header: "Department", sortValue: (r) => r.department, cell: (r) => r.department },
-    { key: "id", header: "Staff ID", sortValue: (r) => r.id, cell: (r) => <span className="text-[#5c6470]">ID:{r.id}</span> },
-    { key: "user", header: "Username", sortValue: (r) => r.username, cell: (r) => r.username },
-    { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
-    {
-      key: "actions", header: "", align: "right", cell: (r) => (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("password", r.id); }}>Reset Password</Button>
-          {r.status === "Suspended" ? (
-            <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("activate", r.id); }}>Activate</Button>
-          ) : (
-            <Button variant="outline" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); handleAction("suspend", r.id); }}>Suspend</Button>
-          )}
-        </div>
-      )
-    },
-  ];
-
-  const handleAction = (type: "password" | "suspend" | "activate" | "delete", userId: string) => {
-    setConfirmAction({ type, userId });
-  };
-
-  const handleConfirmAction = async () => {
-    if (!confirmAction) return;
-    if (confirmAction.type === "password") {
-      await adminService.resetPassword(confirmAction.userId);
-      toast.success("Password reset initiated. User must change password on next login.");
-      setConfirmAction(null);
-      setShowShareModal(true);
-    } else if (confirmAction.type === "suspend") {
-      await adminService.suspendUser(confirmAction.userId);
-      toast.warning("Account suspended.");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    } else if (confirmAction.type === "activate") {
-      await adminService.activateUser(confirmAction.userId);
-      toast.success("Account activated.");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    } else if (confirmAction.type === "delete") {
-      await adminService.deleteUser(confirmAction.userId);
-      toast.error("Account deleted (soft).");
-      setConfirmAction(null);
-      void adminService.users().then(setUsers);
-    }
-  };
-
-  const shareText = `Hello,\n\nYour account password has been reset for the Transport Manager Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}`;
-
-  const handleShareWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
-    setShowShareModal(false);
-  };
-
-  const handleShareEmail = () => {
-    window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
-    setShowShareModal(false);
-  };
-
-  const handleCopyLink = () => {
-    void navigator.clipboard.writeText(shareText);
-    toast.success("Details copied to clipboard");
-    setShowShareModal(false);
-  };
-
-
+  const listing = users.filter((u) => u.status !== "Deleted" && u.department !== "External Partner");
+  const filtered = listing.filter((u) => {
+    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${u.department}`.toLowerCase();
+    const matchesQuery = !query || hay.includes(query.toLowerCase());
+    const matchesDept = !deptFilter || u.department === deptFilter;
+    return matchesQuery && matchesDept;
+  });
 
   const exportCSV = () => {
     const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
-    const csv = filtered.map((u, i) => `${i + 1},${u.name},${u.department},${u.id},${u.username},${u.status}`).join("\n");
+    const csv = filtered.map((u, i) => `${i + 1},${u.name},${u.department},${staffIdLabel(u)},${u.username ?? ""},${u.status}`).join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -112,77 +63,308 @@ function AdminManageAccount() {
     toast.success("Exported CSV successfully.");
   };
 
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    switch (confirmAction.type) {
+      case "password":
+        await adminService.resetPassword(confirmAction.userId);
+        toast.success("Password reset initiated. User must change password on next login.");
+        setConfirmAction(null);
+        setShowShareModal(true);
+        break;
+      case "suspend":
+        await adminService.suspendUser(confirmAction.userId);
+        toast.warning("Account suspended.");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      case "activate":
+        await adminService.activateUser(confirmAction.userId);
+        toast.success("Account activated.");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      case "delete":
+        await adminService.deleteUser(confirmAction.userId);
+        toast.error("Account deleted (soft).");
+        setConfirmAction(null);
+        void adminService.users().then(setUsers);
+        break;
+      default: {
+        const _exhaustive: never = confirmAction.type;
+        return _exhaustive;
+      }
+    }
+  };
+
+  const shareText = `Hello,\n\nYour account password has been reset for the Transport Manager Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}`;
+
   return (
     <>
-      <PageHeader
-        title="Transport Manager Portal"
-        description="Manage the lifecycle of every account within the company to maintain data integrity."
-        actions={
-          <>
-            <Button size="sm" variant="outline" className="h-10 text-[14px]" onClick={exportCSV}>
-              Export CSV
-            </Button>
-            <Button asChild size="sm" className="h-10 bg-[#ed351d] hover:bg-[#d62e19] text-[14px]">
-              <Link to="/workspace/app/add-account">+ Add New Staff Account</Link>
-            </Button>
-          </>
-        }
-      />
+      {/* Figma 93:1637 */}
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-[5px]">
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Staff Account</h2>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              manage listing of internal staff
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              to="/workspace/app/add-account"
+              className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] text-white hover:bg-[#d62e19]"
+            >
+              + Add New Staff Account
+            </Link>
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+            >
+              <Download className="size-4" strokeWidth={1.75} />
+              Export CVS
+            </button>
+          </div>
+        </div>
 
-      <SectionPanel title="Manage Staff Account" description="Manage listing of internal company staff" bodyClassName="p-0 mt-4">
-        <DataTable
-          rows={filtered}
-          columns={columns}
-          searchKeys={(r) => `${r.name} ${r.username} ${r.id} ${r.department}`}
-          pageSize={10}
-        />
-      </SectionPanel>
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-[520px] min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              className="h-10 w-full rounded border border-[#E2E5E9] bg-white pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+            />
+          </div>
+          <div ref={filterRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              className="flex size-10 items-center justify-center rounded bg-[#ED351D] text-white"
+              aria-label="Filter"
+            >
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            </button>
+            {filterOpen && (
+              <div className="absolute top-12 right-0 z-40 w-64 rounded border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeptFilter(null);
+                    setFilterOpen(false);
+                  }}
+                  className="flex w-full px-4 py-2 text-left text-[14px] text-[#5C6470] hover:bg-[#F1F2F4]"
+                >
+                  All departments
+                </button>
+                {ADMIN_DEPARTMENTS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setDeptFilter(d);
+                      setFilterOpen(false);
+                    }}
+                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
+                      deptFilter === d ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-      {/* Confirmation Modals */}
-      {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60">
-          <div className="flex flex-col items-center w-[360px] lg:w-[440px] rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)] p-[32px]">
-            <div className="w-[56px] h-[56px] rounded-full border-[3px] border-[#ed351d] flex items-center justify-center mb-[20px]">
-              <AlertCircle className="w-[28px] h-[28px] text-[#ed351d]" />
+        <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white">
+          <div className="hidden grid-cols-[48px_1fr_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+            {["S/N", "Name", "Department", "Staff ID", "Username", ""].map((h) => (
+              <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ))}
+          </div>
+          {filtered.map((u, i) => (
+            <div
+              key={u.id}
+              className="relative grid grid-cols-[48px_1fr] items-center gap-2 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid-cols-[48px_1fr_1fr_1fr_1fr_40px]"
+            >
+              <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
+              <span className="text-[14px] text-[#1B2432]">{u.name}</span>
+              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.department}</span>
+              <span className="hidden text-[14px] text-[#5C6470] md:block">{staffIdLabel(u)}</span>
+              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.username ?? "—"}</span>
+              <div className="flex items-center justify-end gap-2">
+                {u.status === "Suspended" && (
+                  <span className="hidden rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white md:inline">
+                    Suspended
+                  </span>
+                )}
+                <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                  <button
+                    type="button"
+                    className="grid size-8 place-items-center text-[#1B2432]"
+                    onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                  >
+                    <MoreVertical className="size-4" />
+                  </button>
+                  {menuFor === u.id && (
+                    <div className="absolute top-8 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          toast.message("Account details", { description: `${u.name} · ${u.email}` });
+                        }}
+                      >
+                        View details
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setConfirmAction({ type: "password", userId: u.id });
+                        }}
+                      >
+                        Reset password
+                      </button>
+                      {u.status === "Suspended" ? (
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "activate", userId: u.id });
+                          }}
+                        >
+                          Activate
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "suspend", userId: u.id });
+                          }}
+                        >
+                          Suspend
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setConfirmAction({ type: "delete", userId: u.id });
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <p className="text-[16px] font-[400] text-[#5c6470] text-center mb-[32px]">
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-5 py-10 text-center text-[14px] text-[#5C6470]">No staff accounts match this search.</p>
+          )}
+        </div>
+      </div>
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-full max-w-[440px] flex-col items-center rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+            <div className="mb-5 flex size-14 items-center justify-center rounded-full border-[3px] border-[#ED351D]">
+              <AlertCircle className="size-7 text-[#ED351D]" />
+            </div>
+            <p className="mb-8 whitespace-pre-line text-center text-[16px] text-[#5C6470]">
               {confirmAction.type === "password" && "Are you sure you want to\nreset this user's password?"}
               {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
               {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
             </p>
-            <div className="flex flex-row items-center justify-between w-full gap-[24px]">
-              <button onClick={() => setConfirmAction(null)} className="text-[14px] font-[500] text-[#ed351d] hover:underline">Cancel</button>
-              <button onClick={handleConfirmAction} className="flex-1 py-[10px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] text-[14px] font-[500] text-[#ffffff]">Confirm</button>
+            <div className="flex w-full items-center justify-between gap-6">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="text-[14px] font-medium text-[#ED351D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className="flex-1 rounded bg-[#ED351D] py-2.5 text-[14px] font-medium text-white hover:bg-[#d62e19]"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Share Password Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/60">
-          <div className="flex flex-col w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_10px_40px_rgba(0,0,0,0.08)] relative">
-            <button onClick={() => setShowShareModal(false)} className="absolute top-[20px] right-[20px] text-[#8e95a1] hover:text-[#141a1f]">
-              <X className="w-[16px] h-[16px]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+            <button
+              type="button"
+              onClick={() => setShowShareModal(false)}
+              className="absolute top-5 right-5 text-[#8E95A1]"
+            >
+              <X className="size-4" />
             </button>
-            <div className="px-[24px] pt-[24px] pb-[16px]">
-              <h3 className="text-[16px] font-[600] leading-[24px] text-[#ed351d]">Share Password</h3>
+            <div className="px-6 pt-6 pb-4">
+              <h3 className="text-[16px] font-semibold text-[#ED351D]">Share Password</h3>
             </div>
-            <div className="w-full h-[1px] bg-[#e2e5e9]"></div>
-            <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
-              <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareWhatsApp}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141a1f" /></svg>
-                <span className="text-[12px] font-[500] text-[#5c6470]">WhatsApp</span>
-              </div>
-              <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleShareEmail}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141a1f" /></svg>
-                <span className="text-[12px] font-[500] text-[#5c6470]">Gmail</span>
-              </div>
-              <div className="flex flex-col items-center gap-[8px] cursor-pointer" onClick={handleCopyLink}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141a1f" /></svg>
-                <span className="text-[12px] font-[500] text-[#5c6470]">Copy</span>
-              </div>
+            <div className="h-px bg-[#E2E5E9]" />
+            <div className="flex justify-between px-10 py-8">
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+                  setShowShareModal(false);
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141A1F" />
+                </svg>
+                <span className="text-[12px] font-medium text-[#5C6470]">WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
+                  setShowShareModal(false);
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141A1F" />
+                </svg>
+                <span className="text-[12px] font-medium text-[#5C6470]">Gmail</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  void navigator.clipboard.writeText(shareText);
+                  toast.success("Details copied to clipboard");
+                  setShowShareModal(false);
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141A1F" />
+                </svg>
+                <span className="text-[12px] font-medium text-[#5C6470]">Copy</span>
+              </button>
             </div>
           </div>
         </div>

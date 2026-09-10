@@ -263,7 +263,9 @@ export function normalizeUser(user: User & { roles?: string[]; role?: string }):
 }
 
 export async function liveLogin(username: string, password: string): Promise<LoginResponse> {
-  const body = { email: username, username, password };
+  const identifier = username.trim();
+  const email = identifier.toLowerCase();
+  const body = { email, username: identifier, password };
   try {
     const result = await api.post<LoginResponse>("/auth/login", body);
     return { ...result, user: normalizeUser(result.user) };
