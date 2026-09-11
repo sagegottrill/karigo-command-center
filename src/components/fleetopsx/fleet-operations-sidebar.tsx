@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Bell, ClipboardList, History, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { getToken } from "@/lib/fleetopsx/apiClient";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
@@ -43,6 +44,10 @@ export function FleetOperationsSidebar({
 
   useEffect(() => {
     let cancelled = false;
+    if (!getToken()) {
+      setUnread(0);
+      return;
+    }
     void notificationService
       .getUnreadCount()
       .then((count) => {
@@ -182,6 +187,10 @@ export function FleetOperationsMobileNav() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!getToken()) {
+      setUnread(0);
+      return;
+    }
     void notificationService
       .getUnreadCount()
       .then((count) => {

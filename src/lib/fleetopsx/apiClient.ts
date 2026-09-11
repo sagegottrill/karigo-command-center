@@ -83,15 +83,18 @@ export class ApiError extends Error {
   }
 }
 
-export async function fetchApi<T = unknown>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
+export type FetchApiOptions = RequestInit & {
+  /** Badge/poll calls: 401 throws but does not clear session / hard-redirect */
+  softAuth?: boolean;
+};
+
+export async function fetchApi<T = unknown>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
+  const { softAuth, ...init } = options;
   const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${getApiBaseUrl()}${path}`;
 
-  const headers = new Headers(options.headers || {});
-  if (!headers.has("Content-Type") && options.body) {
+  const headers = new Headers(init.headers || {});
+  if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -101,7 +104,7 @@ export async function fetchApi<T = unknown>(
   }
 
   const response = await fetch(url, {
-    ...options,
+    ...init,
     headers,
   });
 
@@ -120,7 +123,15 @@ export async function fetchApi<T = unknown>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && typeof window !== "undefined" && !path.includes("/auth/login")) {
+    // Only force logout when a bearer token was sent and rejected (and not a soft badge poll).
+    const sentAuth = headers.has("Authorization");
+    if (
+      response.status === 401 &&
+      typeof window !== "undefined" &&
+      !path.includes("/auth/login") &&
+      sentAuth &&
+      !softAuth
+    ) {
       clearSession();
       const next = `${window.location.pathname}${window.location.search}`;
       if (!window.location.pathname.includes("/workspace/login")) {
@@ -138,14 +149,27 @@ export async function fetchApi<T = unknown>(
 }
 
 export const api = {
-  get: <T = unknown>(endpoint: string) => fetchApi<T>(endpoint),
-  post: <T = unknown>(endpoint: string, body?: unknown) =>
-    fetchApi<T>(endpoint, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
-  put: <T = unknown>(endpoint: string, body?: unknown) =>
-    fetchApi<T>(endpoint, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }),
-  patch: <T = unknown>(endpoint: string, body?: unknown) =>
-    fetchApi<T>(endpoint, { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) }),
-  delete: <T = unknown>(endpoint: string) => fetchApi<T>(endpoint, { method: "DELETE" }),
+  get: <T = unknown>(endpoint: string, options?: FetchApiOptions) => fetchApi<T>(endpoint, options),
+  post: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+    fetchApi<T>(endpoint, {
+      ...options,
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  put: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+    fetchApi<T>(endpoint, {
+      ...options,
+      method: "PUT",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  patch: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+    fetchApi<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  delete: <T = unknown>(endpoint: string, options?: FetchApiOptions) =>
+    fetchApi<T>(endpoint, { ...options, method: "DELETE" }),
 };
 
 /** @deprecated Prefer getApiBaseUrl(); kept for older imports */

@@ -19,7 +19,7 @@ import type {
   User,
   WorkOrder,
 } from "./types";
-import { allowMockFallback, getStoredUser } from "./apiClient";
+import { allowMockFallback, getStoredUser, getToken } from "./apiClient";
 import {
   applyLoginSession,
   liveCreateDriver,
@@ -1148,8 +1148,13 @@ export const notificationService = {
   },
   getUnreadCount: async () => {
     if (!useMock()) {
-      const list = await liveListNotifications();
-      return list.filter((n) => !n.read).length;
+      if (!getToken()) return 0;
+      try {
+        const list = await liveListNotifications({ softAuth: true });
+        return list.filter((n) => !n.read).length;
+      } catch {
+        return 0;
+      }
     }
     let notifications = [...store.notifications];
     const roles = authService.getRoles();

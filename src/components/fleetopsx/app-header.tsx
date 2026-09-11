@@ -76,6 +76,7 @@ export function AppHeader({
   const adminPortal = isAdminPortalPath(pathname);
 
   useEffect(() => {
+    if (adminPortal) return; // Figma Admin/FO chrome: badges live in FO sidebar / mobile nav
     let cancelled = false;
     void notificationService
       .getUnreadCount()
@@ -88,7 +89,7 @@ export function AppHeader({
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, adminPortal]);
 
   const active = NAV.find((n) =>
     n.to === "/workspace/app"

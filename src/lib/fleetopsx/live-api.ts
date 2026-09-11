@@ -562,8 +562,8 @@ export async function liveUpdateFuel(id: string, body: Record<string, unknown>):
   return mapFuel(await api.patch(`/fuel/${id}`, body));
 }
 
-export async function liveListNotifications(): Promise<Notification[]> {
-  return asList(await api.get("/notifications")).map(mapNotification);
+export async function liveListNotifications(opts?: { softAuth?: boolean }): Promise<Notification[]> {
+  return asList(await api.get("/notifications", opts?.softAuth ? { softAuth: true } : undefined)).map(mapNotification);
 }
 export async function liveMarkAllNotificationsRead(): Promise<void> {
   await api.post("/notifications/mark-all-read");
