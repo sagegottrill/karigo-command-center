@@ -4,6 +4,12 @@ import { ArrowLeft, Check, ChevronDown, MapPin, Pencil, Trash2, Upload } from "l
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import {
+  PARTNER_LOADING_SITE_OPTIONS,
+  PARTNER_TRUCK_TYPE_OPTIONS,
+  resolvePartnerLoadingSite,
+  type PartnerLoadingSiteDraft,
+} from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
@@ -14,30 +20,6 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
 });
 
 type PartnerUiStatus = "Pending" | "Declined" | "In transit" | "Completed";
-
-const TRUCK_TYPE_OPTIONS = [
-  "Full Sided",
-  "Semi Sided",
-  "Flat",
-  "Side Guide",
-  "Low Bed",
-  "6 Meter Truck",
-  "8 Meter Truck",
-  "Pick Up",
-];
-
-const LOADING_SITE_OPTIONS = [
-  "Comfortoboh",
-  "Happy Home",
-  "Ijesha.1",
-  "Babangida.1",
-  "Babangida.2",
-  "Ijesha.2",
-  "Babangida.3",
-  "Metalberg.K",
-  "Saba Factory",
-  "Others",
-];
 
 /** Split joined site strings so each site is its own field (Figma 356:9825). */
 function normalizeLoadingSites(trip: Trip | null | undefined): string[] {
@@ -61,6 +43,21 @@ function normalizeLoadingSites(trip: Trip | null | undefined): string[] {
     }
   }
   return sites;
+}
+
+function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
+  if (sites.length === 0) {
+    return [{ id: crypto.randomUUID(), type: "", customValue: "" }];
+  }
+  return sites.map((site) => {
+    const known = PARTNER_LOADING_SITE_OPTIONS.find(
+      (opt) => opt !== "Others" && opt.toLowerCase() === site.toLowerCase(),
+    );
+    if (known) {
+      return { id: crypto.randomUUID(), type: known, customValue: "" };
+    }
+    return { id: crypto.randomUUID(), type: "Others", customValue: site };
+  });
 }
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
@@ -127,7 +124,9 @@ function PartnerRequestDetailsPage() {
   const [draftProduct, setDraftProduct] = useState("");
   const [draftTruckType, setDraftTruckType] = useState("");
   const [draftDestination, setDraftDestination] = useState("");
-  const [draftSites, setDraftSites] = useState<string[]>([""]);
+  const [draftSites, setDraftSites] = useState<PartnerLoadingSiteDraft[]>([
+    { id: "initial", type: "", customValue: "" },
+  ]);
   const [truckDropdownOpen, setTruckDropdownOpen] = useState(false);
   const [siteDropdownIndex, setSiteDropdownIndex] = useState<number | null>(null);
 
@@ -192,12 +191,11 @@ function PartnerRequestDetailsPage() {
 
   const openModifyModal = () => {
     if (!trip) return;
-    const sites = normalizeLoadingSites(trip);
     setDraftCustomer(trip.customerConsignee || "");
     setDraftProduct(trip.cargo || "");
     setDraftTruckType(trip.tailType || "");
     setDraftDestination(trip.dropoff || "");
-    setDraftSites(sites.length > 0 ? sites : [""]);
+    setDraftSites(sitesToDrafts(normalizeLoadingSites(trip)));
     setTruckDropdownOpen(false);
     setSiteDropdownIndex(null);
     setModifyOpen(true);
@@ -211,7 +209,7 @@ function PartnerRequestDetailsPage() {
 
   const saveModify = async () => {
     if (!trip) return;
-    const sites = draftSites.map((s) => s.trim()).filter(Boolean);
+    const sites = draftSites.map(resolvePartnerLoadingSite).filter(Boolean);
     const unique = new Set(sites.map((s) => s.toLowerCase()));
     if (sites.length > 0 && unique.size !== sites.length) {
       toast.error("Each loading site can only be selected once");
@@ -219,6 +217,10 @@ function PartnerRequestDetailsPage() {
     }
     if (sites.length === 0) {
       toast.error("Add at least one loading site");
+      return;
+    }
+    if (!draftTruckType.trim()) {
+      toast.error("Select a truck type");
       return;
     }
     setSaving(true);
@@ -502,7 +504,7 @@ function PartnerRequestDetailsPage() {
         </main>
       )}
 
-      {/* Modify — center modal (Shula / Sort By pattern) */}
+      {/* Modify — center modal; Truck Type + Loading Sites are dropdowns (same lists as New Request) */}
       {modifyOpen && trip ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[90vh] w-full max-w-[490px] flex-col gap-[15px] overflow-y-auto rounded-[10px] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
@@ -527,7 +529,8 @@ function PartnerRequestDetailsPage() {
                   className={inputClass}
                 />
               </div>
-              <div className="relative z-20 flex flex-col gap-1.5">
+
+              <div className={cn("relative flex flex-col gap-1.5", truckDropdownOpen ? "z-40" : "z-10")}>
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Truck Type</span>
                 <button
                   type="button"
@@ -540,11 +543,11 @@ function PartnerRequestDetailsPage() {
                   <span className={draftTruckType ? "text-[#1B2432]" : "text-[#5C6470]"}>
                     {draftTruckType || "Select"}
                   </span>
-                  <ChevronDown className="size-4 text-[#5C6470]" />
+                  <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
                 </button>
                 {truckDropdownOpen ? (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[200px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                    {TRUCK_TYPE_OPTIONS.map((opt) => (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[220px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                    {PARTNER_TRUCK_TYPE_OPTIONS.map((opt) => (
                       <button
                         key={opt}
                         type="button"
@@ -563,6 +566,7 @@ function PartnerRequestDetailsPage() {
                   </div>
                 ) : null}
               </div>
+
               <div className="flex flex-col gap-1.5">
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Destination</span>
                 <input
@@ -572,41 +576,52 @@ function PartnerRequestDetailsPage() {
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>
-                <div className="flex flex-col gap-1.5">
-                  {draftSites.map((site, index) => (
+              <div className="flex flex-col gap-3">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Select Loading Site</span>
+                {draftSites.map((site, index) => {
+                  const display =
+                    site.type === "Others"
+                      ? site.customValue.trim() || "Others"
+                      : site.type || "Select";
+                  return (
                     <div
-                      key={`site-${index}`}
-                      className={cn("relative flex items-center gap-2", siteDropdownIndex === index ? "z-30" : "z-10")}
+                      key={site.id}
+                      className={cn(
+                        "relative flex flex-col gap-2",
+                        siteDropdownIndex === index ? "z-50" : "z-10",
+                      )}
                     >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSiteDropdownIndex(siteDropdownIndex === index ? null : index);
-                          setTruckDropdownOpen(false);
-                        }}
-                        className={cn(inputClass, "flex-1 justify-between")}
-                      >
-                        <span className={site ? "text-[#1B2432]" : "text-[#5C6470]"}>{site || "Select"}</span>
-                        <ChevronDown className="size-4 text-[#5C6470]" />
-                      </button>
-                      {draftSites.length > 1 ? (
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => setDraftSites((prev) => prev.filter((_, i) => i !== index))}
-                          className="rounded p-2 hover:bg-black/5"
-                          aria-label="Remove loading site"
+                          onClick={() => {
+                            setSiteDropdownIndex(siteDropdownIndex === index ? null : index);
+                            setTruckDropdownOpen(false);
+                          }}
+                          className={cn(inputClass, "flex-1 justify-between")}
                         >
-                          <Trash2 className="size-5 text-[#ED351D]" />
+                          <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>{display}</span>
+                          <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
                         </button>
-                      ) : null}
+                        {draftSites.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => setDraftSites((prev) => prev.filter((_, i) => i !== index))}
+                            className="rounded p-2 hover:bg-black/5"
+                            aria-label="Remove loading site"
+                          >
+                            <Trash2 className="size-5 text-[#ED351D]" />
+                          </button>
+                        ) : null}
+                      </div>
                       {siteDropdownIndex === index ? (
-                        <div className="absolute bottom-full left-0 right-10 z-50 mb-1 max-h-[200px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                          {LOADING_SITE_OPTIONS.filter((opt) => opt !== "Others").map((opt) => {
-                            const takenElsewhere = draftSites.some(
-                              (s, i) => i !== index && s.toLowerCase() === opt.toLowerCase(),
-                            );
+                        <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                          {PARTNER_LOADING_SITE_OPTIONS.map((opt) => {
+                            const takenElsewhere = draftSites.some((s, i) => {
+                              if (i === index) return false;
+                              if (opt === "Others") return false;
+                              return s.type === opt;
+                            });
                             return (
                               <button
                                 key={opt}
@@ -614,14 +629,24 @@ function PartnerRequestDetailsPage() {
                                 disabled={takenElsewhere}
                                 onClick={() => {
                                   if (takenElsewhere) return;
-                                  setDraftSites((prev) => prev.map((s, i) => (i === index ? opt : s)));
+                                  setDraftSites((prev) =>
+                                    prev.map((s, i) =>
+                                      i === index
+                                        ? {
+                                            id: s.id,
+                                            type: opt,
+                                            customValue: opt === "Others" ? s.customValue : "",
+                                          }
+                                        : s,
+                                    ),
+                                  );
                                   setSiteDropdownIndex(null);
                                 }}
                                 className={cn(
                                   "w-full px-3 py-2.5 text-left text-[14px]",
                                   takenElsewhere
                                     ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
-                                    : site === opt
+                                    : site.type === opt
                                       ? "bg-[#ED351D] text-white"
                                       : "text-[#1B2432] hover:bg-[#F1F2F4]",
                                 )}
@@ -633,13 +658,30 @@ function PartnerRequestDetailsPage() {
                           })}
                         </div>
                       ) : null}
+                      {site.type === "Others" ? (
+                        <input
+                          value={site.customValue}
+                          onChange={(e) =>
+                            setDraftSites((prev) =>
+                              prev.map((s, i) => (i === index ? { ...s, customValue: e.target.value } : s)),
+                            )
+                          }
+                          placeholder="Enter loading site name"
+                          className={inputClass}
+                        />
+                      ) : null}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
                 <button
                   type="button"
-                  onClick={() => setDraftSites((prev) => [...prev, ""])}
-                  className="mt-1 self-start text-[13px] font-medium tracking-[0.4px] text-[#ED351D]"
+                  onClick={() =>
+                    setDraftSites((prev) => [
+                      ...prev,
+                      { id: crypto.randomUUID(), type: "", customValue: "" },
+                    ])
+                  }
+                  className="self-start text-[13px] font-medium tracking-[0.4px] text-[#ED351D]"
                 >
                   + Add loading site
                 </button>

@@ -3,6 +3,11 @@ import { ChevronDown, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import {
+  PARTNER_LOADING_SITE_OPTIONS,
+  PARTNER_TRUCK_TYPE_OPTIONS,
+  type PartnerLoadingSiteDraft,
+} from "@/lib/fleetopsx/partner-request-options";
 import { orderService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
@@ -10,31 +15,9 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/request")
   component: PartnerNewRequest,
 });
 
-const TRUCK_TYPE_OPTIONS = [
-  "Full Sided",
-  "Semi Sided",
-  "Flat",
-  "Side Guide",
-  "Low Bed",
-  "6 Meter Truck",
-  "8 Meter Truck",
-  "Pick Up",
-];
-
-const LOADING_SITE_OPTIONS = [
-  "Comfortoboh",
-  "Happy Home",
-  "Ijesha.1",
-  "Babangida.1",
-  "Babangida.2",
-  "Ijesha.2",
-  "Babangida.3",
-  "Metalberg.K",
-  "Saba Factory",
-  "Others",
-];
-
-type LoadingSite = { id: string; type: string; customValue: string };
+const TRUCK_TYPE_OPTIONS = PARTNER_TRUCK_TYPE_OPTIONS;
+const LOADING_SITE_OPTIONS = PARTNER_LOADING_SITE_OPTIONS;
+type LoadingSite = PartnerLoadingSiteDraft;
 
 const inputClass =
   "h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] tracking-[0.4px] text-[#1B2432] shadow-[0px_4px_10px_rgba(0,0,0,0.05)] outline-none placeholder:text-[#5C6470] focus:border-[#1B2432]";
