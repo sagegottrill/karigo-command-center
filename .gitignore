@@ -33,7 +33,11 @@ dist-ssr
 .vercel
 .env*
 
-# Local agent secrets — never commit
+# Full local handover (secrets) — never commit
+AGENT_HANDOFF.local.md
+**/AGENT_HANDOFF.local.md
 AGENT_SECRETS.local.md
 **/AGENT_SECRETS.local.md
 *SECRETS.local.md
+*.local.md
+!AGENT_SECRETS.example.md
