@@ -1,8 +1,7 @@
 # Agent handoff
 
-**Full handover (secrets + SSH + passwords + Figma MCP + progress) lives in one local file:**
+**One file has everything** (aim, live API wiring, secrets, SSH, Figma MCP, progress):
 
-`AGENT_HANDOFF.local.md`
+`AGENT_HANDOFF.local.md` (gitignored — not on GitHub)
 
-That file is **gitignored** (not on GitHub). Copy it to the next agent or client privately.  
-Update `AGENT_HANDOFF.local.md` after every push.
+**Rule for every AI:** after every task/commit/push, append §20 Progress log and update §18 Where we stopped in that file.
