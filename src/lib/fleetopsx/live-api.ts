@@ -119,9 +119,15 @@ export function mapTrip(t: Record<string, unknown>): Trip {
   ];
   const status = (known.includes(statusRaw as TripStatus) ? statusRaw : "Scheduled") as TripStatus;
   const loadingSite = t.loadingSite;
+  const partnerCompany =
+    t.customer != null && String(t.customer).trim() !== ""
+      ? String(t.customer)
+      : status === "Requested"
+        ? "Customer Portal"
+        : String(t.customerConsignee ?? "Petroline Partner");
   return {
     id: String(t.id ?? ""),
-    customer: String(t.customer ?? t.customerConsignee ?? "Petroline Partner"),
+    customer: partnerCompany,
     customerConsignee: t.customerConsignee ? String(t.customerConsignee) : undefined,
     cargo: String(t.cargo ?? ""),
     pickup: String(t.pickup ?? ""),
@@ -163,6 +169,8 @@ export function tripToApi(input: Partial<Trip>): Record<string, unknown> {
     tailType: input.tailType || null,
     pickup: input.pickup || "",
     dropoff: input.dropoff || "",
+    // Partner company (portal) — separate from consignee person/name on the form
+    customer: input.customer || null,
     customerConsignee: input.customerConsignee || input.customer || "Petroline Partner",
     cargo: input.cargo || "",
     loadingSite: Array.isArray(input.loadingSite) ? input.loadingSite.join(", ") : input.loadingSite || null,

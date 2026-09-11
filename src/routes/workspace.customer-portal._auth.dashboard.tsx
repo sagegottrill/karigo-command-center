@@ -61,6 +61,7 @@ function formatTripDate(value: string | undefined) {
 }
 
 function isPartnerTrip(trip: Trip, companyName: string | undefined) {
+  // Live API: `customer` = partner company; `customerConsignee` = form consignee.
   if (trip.customer === "Customer Portal") return true;
   if (companyName && trip.customer === companyName) return true;
   return false;
