@@ -166,18 +166,17 @@ function NotificationsPage() {
               }
             }}
           >
-            <div className="flex min-w-0 flex-col gap-2.5">
-              <div className="flex flex-col gap-[5px]">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{n.title}</span>
-                {n.body ? <span className="text-[12px] tracking-[0.4px] text-[#627084]">{n.body}</span> : null}
+            <div className="flex min-w-0 flex-col gap-[8px]">
+              <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{n.title}</span>
+              <div className="flex flex-wrap items-center gap-[6px] text-[12px] tracking-[0.4px] text-[#627084]">
+                {n.body ? <span>{n.body}</span> : null}
+                {n.body && n.time ? <span className="h-[3px] w-[3px] rounded-full bg-[#627084]" /> : null}
+                {n.time ? <span>{n.time}</span> : null}
               </div>
-              {n.time ? (
-                <span className="text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{n.time}</span>
-              ) : null}
             </div>
-            <div className="flex shrink-0 items-center gap-2.5 pl-3">
+            <div className="flex shrink-0 items-center gap-2.5 pl-3 pt-1">
               <span className="text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{n.read ? "Read" : "Unread"}</span>
-              {!n.read && <span className="size-2.5 rounded-full bg-[#ED351D]" />}
+              {!n.read && <span className="size-[10px] rounded-full bg-[#ED351D]" />}
             </div>
           </button>
         ))}

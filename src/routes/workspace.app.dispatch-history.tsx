@@ -273,34 +273,6 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                       ))}
                     </ol>
                   )}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-                        <li key={child.label} className="relative">
-                          <span
-                            className={cn(
-                              "absolute -left-[22px] top-0.5 size-2.5 rounded-full border-2",
-                              child.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "text-[12px] font-semibold",
-                              child.done ? "text-[#ED351D]" : "text-[#9CA3AF]",
-                            )}
-                          >
-                            {child.label}
-                          </p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
                   {step.confirmable && step.done && (
                     <button
                       type="button"
