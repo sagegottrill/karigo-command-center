@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ListFilter, MoreVertical, Search } from "lucide-react";
+import { Check, ListFilter, MoreVertical, Search, X } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
@@ -81,6 +81,7 @@ function PartnerPortalDashboard() {
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Descending");
   const [draftSortKey, setDraftSortKey] = useState<"id" | "date" | "consignee" | "product" | "truck" | "status">("date");
   const [draftSortOrder, setDraftSortOrder] = useState<"Ascending" | "Descending">("Descending");
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
   const refresh = async () => {
     const allTrips = await tripService.list();
@@ -170,7 +171,28 @@ function PartnerPortalDashboard() {
   const saveSort = () => {
     setSortKey(draftSortKey);
     setSortOrder(draftSortOrder);
+    setFiltersApplied(true);
     setSortModalOpen(false);
+  };
+
+  const clearSortKeyChip = () => {
+    setSortKey("date");
+    setDraftSortKey("date");
+    if (sortOrder === "Descending") setFiltersApplied(false);
+  };
+
+  const clearSortOrderChip = () => {
+    setSortOrder("Descending");
+    setDraftSortOrder("Descending");
+    if (sortKey === "date") setFiltersApplied(false);
+  };
+
+  const clearAllFilterChips = () => {
+    setSortKey("date");
+    setSortOrder("Descending");
+    setDraftSortKey("date");
+    setDraftSortOrder("Descending");
+    setFiltersApplied(false);
   };
 
   const sortOptions = [
@@ -186,6 +208,22 @@ function PartnerPortalDashboard() {
     { key: "Ascending" as const, label: "Ascending" },
     { key: "Descending" as const, label: "Descending" },
   ];
+
+  const activeSortLabel = sortOptions.find((o) => o.key === sortKey)?.label ?? "Date";
+
+  const FilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+    <span className="inline-flex h-8 items-center gap-1.5 rounded border border-[#E2E5E9] bg-white px-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]">
+      <span className="text-[13px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="grid size-4 place-items-center rounded text-[#5C6470] hover:text-[#ED351D]"
+        aria-label={`Remove ${label}`}
+      >
+        <X className="size-3.5" strokeWidth={2.25} />
+      </button>
+    </span>
+  );
 
   const CheckRow = ({
     selected,
@@ -259,24 +297,39 @@ function PartnerPortalDashboard() {
           </Link>
         </div>
 
-        <div className="flex w-full items-center justify-start gap-3 sm:gap-5">
-          <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
-            <Search className="size-5 shrink-0 text-[#5C6470] sm:size-[22px]" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search"
-              className="w-full min-w-0 bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
-            />
+        <div className="flex w-full flex-col items-start gap-2.5">
+          <div className="flex w-full items-center justify-start gap-3 sm:gap-5">
+            <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+              <Search className="size-5 shrink-0 text-[#5C6470] sm:size-[22px]" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full min-w-0 bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={openSortModal}
+              className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
+              aria-label="Filter requests"
+            >
+              <ListFilter className="size-5 text-white" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={openSortModal}
-            className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
-            aria-label="Filter requests"
-          >
-            <ListFilter className="size-5 text-white" />
-          </button>
+          {filtersApplied ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterChip label={activeSortLabel} onRemove={clearSortKeyChip} />
+              <FilterChip label={sortOrder} onRemove={clearSortOrderChip} />
+              <button
+                type="button"
+                onClick={clearAllFilterChips}
+                className="text-[12px] font-medium tracking-[0.4px] text-[#ED351D] hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {loading ? (
