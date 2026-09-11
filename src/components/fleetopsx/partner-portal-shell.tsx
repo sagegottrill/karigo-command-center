@@ -3,6 +3,7 @@ import { ArrowLeft, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-
 import { useEffect, useState, type ReactNode } from "react";
 import { authService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
@@ -37,8 +38,8 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   }, []);
 
   const handleLogout = () => {
-    authService.logout();
-    navigate({ to: "/workspace/customer-portal/login" });
+    // Do not use authService.logout() — that hard-replaces to Internal login.
+    hardLogout("/workspace/customer-portal/login");
   };
 
   const dashActive =

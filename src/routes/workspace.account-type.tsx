@@ -1,22 +1,26 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { clearPortalSession } from "@/lib/fleetopsx/session";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/account-type")({
+  beforeLoad: () => {
+    // Logo / portal switch must never carry Partner ↔ Internal JWT into the other login.
+    if (typeof window !== "undefined") clearPortalSession();
+  },
   component: AccountTypePage,
 });
 
 function AccountTypePage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
-  const navigate = useNavigate();
   const [accountType, setAccountType] = useState<"internal" | "partner">("internal");
 
   const handleProceed = () => {
-    if (accountType === "internal") {
-      navigate({ to: "/workspace/login" });
-    } else {
-      navigate({ to: "/workspace/customer-portal/login" });
-    }
+    clearPortalSession();
+    // Hard replace so Back cannot restore the previous portal session.
+    window.location.replace(
+      accountType === "internal" ? "/workspace/login" : "/workspace/customer-portal/login",
+    );
   };
 
   return (

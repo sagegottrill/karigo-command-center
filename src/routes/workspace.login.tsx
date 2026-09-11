@@ -3,15 +3,25 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
-import { enterAuthenticatedApp, hasLiveSession, installSessionGuards } from "@/lib/fleetopsx/session";
+import {
+  clearPortalSession,
+  enterAuthenticatedApp,
+  hasLiveSession,
+  installSessionGuards,
+  isPartnerSession,
+} from "@/lib/fleetopsx/session";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/login")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    if (hasLiveSession()) {
-      throw redirect({ to: "/workspace/app" });
+    if (!hasLiveSession()) return;
+    // Partner JWT must not skip Internal Sign In — drop it and show the form.
+    if (isPartnerSession()) {
+      clearPortalSession();
+      return;
     }
+    throw redirect({ to: "/workspace/app" });
   },
   head: ({ routeContext }) => {
     // @ts-ignore

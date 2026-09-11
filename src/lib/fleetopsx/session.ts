@@ -3,9 +3,29 @@
  */
 import { clearSession, getStoredUser, getToken } from "./apiClient";
 
+const PARTNER_ROLE = "Customer Portals (External)";
+
 export function hasLiveSession(): boolean {
   if (typeof window === "undefined") return false;
   return Boolean(getToken() && getStoredUser());
+}
+
+export function isPartnerSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const rolesRaw = localStorage.getItem("fleetopsx_roles");
+    const roles = rolesRaw ? (JSON.parse(rolesRaw) as string[]) : [];
+    if (roles.includes(PARTNER_ROLE)) return true;
+    const user = getStoredUser<{ roles?: string[] }>();
+    return Boolean(user?.roles?.includes(PARTNER_ROLE));
+  } catch {
+    return false;
+  }
+}
+
+/** Drop JWT/profile when switching Internal ↔ Partner (logo / account-type). */
+export function clearPortalSession() {
+  clearSession();
 }
 
 /** Clear JWT + profile and replace the document so Back cannot re-enter another role. */

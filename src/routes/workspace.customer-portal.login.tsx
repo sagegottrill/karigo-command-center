@@ -1,13 +1,27 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { clearSession } from "@/lib/fleetopsx/apiClient";
-import { enterAuthenticatedApp } from "@/lib/fleetopsx/session";
+import {
+  clearPortalSession,
+  enterAuthenticatedApp,
+  hasLiveSession,
+  isPartnerSession,
+} from "@/lib/fleetopsx/session";
 
 export const Route = createFileRoute("/workspace/customer-portal/login")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!hasLiveSession()) return;
+    if (isPartnerSession()) {
+      throw redirect({ to: "/workspace/customer-portal/dashboard" });
+    }
+    // Staff JWT on Partner Sign In — clear so the login form is usable.
+    clearPortalSession();
+  },
   loader: async () => {
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug === "localhost" || slug === "fleetopsx") return { tenant: null };
