@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   Briefcase,
+  CirclePlus,
   HelpCircle,
   LayoutDashboard,
   List,
@@ -9,7 +10,6 @@ import {
   MoreVertical,
   Truck,
   UserCog,
-  UserPlus,
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,15 +30,15 @@ type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
-/** Figma Admin sidebar only — no non-Figma “More” extras */
+/** Figma Admin sidebar — Central Dashboard + circle-outline plus for New Account */
 const ADMIN_GROUPS: AdminNavGroup[] = [
   {
-    items: [{ label: "Overview", to: "/workspace/app", icon: LayoutDashboard }],
+    items: [{ label: "Central Dashboard", to: "/workspace/app", icon: LayoutDashboard }],
   },
   {
     label: "PARTNER Account",
     items: [
-      { label: "New Account", to: "/workspace/app/add-partner", icon: UserPlus },
+      { label: "New Account", to: "/workspace/app/add-partner", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-partner", icon: UserCog },
       { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: HelpCircle, dot: true },
     ],
@@ -46,7 +46,7 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
   {
     label: "INTERNAL Account",
     items: [
-      { label: "New Account", to: "/workspace/app/add-account", icon: UserPlus },
+      { label: "New Account", to: "/workspace/app/add-account", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-account", icon: UserCog },
       { label: "Password Request", to: "/workspace/app/password-request", icon: HelpCircle },
     ],

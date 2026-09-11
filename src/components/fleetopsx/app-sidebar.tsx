@@ -48,7 +48,7 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
 
 /** Production portal routes only — legacy Karigo paths redirect away. */
 export const NAV: NavItem[] = [
-  { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
+  { label: "Central Dashboard", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
   { label: "Fleet Dispatch", to: "/workspace/app/dispatch", icon: Truck, group: "Fleet Operations" },
   { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, group: "Fleet Operations" },
   { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck, group: "Fleet Operations" },
@@ -116,7 +116,7 @@ export function AppSidebar({
     if (item.group === "User Management") return allowedModules.includes("All modules") || allowedModules.includes("Admin");
 
     if (allowedModules.includes("All modules")) return true;
-    if (item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 
+    if (item.label === "Central Dashboard" || item.label === "Overview") return allowedModules.includes("Dashboard") || allowedModules.includes("God View") || true; 
     
     const label = item.label;
     if (label === "Approvals") return allowedModules.includes("All modules") || allowedModules.includes("Approvals");
