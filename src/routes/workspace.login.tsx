@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, UserRound, KeyRound } from "lucide-react";
+import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { Route as RootRoute } from "./__root";
 
@@ -20,40 +20,16 @@ export const Route = createFileRoute("/workspace/login")({
   component: LoginPage,
 });
 
-/** Figma 42:700 Workplace List labels */
-const DEPARTMENTS = [
-  "Transport Admin",
-  "Fleet Operations",
-  "Fuel Management",
-  "Engineering and Maintenance",
-  "Parts and Store",
-  "Accounts",
-  "HR and Personnel",
-  "Security",
-  "Drivers",
-] as const;
-
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const navigate = useNavigate();
-  const [department, setDepartment] = useState("");
-  const [deptOpen, setDeptOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
-  const deptRef = useRef<HTMLDivElement>(null);
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
-  const canSubmit = Boolean(department && username && password);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!deptRef.current?.contains(e.target as Node)) setDeptOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  const canSubmit = Boolean(username && password);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,41 +100,6 @@ function LoginPage() {
                 </p>
               </div>
             )}
-
-            {/* Figma 42:700 — department dropdown + workplace list */}
-            <div className="relative flex flex-col gap-[12px] w-full" ref={deptRef}>
-              <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">Select Department</label>
-              <button
-                type="button"
-                onClick={() => setDeptOpen((o) => !o)}
-                className="flex h-[32px] w-full items-center justify-between rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] text-left shadow-[0px_1px_2px_rgba(12,12,13,0.1)]"
-              >
-                <span className={`text-[14px] font-[500] leading-[20px] tracking-[0.4px] ${department ? "text-[#141a1f]" : "text-[#5c6470]"}`}>
-                  {department || "Select"}
-                </span>
-                <ChevronDown className="h-4 w-4 text-[#5c6470]" />
-              </button>
-              {deptOpen ? (
-                <div
-                  className="absolute left-0 right-0 top-[50px] z-20 rounded-[6px] border border-[#e2e5e9] bg-white p-[10px]"
-                  style={{ boxShadow: "0px 4px 8px rgba(0,0,0,0.15), 0px 1px 3px rgba(0,0,0,0.3)" }}
-                >
-                  {DEPARTMENTS.map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => {
-                        setDepartment(d);
-                        setDeptOpen(false);
-                      }}
-                      className="flex h-[36px] w-full items-center rounded-[4px] px-[25px] text-left text-[14px] font-[500] leading-[20px] tracking-[0.4px] text-[rgba(92,100,112,0.6)] hover:bg-[#f6f7f9] hover:text-[#141a1f]"
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
 
             <div className="flex flex-col gap-[12px] w-full">
               <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">Username</label>

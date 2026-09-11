@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, MapPin, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, MapPin, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
@@ -66,6 +66,27 @@ function ReadonlyField({ label, value }: { label: string; value?: string | null 
   );
 }
 
+function EditableField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-1.5">
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex h-10 w-full items-center rounded border border-[#E2E5E9] bg-white px-3 text-[14px] tracking-[0.4px] text-[#1B2432] shadow-[0px_4px_10px_rgba(0,0,0,0.05)] outline-none focus:border-[#1B2432]"
+      />
+    </div>
+  );
+}
+
 function PartnerRequestDetailsPage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
@@ -73,6 +94,13 @@ function PartnerRequestDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draftCustomer, setDraftCustomer] = useState("");
+  const [draftProduct, setDraftProduct] = useState("");
+  const [draftTruckType, setDraftTruckType] = useState("");
+  const [draftDestination, setDraftDestination] = useState("");
+  const [draftSites, setDraftSites] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +165,56 @@ function PartnerRequestDetailsPage() {
   const canDelete = trip
     ? ["Requested", "Awaiting Approval", "Stopped"].includes(trip.status)
     : false;
+  const canModify = trip ? ["Requested", "Awaiting Approval"].includes(trip.status) : false;
+
+  const beginModify = () => {
+    if (!trip) return;
+    const sites =
+      trip.loadingSite && trip.loadingSite.length > 0
+        ? trip.loadingSite
+        : trip.pickup
+          ? [trip.pickup]
+          : [];
+    setDraftCustomer(trip.customerConsignee || "");
+    setDraftProduct(trip.cargo || "");
+    setDraftTruckType(trip.tailType || "");
+    setDraftDestination(trip.dropoff || "");
+    setDraftSites(sites.join("; "));
+    setEditing(true);
+  };
+
+  const cancelModify = () => setEditing(false);
+
+  const saveModify = async () => {
+    if (!trip) return;
+    const sites = draftSites
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setSaving(true);
+    try {
+      const updated = await tripService.updateTrip(trip.id, {
+        customerConsignee: draftCustomer.trim(),
+        cargo: draftProduct.trim(),
+        tailType: draftTruckType.trim(),
+        dropoff: draftDestination.trim(),
+        pickup: sites[0] || trip.pickup,
+        loadingSite: sites,
+      });
+      setTrip(updated);
+      try {
+        sessionStorage.setItem(`fleetopsx_partner_trip_${updated.id}`, JSON.stringify(updated));
+      } catch {
+        /* ignore */
+      }
+      setEditing(false);
+      toast.success("Request updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update request");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleExport = () => {
     if (!trip) return;
@@ -214,7 +292,38 @@ function PartnerRequestDetailsPage() {
 
           <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Ticket {displayRequestId(trip)}</h2>
-            <div className="flex items-center gap-[30px]">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-[30px]">
+              {canModify ? (
+                editing ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelModify}
+                      disabled={saving}
+                      className="flex h-8 items-center rounded px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-[#ED351D]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveModify()}
+                      disabled={saving}
+                      className="flex h-8 items-center gap-[5px] rounded bg-[#ED351D] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
+                    >
+                      {saving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={beginModify}
+                    className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
+                  >
+                    <Pencil className="size-[16px]" />
+                    Modify
+                  </button>
+                )
+              ) : null}
               <button
                 type="button"
                 onClick={handleExport}
@@ -251,25 +360,41 @@ function PartnerRequestDetailsPage() {
                 </span>
               </div>
               <div className="flex flex-col gap-5">
-                <ReadonlyField label="Customer Name" value={trip.customerConsignee} />
-                <ReadonlyField label="Product" value={trip.cargo} />
-                <ReadonlyField label="Truck Type" value={trip.tailType} />
-                <ReadonlyField label="Destination" value={trip.dropoff} />
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
-                    Loading Site(s)
-                  </span>
-                  <div className="flex flex-col gap-2">
-                    {(loadingSites.length ? loadingSites : ["—"]).map((site) => (
-                      <div
-                        key={site}
-                        className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
-                      >
-                        {site}
+                {editing ? (
+                  <>
+                    <EditableField label="Customer Name" value={draftCustomer} onChange={setDraftCustomer} />
+                    <EditableField label="Product" value={draftProduct} onChange={setDraftProduct} />
+                    <EditableField label="Truck Type" value={draftTruckType} onChange={setDraftTruckType} />
+                    <EditableField label="Destination" value={draftDestination} onChange={setDraftDestination} />
+                    <EditableField
+                      label="Loading Site(s)"
+                      value={draftSites}
+                      onChange={setDraftSites}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <ReadonlyField label="Customer Name" value={trip.customerConsignee} />
+                    <ReadonlyField label="Product" value={trip.cargo} />
+                    <ReadonlyField label="Truck Type" value={trip.tailType} />
+                    <ReadonlyField label="Destination" value={trip.dropoff} />
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                        Loading Site(s)
+                      </span>
+                      <div className="flex flex-col gap-2">
+                        {(loadingSites.length ? loadingSites : ["—"]).map((site) => (
+                          <div
+                            key={site}
+                            className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                          >
+                            {site}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             </section>
 
