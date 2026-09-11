@@ -49,7 +49,7 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
 export const NAV: NavItem[] = [
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
   { label: "Authorization", to: "/workspace/app/approvals", icon: ShieldCheck, group: "Fleet Operations" },
-  { label: "Dispatch", to: "/workspace/app/dispatch", icon: Truck, group: "Fleet Operations" },
+  { label: "Fleet Dispatch", to: "/workspace/app/dispatch", icon: Truck, group: "Fleet Operations" },
   { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck, group: "Fleet Operations" },
   { label: "Dispatch History", to: "/workspace/app/dispatch-history", icon: ScrollText, group: "Fleet Operations" },
   { label: "Tracking", to: "/workspace/app/trips", icon: Radar, group: "Tracking" },

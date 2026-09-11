@@ -1,17 +1,12 @@
-import { createFileRoute, useNavigate, Link, useRouter } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
-import type { Trip, Driver, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
-import { redirect } from "@tanstack/react-router";
-import { ChevronLeft, ArrowUpRight, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DataTable, type Column } from "@/components/fleetopsx/data-table";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
+import { FigmaEmptyState } from "@/components/fleetopsx/figma-empty-state";
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import type { Trip } from "@/lib/fleetopsx/types";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/app/dispatch")({
   loader: async () => {
@@ -25,20 +20,20 @@ export const Route = createFileRoute("/workspace/app/dispatch")({
       heads,
       tails,
       drivers,
-      pendingOrders: trips.filter(t => t.status === "Approved for Dispatch")
+      pendingOrders: trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval"),
     };
   },
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations"];
-    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    if (!authService.getRoles().some((r) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
   head: () => ({
     meta: [
-      { title: "Create Dispatch | FleetOpsX" },
-      { name: "description", content: "Assign truck and make cost configuration for dispatch." },
+      { title: "Fleet Dispatch | FleetOpsX" },
+      { name: "description", content: "Assign trucks and drivers from the live dispatch queue." },
     ],
   }),
   component: DispatchPage,
@@ -51,48 +46,73 @@ const formatN = (num: number) => {
   }).format(num);
 };
 
+function requestId(trip: Trip) {
+  if (/^REQ-/i.test(trip.id)) return trip.id;
+  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
+  return `REQ-${digits.padStart(5, "0")}`;
+}
+
+function formatQueueDate(trip: Trip) {
+  const raw = trip.scheduledDate?.trim();
+  if (!raw) return "";
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  return raw;
+}
+
+function companyName(trip: Trip) {
+  if (trip.customer && trip.customer !== "Customer Portal") return trip.customer;
+  return trip.customerConsignee ?? "";
+}
+
+function ViewModeTabs({
+  viewMode,
+  onChange,
+}: {
+  viewMode: "queue" | "tracking";
+  onChange: (mode: "queue" | "tracking") => void;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-[8px] bg-white p-[5px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]">
+      <button
+        type="button"
+        onClick={() => onChange("queue")}
+        className={cn(
+          "flex h-8 items-center rounded px-3 text-[14px] font-medium tracking-[0.4px]",
+          viewMode === "queue" ? "bg-[#ED351D] text-white" : "text-[#1B2432]",
+        )}
+      >
+        Dispatch Queue
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("tracking")}
+        className={cn(
+          "flex h-8 items-center rounded px-3 text-[14px] font-medium tracking-[0.4px]",
+          viewMode === "tracking" ? "bg-[#ED351D] text-white" : "text-[#1B2432]",
+        )}
+      >
+        Dispatch Live Tracking
+      </button>
+    </div>
+  );
+}
+
 function DispatchPage() {
   const navigate = useNavigate();
   const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
-  
-  const router = useRouter();
+
   const [selectedOrder, setSelectedOrder] = useState<Trip | null>(null);
   const [mobileView, setMobileView] = useState<"form" | "audit">("form");
   const [viewMode, setViewMode] = useState<"queue" | "tracking">("queue");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newTrip, setNewTrip] = useState({ customer: "", cargo: "", pickup: "", dropoff: "" });
-
-  const handleCreateTrip = async () => {
-    if (!newTrip.customer || !newTrip.pickup || !newTrip.dropoff) {
-      toast.error("Please fill in customer, pickup, and dropoff.");
-      return;
-    }
-    await tripService.create({
-      customer: newTrip.customer,
-      cargo: newTrip.cargo || "General Cargo",
-      pickup: newTrip.pickup,
-      dropoff: newTrip.dropoff,
-      priority: "Normal",
-      distanceKm: 150,
-      durationLabel: "2 days",
-      scheduledDate: new Date().toLocaleDateString(),
-      startTime: "08:00",
-      lat: 6.524,
-      lng: 3.379,
-      revenue: 150000,
-      status: "Requested",
-    } as any);
-    toast.success("Trip requested successfully! Sent to Approvals.");
-    setIsCreateOpen(false);
-    setNewTrip({ customer: "", cargo: "", pickup: "", dropoff: "" });
-    router.invalidate();
-  };
 
   // Form State
   const [headId, setHeadId] = useState("");
   const [tailId, setTailId] = useState("");
   const [tailNumber, setTailNumber] = useState("");
-  
+
   const [driverId, setDriverId] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverPhone, setDriverPhone] = useState("");
@@ -137,7 +157,7 @@ function DispatchPage() {
   }, [tail]);
 
   const handleMobileConfirmDispatch = () => {
-    if (!headId || !tailId || !driverId) {
+    if (!headId || !driverId) {
       toast.error("Please fill all required fields before reviewing.");
       return;
     }
@@ -146,18 +166,17 @@ function DispatchPage() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!head || !tail || !driver) {
-      toast.error("Validation Error", { description: "Missing Truck or Driver information." });
+    if (!head || !driver) {
+      toast.error("Validation Error", { description: "Missing Truck Head or Driver information." });
       return;
     }
     
-    // Update the existing trip record in the store instead of creating a new one
     await tripService.update(selectedOrder!.id, {
       headId: head.id,
-      tailId: tail.id,
-      tailType: tail.type,
-      tailNumber: tail.number,
-      truckReg: `${head.registration} / ${tail.registration}`,
+      tailId: tail?.id,
+      tailType: tail?.type || selectedOrder!.tailType,
+      tailNumber: tail?.number || tailNumber,
+      truckReg: tail ? `${head.registration} / ${tail.registration}` : head.registration,
       driverId: driver.id,
       driverName: driver.name,
       directCosts: {
@@ -166,7 +185,7 @@ function DispatchPage() {
         motorBoy: Number(motorBoy) || 0,
         ticket: Number(ticketCost) || 0,
         extraAllowance: Number(extraAllowance) || 0,
-        lubricantType: lubricant,
+        lubricantType: lubricant === "Gas" ? "Gas" : "Diesel",
       },
       status: "Awaiting Approval",
     });
@@ -182,140 +201,89 @@ function DispatchPage() {
 
   const activeTrips = pendingOrders;
 
-  const queueColumns: Column<Trip>[] = [
-    { key: "id", header: "ID No.", sortValue: (r) => r.id, cell: (r) => <span className="font-semibold text-[#5c6470]">{r.id}</span> },
-    { key: "customer", header: "Customer Name", sortValue: (r) => r.customer, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.customer}</span> },
-    { key: "cargo", header: "Product", sortValue: (r) => r.cargo, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.cargo}</span> },
-    { key: "truckType", header: "Truck Type", sortValue: () => "Flat", cell: () => <span className="font-semibold text-[#141a1f]">Flat</span> },
-    { key: "pickup", header: "Pickup Location", sortValue: (r) => r.pickup, cell: (r) => <span className="text-[#5c6470]">{r.pickup}</span> },
-    { key: "dropoff", header: "Destination", sortValue: (r) => r.dropoff, cell: (r) => <span className="text-[#5c6470]">{r.dropoff}</span> },
-    {
-      key: "action",
-      header: "Action",
-      cell: (r) => (
-        <button 
-          onClick={() => setSelectedOrder(r)}
-          className="bg-[#1B2432] hover:bg-black text-white text-[12px] font-medium h-8 px-4 rounded-[4px] flex items-center gap-1.5 transition-colors"
-        >
-          Assign Dispatch
-          <ArrowUpRight className="h-3.5 w-3.5" />
-        </button>
-      )
-    }
-  ];
-
   const renderQueue = () => (
-    <div className="w-full mt-4">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-        {/* Toggle Button for mobile and desktop */}
-        <div className="flex bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm shrink-0 w-full sm:w-auto">
-          <button 
-            onClick={() => setViewMode("queue")}
-            className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "queue" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-          >
-            Dispatch Queue
-          </button>
-          <button 
-            onClick={() => setViewMode("tracking")}
-            className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "tracking" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-          >
-            Dispatch Live Tracking
-          </button>
+    <div className="flex w-full flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-[5px]">
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Dispatch</h2>
+          <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            Dispatch vehicles, assign trips to drivers and track live fleet status.
+          </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-[36px] sm:h-[40px] rounded-[4px] bg-[#ed351d] hover:bg-[#d62e19] px-4 text-[13px] sm:text-[14px] font-[500] text-white shadow-none transition-colors ml-auto sm:ml-0">
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              New Dispatch
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Trip Request</DialogTitle>
-              <DialogDescription>
-                Initiate a new dispatch request for Transport Manager approval.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="customer" className="text-right">Customer</Label>
-                <Input id="customer" value={newTrip.customer} onChange={(e) => setNewTrip({...newTrip, customer: e.target.value})} placeholder="e.g. Dangote Refinery" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="cargo" className="text-right">Cargo</Label>
-                <Input id="cargo" value={newTrip.cargo} onChange={(e) => setNewTrip({...newTrip, cargo: e.target.value})} placeholder="e.g. AGO" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="pickup" className="text-right">Pickup</Label>
-                <Input id="pickup" value={newTrip.pickup} onChange={(e) => setNewTrip({...newTrip, pickup: e.target.value})} placeholder="e.g. Lagos" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dropoff" className="text-right">Dropoff</Label>
-                <Input id="dropoff" value={newTrip.dropoff} onChange={(e) => setNewTrip({...newTrip, dropoff: e.target.value})} placeholder="e.g. Abuja" className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateTrip} className="bg-[#1d1d1f] text-white">Submit Request</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ViewModeTabs viewMode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex items-center gap-2 mb-4 md:hidden">
-        <h2 className="text-lg font-bold text-[#141a1f]">Fleet Register</h2>
-        <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
+      <div className="flex items-center gap-2.5 border-b border-[#E2E5E9] pb-2.5 pt-1">
+        <h3 className="text-[18px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Dispatch Queue</h3>
+        <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white">
           {pendingOrders.length}
         </span>
       </div>
-      
-      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden hidden md:block">
-        <div className="p-4 border-b border-[#e2e5e9] flex items-center gap-2">
-          <h2 className="text-lg font-bold text-[#141a1f]">Dispatch Queue</h2>
-          <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
-            {pendingOrders.length}
-          </span>
-        </div>
-        <DataTable
-          rows={pendingOrders.slice(0, 4)} 
-          columns={queueColumns}
-          pageSize={10}
-        />
-      </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden flex flex-col gap-3 pb-24">
-        {pendingOrders.map(r => (
-          <div key={r.id} className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9]">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <div className="text-[11px] text-[#5c6470] mb-1">{r.scheduledDate || new Date().toLocaleDateString()}</div>
-                <h3 className="font-bold text-[#1a2332] text-[15px]">{r.customer}</h3>
+      <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        <div className="hidden grid-cols-[81px_167px_200px_150px_119px_1fr_auto] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 md:grid">
+          {["ID No.", "Date", "Company", "Product", "Truck Type", "Destination"].map((h) => (
+            <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {h}
+            </span>
+          ))}
+          <span className="w-[120px]" />
+        </div>
+
+        {pendingOrders.map((trip) => (
+          <div
+            key={trip.id}
+            className="grid grid-cols-1 items-center gap-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0 md:grid-cols-[81px_167px_200px_150px_119px_1fr_auto] md:gap-[30px]"
+          >
+            <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
+            <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+              {formatQueueDate(trip)}
+            </span>
+            <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+              {companyName(trip)}
+            </span>
+            <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.cargo}</span>
+            <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.tailType}</span>
+            <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
+            <div className="flex items-center justify-between gap-3 md:justify-end">
+              <div className="md:hidden">
+                <p className="text-[14px] font-medium text-[#1B2432]">{companyName(trip) || trip.cargo}</p>
+                <p className="text-[12px] text-[#5C6470]">{trip.dropoff}</p>
               </div>
-              <button 
-                onClick={() => setSelectedOrder(r)}
-                className="bg-[#1B2432] hover:bg-black text-white text-[11px] font-medium h-7 px-3 rounded-[4px] flex items-center gap-1.5 transition-colors"
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(trip)}
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
               >
                 Assign Dispatch
-                <ArrowUpRight className="h-3.5 w-3.5" />
+                <Upload className="size-4" strokeWidth={1.75} />
               </button>
-            </div>
-            <div className="grid grid-cols-[90px_1fr] gap-y-1.5 text-[13px]">
-              <span className="text-[#5c6470]">ID No:</span>
-              <span className="text-[#ea3a3d] font-semibold">{r.id}</span>
-              
-              <span className="text-[#5c6470]">Product:</span>
-              <span className="text-[#3c4250]">{r.cargo}</span>
-              
-              <span className="text-[#5c6470]">Truck Type:</span>
-              <span className="text-[#3c4250]">Flat</span>
-              
-              <span className="text-[#5c6470]">Destination:</span>
-              <span className="text-[#3c4250]">{r.dropoff}</span>
             </div>
           </div>
         ))}
+
+        {pendingOrders.length === 0 && (
+          <FigmaEmptyState
+            title="No trips in the dispatch queue"
+            body="Requests waiting for truck and driver assignment will list here from the live API."
+          />
+        )}
       </div>
+    </div>
+  );
+
+  const renderTracking = () => (
+    <div className="flex w-full flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-[5px]">
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Dispatch</h2>
+          <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            Dispatch vehicles, assign trips to drivers and track live fleet status.
+          </p>
+        </div>
+        <ViewModeTabs viewMode={viewMode} onChange={setViewMode} />
+      </div>
+      <DispatchLiveMap trips={activeTrips} />
     </div>
   );
 
@@ -324,7 +292,10 @@ function DispatchPage() {
       {/* Form Header */}
       <div className="bg-[#1B2432] p-6 text-white">
         <h2 className="text-xl font-bold tracking-tight">Fleet Dispatch</h2>
-        <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">TICKET REQ-8126 &bull; SABA STEEL</p>
+        <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">
+          Ticket {selectedOrder?.id}
+          {selectedOrder?.customer && selectedOrder.customer !== "Customer Portal" ? `  •  ${selectedOrder.customer}` : ""}
+        </p>
       </div>
 
       <div className="p-5 md:p-6 space-y-6">
@@ -510,8 +481,7 @@ function DispatchPage() {
                 onChange={e => setLubricant(e.target.value)}
               >
                 <option value="Diesel">Diesel</option>
-                <option value="PMS">PMS</option>
-                <option value="AGO">AGO</option>
+                <option value="Gas">Gas</option>
               </select>
             </div>
           </div>
@@ -549,7 +519,10 @@ function DispatchPage() {
       {/* Audit Header */}
       <div className="p-6 pb-4 border-b border-[#e2e5e9]">
         <h2 className="text-xl font-bold tracking-tight text-[#1B2432]">Audit Configuration</h2>
-        <p className="text-xs text-slate-500 font-medium tracking-wider mt-1 uppercase">TICKET REQ-8126 &bull; SABA STEEL</p>
+        <p className="text-xs text-slate-500 font-medium tracking-wider mt-1 uppercase">
+          Ticket {selectedOrder ? requestId(selectedOrder) : ""}
+          {selectedOrder && companyName(selectedOrder) ? `  •  ${companyName(selectedOrder)}` : ""}
+        </p>
       </div>
 
       <div className="p-6 space-y-6">
@@ -632,66 +605,34 @@ function DispatchPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-['Inter',sans-serif]">
-      {/* Desktop Page Header */}
-      <div className="hidden md:flex w-full bg-white border-b border-[#e2e5e9] px-6 py-4 mb-6 flex-col justify-center">
-        <h1 className="text-xl font-bold text-[#141a1f]">Fleet Operations Portal</h1>
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage the lifecycle of every dispatch within the company</p>
-      </div>
-      
-      <div className="px-4 md:px-6 pb-10 flex-1 max-w-[1400px] w-full mx-auto">
-        {/* Mobile Page Header */}
-        <div className="md:hidden mt-4 mb-6">
-          <h1 className="text-[22px] font-bold text-[#141a1f]">Fleet Dispatch</h1>
-          <p className="text-[13px] text-slate-500 leading-snug mt-1.5">
-            Dispatch vehicles, assign trips to drivers and track live fleet status.
-          </p>
-        </div>
-
-        {!selectedOrder ? (
-          viewMode === "queue" ? renderQueue() : (
-            <div className="w-full mt-4">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                {/* Toggle Button for mobile and desktop */}
-                <div className="flex bg-white rounded-md border border-[#e2e5e9] p-1 shadow-sm shrink-0 w-full sm:w-auto">
-                  <button 
-                    onClick={() => setViewMode("queue")}
-                    className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "queue" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-                  >
-                    Dispatch Queue
-                  </button>
-                  <button 
-                    onClick={() => setViewMode("tracking")}
-                    className={cn("px-5 py-2 sm:py-1.5 text-[13px] font-semibold rounded-[4px] transition-colors flex-1 sm:flex-none", viewMode === "tracking" ? "bg-[#ea3a3d] text-white" : "text-[#5c6470] hover:text-[#141a1f]")}
-                  >
-                    Dispatch Live Tracking
-                  </button>
-                </div>
-              </div>
-              <DispatchLiveMap trips={activeTrips} />
-            </div>
-          )
+    <div className="flex w-full flex-col bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      {!selectedOrder ? (
+        viewMode === "queue" ? (
+          renderQueue()
         ) : (
-          <div>
-            <button 
-              onClick={handleBackToQueue} 
-              className="flex items-center gap-2 text-[13px] md:text-[14px] font-bold text-[#141a1f] mb-6 hover:text-black transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" strokeWidth={2.5}/>
-              <span className="hidden md:inline">Assign Truck and make Cost Configuration for Dispatch</span>
-              <span className="md:hidden text-[12px] leading-tight text-left">Assign Truck and make Cost Configuration<br/>for Dispatch</span>
-            </button>
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className={cn("w-full lg:flex-1", mobileView === "audit" && "hidden lg:block")}>
-                {renderForm()}
-              </div>
-              <div className={cn("w-full lg:w-auto", mobileView === "form" && "hidden lg:block")}>
-                {renderAudit()}
-              </div>
-            </div>
+          renderTracking()
+        )
+      ) : (
+        <div>
+          <button
+            type="button"
+            onClick={handleBackToQueue}
+            className="mb-6 flex items-center gap-2 text-[13px] font-bold tracking-[0.4px] text-[#1B2432] transition-colors hover:text-black md:text-[14px]"
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
+            <span className="hidden md:inline">Assign Truck and make Cost Configuration for Dispatch</span>
+            <span className="text-left text-[12px] leading-tight md:hidden">
+              Assign Truck and make Cost Configuration
+              <br />
+              for Dispatch
+            </span>
+          </button>
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className={cn("w-full lg:flex-1", mobileView === "audit" && "hidden lg:block")}>{renderForm()}</div>
+            <div className={cn("w-full lg:w-auto", mobileView === "form" && "hidden lg:block")}>{renderAudit()}</div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
