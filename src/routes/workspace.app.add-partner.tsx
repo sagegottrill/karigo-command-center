@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, X, Upload, Copy, Mail, MoreVertical } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService, authService } from "@/lib/fleetopsx/services";
@@ -20,6 +20,7 @@ function AddPartner() {
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [createdUsername, setCreatedUsername] = useState("");
 
   const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
   const [generatedPassword] = useState(() => {
@@ -56,30 +57,46 @@ function AddPartner() {
   };
 
   const handleConfirmAndSend = async () => {
-    try {
-      // Get the current logged-in user's tenant ID for proper isolation
-      const currentUser = authService.getCurrentUser();
-      const tenantCompanyId = currentUser?.companyId || "tnt_001";
-      
-      await adminService.createUser({
-        firstName,
-        surname,
-        roles: ["Customer Portals (External)"],
-        username: generatedUsername,
-        department: "External Partner",
-        companyId: tenantCompanyId,
-        partnerCompanyName: companyName,
-        password: generatedPassword,
-      });
-      toast.success("Partner account created.");
-      setShowConfirmModal(false);
-      setShowShareModal(true);
-    } catch {
-      toast.error("Failed to create partner.");
+    const currentUser = authService.getCurrentUser();
+    const tenantCompanyId = currentUser?.companyId || "tnt_001";
+    const emailDomain = `${companyName.toLowerCase().replace(/[^a-z0-9]+/g, "") || "partner"}.com`;
+
+    // Login matches email local-part — keep username === email prefix. Retry on collisions.
+    let usernameForLogin = generatedUsername;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const suffix = attempt === 0 ? "" : String(attempt + 1);
+      usernameForLogin = `${generatedUsername}${suffix}`;
+      try {
+        await adminService.createUser({
+          firstName,
+          surname,
+          roles: ["Customer Portals (External)"],
+          username: usernameForLogin,
+          email: `${usernameForLogin}@${emailDomain}`,
+          department: "External Partner",
+          companyId: tenantCompanyId,
+          partnerCompanyName: companyName,
+          password: generatedPassword,
+        });
+        setCreatedUsername(usernameForLogin);
+        toast.success("Partner account created.");
+        setShowConfirmModal(false);
+        setShowShareModal(true);
+        return;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message.toLowerCase() : "";
+        const isDuplicate =
+          msg.includes("unique") || msg.includes("already") || msg.includes("exist") || msg.includes("duplicate");
+        if (!isDuplicate) break;
+      }
     }
+    toast.error(lastError instanceof Error ? lastError.message : "Failed to create partner.");
   };
 
-  const shareText = `Hello ${firstName},\n\nYour Partner account has been created for ${companyName}.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
+  const shareUsername = createdUsername || generatedUsername;
+  const shareText = `Hello ${firstName},\n\nYour Partner account has been created for ${companyName}.\nUsername: ${shareUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
 
   const handleShareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");

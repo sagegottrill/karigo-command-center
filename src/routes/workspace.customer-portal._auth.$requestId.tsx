@@ -19,7 +19,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
   component: PartnerRequestDetailsPage,
 });
 
-type PartnerUiStatus = "Pending" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
 
 /** Split joined site strings so each site is its own field (Figma 356:9825). */
 function normalizeLoadingSites(trip: Trip | null | undefined): string[] {
@@ -63,13 +63,14 @@ function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
   switch (status) {
     case "Requested":
-    case "Awaiting Approval":
       return "Pending";
+    case "Awaiting Approval":
+    case "Scheduled":
+      return "Approved";
     case "Stopped":
       return "Declined";
     case "Completed":
       return "Completed";
-    case "Scheduled":
     case "En Route":
     case "Loaded":
     case "Offloading":
@@ -87,6 +88,8 @@ function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
       return "bg-[#FC0] text-white";
+    case "Approved":
+      return "bg-[#0ACF83] text-white";
     case "Declined":
       return "bg-[#ED351D] text-white";
     case "In transit":
@@ -98,6 +101,69 @@ function partnerStatusClass(status: PartnerUiStatus) {
       return _exhaustive;
     }
   }
+}
+
+type PartnerTimelineStep = { label: string; state: "done" | "current" | "pending"; at?: string };
+
+/** Partner Request Timeline — Declined stops at Request Declined (not the full dispatch path). */
+function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
+  const when = trip.scheduledDate ? new Date(trip.scheduledDate) : null;
+  const dateLabel =
+    when && !Number.isNaN(when.getTime())
+      ? when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      : undefined;
+  const timeLabel = trip.startTime && trip.startTime !== "—" && trip.startTime !== "-" ? trip.startTime : undefined;
+  const at = dateLabel ? (timeLabel ? `${dateLabel} • ${timeLabel}` : dateLabel) : undefined;
+
+  if (trip.status === "Stopped") {
+    return [
+      { label: "Request Submitted", state: "done", at },
+      { label: "Request Declined", state: "current", at },
+    ];
+  }
+
+  if (trip.status === "Requested") {
+    return [
+      { label: "Request Submitted", state: "current", at },
+      { label: "Request Approved", state: "pending" },
+      { label: "Dispatch Created", state: "pending" },
+      { label: "Driver Assigned", state: "pending" },
+      { label: "Pickup Completed", state: "pending" },
+      { label: "In Transit", state: "pending" },
+      { label: "At Destination", state: "pending" },
+      { label: "Offloaded", state: "pending" },
+    ];
+  }
+
+  const order = [
+    "Request Submitted",
+    "Request Approved",
+    "Dispatch Created",
+    "Driver Assigned",
+    "Pickup Completed",
+    "In Transit",
+    "At Destination",
+    "Offloaded",
+  ];
+  const idx: Record<string, number> = {
+    "Awaiting Approval": 1,
+    Scheduled: 2,
+    Loaded: 4,
+    "En Route": 5,
+    Delayed: 5,
+    Offloading: 6,
+    Returning: 7,
+    Completed: 7,
+  };
+  const current = idx[trip.status] ?? 1;
+  return order.map((label, i) => {
+    const step: PartnerTimelineStep = {
+      label,
+      state: i < current ? "done" : i === current ? "current" : "pending",
+    };
+    if (i <= current && at) step.at = at;
+    return step;
+  });
 }
 
 function ReadonlyField({ label, value }: { label: string; value?: string | null }) {
@@ -194,7 +260,7 @@ function PartnerRequestDetailsPage() {
     };
   }, [trip?.driverId]);
 
-  const timeline = useMemo(() => (trip ? tripService.timeline(trip) : []), [trip]);
+  const timeline = useMemo(() => (trip ? partnerRequestTimeline(trip) : []), [trip]);
   const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
   const loadingSites = normalizeLoadingSites(trip);
   const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);

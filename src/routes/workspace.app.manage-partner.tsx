@@ -1,21 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
+  ListFilter,
   MoreVertical,
   Search,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService } from "@/lib/fleetopsx/services";
 import { isPartnerUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
-import { WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
   component: AdminManagePartner,
@@ -27,19 +29,32 @@ type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 type SortKey = "name" | "username" | "company";
 type SortDir = "asc" | "desc";
 
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "company", label: "Company Name" },
+  { key: "username", label: "Username" },
+];
+
+const ORDER_OPTIONS: { key: SortDir; label: string }[] = [
+  { key: "asc", label: "Ascending" },
+  { key: "desc", label: "Descending" },
+];
+
 function AdminManagePartner() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortModalOpen, setSortModalOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [draftSortKey, setDraftSortKey] = useState<SortKey>("name");
+  const [draftSortDir, setDraftSortDir] = useState<SortDir>("asc");
+  const [filtersApplied, setFiltersApplied] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedTempPassword, setSharedTempPassword] = useState("");
-  const filterRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,7 +67,6 @@ function AdminManagePartner() {
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (filterRef.current && !filterRef.current.contains(t)) setFilterOpen(false);
       if (menuRef.current && !menuRef.current.contains(t)) setMenuFor(null);
     };
     document.addEventListener("mousedown", onDoc);
@@ -66,7 +80,6 @@ function AdminManagePartner() {
       return !query || hay.includes(query.toLowerCase());
     })
     .sort((a, b) => {
-      if (!sortKey) return 0;
       const dir = sortDir === "asc" ? 1 : -1;
       const av =
         sortKey === "company" ? (a.partnerCompanyName ?? "") : sortKey === "username" ? (a.username ?? "") : a.name;
@@ -80,6 +93,100 @@ function AdminManagePartner() {
   const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
+
+  const openSortModal = () => {
+    setDraftSortKey(sortKey);
+    setDraftSortDir(sortDir);
+    setSortModalOpen(true);
+  };
+
+  const saveSort = () => {
+    setSortKey(draftSortKey);
+    setSortDir(draftSortDir);
+    setFiltersApplied(true);
+    setPage(0);
+    setSortModalOpen(false);
+  };
+
+  const clearSortKeyChip = () => {
+    setSortKey("name");
+    setDraftSortKey("name");
+    if (sortDir === "asc") setFiltersApplied(false);
+    setPage(0);
+  };
+
+  const clearSortOrderChip = () => {
+    setSortDir("asc");
+    setDraftSortDir("asc");
+    if (sortKey === "name") setFiltersApplied(false);
+    setPage(0);
+  };
+
+  const clearAllFilterChips = () => {
+    setSortKey("name");
+    setSortDir("asc");
+    setDraftSortKey("name");
+    setDraftSortDir("asc");
+    setFiltersApplied(false);
+    setPage(0);
+  };
+
+  const activeSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "Name";
+  const activeOrderLabel = ORDER_OPTIONS.find((o) => o.key === sortDir)?.label ?? "Ascending";
+
+  const FilterChip = ({
+    label,
+    onRemove,
+    tone,
+  }: {
+    label: string;
+    onRemove: () => void;
+    tone: "sort" | "order";
+  }) => (
+    <span
+      className={cn(
+        "inline-flex h-8 items-center gap-3.5 rounded px-[7px] py-[5px]",
+        tone === "sort" ? "bg-[#ED351D]" : "bg-[#1B2432]",
+      )}
+    >
+      <span className="text-[12px] font-normal tracking-[0.4px] text-white">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="grid size-3 place-items-center text-white/90 hover:text-white"
+        aria-label={`Remove ${label}`}
+      >
+        <X className="size-3" strokeWidth={2.5} />
+      </button>
+    </span>
+  );
+
+  /** Figma Filter-Order (`124:3478`): white row; only checkbox fills red when selected. */
+  const CheckRow = ({
+    selected,
+    label,
+    onSelect,
+  }: {
+    selected: boolean;
+    label: string;
+    onSelect: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex h-9 w-fit items-center gap-2.5 rounded bg-white px-2.5 py-[7px] text-left"
+    >
+      <span
+        className={cn(
+          "grid size-4 shrink-0 place-items-center rounded border border-[#E2E5E9] shadow-[0px_4px_5px_rgba(0,0,0,0.05)]",
+          selected ? "bg-[#ED351D]" : "bg-transparent",
+        )}
+      >
+        {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
+      </span>
+      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{label}</span>
+    </button>
+  );
 
   const exportCSV = () => {
     const headers = "S/N,Name,Company Name,Username,Status\n";
@@ -138,24 +245,24 @@ function AdminManagePartner() {
     <>
       {/* Figma 327:11712 */}
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-col gap-[5px]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-[5px]">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Partner Account</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage listing of partner companies
             </p>
           </div>
-          <div className="flex shrink-0 flex-nowrap items-center gap-2.5">
+          <div className="flex w-full flex-row flex-nowrap items-center gap-2.5 sm:w-auto sm:shrink-0">
             <Link
               to="/workspace/app/add-partner"
-              className="flex h-10 shrink-0 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19]"
+              className="flex h-10 min-w-0 flex-1 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19] sm:flex-none"
             >
               + Add New Account
             </Link>
             <button
               type="button"
               onClick={exportCSV}
-              className="flex h-10 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
+              className="flex h-10 shrink-0 flex-row items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
             >
               <Download className="size-4" strokeWidth={1.75} />
               Export CSV
@@ -163,82 +270,42 @@ function AdminManagePartner() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-[540px] min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Search"
-              className="h-10 w-full rounded border border-[#E2E5E9] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
-            />
-          </div>
-          <div ref={filterRef} className="relative">
+        <div className="flex w-full flex-col items-start gap-2.5">
+          <div className="flex w-full items-center justify-start gap-3 sm:gap-5">
+            <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+              <Search className="size-5 shrink-0 text-[#5C6470]" strokeWidth={1.5} />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search"
+                className="w-full min-w-0 bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+              />
+            </div>
             <button
               type="button"
-              onClick={() => setFilterOpen((v) => !v)}
-              className="flex size-10 items-center justify-center rounded bg-[#ED351D] text-white"
-              aria-label="Filter"
+              onClick={openSortModal}
+              className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
+              aria-label="Filter partners"
             >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+              <ListFilter className="size-5 text-white" />
             </button>
-            {filterOpen && (
-              <div className="absolute top-12 right-0 z-40 w-56 rounded border border-[#E2E5E9] bg-white py-3 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                <p className="px-4 pb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#ED351D]">Sort by</p>
-                {(
-                  [
-                    ["name", "Full Name"],
-                    ["username", "Username"],
-                    ["company", "Company"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSortKey(key)}
-                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
-                      sortKey === key ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <div className="my-2 h-px bg-[#E2E5E9]" />
-                <p className="px-4 pb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#ED351D]">Order</p>
-                {(
-                  [
-                    ["asc", "Ascending"],
-                    ["desc", "Descending"],
-                  ] as const
-                ).map(([dir, label]) => (
-                  <button
-                    key={dir}
-                    type="button"
-                    onClick={() => setSortDir(dir)}
-                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
-                      sortDir === dir ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="mt-2 w-full px-4 py-2 text-left text-[13px] text-[#8E95A1] hover:bg-[#F1F2F4]"
-                  onClick={() => {
-                    setSortKey(null);
-                    setSortDir("asc");
-                    setFilterOpen(false);
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
           </div>
+          {filtersApplied ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterChip label={activeSortLabel} onRemove={clearSortKeyChip} tone="sort" />
+              <FilterChip label={activeOrderLabel} onRemove={clearSortOrderChip} tone="order" />
+              <button
+                type="button"
+                onClick={clearAllFilterChips}
+                className="text-[12px] font-medium tracking-[0.4px] text-[#ED351D] hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-[10px] border border-[#E2E5E9] bg-white max-md:border-0 max-md:bg-transparent">
@@ -502,6 +569,54 @@ function AdminManagePartner() {
           )}
         </div>
       </div>
+
+      {sortModalOpen && (
+        <PortalOverlay onBackdropClick={() => setSortModalOpen(false)}>
+          <div
+            className="flex w-full max-w-[490px] flex-col items-end gap-[15px] rounded-[10px] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="partner-sort-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full border-b border-[#E2E5E9]">
+              <h3 id="partner-sort-title" className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+                Sort By
+              </h3>
+            </div>
+            <div className="flex w-full flex-col gap-1">
+              {SORT_OPTIONS.map((opt) => (
+                <CheckRow
+                  key={opt.key}
+                  label={opt.label}
+                  selected={draftSortKey === opt.key}
+                  onSelect={() => setDraftSortKey(opt.key)}
+                />
+              ))}
+            </div>
+            <div className="w-full border-b border-[#E2E5E9]">
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Order By</h3>
+            </div>
+            <div className="flex w-full flex-col gap-[5px]">
+              {ORDER_OPTIONS.map((opt) => (
+                <CheckRow
+                  key={opt.key}
+                  label={opt.label}
+                  selected={draftSortDir === opt.key}
+                  onSelect={() => setDraftSortDir(opt.key)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={saveSort}
+              className="flex h-8 w-[119px] items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+            >
+              Save
+            </button>
+          </div>
+        </PortalOverlay>
+      )}
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/75 p-4">

@@ -150,24 +150,24 @@ function AdminManageAccount() {
     <>
       {/* Figma 93:1637 */}
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-col gap-[5px]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-[5px]">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Staff Account</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage listing of internal staff
             </p>
           </div>
-          <div className="flex shrink-0 flex-nowrap items-center gap-2.5">
+          <div className="flex w-full flex-row flex-nowrap items-center gap-2.5 sm:w-auto sm:shrink-0">
             <Link
               to="/workspace/app/add-account"
-              className="flex h-10 shrink-0 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19]"
+              className="flex h-10 min-w-0 flex-1 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19] sm:flex-none"
             >
               + Add New Staff Account
             </Link>
             <button
               type="button"
               onClick={exportCSV}
-              className="flex h-10 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
+              className="flex h-10 shrink-0 flex-row items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
             >
               <Download className="size-4" strokeWidth={1.75} />
               Export CSV
