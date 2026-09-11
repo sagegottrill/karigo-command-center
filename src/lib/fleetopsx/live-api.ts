@@ -380,15 +380,19 @@ export async function liveListTrips(): Promise<Trip[]> {
 }
 
 export async function liveGetTrip(id: string): Promise<Trip | null> {
+  // List-first: GET /trips/:id is missing or hangs behind some Vercel→HTTP proxies.
+  try {
+    const all = await liveListTrips();
+    const found = all.find((t) => t.id === id);
+    if (found) return found;
+  } catch {
+    // fall through to direct get
+  }
   try {
     return mapTrip((await api.get(`/trips/${id}`)) as Record<string, unknown>);
   } catch (err) {
     const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
-    // Older API builds had list/patch/delete but no GET-by-id — fall back to list.
-    if (status === 404 || status === 405) {
-      const all = await liveListTrips();
-      return all.find((t) => t.id === id) ?? null;
-    }
+    if (status === 404 || status === 405) return null;
     throw err;
   }
 }

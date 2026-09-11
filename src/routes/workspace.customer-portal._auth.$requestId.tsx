@@ -4,6 +4,7 @@ import { ArrowLeft, Check, MapPin, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -54,17 +55,11 @@ function partnerStatusClass(status: PartnerUiStatus) {
   }
 }
 
-function displayRequestId(trip: Trip) {
-  if (/^REQ-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `REQ-${digits.padStart(5, "0")}`;
-}
-
 function ReadonlyField({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className="flex w-full min-w-0 flex-col gap-1.5">
       <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
-      <div className="flex min-h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+      <div className="flex min-h-10 w-full items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
         {value?.trim() ? value : "—"}
       </div>
     </div>
@@ -79,15 +74,49 @@ function PartnerRequestDetailsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const refresh = async () => {
-    const t = await tripService.get(requestId);
-    setTrip(t);
-  };
-
   useEffect(() => {
-    void refresh()
-      .catch(() => setTrip(null))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    // Instant paint from dashboard cache (avoid hung GET /trips/:id behind proxy)
+    try {
+      const raw = sessionStorage.getItem(`fleetopsx_partner_trip_${requestId}`);
+      if (raw) {
+        const cached = JSON.parse(raw) as Trip;
+        if (cached?.id === requestId) {
+          setTrip(cached);
+          setLoading(false);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const load = async () => {
+      try {
+        const t = await tripService.get(requestId);
+        if (!cancelled) {
+          setTrip(t);
+          if (t) {
+            try {
+              sessionStorage.setItem(`fleetopsx_partner_trip_${t.id}`, JSON.stringify(t));
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      } catch {
+        /* keep cached trip if any */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 6000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
   }, [requestId]);
 
   const timeline = useMemo(() => (trip ? tripService.timeline(trip) : []), [trip]);
@@ -174,7 +203,7 @@ function PartnerRequestDetailsPage() {
           </Link>
         </div>
       ) : (
-        <main className="flex flex-col gap-5 px-4 py-5 sm:gap-[20px] sm:px-10 sm:py-[30px]">
+        <main className="flex w-full min-w-0 flex-col gap-5 px-4 py-5 sm:gap-5 sm:px-[30px] sm:py-[30px]">
           <Link
             to="/workspace/customer-portal/dashboard"
             className="inline-flex items-center gap-2 text-[16px] tracking-[0.4px] text-[#5C6470]"
@@ -183,7 +212,7 @@ function PartnerRequestDetailsPage() {
             Back to Dashboard
           </Link>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Ticket {displayRequestId(trip)}</h2>
             <div className="flex items-center gap-[30px]">
               <button
@@ -207,10 +236,10 @@ function PartnerRequestDetailsPage() {
             </div>
           </div>
 
-          <div className="grid gap-[35px] xl:grid-cols-2">
+          <div className="grid w-full min-w-0 gap-5 lg:grid-cols-2 lg:gap-[35px]">
             {/* Request Details */}
-            <section className="rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
-              <div className="mb-4 flex items-center justify-between border-b border-[#E2E5E9] py-2">
+            <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="mb-4 flex w-full items-center justify-between border-b border-[#E2E5E9] py-2">
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Details</h3>
                 <span
                   className={cn(
@@ -245,7 +274,7 @@ function PartnerRequestDetailsPage() {
             </section>
 
             {/* Real-Time Tracking */}
-            <section className="overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+            <section className="w-full min-w-0 overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
               <div className="border-b border-[#5C6470]/40 px-5 py-2.5">
                 <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Real-Time Tracking</h3>
               </div>
@@ -274,8 +303,8 @@ function PartnerRequestDetailsPage() {
             </section>
 
             {/* Assignment Details */}
-            <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
-              <div className="mb-4 border-b border-[#E2E5E9] py-2">
+            <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="mb-4 w-full border-b border-[#E2E5E9] py-2">
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
               </div>
               {trip.status === "Requested" || trip.status === "Awaiting Approval" ? (
@@ -294,8 +323,8 @@ function PartnerRequestDetailsPage() {
             </section>
 
             {/* Request Timeline */}
-            <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-[30px] py-2.5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
-              <div className="mb-5 border-b border-[#E2E5E9] py-2">
+            <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-2.5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] sm:px-[30px]">
+              <div className="mb-5 w-full border-b border-[#E2E5E9] py-2">
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Timeline</h3>
               </div>
               <div className="relative flex flex-col gap-5 pb-4">

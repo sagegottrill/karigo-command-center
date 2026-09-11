@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ListFilter, MoreVertical, Search } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -76,10 +77,10 @@ function PartnerPortalDashboard() {
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<"id" | "date" | "product" | "truck" | "status">("id");
-  const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending");
-  const [draftSortKey, setDraftSortKey] = useState<"id" | "date" | "product" | "truck" | "status">("id");
-  const [draftSortOrder, setDraftSortOrder] = useState<"Ascending" | "Descending">("Ascending");
+  const [sortKey, setSortKey] = useState<"id" | "date" | "consignee" | "product" | "truck" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Descending");
+  const [draftSortKey, setDraftSortKey] = useState<"id" | "date" | "consignee" | "product" | "truck" | "status">("date");
+  const [draftSortOrder, setDraftSortOrder] = useState<"Ascending" | "Descending">("Descending");
 
   const refresh = async () => {
     const allTrips = await tripService.list();
@@ -91,12 +92,6 @@ function PartnerPortalDashboard() {
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, []);
-
-  const displayRequestId = (trip: Trip) => {
-    if (/^REQ-/i.test(trip.id)) return trip.id;
-    const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-    return `REQ-${digits.padStart(5, "0")}`;
-  };
 
   const filteredRequests = useMemo(() => {
     let result = requests;
@@ -122,6 +117,9 @@ function PartnerPortalDashboard() {
           break;
         case "date":
           cmp = String(a.scheduledDate || "").localeCompare(String(b.scheduledDate || ""));
+          break;
+        case "consignee":
+          cmp = (a.customerConsignee || "").localeCompare(b.customerConsignee || "");
           break;
         case "product":
           cmp = (a.cargo || "").localeCompare(b.cargo || "");
@@ -154,8 +152,13 @@ function PartnerPortalDashboard() {
     await refresh();
   };
 
-  const openDetails = (id: string) => {
-    navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: id } });
+  const openDetails = (trip: Trip) => {
+    try {
+      sessionStorage.setItem(`fleetopsx_partner_trip_${trip.id}`, JSON.stringify(trip));
+    } catch {
+      /* ignore quota */
+    }
+    navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: trip.id } });
   };
 
   const openSortModal = () => {
@@ -173,6 +176,7 @@ function PartnerPortalDashboard() {
   const sortOptions = [
     { key: "id" as const, label: "ID No." },
     { key: "date" as const, label: "Date" },
+    { key: "consignee" as const, label: "Cosignee" },
     { key: "product" as const, label: "Product" },
     { key: "truck" as const, label: "Truck Type" },
     { key: "status" as const, label: "Status" },
@@ -195,12 +199,12 @@ function PartnerPortalDashboard() {
     <button
       type="button"
       onClick={onSelect}
-      className="flex h-9 w-full items-center gap-2 rounded px-2.5 py-[7px] text-left"
+      className="flex h-9 w-full items-center gap-2.5 rounded px-2.5 py-[7px] text-left"
     >
       <span
         className={cn(
           "grid size-4 shrink-0 place-items-center rounded border border-[#E2E5E9] shadow-[0px_4px_5px_rgba(0,0,0,0.05)]",
-          selected ? "bg-[#ED351D]" : "bg-transparent",
+          selected ? "bg-[#ED351D]" : "bg-white",
         )}
       >
         {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
@@ -219,13 +223,13 @@ function PartnerPortalDashboard() {
 
   return (
     <PartnerPortalShell>
-      <main className="flex flex-col gap-4 p-4 sm:gap-[30px] sm:p-[30px]">
-        {/* Stat cards — scroll on mobile, 5-up on desktop */}
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 xl:grid xl:grid-cols-5 xl:overflow-visible">
+      <main className="flex w-full flex-col gap-4 p-4 sm:gap-[30px] sm:p-[30px]">
+        {/* Stat cards — scroll on mobile, 5-up full width on desktop */}
+        <div className="-mx-1 flex w-full gap-3 overflow-x-auto px-1 pb-1 xl:mx-0 xl:grid xl:grid-cols-5 xl:overflow-visible xl:px-0">
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="min-w-[150px] shrink-0 rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] xl:min-w-0"
+              className="min-w-[150px] w-full shrink-0 rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] xl:min-w-0"
             >
               <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{card.label}</p>
               <p className="mt-2.5 font-space-grotesk text-[36px] font-bold leading-9 text-[#1B2432]">{card.value}</p>
@@ -292,7 +296,7 @@ function PartnerPortalDashboard() {
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => openDetails(r.id)}
+                    onClick={() => openDetails(r)}
                     className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
@@ -330,43 +334,45 @@ function PartnerPortalDashboard() {
               })}
             </div>
 
-            {/* Desktop table — Figma 294:5225 */}
-            <div className="hidden overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)] lg:block">
-              <div className="w-full overflow-x-auto">
-                <div className="mb-2 flex min-w-[1000px] gap-[30px] border-b border-[#E2E5E9] py-2.5 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  <span className="w-[81px]">ID No.</span>
-                  <span className="w-[167px]">Date</span>
-                  <span className="w-[219px]">Consignee</span>
-                  <span className="w-[150px]">Product</span>
-                  <span className="w-[119px]">Truck Type</span>
-                  <span className="w-[158px]">Destination</span>
-                  <span className="w-[120px]">Status</span>
+            {/* Desktop table — Figma 294:5225 (full-width columns) */}
+            <div className="hidden w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)] lg:block">
+              <div className="w-full min-w-0">
+                <div className="mb-2 grid w-full grid-cols-[minmax(96px,0.9fr)_minmax(110px,1.1fr)_minmax(140px,1.6fr)_minmax(100px,1.1fr)_minmax(100px,1fr)_minmax(140px,1.5fr)_minmax(120px,1fr)] gap-3 border-b border-[#E2E5E9] py-2.5 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  <span>ID No.</span>
+                  <span>Date</span>
+                  <span>Cosignee</span>
+                  <span>Product</span>
+                  <span>Truck Type</span>
+                  <span>Destination</span>
+                  <span>Status</span>
                 </div>
                 {filteredRequests.map((r) => {
                   const uiStatus = toPartnerStatus(r.status);
                   return (
                     <div
                       key={r.id}
-                      className="flex min-w-[1000px] cursor-pointer items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-0"
-                      onClick={() => openDetails(r.id)}
+                      className="grid w-full cursor-pointer grid-cols-[minmax(96px,0.9fr)_minmax(110px,1.1fr)_minmax(140px,1.6fr)_minmax(100px,1.1fr)_minmax(100px,1fr)_minmax(140px,1.5fr)_minmax(120px,1fr)] items-center gap-3 border-b border-[#E2E5E9] py-2.5 last:border-0"
+                      onClick={() => openDetails(r)}
                     >
-                      <span className="w-[81px] text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{displayRequestId(r)}</span>
-                      <span className="w-[167px] text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                        {displayRequestId(r)}
+                      </span>
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {formatTripDate(r.scheduledDate)}
                       </span>
-                      <span className="w-[219px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {r.customerConsignee || "—"}
                       </span>
-                      <span className="w-[150px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {r.cargo || "—"}
                       </span>
-                      <span className="w-[119px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {r.tailType || "—"}
                       </span>
-                      <span className="w-[158px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {r.dropoff || "—"}
                       </span>
-                      <div className="flex w-[120px] items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2">
                         <span
                           className={cn(
                             "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium",
@@ -394,7 +400,7 @@ function PartnerPortalDashboard() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRowMenuOpen(null);
-                                  openDetails(r.id);
+                                  openDetails(r);
                                 }}
                               >
                                 Details
