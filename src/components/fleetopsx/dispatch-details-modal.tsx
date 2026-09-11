@@ -48,8 +48,8 @@ export function DispatchDetailsModal({
   onDecline,
 }: {
   trip: Trip;
-  driver?: Driver;
-  head?: TruckHead;
+  driver?: Driver | undefined;
+  head?: TruckHead | undefined;
   onClose: () => void;
   onApprove: () => void;
   onDecline: () => void;
@@ -57,7 +57,14 @@ export function DispatchDetailsModal({
   const customerName = trip.customerConsignee;
   const partner =
     trip.customer && trip.customer !== "Customer Portal" ? trip.customer.toUpperCase() : undefined;
-  const sites = trip.loadingSite?.filter(Boolean) ?? [];
+  const sitesRaw = trip.loadingSite?.filter(Boolean) ?? [];
+  const sites =
+    sitesRaw.length > 0
+      ? sitesRaw.flatMap((s) => s.split(/[;,]/).map((x) => x.trim()).filter(Boolean))
+      : (trip.pickup ?? "")
+          .split(/[;,]/)
+          .map((x) => x.trim())
+          .filter(Boolean);
   const capNumber = head?.capNumber || head?.number || trip.headId;
   const plate = head?.registration || trip.truckReg;
   const tailAssigned = trip.tailType
@@ -102,9 +109,7 @@ export function DispatchDetailsModal({
               <DetailRow label="Destination:" value={trip.dropoff} />
               {sites.length > 0 ? (
                 <DetailRow label="Loading Site(s):" value={sites.join("\n")} multiline />
-              ) : (
-                <DetailRow label="Pickup:" value={trip.pickup} />
-              )}
+              ) : null}
             </div>
           </div>
         )}
