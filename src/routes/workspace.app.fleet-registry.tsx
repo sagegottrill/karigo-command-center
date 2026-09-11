@@ -19,7 +19,7 @@ export const Route = createFileRoute("/workspace/app/fleet-registry")({
   component: FleetRegistryPage,
 });
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 const CARD_SHADOW =
   "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]";
 

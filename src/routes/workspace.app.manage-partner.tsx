@@ -251,20 +251,6 @@ function AdminManagePartner() {
           )}
           {!loading && filtered.length > 0 && (
             <>
-              <div className="hidden grid-cols-[48px_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(72px,auto)] gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-                {["S/N", "Name", "Company Name", "Username", "Actions"].map((h) => (
-                  <span
-                    key={h}
-                    className={cn(
-                      "text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]",
-                      h === "Actions" && "text-right",
-                    )}
-                  >
-                    {h === "Actions" ? "" : h}
-                  </span>
-                ))}
-              </div>
-
               <div className="flex flex-col gap-3 md:hidden">
                 {filtered.map((u, i) => (
                   <div
@@ -369,94 +355,110 @@ function AdminManagePartner() {
                 ))}
               </div>
 
-              {filtered.map((u, i) => (
-                <div
-                  key={u.id}
-                  className="relative z-0 hidden grid-cols-[48px_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(72px,auto)] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid data-[open=true]:z-20"
-                  data-open={menuFor === u.id ? "true" : "false"}
-                >
-                  <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
-                  <span className="truncate text-[14px] capitalize text-[#5C6470]">{u.name}</span>
-                  <span className="truncate text-[14px] capitalize text-[#5C6470]">{u.partnerCompanyName}</span>
-                  <span className="truncate text-[14px] text-[#5C6470]">{u.username}</span>
-                  <div className="flex items-center justify-end gap-2">
-                    <div ref={menuFor === u.id ? menuRef : undefined} className="relative shrink-0">
-                      <button
-                        type="button"
-                        className="grid size-8 place-items-center rounded text-[#1B2432] hover:bg-[#F1F2F4]"
-                        onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
-                        aria-label="Partner options"
-                      >
-                        <MoreVertical className="size-5" strokeWidth={1.75} />
-                      </button>
-                      {menuFor === u.id && (
-                        <div className="absolute top-9 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              toast.message("Account details", {
-                                description: `${u.name} · ${u.partnerCompanyName || "Partner"} · ${u.email}`,
-                              });
-                            }}
-                          >
-                            View details
-                          </button>
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "password", userId: u.id });
-                            }}
-                          >
-                            Reset password
-                          </button>
-                          {u.status === "Suspended" ? (
-                            <button
-                              type="button"
-                              className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setConfirmAction({ type: "activate", userId: u.id });
-                              }}
-                            >
-                              Activate
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setConfirmAction({ type: "suspend", userId: u.id });
-                              }}
-                            >
-                              Suspend
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "delete", userId: u.id });
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+              <div className="hidden overflow-x-auto md:block">
+                <div className="min-w-[720px]">
+                  <div className="flex items-center gap-[60px] border-b border-[#E2E5E9] px-5 py-3">
+                    <span className="w-[29px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
+                    <div className="flex w-[590px] shrink-0 items-center text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      <span className="w-[167px] shrink-0">Name</span>
+                      <span className="w-[250px] shrink-0">Company Name</span>
+                      <span className="w-[167px] shrink-0">Username</span>
                     </div>
-                    {u.status === "Suspended" && (
-                      <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
-                        Suspended
-                      </span>
-                    )}
+                    <span className="w-5 shrink-0" />
                   </div>
+
+                  {filtered.map((u, i) => (
+                    <div
+                      key={u.id}
+                      className="relative z-0 flex items-center gap-[60px] border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 data-[open=true]:z-20"
+                      data-open={menuFor === u.id ? "true" : "false"}
+                    >
+                      <span className="w-[29px] shrink-0 text-[14px] capitalize text-[#5C6470]">{i + 1}</span>
+                      <div className="flex w-[590px] shrink-0 items-center text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        <span className="w-[167px] shrink-0 truncate">{u.name}</span>
+                        <span className="w-[250px] shrink-0 truncate">{u.partnerCompanyName}</span>
+                        <span className="w-[167px] shrink-0 truncate normal-case">{u.username}</span>
+                      </div>
+                      <div className="relative flex shrink-0 items-center gap-2">
+                        <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                          <button
+                            type="button"
+                            className="grid size-5 place-items-center text-[#1B2432]"
+                            onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                            aria-label="Partner options"
+                          >
+                            <MoreVertical className="size-5" strokeWidth={1.75} />
+                          </button>
+                          {menuFor === u.id && (
+                            <div className="absolute top-6 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
+                              <button
+                                type="button"
+                                className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                                onClick={() => {
+                                  setMenuFor(null);
+                                  toast.message("Account details", {
+                                    description: `${u.name} · ${u.partnerCompanyName || "Partner"} · ${u.email}`,
+                                  });
+                                }}
+                              >
+                                View details
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                                onClick={() => {
+                                  setMenuFor(null);
+                                  setConfirmAction({ type: "password", userId: u.id });
+                                }}
+                              >
+                                Reset password
+                              </button>
+                              {u.status === "Suspended" ? (
+                                <button
+                                  type="button"
+                                  className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                                  onClick={() => {
+                                    setMenuFor(null);
+                                    setConfirmAction({ type: "activate", userId: u.id });
+                                  }}
+                                >
+                                  Activate
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                                  onClick={() => {
+                                    setMenuFor(null);
+                                    setConfirmAction({ type: "suspend", userId: u.id });
+                                  }}
+                                >
+                                  Suspend
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                                onClick={() => {
+                                  setMenuFor(null);
+                                  setConfirmAction({ type: "delete", userId: u.id });
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {u.status === "Suspended" && (
+                          <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                            Suspended
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </>
           )}
         </div>

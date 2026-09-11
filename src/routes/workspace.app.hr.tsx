@@ -19,7 +19,7 @@ export const Route = createFileRoute("/workspace/app/hr")({
   component: HrStaffDirectory,
 });
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 
 function statusPillClass(status: DriverStatus) {
   switch (status) {

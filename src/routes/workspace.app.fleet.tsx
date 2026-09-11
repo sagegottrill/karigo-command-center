@@ -24,7 +24,7 @@ export const Route = createFileRoute("/workspace/app/fleet")({
   component: FleetDispatchRequests,
 });
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 
 function isDispatchRequest(trip: Trip) {
   return trip.status === "Requested" || trip.status === "Awaiting Approval";
@@ -336,84 +336,92 @@ function FleetDispatchRequests() {
             </button>
           </div>
 
-          <div className="grid grid-cols-[96px_167px_144px_150px_134px_1fr_auto] items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
-            {["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Destination"].map((h) => (
-              <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {h}
-              </span>
-            ))}
-            <span className="w-[100px]" />
-          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px]">
+              <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
+                <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
+                <div className="flex items-center tracking-[0.4px]">
+                  <span className="w-[167px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
+                  <span className="w-[144px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
+                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
+                  <span className="w-[134px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Phone Number</span>
+                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
+                </div>
+                <span className="w-[100px] shrink-0" />
+              </div>
 
-          {slice.map((trip) => {
-            const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
-            const approved = trip.status === "Awaiting Approval";
-            return (
-              <div
-                key={trip.id}
-                className="relative grid grid-cols-[96px_167px_144px_150px_134px_1fr_auto] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5"
-              >
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                  {trip.driverName || driver?.name}
-                </span>
-                <span className="text-[12px] tracking-[0.4px] text-[#627084]">{headLabel(trip, heads)}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
-                <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver?.phone}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-                <div
-                  ref={menuFor === trip.id ? menuRef : undefined}
-                  className="relative flex items-center justify-end gap-2 justify-self-end"
-                >
-                  <button
-                    type="button"
-                    className="grid size-8 place-items-center text-[#1B2432]"
-                    onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
+              {slice.map((trip) => {
+                const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
+                const approved = trip.status === "Awaiting Approval";
+                return (
+                  <div
+                    key={trip.id}
+                    className="relative flex h-12 items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                   >
-                    <MoreVertical className="size-5" />
-                  </button>
-                  {approved && (
-                    <span className="rounded bg-[#34C759] px-2.5 py-[5px] text-[12px] tracking-[0.4px] text-white">
-                      Approved
+                    <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                      {dispatchId(trip)}
                     </span>
-                  )}
-                  {menuFor === trip.id && (
-                    <div className="absolute top-8 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                    <div className="flex items-center tracking-[0.4px]">
+                      <span className="w-[167px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
+                        {trip.driverName || driver?.name}
+                      </span>
+                      <span className="w-[144px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
+                      <span className="w-[150px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
+                      <span className="w-[134px] shrink-0 truncate text-[14px] text-[#5C6470]">{driver?.phone}</span>
+                      <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
+                    </div>
+                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative flex shrink-0 items-center gap-2">
                       <button
                         type="button"
-                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                        onClick={() => {
-                          setMenuFor(null);
-                          setDetail(trip);
-                        }}
+                        className="grid size-5 place-items-center text-[#1B2432]"
+                        onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
+                        aria-label="Dispatch options"
                       >
-                        View Details
+                        <MoreVertical className="size-5" strokeWidth={1.75} />
                       </button>
-                      {!approved && (
-                        <>
+                      {approved && (
+                        <span className="rounded bg-[#34C759] px-2.5 py-[5px] text-[12px] tracking-[0.4px] text-white">
+                          Approved
+                        </span>
+                      )}
+                      {menuFor === trip.id && (
+                        <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                           <button
                             type="button"
                             className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                            onClick={() => void handleApprove(trip)}
+                            onClick={() => {
+                              setMenuFor(null);
+                              setDetail(trip);
+                            }}
                           >
-                            Approve
+                            View Details
                           </button>
-                          <button
-                            type="button"
-                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                            onClick={() => handleDecline(trip)}
-                          >
-                            Decline
-                          </button>
-                        </>
+                          {!approved && (
+                            <>
+                              <button
+                                type="button"
+                                className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                                onClick={() => void handleApprove(trip)}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                                onClick={() => void handleDecline(trip)}
+                              >
+                                Decline
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState

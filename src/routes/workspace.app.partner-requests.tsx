@@ -11,7 +11,7 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
   component: AdminPartnerRequests,
 });
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 
 function isPartnerRequest(trip: Trip) {
   return trip.status === "Requested" || trip.customer === "Customer Portal";
@@ -295,68 +295,81 @@ function AdminPartnerRequests() {
             </button>
           </div>
 
-          <div className="grid grid-cols-[96px_156px_167px_116px_144px_1fr_40px] items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
-            {["Request ID", "Partner", "Customer Name", "Product", "Truck Type", "Destination"].map((h) => (
-              <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {h}
-              </span>
-            ))}
-            <span />
-          </div>
-
-          {slice.map((trip) => (
-            <div
-              key={trip.id}
-              className="relative grid grid-cols-[96px_156px_167px_116px_144px_1fr_40px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5"
-            >
-              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                {trip.customer === "Customer Portal" ? "" : trip.customer}
-              </span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee}</span>
-              <span className="text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-              <div ref={menuFor === trip.id ? menuRef : undefined} className="relative justify-self-end">
-                <button
-                  type="button"
-                  className="grid size-8 place-items-center text-[#1B2432]"
-                  onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
-                >
-                  <MoreVertical className="size-5" />
-                </button>
-                {menuFor === trip.id && (
-                  <div className="absolute top-8 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
-                    <button
-                      type="button"
-                      className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                      onClick={() => {
-                        setMenuFor(null);
-                        setDetail(trip);
-                      }}
-                    >
-                      View Details
-                    </button>
-                    <button
-                      type="button"
-                      className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                      onClick={() => void handleApprove(trip)}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                      onClick={() => handleDecline(trip)}
-                    >
-                      Decline
-                    </button>
-                  </div>
-                )}
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px]">
+              <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
+                <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
+                <div className="flex items-center tracking-[0.4px]">
+                  <span className="w-[156px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Partner</span>
+                  <span className="w-[167px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Customer Name</span>
+                  <span className="w-[116px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Product</span>
+                  <span className="w-[144px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Type</span>
+                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
+                </div>
+                <span className="w-5 shrink-0" />
               </div>
-            </div>
-          ))}
 
+              {slice.map((trip) => (
+                <div
+                  key={trip.id}
+                  className="relative flex h-12 items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                >
+                  <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                    {requestId(trip)}
+                  </span>
+                  <div className="flex items-center tracking-[0.4px]">
+                    <span className="w-[156px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
+                      {trip.customer === "Customer Portal" ? "" : trip.customer}
+                    </span>
+                    <span className="w-[167px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
+                      {trip.customerConsignee}
+                    </span>
+                    <span className="w-[116px] shrink-0 truncate text-[12px] text-[#627084]">{trip.cargo}</span>
+                    <span className="w-[144px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
+                    <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
+                  </div>
+                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0">
+                    <button
+                      type="button"
+                      className="grid size-5 place-items-center text-[#1B2432]"
+                      onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
+                      aria-label="Request options"
+                    >
+                      <MoreVertical className="size-5" strokeWidth={1.75} />
+                    </button>
+                    {menuFor === trip.id && (
+                      <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
+                        <button
+                          type="button"
+                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setDetail(trip);
+                          }}
+                        >
+                          View Details
+                        </button>
+                        <button
+                          type="button"
+                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          onClick={() => void handleApprove(trip)}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                          onClick={() => void handleDecline(trip)}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
@@ -414,9 +427,9 @@ function AdminPartnerRequests() {
             <div className="border-b border-[#E2E5E9] py-2">
               <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Request Details</h3>
             </div>
-            <ReadOnlyField label="Customer Name" value={detail.customerConsignee} />
+            <ReadOnlyField label="Customer Name" value={detail.customerConsignee ?? ""} />
             <ReadOnlyField label="Product" value={detail.cargo} />
-            <ReadOnlyField label="Truck Type" value={detail.tailType} />
+            <ReadOnlyField label="Truck Type" value={detail.tailType ?? ""} />
             <ReadOnlyField label="Destination" value={detail.dropoff} />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
