@@ -721,12 +721,12 @@ function PartnerRequestDetailsPage() {
               </div>
             </div>
 
-            <div className="flex w-full items-center justify-end gap-3 border-t border-[#E2E5E9] pt-3">
+            <div className="flex w-full items-center justify-between border-t border-[#E2E5E9] pt-3">
               <button
                 type="button"
                 onClick={closeModifyModal}
                 disabled={saving}
-                className="h-8 px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D]"
+                className="flex h-10 w-[149px] items-center justify-center rounded px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D]"
               >
                 Cancel
               </button>
@@ -734,9 +734,9 @@ function PartnerRequestDetailsPage() {
                 type="button"
                 onClick={() => void saveModify()}
                 disabled={saving}
-                className="flex h-8 w-[119px] items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
+                className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? "Saving…" : "Save your changes"}
               </button>
             </div>
           </div>

@@ -260,11 +260,11 @@ function TenantLandingPage() {
       </div>
 
       {/* MAIN CONTENT — gap 32px desktop / 18px mobile */}
-      <main className="w-full flex flex-col md:gap-[32px] gap-[18px] md:mt-[10px] mt-[18px] items-center md:pb-0 pb-0">
+      <main className="w-full flex flex-col md:gap-[32px] gap-[18px] md:mt-0 mt-0 items-center md:pb-0 pb-0">
         
-        {/* HERO — 1380x800 desktop / calc(100%-30px)x560 mobile */}
+        {/* HERO — full-bleed edge-to-edge (not inset/centered card) */}
         <section 
-          className="bg-[#000000] rounded-[10px] md:w-[1380px] md:h-[800px] w-[calc(100%-30px)] h-[560px] flex flex-col md:pt-[102px] md:pb-[102px] md:px-[209px] p-[20px] md:gap-[30px] gap-[20px] items-center justify-center text-center mx-auto overflow-hidden relative bg-center bg-cover bg-no-repeat"
+          className="relative flex h-[560px] w-full flex-col items-center justify-center overflow-hidden bg-[#000000] bg-cover bg-center bg-no-repeat p-5 text-center md:h-[800px] md:gap-[30px] md:px-[209px] md:py-[102px] gap-5"
           style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/figma/landing-hero.jpg')" }}
         >
           <h1 className="md:text-[90px] text-[36px] md:font-[500] font-[700] md:leading-[90px] leading-[40px] text-[#ffffff] md:w-[1160px] w-[329px] md:h-[180px] h-[120px] flex items-center justify-center font-['Space_Grotesk',sans-serif]">
