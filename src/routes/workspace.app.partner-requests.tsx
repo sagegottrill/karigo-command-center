@@ -22,6 +22,26 @@ function requestId(trip: Trip) {
   return `REQ-${digits.padStart(5, "0")}`;
 }
 
+function ReadOnlyField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex w-full flex-col gap-1.5">
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
+      <div className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470]">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function loadingSitesFor(trip: Trip): string[] {
+  const fromArray = (trip.loadingSite ?? []).map((s) => s.trim()).filter(Boolean);
+  if (fromArray.length > 0) return fromArray;
+  const raw = trip.pickup?.trim() ?? "";
+  if (!raw) return [];
+  return raw.split(/[;,]/).map((s) => s.trim()).filter(Boolean);
+}
+
 function AdminPartnerRequests() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,50 +265,55 @@ function AdminPartnerRequests() {
 
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="w-full max-w-[480px] rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
-            <h3 className="mb-4 text-[18px] font-semibold text-[#1B2432]">{requestId(detail)}</h3>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
-              {detail.customer && detail.customer !== "Customer Portal" && (
-                <>
-                  <dt className="text-[#8E95A1]">Partner</dt>
-                  <dd className="text-[#1B2432]">{detail.customer}</dd>
-                </>
-              )}
-              {detail.customerConsignee && (
-                <>
-                  <dt className="text-[#8E95A1]">Customer</dt>
-                  <dd className="text-[#1B2432]">{detail.customerConsignee}</dd>
-                </>
-              )}
-              {detail.cargo && (
-                <>
-                  <dt className="text-[#8E95A1]">Product</dt>
-                  <dd className="text-[#1B2432]">{detail.cargo}</dd>
-                </>
-              )}
-              {detail.tailType && (
-                <>
-                  <dt className="text-[#8E95A1]">Truck type</dt>
-                  <dd className="text-[#1B2432]">{detail.tailType}</dd>
-                </>
-              )}
-              {detail.dropoff && (
-                <>
-                  <dt className="text-[#8E95A1]">Destination</dt>
-                  <dd className="text-[#1B2432]">{detail.dropoff}</dd>
-                </>
-              )}
-              {detail.pickup && (
-                <>
-                  <dt className="text-[#8E95A1]">Pickup</dt>
-                  <dd className="text-[#1B2432]">{detail.pickup}</dd>
-                </>
-              )}
-            </dl>
-            <div className="mt-6 flex justify-end">
-              <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium text-[#ED351D]">
-                Close
+          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+            <div className="border-b border-[#E2E5E9] py-2">
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Request Details</h3>
+            </div>
+            <ReadOnlyField label="Customer Name" value={detail.customerConsignee} />
+            <ReadOnlyField label="Product" value={detail.cargo} />
+            <ReadOnlyField label="Truck Type" value={detail.tailType} />
+            <ReadOnlyField label="Destination" value={detail.dropoff} />
+            {detail.loadingSite && detail.loadingSite.length > 0 ? (
+              <div className="flex w-full flex-col gap-1.5">
+                <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>
+                {detail.loadingSite.map((site) => (
+                  <div
+                    key={site}
+                    className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470]"
+                  >
+                    {site}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ReadOnlyField label="Pickup" value={detail.pickup} />
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
+                Go Back
               </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDecline(detail);
+                    setDetail(null);
+                  }}
+                  className="flex h-8 items-center rounded bg-[#ED351D] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                >
+                  Decline Request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleApprove(detail);
+                    setDetail(null);
+                  }}
+                  className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                >
+                  Approve Request
+                </button>
+              </div>
             </div>
           </div>
         </div>
