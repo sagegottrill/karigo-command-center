@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
+import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService } from "@/lib/fleetopsx/services";
 import type { User } from "@/lib/fleetopsx/types";
 
@@ -13,13 +15,13 @@ export const Route = createFileRoute("/workspace/app/manage-account")({
 type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 
 function staffIdLabel(user: User) {
-  const raw = user.id;
-  if (/^id:/i.test(raw)) return raw;
-  return `ID:${raw}`;
+  const code = humanCode(user.id, user.username);
+  return code ? `ID:${code}` : "ID:—";
 }
 
 function AdminManageAccount() {
   const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [deptFilter, setDeptFilter] = useState<string | null>(null);
@@ -30,7 +32,11 @@ function AdminManageAccount() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void adminService.users().then(setUsers);
+    void adminService
+      .users()
+      .then(setUsers)
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load staff"))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -179,102 +185,215 @@ function AdminManageAccount() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white">
-          <div className="hidden grid-cols-[48px_1fr_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-            {["S/N", "Name", "Department", "Staff ID", "Username", ""].map((h) => (
-              <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {h}
-              </span>
-            ))}
-          </div>
-          {filtered.map((u, i) => (
-            <div
-              key={u.id}
-              className="relative grid grid-cols-[48px_1fr] items-center gap-2 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid-cols-[48px_1fr_1fr_1fr_1fr_40px]"
-            >
-              <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
-              <span className="text-[14px] text-[#1B2432]">{u.name}</span>
-              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.department}</span>
-              <span className="hidden text-[14px] text-[#5C6470] md:block">{staffIdLabel(u)}</span>
-              <span className="hidden text-[14px] text-[#5C6470] md:block">{u.username ?? "—"}</span>
-              <div className="flex items-center justify-end gap-2">
-                {u.status === "Suspended" && (
-                  <span className="hidden rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white md:inline">
-                    Suspended
+        <div className="flex w-full flex-col gap-2.5">
+          {loading && <FigmaLoadingState label="Loading staff accounts…" />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState
+              title="No staff accounts yet"
+              body="Add internal staff from New Account — live users list here."
+            />
+          )}
+
+          {/* Mobile cards — Figma Staff-Card-1 `134:3253` */}
+          <div className="flex flex-col gap-2.5 md:hidden">
+            {filtered.map((u, i) => (
+              <div
+                key={u.id}
+                className="relative flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
+                    #{i + 1}
                   </span>
-                )}
-                <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
-                  <button
-                    type="button"
-                    className="grid size-8 place-items-center text-[#1B2432]"
-                    onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
-                  >
-                    <MoreVertical className="size-4" />
-                  </button>
-                  {menuFor === u.id && (
-                    <div className="absolute top-8 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                      <button
-                        type="button"
-                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                        onClick={() => {
-                          setMenuFor(null);
-                          toast.message("Account details", { description: `${u.name} · ${u.email}` });
-                        }}
-                      >
-                        View details
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                        onClick={() => {
-                          setMenuFor(null);
-                          setConfirmAction({ type: "password", userId: u.id });
-                        }}
-                      >
-                        Reset password
-                      </button>
-                      {u.status === "Suspended" ? (
+                  <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                    <button
+                      type="button"
+                      className="grid size-5 place-items-center text-[#1B2432]"
+                      aria-label="Account options"
+                      onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                    >
+                      <MoreVertical className="size-5" />
+                    </button>
+                    {menuFor === u.id && (
+                      <div className="absolute top-6 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
                         <button
                           type="button"
                           className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
                           onClick={() => {
                             setMenuFor(null);
-                            setConfirmAction({ type: "activate", userId: u.id });
+                            toast.message("Account details", { description: `${u.name} · ${u.email}` });
                           }}
                         >
-                          Activate
+                          View details
                         </button>
-                      ) : (
                         <button
                           type="button"
                           className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
                           onClick={() => {
                             setMenuFor(null);
-                            setConfirmAction({ type: "suspend", userId: u.id });
+                            setConfirmAction({ type: "password", userId: u.id });
                           }}
                         >
-                          Suspend
+                          Reset password
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                        onClick={() => {
-                          setMenuFor(null);
-                          setConfirmAction({ type: "delete", userId: u.id });
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
+                        {u.status === "Suspended" ? (
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setConfirmAction({ type: "activate", userId: u.id });
+                            }}
+                          >
+                            Activate
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setConfirmAction({ type: "suspend", userId: u.id });
+                            }}
+                          >
+                            Suspend
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "delete", userId: u.id });
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{u.name}</p>
+                  {u.status === "Suspended" ? (
+                    <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                      Suspended
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-[5px] text-[12px]">
+                  <div className="flex gap-2">
+                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Department:</span>
+                    <span className="min-w-0 flex-1 text-[#344256]">{u.department}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
+                    <span className="min-w-0 flex-1 font-semibold text-[#ED351D]">{staffIdLabel(u)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Username:</span>
+                    <span className="min-w-0 flex-1 text-[#344256]">{u.username ?? "—"}</span>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Desktop table — Figma Account Listing `124:3133` / Manage Account `93:1637` */}
+          <div className="hidden overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white md:block">
+            <div className="grid grid-cols-[48px_1fr_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3">
+              {["S/N", "Name", "Department", "Staff ID", "Username", ""].map((h) => (
+                <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  {h}
+                </span>
+              ))}
             </div>
-          ))}
-          {filtered.length === 0 && (
-            <p className="px-5 py-10 text-center text-[14px] text-[#5C6470]">No staff accounts match this search.</p>
-          )}
+            {filtered.map((u, i) => (
+              <div
+                key={u.id}
+                className="relative grid grid-cols-[48px_1fr_1fr_1fr_1fr_40px] items-center gap-2 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0"
+              >
+                <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
+                <span className="text-[14px] text-[#1B2432]">{u.name}</span>
+                <span className="text-[14px] text-[#5C6470]">{u.department}</span>
+                <span className="text-[14px] text-[#5C6470]">{staffIdLabel(u)}</span>
+                <span className="text-[14px] text-[#5C6470]">{u.username ?? "—"}</span>
+                <div className="flex items-center justify-end gap-2">
+                  {u.status === "Suspended" && (
+                    <span className="rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white">
+                      Suspended
+                    </span>
+                  )}
+                  <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                    <button
+                      type="button"
+                      className="grid size-8 place-items-center text-[#1B2432]"
+                      onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                    >
+                      <MoreVertical className="size-4" />
+                    </button>
+                    {menuFor === u.id && (
+                      <div className="absolute top-8 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            toast.message("Account details", { description: `${u.name} · ${u.email}` });
+                          }}
+                        >
+                          View details
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "password", userId: u.id });
+                          }}
+                        >
+                          Reset password
+                        </button>
+                        {u.status === "Suspended" ? (
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setConfirmAction({ type: "activate", userId: u.id });
+                            }}
+                          >
+                            Activate
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setConfirmAction({ type: "suspend", userId: u.id });
+                            }}
+                          >
+                            Suspend
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setConfirmAction({ type: "delete", userId: u.id });
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
