@@ -384,7 +384,11 @@ export async function liveGetTrip(id: string): Promise<Trip | null> {
     return mapTrip((await api.get(`/trips/${id}`)) as Record<string, unknown>);
   } catch (err) {
     const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
-    if (status === 404) return null;
+    // Older API builds had list/patch/delete but no GET-by-id — fall back to list.
+    if (status === 404 || status === 405) {
+      const all = await liveListTrips();
+      return all.find((t) => t.id === id) ?? null;
+    }
     throw err;
   }
 }

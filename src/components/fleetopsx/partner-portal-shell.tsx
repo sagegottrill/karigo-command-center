@@ -11,6 +11,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { tenantLogo, tenantName } = RootRoute.useRouteContext();
+  const [mounted, setMounted] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
   const [logoSrc, setLogoSrc] = useState(tenantLogo || "/figma/petroline-logo.png");
   const [companyName, setCompanyName] = useState("Partner");
@@ -18,6 +19,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const [userInitials, setUserInitials] = useState("PT");
 
   useEffect(() => {
+    setMounted(true);
     const currentUser = authService.getCurrentUser();
     setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
     setUserEmail(currentUser?.email || "");
@@ -39,16 +41,24 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     navigate({ to: "/workspace/customer-portal/login" });
   };
 
-  const dashActive = pathname.includes("/dashboard") || (!pathname.endsWith("/request") && !pathname.includes("/login") && pathname.includes("/customer-portal/"));
+  // Pathname-only flags stay identical on SSR + first client paint (avoids React #418)
+  const dashActive =
+    pathname.includes("/dashboard") ||
+    (!pathname.endsWith("/request") && !pathname.includes("/login") && pathname.includes("/customer-portal/"));
   const requestActive = pathname.endsWith("/request");
   const showBack = !pathname.includes("/dashboard") && !pathname.includes("/login");
+
+  const displayInitials = mounted ? userInitials : "PT";
+  const displayCompany = mounted ? companyName : "Partner";
+  const displayEmail = mounted ? userEmail : "";
+  const displayLogo = mounted ? logoSrc : tenantLogo || "/figma/petroline-logo.png";
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
       {/* Desktop sidebar — Figma 240px OPERATIONS-style partner nav */}
       <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col bg-[#1B2432] lg:flex">
         <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
-          <img src={logoSrc} alt={tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
+          <img src={displayLogo} alt={tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
         </Link>
         <nav className="flex flex-1 flex-col items-center py-5">
           <div className="flex w-[224px] flex-col gap-[5px]">
@@ -85,11 +95,11 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
           )}
           <div className="flex h-12 items-center gap-2 rounded p-2">
             <div className="grid size-8 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
-              {userInitials}
+              {displayInitials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium text-white">{companyName}</p>
-              <p className="truncate text-[12px] text-[#5C6470]">{userEmail}</p>
+              <p className="truncate text-[14px] font-medium text-white">{displayCompany}</p>
+              <p className="truncate text-[12px] text-[#5C6470]">{displayEmail}</p>
             </div>
             <button type="button" onClick={() => setShowLogout((v) => !v)} className="p-0.5">
               <MoreVertical className="size-4 text-white/70" />
@@ -113,7 +123,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
               </button>
             ) : (
               <Link to="/workspace/account-type" className="grid size-6 place-items-center">
-                <img src={logoSrc} alt="" className="size-6 object-contain" />
+                <img src={displayLogo} alt="" className="size-6 object-contain" />
               </Link>
             )}
             <span className="text-[20px] font-semibold tracking-[0.4px] text-white">Partner Portal</span>
@@ -123,7 +133,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             onClick={() => setShowLogout((v) => !v)}
             className="grid size-8 place-items-center rounded-md bg-[#ED351D] text-[14px] text-white"
           >
-            {userInitials}
+            {displayInitials}
           </button>
         </header>
         {showLogout && (
