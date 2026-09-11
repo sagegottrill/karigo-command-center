@@ -102,7 +102,7 @@ function PartnerNewRequest() {
             <div className="mt-4 flex flex-col gap-4">
               <label className="flex flex-col gap-3">
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
-                  Customer Name (Consignee) <span className="text-[#ED351D]">*</span>
+                  Customer Name (Cosignee) <span className="text-[#ED351D]">*</span>
                 </span>
                 <input
                   value={customerConsignee}

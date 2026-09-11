@@ -11,7 +11,7 @@ import {
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { tripService } from "@/lib/fleetopsx/services";
+import { driverService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -115,6 +115,7 @@ function PartnerRequestDetailsPage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [driverPhone, setDriverPhone] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -173,6 +174,25 @@ function PartnerRequestDetailsPage() {
       window.clearTimeout(timeout);
     };
   }, [requestId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!trip?.driverId) {
+      setDriverPhone("");
+      return;
+    }
+    void driverService
+      .get(trip.driverId)
+      .then((d) => {
+        if (!cancelled) setDriverPhone(d?.phone?.trim() || "");
+      })
+      .catch(() => {
+        if (!cancelled) setDriverPhone("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.driverId]);
 
   const timeline = useMemo(() => (trip ? tripService.timeline(trip) : []), [trip]);
   const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
@@ -332,7 +352,7 @@ function PartnerRequestDetailsPage() {
                 <button
                   type="button"
                   onClick={openModifyModal}
-                  className="flex h-8 items-center gap-[5px] rounded px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
+                  className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white lg:bg-transparent lg:text-[#1B2432]"
                 >
                   <Pencil className="size-[16px]" />
                   Modify
@@ -442,7 +462,7 @@ function PartnerRequestDetailsPage() {
                     label="Driver Name"
                     value={trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : "—"}
                   />
-                  <ReadonlyField label="Driver Phone Number" value="—" />
+                  <ReadonlyField label="Driver Phone Number" value={driverPhone || "—"} />
                   <ReadonlyField label="Truck Head" value={truckHead} />
                   <ReadonlyField label="Truck Tail (Type)" value={truckTail} />
                   <ReadonlyField label="Serial Number" value={serial} />

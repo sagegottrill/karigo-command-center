@@ -6,7 +6,7 @@ import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
-/** Shared Figma Partner Portal chrome — desktop sidebar + mobile header bar */
+/** Shared Figma Partner Portal chrome — desktop sidebar + mobile header + bottom nav */
 export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -41,7 +41,6 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     navigate({ to: "/workspace/customer-portal/login" });
   };
 
-  // Pathname-only flags stay identical on SSR + first client paint (avoids React #418)
   const dashActive =
     pathname.includes("/dashboard") ||
     (!pathname.endsWith("/request") && !pathname.includes("/login") && pathname.includes("/customer-portal/"));
@@ -55,7 +54,6 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      {/* Desktop sidebar — Figma 240px OPERATIONS-style partner nav */}
       <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col bg-[#1B2432] lg:flex">
         <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
           <img src={displayLogo} alt={tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
@@ -109,7 +107,6 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
-        {/* Mobile header — Figma 390 frames: dark bar, back, title, initials */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 lg:hidden">
           <div className="flex items-center gap-2">
             {showBack ? (
@@ -148,14 +145,39 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {/* Desktop portal header */}
         <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] lg:flex">
           <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
             Manage the lifecycle of every account within the company to maintain data integrity.
           </p>
         </header>
-        {children}
+
+        <div className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</div>
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] lg:hidden">
+          <Link
+            to="/workspace/customer-portal/dashboard"
+            className={cn(
+              "relative flex flex-1 flex-col items-center justify-center gap-0.5",
+              dashActive ? "text-white" : "text-white/50",
+            )}
+          >
+            <LayoutDashboard className="size-5" strokeWidth={1.5} />
+            <span className="text-[10px] font-medium">Dashboard</span>
+            {dashActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
+          </Link>
+          <Link
+            to="/workspace/customer-portal/request"
+            className={cn(
+              "relative flex flex-1 flex-col items-center justify-center gap-0.5",
+              requestActive ? "text-white" : "text-white/50",
+            )}
+          >
+            <Truck className="size-5" strokeWidth={1.5} />
+            <span className="text-[10px] font-medium">New Request</span>
+            {requestActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
+          </Link>
+        </nav>
       </div>
     </div>
   );
