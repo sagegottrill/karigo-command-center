@@ -32,3 +32,8 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+
+# Local agent secrets — never commit
+AGENT_SECRETS.local.md
+**/AGENT_SECRETS.local.md
+*SECRETS.local.md
