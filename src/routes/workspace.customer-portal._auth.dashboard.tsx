@@ -1,12 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, LayoutDashboard, ListFilter, LogOut, MoreVertical, Search, Truck, X } from "lucide-react";
+import { AlertCircle, ListFilter, MoreVertical, Search, X } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { authService, tenantService, tripService } from "@/lib/fleetopsx/services";
-import { getTenantSlug } from "@/lib/fleetopsx/hostname";
-import type { PlatformTenant, Trip, TripStatus } from "@/lib/fleetopsx/types";
+import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { authService, tripService } from "@/lib/fleetopsx/services";
+import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
-import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard")({
   component: PartnerPortalDashboard,
@@ -69,22 +68,14 @@ function isPartnerTrip(trip: Trip, companyName: string | undefined) {
 
 function PartnerPortalDashboard() {
   const navigate = useNavigate();
-  const { tenantLogo, tenantName } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
   const [requests, setRequests] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showLogout, setShowLogout] = useState(false);
   const [sortModalOpen, setSortModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending");
-  const [tenant, setTenant] = useState<PlatformTenant | null>(null);
-
-  const companyName = currentUser?.partnerCompanyName || currentUser?.name || "Partner";
-  const userEmail = currentUser?.email || "";
-  const userInitials = currentUser?.initials || "PT";
-  const logoSrc = tenant?.logo || tenantLogo || "/figma/petroline-logo.png";
 
   const refresh = async () => {
     const allTrips = await tripService.list();
@@ -95,13 +86,6 @@ function PartnerPortalDashboard() {
     void refresh()
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
-    if (slug && slug !== "localhost" && slug !== "fleetopsx") {
-      void tenantService.getBySlug(slug).then(setTenant).catch(() => setTenant(null));
-    }
   }, []);
 
   const filteredRequests = useMemo(() => {
@@ -127,16 +111,15 @@ function PartnerPortalDashboard() {
   const declined = requests.filter((r) => toPartnerStatus(r.status) === "Declined").length;
   const completed = requests.filter((r) => toPartnerStatus(r.status) === "Completed").length;
 
-  const handleLogout = () => {
-    authService.logout();
-    navigate({ to: "/workspace/customer-portal/login" });
-  };
-
   const handleDelete = async () => {
     if (!deleteModalOpen) return;
     await tripService.delete(deleteModalOpen);
     setDeleteModalOpen(null);
     await refresh();
+  };
+
+  const openDetails = (id: string) => {
+    navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: id } });
   };
 
   const statCards = [
@@ -148,123 +131,119 @@ function PartnerPortalDashboard() {
   ] as const;
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col bg-[#1B2432] lg:flex">
-        <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
-          <img src={logoSrc} alt={tenant?.name || tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
-        </Link>
-        <nav className="flex flex-1 flex-col items-center py-5">
-          <div className="flex w-[224px] flex-col gap-[5px]">
-            <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">Transport Request</span>
-            <Link
-              to="/workspace/customer-portal/dashboard"
-              className="flex h-8 items-center gap-2 rounded bg-[#ED351D] p-2"
+    <PartnerPortalShell>
+      <main className="flex flex-col gap-4 p-4 sm:gap-[30px] sm:p-[30px]">
+        {/* Stat cards — scroll on mobile, 5-up on desktop */}
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 xl:grid xl:grid-cols-5 xl:overflow-visible">
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              className="min-w-[150px] shrink-0 rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] xl:min-w-0"
             >
-              <LayoutDashboard className="size-4 text-white" strokeWidth={1.5} />
-              <span className="text-[14px] tracking-[0.4px] text-white">Dashboard</span>
-            </Link>
-            <Link
-              to="/workspace/customer-portal/request"
-              className="flex h-8 items-center gap-2 rounded p-2 hover:bg-white/5"
-            >
-              <Truck className="size-4 text-white" strokeWidth={1.5} />
-              <span className="text-[14px] tracking-[0.4px] text-white">New Request</span>
-            </Link>
-          </div>
-        </nav>
-        <div className="p-2">
-          {showLogout && (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded border border-[#ED351D] bg-[#ED351D]/10 text-[14px] font-medium text-[#ED351D]"
-            >
-              <LogOut className="size-3.5" />
-              Log Out
-            </button>
-          )}
-          <div className="flex h-12 items-center gap-2 rounded p-2">
-            <div className="grid size-8 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
-              {userInitials}
+              <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{card.label}</p>
+              <p className="mt-2.5 font-space-grotesk text-[36px] font-bold leading-9 text-[#1B2432]">{card.value}</p>
+              {"hint" in card && card.hint ? (
+                <p className="mt-3.5 text-[10px] font-medium text-[#34C759]">{card.hint}</p>
+              ) : null}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium text-white">{companyName}</p>
-              <p className="truncate text-[12px] text-[#5C6470]">{userEmail}</p>
-            </div>
-            <button type="button" onClick={() => setShowLogout((v) => !v)} className="p-0.5">
-              <MoreVertical className="size-4 text-white/70" />
-            </button>
-          </div>
+          ))}
         </div>
-      </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
-          <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
-          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            Manage the lifecycle of every account within the company to maintain data integrity.
-          </p>
-        </header>
-
-        <main className="flex flex-col gap-[30px] p-[30px] max-md:px-4 max-md:py-5">
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            {statCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]"
-              >
-                <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{card.label}</p>
-                <p className="mt-2.5 font-space-grotesk text-[36px] font-bold leading-9 text-[#1B2432]">{card.value}</p>
-                {"hint" in card && card.hint ? (
-                  <p className="mt-3.5 text-[10px] font-medium text-[#34C759]">{card.hint}</p>
-                ) : null}
-              </div>
-            ))}
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-[5px]">
+            <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432] sm:text-[24px] sm:font-medium sm:leading-8">
+              Recent Requests
+            </h2>
+            <p className="text-[10px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)] sm:text-[11.4px]">
+              Track your transport requests and their current statuses
+            </p>
           </div>
+          <Link
+            to="/workspace/customer-portal/request"
+            className="flex h-10 w-full items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
+          >
+            + New Request
+          </Link>
+        </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-[5px]">
-              <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Recent Requests</h2>
-              <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-                Track your transport requests and their current statuses
-              </p>
+        <div className="flex w-full max-w-[600px] items-center gap-3 sm:gap-5">
+          <div className="flex h-10 flex-1 items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+            <Search className="size-5 shrink-0 text-[#5C6470] sm:size-[22px]" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSortModalOpen(true)}
+            className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
+          >
+            <ListFilter className="size-5 text-white" />
+          </button>
+        </div>
+
+        {loading ? (
+          <FigmaLoadingState label="Loading requests…" />
+        ) : filteredRequests.length === 0 ? (
+          <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-6">
+            <FigmaEmptyState
+              title={searchQuery ? "No matching requests" : "No transport requests yet"}
+              body="Submit a new request — live trips from the API will list here."
+            />
+          </div>
+        ) : (
+          <>
+            {/* Mobile cards — Figma 294:8644 */}
+            <div className="flex flex-col gap-3 lg:hidden">
+              {filteredRequests.map((r) => {
+                const uiStatus = toPartnerStatus(r.status);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => openDetails(r.id)}
+                    className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <span className="text-[11px] font-medium text-[#8E95A1]">{formatTripDate(r.scheduledDate)}</span>
+                      <span
+                        className={cn(
+                          "inline-flex h-[22px] items-center rounded px-3 text-[10px] font-medium",
+                          partnerStatusClass(uiStatus),
+                        )}
+                      >
+                        {uiStatus}
+                      </span>
+                    </div>
+                    <p className="mb-3 text-[16px] font-semibold text-[#1B2432]">{r.customerConsignee || "—"}</p>
+                    <dl className="grid gap-2 text-[13px]">
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <dt className="font-medium text-[#5C6470]">ID No:</dt>
+                        <dd className="font-semibold text-[#ED351D]">{r.id}</dd>
+                      </div>
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <dt className="font-medium text-[#5C6470]">Product</dt>
+                        <dd className="font-medium text-[#1B2432]">{r.cargo || "—"}</dd>
+                      </div>
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <dt className="font-medium text-[#5C6470]">Truck Type</dt>
+                        <dd className="font-medium text-[#1B2432]">{r.tailType || "—"}</dd>
+                      </div>
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <dt className="font-medium text-[#5C6470]">Destination</dt>
+                        <dd className="font-medium leading-snug text-[#1B2432]">{r.dropoff || "—"}</dd>
+                      </div>
+                    </dl>
+                  </button>
+                );
+              })}
             </div>
-            <Link
-              to="/workspace/customer-portal/request"
-              className="flex h-10 w-full items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
-            >
-              + New Request
-            </Link>
-          </div>
 
-          <div className="flex max-w-[600px] items-center gap-5">
-            <div className="flex h-10 flex-1 items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] bg-transparent px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
-              <Search className="size-[22px] text-[#5C6470]" />
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search"
-                className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setSortModalOpen(true)}
-              className="grid size-10 place-items-center rounded bg-[#ED351D]"
-            >
-              <ListFilter className="size-5 text-white" />
-            </button>
-          </div>
-
-          <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
-            {loading ? (
-              <FigmaLoadingState label="Loading requests…" />
-            ) : filteredRequests.length === 0 ? (
-              <FigmaEmptyState
-                title={searchQuery ? "No matching requests" : "No transport requests yet"}
-                body="Submit a new request — live trips from the API will list here."
-              />
-            ) : (
+            {/* Desktop table — Figma 294:5225 */}
+            <div className="hidden overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)] lg:block">
               <div className="w-full overflow-x-auto">
                 <div className="mb-2 flex min-w-[1000px] gap-[30px] border-b border-[#E2E5E9] py-2.5 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   <span className="w-[81px]">ID No.</span>
@@ -281,9 +260,7 @@ function PartnerPortalDashboard() {
                     <div
                       key={r.id}
                       className="flex min-w-[1000px] cursor-pointer items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-0"
-                      onClick={() =>
-                        navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: r.id } })
-                      }
+                      onClick={() => openDetails(r.id)}
                     >
                       <span className="w-[81px] text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{r.id}</span>
                       <span className="w-[167px] text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
@@ -304,7 +281,7 @@ function PartnerPortalDashboard() {
                       <div className="flex w-[120px] items-center justify-between gap-2">
                         <span
                           className={cn(
-                            "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium text-white",
+                            "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium",
                             partnerStatusClass(uiStatus),
                           )}
                         >
@@ -329,10 +306,7 @@ function PartnerPortalDashboard() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRowMenuOpen(null);
-                                  navigate({
-                                    to: "/workspace/customer-portal/$requestId",
-                                    params: { requestId: r.id },
-                                  });
+                                  openDetails(r.id);
                                 }}
                               >
                                 Details
@@ -356,10 +330,10 @@ function PartnerPortalDashboard() {
                   );
                 })}
               </div>
-            )}
-          </div>
-        </main>
-      </div>
+            </div>
+          </>
+        )}
+      </main>
 
       {sortModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -414,6 +388,6 @@ function PartnerPortalDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </PartnerPortalShell>
   );
 }
