@@ -121,7 +121,6 @@ function SuperAdminLayout() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState({ username: "", password: "", url: "" });
   const [managingTenant, setManagingTenant] = useState<PlatformTenant | null>(null);
-  const [activeTab, setActiveTab] = useState("Overview");
   const [tenantAdmins, setTenantAdmins] = useState<any[]>([]);
 
   useEffect(() => {
@@ -135,7 +134,6 @@ function SuperAdminLayout() {
   useEffect(() => {
     const handleManage = (e: any) => {
       setManagingTenant(e.detail.tenant);
-      setActiveTab(e.detail.tab || "Overview");
     };
     window.addEventListener('manage-tenant', handleManage);
     return () => window.removeEventListener('manage-tenant', handleManage);
@@ -413,168 +411,140 @@ function SuperAdminLayout() {
 
       {/* MANAGE TENANT MODAL */}
       <Dialog open={!!managingTenant} onOpenChange={(open) => !open && setManagingTenant(null)}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden bg-[#f8f9fa]">
+        <DialogContent className="sm:max-w-[654px] max-h-[90vh] overflow-y-auto bg-white p-5 gap-5 rounded-[10px]">
           {managingTenant && (
-            <div className="flex flex-col h-[600px]">
-              <div className="bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-start">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{managingTenant.name}</h2>
-                  <p className="text-sm font-mono text-gray-500 mt-1">{managingTenant.domain}.fleetopsx.com</p>
+            <div className="flex flex-col gap-5">
+              <div className="flex items-start justify-between border-b border-[#E2E5E9] pb-3">
+                <div className="flex flex-col gap-1">
+                  <DialogTitle className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                    {managingTenant.name}
+                  </DialogTitle>
+                  <p className="text-[12px] lowercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                    https://{managingTenant.domain}.fleetopsx.com
+                  </p>
                 </div>
                 <StatusBadge status={managingTenant.status} />
               </div>
-              <div className="flex flex-1 overflow-hidden">
-                {/* Modal Sidebar */}
-                <div className="w-[200px] bg-white border-r border-gray-200 p-4 space-y-1">
-                  <button 
-                    onClick={() => setActiveTab("Overview")}
-                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Overview" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
-                    Overview
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab("Settings")}
-                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${activeTab === "Settings" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"}`}>
-                    Settings
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab("Danger Zone")}
-                    className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md mt-4 ${activeTab === "Danger Zone" ? "bg-red-100 text-red-900" : "text-red-600 hover:bg-red-50"}`}>
-                    Danger Zone
-                  </button>
+
+              <div className="flex flex-col gap-5 rounded-[10px] bg-[#1B2432] px-5 pt-2.5 pb-5">
+                <div className="border-b border-[#E2E5E9] py-1">
+                  <h3 className="text-[18px] font-semibold tracking-[0.4px] text-white">Workspace Overview</h3>
                 </div>
-                {/* Modal Content */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                  {activeTab === "Overview" && (
-                    <>
-                      <h3 className="text-lg font-semibold mb-4">Workspace Overview</h3>
-                      <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                          <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Active Fleet</p>
-                          <p className="text-2xl font-semibold">{managingTenant.activeTrucks.toLocaleString()}</p>
-                        </div>
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                          <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Total Orders</p>
-                          <p className="text-2xl font-semibold">{managingTenant.totalOrders.toLocaleString()}</p>
-                        </div>
-                      </div>
+                <div className="flex flex-wrap gap-3.5">
+                  <div className="flex h-[110px] w-[279px] max-w-full flex-col gap-2.5 rounded-lg bg-white p-[15px] shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1)]">
+                    <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Active Fleet</span>
+                    <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">
+                      {managingTenant.activeTrucks.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex h-[110px] w-[278px] max-w-full flex-col gap-2.5 rounded-lg bg-white p-[15px] shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1)]">
+                    <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Total Requests</span>
+                    <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">
+                      {managingTenant.totalOrders.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Workspace Access</h3>
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-blue-900">Impersonate Workspace</p>
-                          <p className="text-xs text-blue-700 mt-1">Log in directly to this tenant's dashboard as a Platform Administrator to manage settings, users, and operations on their behalf.</p>
+              <div className="flex flex-col gap-5 rounded-[10px] border border-[#E2E5E9] bg-white px-5 pt-2.5 pb-5">
+                <div className="border-b border-[#E2E5E9] py-1">
+                  <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Workspace Access</h3>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="max-w-[357px]">
+                    <p className="text-[16px] font-semibold leading-6 tracking-[0.4px] text-[#303D50]">Log in to Workspace</p>
+                    <p className="mt-0.5 text-[14px] leading-5 tracking-[0.4px] text-[#627084]">
+                      Log in directly to this tenants dashboard as a Platform Administrator to manage users and operations on their behalf.
+                    </p>
+                  </div>
+                  <Button
+                    className="h-9 shrink-0 rounded bg-[#ED351D] px-2.5 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+                    onClick={() => {
+                      window.location.href = `https://${managingTenant.domain}.fleetopsx.com/workspace/login`;
+                    }}
+                  >
+                    Log in to Workspace
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-5 rounded-[10px] border border-[#E2E5E9] bg-white px-5 pt-2.5 pb-5">
+                <div className="border-b border-[#E2E5E9] py-1">
+                  <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Tenant Administrator</h3>
+                </div>
+                {tenantAdmins.length === 0 ? (
+                  <p className="text-sm text-[#5C6470]">No administrators found for this tenant.</p>
+                ) : (
+                  tenantAdmins.map((admin) => {
+                    const [first = "", ...rest] = (admin.name || "").split(" ");
+                    const last = rest.join(" ");
+                    return (
+                      <div key={admin.id} className="flex flex-wrap gap-6">
+                        <label className="flex flex-col gap-3">
+                          <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                            Name <span className="text-[#F24E1E]">*</span>
+                          </span>
+                          <Input value={first} readOnly className="h-10 w-[274px]" />
+                        </label>
+                        <label className="flex flex-col gap-3">
+                          <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                            Last Name <span className="text-[#F24E1E]">*</span>
+                          </span>
+                          <Input value={last || admin.username || ""} readOnly className="h-10 w-[274px]" />
+                        </label>
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <p className="text-xs text-[#5C6470]">{admin.email}</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              void adminService.resetPassword(admin.id);
+                              toast.success(`Password reset link sent to ${admin.email}`);
+                            }}
+                          >
+                            Reset Password
+                          </Button>
                         </div>
-                        <Button 
-                          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 ml-4"
-                          onClick={() => {
-                            window.location.href = `https://${managingTenant.domain}.fleetopsx.com/workspace/login`;
-                          }}
-                        >
-                          <LogOut className="h-4 w-4 mr-2 rotate-180" />
-                          Login to Workspace
-                        </Button>
                       </div>
+                    );
+                  })
+                )}
+              </div>
 
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Tenant Administrators</h3>
-                      <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 overflow-hidden">
-                        {tenantAdmins.length === 0 ? (
-                          <div className="p-4 text-sm text-gray-500 text-center">No administrators found.</div>
-                        ) : (
-                          <div className="divide-y divide-gray-200">
-                            {tenantAdmins.map(admin => (
-                              <div key={admin.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{admin.name}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">{admin.email} (Username: {admin.username})</p>
-                                </div>
-                                <Button variant="outline" size="sm" onClick={() => {
-                                  adminService.resetPassword(admin.id);
-                                  toast.success(`Password reset link sent to ${admin.email}`);
-                                }}>
-                                  Reset Password
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {activeTab === "Settings" && (
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold mb-2">Workspace Settings</h3>
-                      
-                      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-4">
-                        <div className="grid gap-2">
-                          <Label className="text-sm font-medium text-gray-700">Company Name</Label>
-                          <Input 
-                            value={managingTenant.name}
-                            onChange={(e) => setManagingTenant({ ...managingTenant, name: e.target.value })}
-                            className="h-10 text-sm"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label className="text-sm font-medium text-gray-700">Tenant Domain</Label>
-                          <div className="flex">
-                            <Input 
-                              value={managingTenant.domain}
-                              onChange={(e) => setManagingTenant({ ...managingTenant, domain: e.target.value })}
-                              className="h-10 text-sm rounded-r-none"
-                            />
-                            <div className="flex items-center px-3 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-sm text-gray-500 font-mono">
-                              .fleetopsx.com
-                            </div>
-                          </div>
-                        </div>
-                        <Button 
-                          onClick={() => {
-                            tenantService.updateTenant(managingTenant.id, { name: managingTenant.name, domain: managingTenant.domain });
-                            toast.success("Tenant settings updated successfully");
-                            loadTenants();
-                          }}
-                          className="bg-black hover:bg-gray-800 text-white mt-2"
-                        >
-                          Save Changes
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "Danger Zone" && (
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
-                      
-                      <div className="bg-red-50 p-5 rounded-lg border border-red-200">
-                        <h4 className="font-semibold text-red-900 mb-1">Suspend Workspace</h4>
-                        <p className="text-sm text-red-700 mb-4">Users will not be able to log in, but data will be preserved. API requests will return 403 Forbidden.</p>
-                        <Button 
-                          variant="outline" 
-                          className="bg-white text-red-600 border-red-300 hover:bg-red-100"
-                          onClick={() => {
-                            tenantService.updateTenant(managingTenant.id, { status: "Suspended" });
-                            toast.success("Workspace suspended");
-                            setTimeout(() => window.location.reload(), 1000);
-                          }}>
-                          Suspend Workspace
-                        </Button>
-                      </div>
-
-                      <div className="bg-red-50 p-5 rounded-lg border border-red-200">
-                        <h4 className="font-semibold text-red-900 mb-1">Delete Workspace Data</h4>
-                        <p className="text-sm text-red-700 mb-4">Permanently erase this tenant's database, uploaded files, and all associated configurations. This action cannot be undone.</p>
-                        <Button 
-                          className="bg-red-600 text-white hover:bg-red-700"
-                          onClick={() => {
-                            tenantService.deleteTenant(managingTenant.id);
-                            setManagingTenant(null);
-                            loadTenants();
-                            toast.success("Workspace data permanently deleted.");
-                          }}>
-                          Delete Workspace Data
-                        </Button>
-                      </div>
-                    </div>
+              <div className="flex items-center justify-between gap-3 border-t border-[#E2E5E9] pt-3">
+                <button
+                  type="button"
+                  className="text-[14px] font-medium text-[#5C6470]"
+                  onClick={() => setManagingTenant(null)}
+                >
+                  Close
+                </button>
+                <div className="flex gap-2">
+                  {managingTenant.status === "Active" ? (
+                    <Button
+                      variant="outline"
+                      className="border-[#ED351D] text-[#ED351D]"
+                      onClick={async () => {
+                        await tenantService.updateTenant(managingTenant.id, { status: "Suspended" });
+                        toast.success("Tenant suspended");
+                        setManagingTenant(null);
+                        loadTenants();
+                      }}
+                    >
+                      Suspend Tenant
+                    </Button>
+                  ) : (
+                    <Button
+                      className="bg-[#34C759] text-white hover:bg-[#2db14e]"
+                      onClick={async () => {
+                        await tenantService.updateTenant(managingTenant.id, { status: "Active" });
+                        toast.success("Tenant activated");
+                        setManagingTenant(null);
+                        loadTenants();
+                      }}
+                    >
+                      Activate Tenant
+                    </Button>
                   )}
                 </div>
               </div>

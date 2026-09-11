@@ -164,26 +164,51 @@ function HrStaffDirectory() {
             ))}
           </div>
 
-          {slice.map((driver) => {
+          {slice.map((driver, index) => {
             const staffId = displayDriverSalary(driver) || driver.employeeId || "—";
+            const sn = currentPage * PAGE_SIZE + index + 1;
             return (
-              <div
-                key={driver.id}
-                className="grid grid-cols-1 items-center gap-2 border-b border-[#E2E5E9] py-2.5 md:grid-cols-[120px_180px_140px_140px_1fr_120px] md:gap-6"
-              >
-                <div className="flex items-start justify-between gap-3 md:contents">
-                  <div className="flex min-w-0 flex-col gap-1 md:contents">
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
-                    <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:hidden">{driver.name}</span>
-                    <span className="text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.7)] md:hidden">
-                      {driver.phone || "—"} · {driver.licenseNumber || "No license"}
-                    </span>
-                    <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{driver.name}</span>
-                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.phone}</span>
-                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.licenseNumber}</span>
-                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.assignedTruck || "—"}</span>
+              <div key={driver.id}>
+                <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">#{sn}</span>
                   </div>
-                  <span className={cn("inline-flex h-[22px] shrink-0 items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{driver.name}</p>
+                    {driver.status === "Suspended" && (
+                      <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                        Suspended
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5 text-[12px]">
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Department:</span>
+                      <span className="flex-1 text-[#344256]">Fleet Operation</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
+                      <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Username:</span>
+                      <span className="flex-1 text-[#344256]">{driver.phone || "—"}</span>
+                    </div>
+                  </div>
+                  {driver.status !== "Suspended" && (
+                    <span className={cn("mt-1 inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
+                      {driver.status}
+                    </span>
+                  )}
+                </div>
+
+                <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_120px] items-center gap-6 border-b border-[#E2E5E9] py-2.5 md:grid">
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
+                  <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.licenseNumber}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.assignedTruck || "—"}</span>
+                  <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
                     {driver.status}
                   </span>
                 </div>
