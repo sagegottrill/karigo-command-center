@@ -17,6 +17,7 @@ import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService } from "@/lib/fleetopsx/services";
 import { displayStaffDepartment, isManageableStaffUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
+import { WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
   component: AdminManageAccount,
@@ -156,17 +157,17 @@ function AdminManageAccount() {
               manage listing of internal staff
             </p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2.5">
+          <div className="flex shrink-0 flex-nowrap items-center gap-2.5">
             <Link
               to="/workspace/app/add-account"
-              className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] text-white hover:bg-[#d62e19]"
+              className="flex h-10 shrink-0 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19]"
             >
               + Add New Staff Account
             </Link>
             <button
               type="button"
               onClick={exportCSV}
-              className="flex h-10 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
             >
               <Download className="size-4" strokeWidth={1.75} />
               Export CSV
@@ -184,7 +185,7 @@ function AdminManageAccount() {
                 setPage(0);
               }}
               placeholder="Search"
-              className="h-10 w-full rounded border border-[#E2E5E9] bg-white pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+              className="h-10 w-full rounded border border-[#E2E5E9] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
           </div>
           <div ref={filterRef} className="relative">
@@ -495,7 +496,7 @@ function AdminManageAccount() {
       </div>
 
       {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/75 p-4">
           <div className="flex w-full max-w-[440px] flex-col items-center rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
             <div className="mb-5 flex size-14 items-center justify-center rounded-full border-[3px] border-[#ED351D]">
               <AlertCircle className="size-7 text-[#ED351D]" />
@@ -527,7 +528,7 @@ function AdminManageAccount() {
       )}
 
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/75 p-4">
           <div className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
             <button
               type="button"
@@ -549,9 +550,7 @@ function AdminManageAccount() {
                   setShowShareModal(false);
                 }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141A1F" />
-                </svg>
+                <WhatsAppIcon className="size-6" />
                 <span className="text-[12px] font-medium text-[#5C6470]">WhatsApp</span>
               </button>
               <button

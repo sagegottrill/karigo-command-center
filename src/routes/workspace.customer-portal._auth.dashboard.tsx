@@ -12,18 +12,19 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard
   component: PartnerPortalDashboard,
 });
 
-type PartnerUiStatus = "Pending" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
   switch (status) {
     case "Requested":
-    case "Awaiting Approval":
       return "Pending";
+    case "Awaiting Approval":
+    case "Scheduled":
+      return "Approved";
     case "Stopped":
       return "Declined";
     case "Completed":
       return "Completed";
-    case "Scheduled":
     case "En Route":
     case "Loaded":
     case "Offloading":
@@ -41,12 +42,14 @@ function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
       return "bg-[#FC0] text-white";
+    case "Approved":
+      return "bg-[#34C759] text-white";
     case "Declined":
       return "bg-[#ED351D] text-white";
     case "In transit":
       return "bg-[#CB30E0] text-white";
     case "Completed":
-      return "bg-[#34C759] text-white";
+      return "bg-[#007AFF] text-white";
     default: {
       const _exhaustive: never = status;
       return _exhaustive;
@@ -64,8 +67,10 @@ function formatTripDate(value: string | undefined) {
 function isPartnerTrip(trip: Trip, companyName: string | undefined) {
   // Live API: `customer` = partner company; `customerConsignee` = form consignee.
   if (trip.customer === "Customer Portal") return true;
-  if (companyName && trip.customer === companyName) return true;
-  return false;
+  if (!companyName) return false;
+  const a = companyName.trim().toLowerCase();
+  const b = (trip.customer || "").trim().toLowerCase();
+  return Boolean(a && b && (a === b || b.includes(a) || a.includes(b)));
 }
 
 function PartnerPortalDashboard() {
@@ -143,6 +148,7 @@ function PartnerPortalDashboard() {
   const totalRequests = requests.length;
   const inTransit = requests.filter((r) => toPartnerStatus(r.status) === "In transit").length;
   const pending = requests.filter((r) => toPartnerStatus(r.status) === "Pending").length;
+  const approved = requests.filter((r) => toPartnerStatus(r.status) === "Approved").length;
   const declined = requests.filter((r) => toPartnerStatus(r.status) === "Declined").length;
   const completed = requests.filter((r) => toPartnerStatus(r.status) === "Completed").length;
 
@@ -270,6 +276,7 @@ function PartnerPortalDashboard() {
     { label: "Total Requests", value: totalRequests },
     { label: "In transit", value: inTransit, hint: inTransit > 0 ? "Look out for your delivery" : undefined },
     { label: "Pending", value: pending },
+    { label: "Approved", value: approved },
     { label: "Declined", value: declined },
     { label: "Completed", value: completed },
   ] as const;
@@ -278,7 +285,7 @@ function PartnerPortalDashboard() {
     <PartnerPortalShell>
       <main className="box-border flex w-full max-w-none flex-1 flex-col gap-5 p-4 md:gap-[30px] md:p-[30px]">
         {/* Stat cards — responsive grid fills content width from lg (sidebar) up */}
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-[14px]">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 lg:gap-[14px]">
           {statCards.map((card) => (
             <div
               key={card.label}

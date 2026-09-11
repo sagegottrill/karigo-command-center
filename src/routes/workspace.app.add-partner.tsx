@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, X, Upload, Download, Copy, Mail, MessageCircle, MoreVertical } from "lucide-react";
+import { ArrowLeft, X, Upload, Copy, Mail, MoreVertical } from "lucide-react";
 import { useState, useRef } from "react";
+import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 
@@ -45,6 +46,10 @@ function AddPartner() {
     e.preventDefault();
     if (!companyName || !firstName || !surname) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+    if (!logo) {
+      toast.error("Please upload a company logo.");
       return;
     }
     setShowConfirmModal(true);
@@ -170,7 +175,8 @@ function AddPartner() {
           {/* Logo Upload */}
           <div className="flex flex-col gap-[8px] w-full">
             <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
-              Attach Company Logo <span className="text-[#8e95a1] font-[400]">(max. 10mb)</span>
+              Attach Company Logo <span className="text-[#ED351D] font-[400]">*</span>{" "}
+              <span className="text-[#8e95a1] font-[400]">(max. 10mb)</span>
             </label>
             <div 
               className="flex items-center justify-center w-full h-[48px] border-[1px] border-[#e3351d] rounded-[4px] bg-[#ffffff] cursor-pointer hover:bg-[#e3351d]/5 transition-colors"
@@ -201,96 +207,102 @@ function AddPartner() {
       </form>
       {/* Confirm Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/40 px-[16px]">
-          <div className="flex flex-col w-full max-w-[540px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
-            <div className="pt-[24px] lg:pt-[40px] pb-[24px] lg:pb-[32px] px-[24px] lg:px-[40px]">
-              <h3 className="text-[20px] lg:text-[24px] font-[600] text-[#141a1f] mb-[16px] lg:mb-[24px]">Confirm Partner Details</h3>
-              <div className="w-full h-[1px] bg-[#f1f2f4] -mx-[24px] lg:-mx-[40px] px-[48px] lg:px-[80px] mb-[16px] lg:mb-[24px]"></div>
-              
-              <div className="flex flex-col gap-[20px]">
-                <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] text-[#141a1f]">Company</label>
-                  <input type="text" value={companyName} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
-                </div>
-                
-                <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] text-[#141a1f]">First Name</label>
-                  <input type="text" value={firstName} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
-                </div>
-                
-                <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] text-[#141a1f]">Last Name</label>
-                  <input type="text" value={surname} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+        <PortalOverlay onBackdropClick={() => setShowConfirmModal(false)}>
+          <div
+            className="relative flex w-full max-w-[540px] flex-col rounded-[10px] bg-white shadow-[0px_20px_60px_rgba(0,0,0,0.15)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 pt-6 pb-6 lg:px-10 lg:pt-10 lg:pb-8">
+              <h3 className="mb-4 text-[20px] font-semibold text-[#141A1F] lg:mb-6 lg:text-[24px]">Confirm Partner Details</h3>
+              <div className="mb-4 h-px w-full bg-[#F1F2F4] lg:mb-6" />
+
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Company</label>
+                  <input type="text" value={companyName} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
                 </div>
 
-                <div className="flex flex-col gap-[8px]">
-                  <label className="text-[14px] font-[600] text-[#141a1f]">Company Logo</label>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">First Name</label>
+                  <input type="text" value={firstName} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Last Name</label>
+                  <input type="text" value={surname} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Company Logo</label>
                   {logo ? (
-                    <div className="w-[80px] h-[80px] border border-[#e2e5e9] rounded-[4px] flex items-center justify-center bg-white p-2">
-                      <img src={logo} alt="Company Logo" className="max-w-full max-h-full object-contain" />
+                    <div className="flex size-20 items-center justify-center rounded border border-[#E2E5E9] bg-white p-2">
+                      <img src={logo} alt="Company Logo" className="max-h-full max-w-full object-contain" />
                     </div>
                   ) : (
-                    <div className="h-[44px] px-[16px] rounded-[4px] border border-[#e3351d] text-[15px] font-[400] text-[#8e95a1] flex items-center">
+                    <div className="flex h-11 items-center rounded border border-[#ED351D] px-4 text-[15px] text-[#8E95A1]">
                       No Logo Attached
                     </div>
                   )}
                 </div>
 
-                <div className="w-full h-[1px] bg-[#f1f2f4] my-[8px]"></div>
+                <div className="my-2 h-px w-full bg-[#F1F2F4]" />
 
-                <div className="flex gap-[24px]">
-                  <div className="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <label className="text-[13px] lg:text-[14px] font-[600] text-[#141a1f] whitespace-nowrap">Assigned Username</label>
-                    <input type="text" value={generatedUsername} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+                <div className="flex gap-6">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">Assigned Username</label>
+                    <input type="text" value={generatedUsername} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
                   </div>
-                  <div className="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <label className="text-[13px] lg:text-[14px] font-[600] text-[#141a1f] whitespace-nowrap">Default Password</label>
-                    <input type="text" value={generatedPassword} disabled className="h-[44px] px-[16px] rounded-[4px] bg-[#f6f7f9] text-[15px] font-[400] text-[#8e95a1] outline-none" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">Default Password</label>
+                    <input type="text" value={generatedPassword} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center mt-[24px]">
-                  <button type="button" onClick={() => setShowConfirmModal(false)} className="text-[15px] font-[500] text-[#e3351d] hover:underline">
+                <div className="mt-6 flex items-center justify-between">
+                  <button type="button" onClick={() => setShowConfirmModal(false)} className="text-[15px] font-medium text-[#ED351D] hover:underline">
                     Go Back
                   </button>
-                  <button type="button" onClick={handleConfirmAndSend} className="py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] text-[15px] font-[500] text-[#ffffff] transition-colors">
+                  <button type="button" onClick={handleConfirmAndSend} className="rounded bg-[#ED351D] px-6 py-3 text-[15px] font-medium text-white hover:bg-[#d62e19]">
                     Confirm and Send
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </PortalOverlay>
       )}
 
       {/* Share Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/40 px-[16px]">
-          <div className="flex flex-col w-full max-w-[360px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
-            <button onClick={handleShareDone} className="absolute top-[20px] right-[20px] text-[#5c6470] hover:text-[#141a1f]">
-              <X className="w-[20px] h-[20px]" />
+        <PortalOverlay onBackdropClick={handleShareDone}>
+          <div
+            className="relative flex w-full max-w-[360px] flex-col rounded-[10px] bg-white shadow-[0px_20px_60px_rgba(0,0,0,0.15)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" onClick={handleShareDone} className="absolute top-5 right-5 text-[#5C6470] hover:text-[#141A1F]">
+              <X className="size-5" />
             </button>
-            <div className="px-[32px] pt-[32px] pb-[20px]">
-              <h3 className="text-[18px] font-[600] text-[#e3351d]">Share Sign In Details</h3>
+            <div className="px-8 pt-8 pb-5">
+              <h3 className="text-[18px] font-semibold text-[#ED351D]">Share Sign In Details</h3>
             </div>
-            <div className="w-full h-[1px] bg-[#f1f2f4] mb-[8px]"></div>
-            
-            <div className="flex flex-row justify-between items-center px-[40px] py-[32px]">
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareWhatsApp}>
-                <MessageCircle className="w-[28px] h-[28px] text-[#5c6470]" />
-                <span className="text-[13px] font-[500] text-[#8e95a1]">WhatsApp</span>
-              </div>
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleShareEmail}>
-                <Mail className="w-[28px] h-[28px] text-[#5c6470]" />
-                <span className="text-[13px] font-[500] text-[#8e95a1]">Gmail</span>
-              </div>
-              <div className="flex flex-col items-center gap-[12px] cursor-pointer hover:opacity-80" onClick={handleCopyLink}>
-                <Copy className="w-[28px] h-[28px] text-[#5c6470]" />
-                <span className="text-[13px] font-[500] text-[#8e95a1]">Copy</span>
-              </div>
+            <div className="mb-2 h-px w-full bg-[#F1F2F4]" />
+
+            <div className="flex items-center justify-between px-10 py-8">
+              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleShareWhatsApp}>
+                <WhatsAppIcon className="size-7" />
+                <span className="text-[13px] font-medium text-[#8E95A1]">WhatsApp</span>
+              </button>
+              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleShareEmail}>
+                <Mail className="size-7 text-[#5C6470]" />
+                <span className="text-[13px] font-medium text-[#8E95A1]">Gmail</span>
+              </button>
+              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleCopyLink}>
+                <Copy className="size-7 text-[#5C6470]" />
+                <span className="text-[13px] font-medium text-[#8E95A1]">Copy</span>
+              </button>
             </div>
           </div>
-        </div>
+        </PortalOverlay>
       )}
     </div>
   );
