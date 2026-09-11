@@ -210,7 +210,7 @@ function AdminPartnerRequests() {
                       <MoreVertical className="size-5" />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                      <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                         <button
                           type="button"
                           className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
@@ -337,7 +337,7 @@ function AdminPartnerRequests() {
                       <MoreVertical className="size-5" strokeWidth={1.75} />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
+                      <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
                         <button
                           type="button"
                           className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"

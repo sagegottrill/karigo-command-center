@@ -469,7 +469,7 @@ function AdminManagePartner() {
                             <MoreVertical className="size-5" strokeWidth={1.75} />
                           </button>
                           {menuFor === u.id && (
-                            <div className="absolute bottom-full right-0 z-50 mb-1 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
+                            <div className="absolute top-full right-0 z-50 mt-1 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
                               <button
                                 type="button"
                                 className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
@@ -619,8 +619,11 @@ function AdminManagePartner() {
       )}
 
       {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/75 p-4">
-          <div className="flex w-full max-w-[440px] flex-col items-center rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+        <PortalOverlay onBackdropClick={() => setConfirmAction(null)}>
+          <div
+            className="flex w-full max-w-[440px] flex-col items-center rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-5 flex size-14 items-center justify-center rounded-full border-[3px] border-[#ED351D]">
               <AlertCircle className="size-7 text-[#ED351D]" />
             </div>
@@ -643,12 +646,15 @@ function AdminManagePartner() {
               </button>
             </div>
           </div>
-        </div>
+        </PortalOverlay>
       )}
 
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/75 p-4">
-          <div className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
+        <PortalOverlay onBackdropClick={() => setShowShareModal(false)}>
+          <div
+            className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button type="button" onClick={() => setShowShareModal(false)} className="absolute top-5 right-5 text-[#8E95A1]">
               <X className="size-4" />
             </button>
@@ -697,7 +703,7 @@ function AdminManagePartner() {
               </button>
             </div>
           </div>
-        </div>
+        </PortalOverlay>
       )}
     </>
   );

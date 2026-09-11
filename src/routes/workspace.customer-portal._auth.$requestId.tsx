@@ -145,17 +145,22 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
     "At Destination",
     "Offloaded",
   ];
-  const idx: Record<string, number> = {
-    "Awaiting Approval": 1,
-    Scheduled: 2,
-    Loaded: 4,
-    "En Route": 5,
-    Delayed: 5,
-    Offloading: 6,
-    Returning: 7,
-    Completed: 7,
-  };
-  const current = idx[trip.status] ?? 1;
+
+  const hasDriver =
+    Boolean(trip.driverId) ||
+    Boolean(trip.driverName && trip.driverName !== "Unassigned" && trip.driverName.trim() !== "");
+
+  // Don't mark Driver Assigned / later steps done when FO hasn't assigned yet
+  // (status can lag ahead of assignment fields on live data).
+  let current = 1; // Approved (Awaiting Approval / Scheduled+)
+  if (trip.status === "Scheduled" || hasDriver) current = 2; // Dispatch Created
+  if (hasDriver) current = 3; // Driver Assigned
+  if (hasDriver && (trip.status === "Loaded" || trip.status === "En Route" || trip.status === "Delayed")) current = 4;
+  if (hasDriver && (trip.status === "En Route" || trip.status === "Delayed")) current = 5;
+  if (trip.status === "Offloading") current = 6;
+  if (trip.status === "Returning" || trip.status === "Completed") current = 7;
+  if (trip.status === "Completed") current = 7;
+
   return order.map((label, i) => {
     const step: PartnerTimelineStep = {
       label,
@@ -527,9 +532,13 @@ function PartnerRequestDetailsPage() {
               <div className="mb-4 w-full border-b border-[#E2E5E9] py-2">
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
               </div>
-              {trip.status === "Requested" || trip.status === "Awaiting Approval" ? (
+              {trip.status === "Requested" ||
+              trip.status === "Awaiting Approval" ||
+              (!trip.driverId && (!trip.driverName || trip.driverName === "Unassigned")) ? (
                 <div className="px-4 py-10 text-center text-[14px] font-normal italic tracking-[0.4px] text-[#5C6470]">
-                  Awaiting Transport Manager approval and assignment.
+                  {trip.status === "Requested"
+                    ? "Awaiting Transport Manager approval and assignment."
+                    : "Approved — awaiting fleet assignment of driver and truck."}
                 </div>
               ) : (
                 <div className="flex flex-col gap-5">

@@ -4,9 +4,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  ListFilter,
   MoreVertical,
   Search,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -175,60 +175,90 @@ function AdminManageAccount() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-[520px] min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Search"
-              className="h-10 w-full rounded border border-[#E2E5E9] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
-            />
+        <div className="flex w-full flex-col items-start gap-2.5">
+          <div className="flex w-full items-center justify-start gap-3 sm:gap-5">
+            <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+              <Search className="size-5 shrink-0 text-[#5C6470]" strokeWidth={1.5} />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search"
+                className="w-full min-w-0 bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+              />
+            </div>
+            <div ref={filterRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterOpen((v) => !v)}
+                className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
+                aria-label="Filter staff"
+              >
+                <ListFilter className="size-5 text-white" />
+              </button>
+              {filterOpen && (
+                <div className="absolute top-12 right-0 z-40 w-64 rounded border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeptFilter(null);
+                      setPage(0);
+                      setFilterOpen(false);
+                    }}
+                    className="flex w-full px-4 py-2 text-left text-[14px] text-[#5C6470] hover:bg-[#F1F2F4]"
+                  >
+                    All departments
+                  </button>
+                  {ADMIN_DEPARTMENTS.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDeptFilter(d);
+                        setPage(0);
+                        setFilterOpen(false);
+                      }}
+                      className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
+                        deptFilter === d ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div ref={filterRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setFilterOpen((v) => !v)}
-              className="flex size-10 items-center justify-center rounded bg-[#ED351D] text-white"
-              aria-label="Filter"
-            >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
-            {filterOpen && (
-              <div className="absolute top-12 right-0 z-40 w-64 rounded border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+          {deptFilter ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex h-8 items-center gap-3.5 rounded bg-[#ED351D] px-[7px] py-[5px]">
+                <span className="text-[12px] font-normal tracking-[0.4px] text-white">{deptFilter}</span>
                 <button
                   type="button"
                   onClick={() => {
                     setDeptFilter(null);
                     setPage(0);
-                    setFilterOpen(false);
                   }}
-                  className="flex w-full px-4 py-2 text-left text-[14px] text-[#5C6470] hover:bg-[#F1F2F4]"
+                  className="grid size-3 place-items-center text-white/90 hover:text-white"
+                  aria-label={`Remove ${deptFilter}`}
                 >
-                  All departments
+                  <X className="size-3" strokeWidth={2.5} />
                 </button>
-                {ADMIN_DEPARTMENTS.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => {
-                      setDeptFilter(d);
-                      setPage(0);
-                      setFilterOpen(false);
-                    }}
-                    className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
-                      deptFilter === d ? "font-medium text-[#ED351D]" : "text-[#5C6470]"
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeptFilter(null);
+                  setPage(0);
+                }}
+                className="text-[12px] font-medium tracking-[0.4px] text-[#ED351D] hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex w-full flex-col gap-2.5">
