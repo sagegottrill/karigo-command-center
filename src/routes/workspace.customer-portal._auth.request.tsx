@@ -55,7 +55,7 @@ function PartnerNewRequest() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerConsignee || !truckType || !destination) {
+    if (!customerConsignee.trim() || !product.trim() || !truckType || !destination.trim()) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -78,13 +78,13 @@ function PartnerNewRequest() {
     setSubmitting(true);
     try {
       await orderService.submitCustomerOrder({
-        customerConsignee,
-        cargo: product || "—",
+        customerConsignee: customerConsignee.trim(),
+        cargo: product.trim(),
         tailType: truckType,
         loadingRoutingType: routingType,
         loadingSite: finalSites,
         pickup,
-        dropoff: destination,
+        dropoff: destination.trim(),
       });
       toast.success("Request submitted to Fleet Operations");
       navigate({ to: "/workspace/customer-portal/dashboard" });
@@ -97,7 +97,7 @@ function PartnerNewRequest() {
 
   return (
     <PartnerPortalShell>
-      <main className="flex flex-col gap-[25px] px-[30px] py-5 max-md:px-4">
+      <main className="flex flex-col gap-[25px] overflow-visible px-[30px] py-5 max-md:px-4">
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">New Delivery Request</h2>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
@@ -119,16 +119,20 @@ function PartnerNewRequest() {
                   value={customerConsignee}
                   onChange={(e) => setCustomerConsignee(e.target.value)}
                   placeholder="example: J.Doe"
+                  required
                   className={inputClass}
                 />
               </label>
 
               <label className="flex flex-col gap-3">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Product</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Product <span className="text-[#ED351D]">*</span>
+                </span>
                 <input
                   value={product}
                   onChange={(e) => setProduct(e.target.value)}
                   placeholder="example: Steel"
+                  required
                   className={inputClass}
                 />
               </label>
@@ -178,13 +182,14 @@ function PartnerNewRequest() {
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="example: Kute, Abuja"
+                  required
                   className={inputClass}
                 />
               </label>
             </div>
           </section>
 
-          <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
+          <section className="overflow-visible rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
             <h3 className="border-b border-[#E2E5E9] pb-2 text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
               Loading Sites
             </h3>
@@ -247,7 +252,7 @@ function PartnerNewRequest() {
                       ) : null}
                     </div>
                     {openDropdownIndex === index ? (
-                      <div className="absolute left-0 right-0 top-11 z-40 max-h-[250px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                      <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
                         {LOADING_SITE_OPTIONS.map((opt) => (
                           <button
                             key={opt}

@@ -166,8 +166,8 @@ function PartnerPortalDashboard() {
           </Link>
         </div>
 
-        <div className="flex w-full max-w-[600px] items-center gap-3 sm:gap-5">
-          <div className="flex h-10 flex-1 items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+        <div className="flex w-full items-center justify-end gap-3 sm:gap-5">
+          <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
             <Search className="size-5 shrink-0 text-[#5C6470] sm:size-[22px]" />
             <input
               value={searchQuery}
@@ -180,6 +180,7 @@ function PartnerPortalDashboard() {
             type="button"
             onClick={() => setSortModalOpen(true)}
             className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
+            aria-label="Filter requests"
           >
             <ListFilter className="size-5 text-white" />
           </button>
