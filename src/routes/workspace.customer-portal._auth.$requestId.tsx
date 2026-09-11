@@ -364,7 +364,7 @@ function PartnerRequestDetailsPage() {
                 className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
               >
                 <Upload className="size-[18px]" />
-                Export CVS
+                Export CSV
               </button>
               {canDelete ? (
                 <button

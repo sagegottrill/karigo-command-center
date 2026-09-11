@@ -1267,11 +1267,12 @@ export const adminService = {
   },
   resetPassword: async (userId: string) => {
     if (!useMock()) {
-      await liveUpdateUser(userId, { password: "ChangeMe@2026" });
-      return true;
+      const tempPassword = generateTempPassword();
+      await liveUpdateUser(userId, { password: tempPassword });
+      return tempPassword;
     }
-    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: true } : u);
-    return settle(true);
+    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
+    return settle(generateTempPassword());
   },
   editUser: async (id: string, payload: Partial<import("./types").User>) => {
     if (!useMock()) {
@@ -1349,12 +1350,13 @@ export const dashboardService = {
         workOrders,
         inventory,
         procurement,
+        // Never inject mock chart series into live Overview / God View.
         charts: {
-          costRevenue: db.CHART_COST_REVENUE,
-          utilisation: db.CHART_UTILISATION,
-          tripPerformance: db.CHART_TRIP_PERFORMANCE,
-          fuel: db.CHART_FUEL,
-          expenseSplit: db.CHART_EXPENSE_SPLIT,
+          costRevenue: [],
+          utilisation: [],
+          tripPerformance: [],
+          fuel: [],
+          expenseSplit: [],
         },
       };
     }
@@ -1383,28 +1385,48 @@ export const dashboardService = {
 // Bump this version whenever mock-data schema changes to force a cache refresh
 const DATA_SCHEMA_VERSION = "4";
 
+const SESSION_KEYS = new Set([
+  "fleetopsx_token",
+  "fleetopsx_user_id",
+  "fleetopsx_roles",
+  "fleetopsx_user",
+]);
+
 const getInitialState = <T>(key: string, fallback: T): T => {
-  if (typeof window !== "undefined") {
-    // Check schema version — if it changed, nuke old cached data
-    const storedVersion = localStorage.getItem("fleetopsx_schema_version");
-    if (storedVersion !== DATA_SCHEMA_VERSION) {
-      // Clear all fleetopsx_ keys to force fresh mock data
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith("fleetopsx_") && k !== "fleetopsx_user_id" && k !== "fleetopsx_roles") {
-          keysToRemove.push(k);
-        }
+  if (typeof window === "undefined") return fallback;
+  // Live production: never hydrate prototype mock tables into localStorage.
+  if (!allowMockFallback()) return fallback;
+
+  const storedVersion = localStorage.getItem("fleetopsx_schema_version");
+  if (storedVersion !== DATA_SCHEMA_VERSION) {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("fleetopsx_") && !SESSION_KEYS.has(k)) {
+        keysToRemove.push(k);
       }
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-      localStorage.setItem("fleetopsx_schema_version", DATA_SCHEMA_VERSION);
-      return fallback;
     }
-    const saved = localStorage.getItem(`fleetopsx_${key}`);
-    if (saved) return JSON.parse(saved);
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    localStorage.setItem("fleetopsx_schema_version", DATA_SCHEMA_VERSION);
+    return fallback;
   }
+  const saved = localStorage.getItem(`fleetopsx_${key}`);
+  if (saved) return JSON.parse(saved);
   return fallback;
 };
+
+function generateTempPassword(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = new Uint8Array(10);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let body = "";
+  for (let i = 0; i < bytes.length; i++) body += alphabet[bytes[i]! % alphabet.length];
+  return `Tmp${body}!`;
+}
 
 const initialStore = {
   platformTenants: getInitialState("platformTenants", [...db.PLATFORM_TENANTS]),
@@ -1447,36 +1469,26 @@ export interface SearchHit {
 }
 
 export function globalSearch(query: string): SearchHit[] {
+  // Cmd+K prototype search only runs against local mock store — never in live.
+  if (!useMock()) return [];
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: SearchHit[] = [];
   store.trips.filter((t) => `${t.id} ${t.customer} ${t.pickup} ${t.dropoff}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} → ${t.dropoff} · ${t.status}`, to: "/workspace/app/trips/$tripId", params: { tripId: t.id } }));
-  
+    .forEach((t) => hits.push({ group: "Trips", label: t.id, meta: `${t.pickup} → ${t.dropoff} · ${t.status}`, to: "/workspace/app/fleet" }));
+
   store.truckHeads.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} · ${t.registration}`, meta: `${t.make} · ${t.status}`, to: "/workspace/app/fleet" }));
-  
+    .forEach((t) => hits.push({ group: "Truck Heads", label: `${t.id} · ${t.registration}`, meta: `${t.make} · ${t.status}`, to: "/workspace/app/fleet-registry" }));
+
   store.truckTails.filter((t) => `${t.id} ${t.number} ${t.registration}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/workspace/app/fleet" }));
+    .forEach((t) => hits.push({ group: "Truck Tails", label: `${t.id} · ${t.registration}`, meta: `${t.type} · ${t.status}`, to: "/workspace/app/fleet-registry" }));
 
   store.drivers.filter((d) => `${d.id} ${d.name} ${d.employeeId} ${d.licenseNumber} ${d.assignedTruck || ""}`.toLowerCase().includes(q))
     .slice(0, 5)
-    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} · ${d.name}`, meta: `${d.status} · ${d.compliance}`, to: "/workspace/app/drivers/$driverId", params: { driverId: d.id } }));
-  store.expenses.filter((e) => `${e.id} ${e.requester} ${e.type}`.toLowerCase().includes(q))
-    .slice(0, 4)
-    .forEach((e) => hits.push({ group: "Expenses", label: e.id, meta: `${e.type} \u00b7 \u20A6${e.amount.toLocaleString()}`, to: "/workspace/app/accounts" }));
-  store.workOrders.filter((w) => `${w.id} ${w.truckReg} ${w.defect}`.toLowerCase().includes(q))
-    .slice(0, 4)
-    .forEach((w) => hits.push({ group: "Work Orders", label: w.id, meta: `${w.truckReg} · ${w.status}`, to: "/workspace/app/engineering" }));
-  store.inventory.filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q))
-    .slice(0, 4)
-    .forEach((i) => hits.push({ group: "Inventory", label: `${i.name}`, meta: `${i.sku} · ${i.stock} in stock`, to: "/workspace/app/inventory" }));
-  store.audit.filter((a) => `${a.record} ${a.action} ${a.user}`.toLowerCase().includes(q))
-    .slice(0, 3)
-    .forEach((a) => hits.push({ group: "Audit Logs", label: a.record, meta: `${a.action} · ${a.user}`, to: "/workspace/app/audit" }));
+    .forEach((d) => hits.push({ group: "Drivers", label: `${d.id} · ${d.name}`, meta: `${d.status} · ${d.compliance}`, to: "/workspace/app/hr" }));
   return hits;
 }
 

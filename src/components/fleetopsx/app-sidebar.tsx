@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  Activity, Boxes, ChevronLeft, Fuel, Gauge, LayoutDashboard, LineChart,
-  MessageSquare, Radar, ScrollText, Settings, ShieldCheck, Truck, Users, Wrench, Bell, Smartphone, MoreVertical, LogOut
+  ChevronLeft, LayoutDashboard, LineChart,
+  Radar, ScrollText, ShieldCheck, Truck, Users, Bell, MoreVertical, LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
@@ -46,34 +46,28 @@ const CustomPasswordIcon = ({ className, strokeWidth }: any) => (
   </div>
 );
 
+/** Production portal routes only — legacy Karigo paths redirect away. */
 export const NAV: NavItem[] = [
   { label: "Overview", to: "/workspace/app", icon: LayoutDashboard, group: "Main" },
-  { label: "Authorization", to: "/workspace/app/approvals", icon: ShieldCheck, group: "Fleet Operations" },
   { label: "Fleet Dispatch", to: "/workspace/app/dispatch", icon: Truck, group: "Fleet Operations" },
+  { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, group: "Fleet Operations" },
   { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck, group: "Fleet Operations" },
   { label: "Dispatch History", to: "/workspace/app/dispatch-history", icon: ScrollText, group: "Fleet Operations" },
-  { label: "Tracking", to: "/workspace/app/trips", icon: Radar, group: "Tracking" },
-  { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench, group: "Workshop" },
-  { label: "Inventory", to: "/workspace/app/inventory", icon: Boxes, group: "Workshop" },
-  { label: "Drivers", to: "/workspace/app/drivers", icon: Users, group: "People" },
-  { label: "HR Module", to: "/workspace/app/hr", icon: Users, group: "People" },
-  { label: "Accounts", to: "/workspace/app/accounts", icon: Gauge, group: "Finance" },
+  { label: "Active Dispatch", to: "/workspace/app/active-dispatch", icon: Radar, group: "Tracking" },
+  { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: LineChart, group: "Tracking" },
+  { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users, group: "People" },
   { label: "Gate", to: "/workspace/app/gate", icon: ShieldCheck, group: "Yard" },
-  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, group: "Inbox" },
-  { label: "God View", to: "/workspace/app/god-view", icon: LineChart, group: "Insights" },
-  { label: "Reports", to: "/workspace/app/reports", icon: Activity, group: "Insights" },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, group: "Inbox" },
+  { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CustomPasswordIcon, group: "User Management" },
   { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "User Management" },
   { label: "Add A Partner", to: "/workspace/app/add-partner", icon: CustomPartnerIcon, group: "User Management" },
   { label: "Account Management", to: "/workspace/app/manage-account", icon: CustomManageIcon, group: "User Management" },
   { label: "Manage Partners", to: "/workspace/app/manage-partner", icon: CustomManageIcon, group: "User Management" },
   { label: "Password Request", to: "/workspace/app/password-request", icon: CustomPasswordIcon, group: "User Management" },
   { label: "Platform Admin", to: "/superadmin", icon: ShieldCheck, group: "Admin" },
-  { label: "Audit", to: "/workspace/app/audit", icon: ScrollText, group: "Admin" },
-  { label: "Settings", to: "/workspace/app/admin", icon: Settings, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Fleet Operations", "Tracking", "Workshop", "People", "Finance", "Yard", "Inbox", "Insights", "User Management", "Admin"];
+const GROUPS = ["Main", "Fleet Operations", "Tracking", "People", "Yard", "Inbox", "User Management", "Admin"];
 
 export function AppSidebar({
   collapsed,
@@ -88,8 +82,14 @@ export function AppSidebar({
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    "Main": true, "Fleet Operations": true, "Tracking": true, "Workshop": true, "People": true, "Finance": true, 
-    "Yard": true, "Inbox": true, "Insights": true, "Admin": true, "User Management": true
+    Main: true,
+    "Fleet Operations": true,
+    Tracking: true,
+    People: true,
+    Yard: true,
+    Inbox: true,
+    Admin: true,
+    "User Management": true,
   });
   
   useEffect(() => { setMounted(true); }, []);

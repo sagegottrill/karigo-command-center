@@ -179,7 +179,7 @@ function AddPartner() {
           </div>
 
           <button type="submit" className="flex items-center justify-center py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors self-end mt-[16px]">
-            <span className="text-[14px] font-[500] text-[#ffffff]">Save Account</span>
+            <span className="text-[14px] font-[500] text-[#ffffff]">Save Partner</span>
           </button>
         </div>
       </form>
@@ -188,7 +188,7 @@ function AddPartner() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141a1f]/40 px-[16px]">
           <div className="flex flex-col w-full max-w-[540px] rounded-[10px] bg-[#ffffff] shadow-[0px_20px_60px_rgba(0,0,0,0.15)] relative">
             <div className="pt-[24px] lg:pt-[40px] pb-[24px] lg:pb-[32px] px-[24px] lg:px-[40px]">
-              <h3 className="text-[20px] lg:text-[24px] font-[600] text-[#141a1f] mb-[16px] lg:mb-[24px]">Confirm Account Details</h3>
+              <h3 className="text-[20px] lg:text-[24px] font-[600] text-[#141a1f] mb-[16px] lg:mb-[24px]">Confirm Partner Details</h3>
               <div className="w-full h-[1px] bg-[#f1f2f4] -mx-[24px] lg:-mx-[40px] px-[48px] lg:px-[80px] mb-[16px] lg:mb-[24px]"></div>
               
               <div className="flex flex-col gap-[20px]">

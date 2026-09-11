@@ -72,12 +72,18 @@ function AdminManageAccount() {
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
     switch (confirmAction.type) {
-      case "password":
-        await adminService.resetPassword(confirmAction.userId);
-        toast.success("Password reset initiated. User must change password on next login.");
+      case "password": {
+        const tempPassword = await adminService.resetPassword(confirmAction.userId);
+        toast.success(
+          typeof tempPassword === "string" && tempPassword
+            ? `Temporary password: ${tempPassword}`
+            : "Password reset initiated.",
+          { duration: 12_000 },
+        );
         setConfirmAction(null);
         setShowShareModal(true);
         break;
+      }
       case "suspend":
         await adminService.suspendUser(confirmAction.userId);
         toast.warning("Account suspended.");
@@ -129,7 +135,7 @@ function AdminManageAccount() {
               className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <Download className="size-4" strokeWidth={1.75} />
-              Export CVS
+              Export CSV
             </button>
           </div>
         </div>

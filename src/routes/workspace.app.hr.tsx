@@ -255,7 +255,7 @@ function HrStaffDirectory() {
                   className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
                 >
                   <Download className="size-[18px]" strokeWidth={1.75} />
-                  Export CVS
+                  Export CSV
                 </button>
               </div>
             </div>

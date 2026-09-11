@@ -75,13 +75,29 @@ function AdminPasswordRequest() {
   const handleAction = (id: string, action: "Approved" | "Declined") => {
     setActiveMenu(null);
     const req = requests.find((r) => r.id === id);
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: action } : r)));
-    if (action === "Approved" && req) {
-      void adminService.resetPassword(req.userId);
-      toast.success(`Password reset approved for ${req.name}.`);
-    } else if (action === "Declined" && req) {
-      toast.warning(`Password reset declined for ${req.name}.`);
+    if (!req) return;
+
+    if (action === "Approved") {
+      void adminService
+        .resetPassword(req.userId)
+        .then((tempPassword) => {
+          setRequests((prev) => prev.filter((r) => r.id !== id));
+          toast.success(
+            typeof tempPassword === "string" && tempPassword
+              ? `Temporary password for ${req.name}: ${tempPassword}`
+              : `Password reset approved for ${req.name}.`,
+            { duration: 12_000 },
+          );
+        })
+        .catch((err) => toast.error(err instanceof Error ? err.message : "Password reset failed"));
+      return;
     }
+
+    // Decline is UI-only until the API supports canceling reset flags.
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    toast.message(`Dismissed password request for ${req.name}.`, {
+      description: "Staff can request again if they still need a reset.",
+    });
   };
 
   return (

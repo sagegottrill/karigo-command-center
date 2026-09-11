@@ -162,7 +162,7 @@ function ActiveDispatchPage() {
         className="flex h-8 w-[123px] items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white md:hidden"
       >
         <Upload className="size-[18px]" strokeWidth={1.5} />
-        Export CVS
+        Export CSV
       </button>
 
       <div className="flex flex-col gap-[15px] border-b border-[#E2E5E9] pb-[5px] md:hidden">
@@ -339,7 +339,7 @@ function ActiveDispatchPage() {
                 className="inline-flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] text-[14px] font-medium text-white"
               >
                 <Upload className="size-[18px]" strokeWidth={1.5} />
-                Export CVS
+                Export CSV
               </button>
             </div>
           </>

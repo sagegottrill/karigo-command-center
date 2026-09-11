@@ -164,7 +164,7 @@ function FleetDispatchRequests() {
           className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white md:hidden"
         >
           <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CVS
+          Export CSV
         </button>
 
         <div className="flex w-full items-center gap-5 md:hidden">
@@ -452,7 +452,7 @@ function FleetDispatchRequests() {
                   className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
                 >
                   <Download className="size-[18px]" strokeWidth={1.75} />
-                  Export CVS
+                  Export CSV
                 </button>
               </div>
             </div>

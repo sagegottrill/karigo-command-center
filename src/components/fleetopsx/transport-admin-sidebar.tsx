@@ -82,9 +82,9 @@ export function TransportAdminSidebar({
   }, []);
 
   const currentUser = authService.getCurrentUser();
-  const userName = mounted && currentUser?.name ? currentUser.name : "J.Doe";
-  const userEmail = mounted && currentUser?.email ? currentUser.email : "j.doe@gmail.com";
-  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "JD";
+  const userName = mounted && currentUser?.name ? currentUser.name : "";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "";
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   const handleLogout = () => {

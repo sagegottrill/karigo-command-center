@@ -131,7 +131,7 @@ export function AppHeader({
     const gateSecurity = forceGateSecurity;
     const trackingOps = !gateSecurity && forceTrackingOps;
     const fleetOps = !gateSecurity && !trackingOps && (forceFleetOps || isFleetOpsPortalPath(pathname));
-    const initials = mounted && currentUser?.initials ? currentUser.initials : "JD";
+    const initials = mounted && currentUser?.initials ? currentUser.initials : "";
     const clock = formatPortalClock();
 
     if (gateSecurity) {
@@ -308,7 +308,7 @@ export function AppHeader({
         </Link>
 
         <Link
-          to="/workspace/app/messages"
+          to="/workspace/app/notifications"
           className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
         >
           <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
@@ -360,9 +360,9 @@ export function AppHeader({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="rounded-[8px] px-2.5 py-2 text-[13px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]">
-              <Link to="/workspace/app/admin">
+              <Link to="/workspace/app/manage-account">
                 <Settings className="mr-2 h-3.5 w-3.5" />
-                Settings
+                Account Management
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1.5 bg-[#e2e5e9]" />
