@@ -1,8 +1,21 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { HelpCircle, LayoutDashboard, LogOut, MoreVertical, Truck, UserCog, UserPlus, Users } from "lucide-react";
+import {
+  Bell,
+  Briefcase,
+  HelpCircle,
+  LayoutDashboard,
+  List,
+  LogOut,
+  MoreVertical,
+  Truck,
+  UserCog,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { authService } from "@/lib/fleetopsx/services";
+import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { getToken } from "@/lib/fleetopsx/apiClient";
 import { Route as RootRoute } from "../../routes/__root";
 
 type AdminNavItem = {
@@ -180,5 +193,68 @@ export function TransportAdminSidebar({
         </div>
       </aside>
     </>
+  );
+}
+
+/** Figma Admin mobile bottom tab bar (472:17760) */
+const ADMIN_MOBILE_NAV = [
+  { label: "Dashboard", to: "/workspace/app", icon: LayoutDashboard },
+  { label: "Partners", to: "/workspace/app/manage-partner", icon: Briefcase },
+  { label: "Internal Staff", to: "/workspace/app/manage-account", icon: Users },
+  { label: "Department", to: "/workspace/app/fleet", icon: List },
+  { label: "Notification", to: "/workspace/app/notifications", icon: Bell },
+] as const;
+
+export function TransportAdminMobileNav() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!getToken()) {
+      setUnread(0);
+      return;
+    }
+    void notificationService
+      .getUnreadCount()
+      .then((count) => {
+        if (!cancelled) setUnread(count);
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-2 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
+      {ADMIN_MOBILE_NAV.map((item) => {
+        const active = isPathActive(pathname, item.to);
+        const Icon = item.icon;
+        const showBadge = item.to.includes("notifications") && unread > 0;
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={cn(
+              "relative flex flex-1 flex-col items-center justify-center gap-1 px-0.5",
+              active ? "border-b-[5px] border-white text-white" : "text-white/70",
+            )}
+          >
+            <span className="relative">
+              <Icon className="size-5" strokeWidth={1.5} />
+              {showBadge && (
+                <span className="absolute -right-3 -top-1 grid size-4 place-items-center rounded-[10px] bg-[#ED351D] text-[10px] font-medium text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </span>
+            <span className="w-full text-center text-[10px] font-medium leading-tight">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

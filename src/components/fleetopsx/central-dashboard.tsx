@@ -27,19 +27,22 @@ function StatCard({
   hint,
   hintClass,
   tall,
+  className,
 }: {
   label: string;
   value: number;
   hint?: string;
   hintClass?: string;
   tall?: boolean;
+  className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex min-w-[160px] flex-1 flex-col gap-2.5 overflow-hidden rounded-[10px] bg-white p-[15px]",
+        "flex min-w-0 flex-col gap-2.5 overflow-hidden rounded-[10px] bg-white p-[15px]",
         CARD_SHADOW,
         tall ? "h-[116px]" : "h-[105px]",
+        className,
       )}
     >
       <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
@@ -54,7 +57,9 @@ function StatCard({
 function SectionTitle({ children }: { children: string }) {
   return (
     <div className="flex w-full items-center border-b border-[rgba(92,100,112,0.3)] pb-2.5">
-      <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">{children}</h2>
+      <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[24px] md:font-medium md:leading-8">
+        {children}
+      </h2>
     </div>
   );
 }
@@ -73,8 +78,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const heads = data.trucks ?? [];
     const partnerTrips = trips.filter(isPartnerTrip);
     const pending = partnerTrips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval");
-    const inTransit = partnerTrips.filter((t) =>
-      t.status === "En Route" || t.status === "Loaded" || t.status === "Offloading" || t.status === "Returning",
+    const inTransit = partnerTrips.filter(
+      (t) =>
+        t.status === "En Route" ||
+        t.status === "Loaded" ||
+        t.status === "Offloading" ||
+        t.status === "Returning",
     );
     const completed = partnerTrips.filter((t) => t.status === "Completed");
     const declined = 0;
@@ -138,84 +147,128 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   }, [data.trips, data.trucks, tails, users]);
 
   return (
-    <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
-      {/* Figma 472:17727 */}
+    <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-5 md:p-[30px] md:pb-[30px]">
+      {/* Figma 472:17727 / mobile 472:17760 */}
       <SectionTitle>Customer Requests</SectionTitle>
-      <div className="flex flex-wrap gap-5">
-        <StatCard tall label="Total Requests" value={stats.requests.total} />
+      <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
+        <StatCard tall label="Total Requests" value={stats.requests.total} className="md:min-w-[160px] md:flex-1" />
         <StatCard
           tall
           label="In transit"
           value={stats.requests.inTransit}
-          hint={stats.requests.inTransit > 0 ? "Look out for your delivery" : undefined}
-          hintClass="text-[#34C759]"
+          {...(stats.requests.inTransit > 0
+            ? { hint: "Look out for your delivery", hintClass: "text-[#34C759]" }
+            : {})}
+          className="md:min-w-[160px] md:flex-1"
         />
-        <StatCard tall label="Pending" value={stats.requests.pending} />
-        <StatCard tall label="Declined" value={stats.requests.declined} />
-        <StatCard tall label="Completed" value={stats.requests.completed} />
+        <StatCard tall label="Pending" value={stats.requests.pending} className="md:min-w-[160px] md:flex-1" />
+        <StatCard tall label="Declined" value={stats.requests.declined} className="md:min-w-[160px] md:flex-1" />
+        <StatCard
+          tall
+          label="Completed"
+          value={stats.requests.completed}
+          className="col-span-2 md:col-span-1 md:min-w-[160px] md:flex-1"
+        />
       </div>
 
       <SectionTitle>Active Dispatch</SectionTitle>
-      <div className="flex flex-wrap gap-5">
-        <StatCard label="Total Active Dispatch" value={stats.dispatch.total} />
-        <StatCard label="On Schedule" value={stats.dispatch.onSchedule} />
+      <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
+        <StatCard label="Total Active Dispatch" value={stats.dispatch.total} className="md:min-w-[160px] md:flex-1" />
+        <StatCard label="On Schedule" value={stats.dispatch.onSchedule} className="md:min-w-[160px] md:flex-1" />
         <StatCard
           label="Slight Delay"
           value={stats.dispatch.slight}
-          hint={stats.dispatch.slight > 0 ? "Attention needed" : undefined}
-          hintClass="text-[#F99E1F]"
+          {...(stats.dispatch.slight > 0
+            ? { hint: "Attention needed", hintClass: "text-[#F99E1F]" }
+            : {})}
+          className="md:min-w-[160px] md:flex-1"
         />
         <StatCard
           label="Significant Delay"
           value={stats.dispatch.significant}
-          hint={stats.dispatch.significant > 0 ? "Escalation needed" : undefined}
-          hintClass="text-[#EF4343]"
+          {...(stats.dispatch.significant > 0
+            ? { hint: "Escalation needed", hintClass: "text-[#EF4343]" }
+            : {})}
+          className="md:min-w-[160px] md:flex-1"
         />
       </div>
 
       <SectionTitle>Fleet Registry</SectionTitle>
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap gap-5">
-          <StatCard label="Total Head" value={stats.heads.total} />
+      <div className="flex flex-col gap-3 md:gap-5">
+        <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
+          <StatCard label="Total Head" value={stats.heads.total} className="md:min-w-[160px] md:flex-1" />
+          <StatCard label="Total Tails" value={stats.tails.total} className="md:hidden" />
           <StatCard
             label="Available Head"
             value={stats.heads.available}
-            hint={stats.heads.available > 0 ? "ready to dispatch" : undefined}
-            hintClass="text-[#34C759]"
+            {...(stats.heads.available > 0
+              ? { hint: "ready to dispatch", hintClass: "text-[#34C759]" }
+              : {})}
+            className="md:min-w-[160px] md:flex-1"
           />
-          <StatCard label="Head In Transit" value={stats.heads.inTransit} />
-          <StatCard label="Head In Maintenance" value={stats.heads.maintenance} />
-          <StatCard
-            label="Head Out of Service"
-            value={stats.heads.out}
-            hint={stats.heads.out > 0 ? "unavailable" : undefined}
-            hintClass="text-[#ED351D]"
-          />
-        </div>
-        <div className="flex flex-wrap gap-5">
-          <StatCard label="Total Tail" value={stats.tails.total} />
           <StatCard
             label="Available Tail"
             value={stats.tails.available}
-            hint={stats.tails.available > 0 ? "ready to dispatch" : undefined}
-            hintClass="text-[#34C759]"
+            {...(stats.tails.available > 0
+              ? { hint: "ready to dispatch", hintClass: "text-[#34C759]" }
+              : {})}
+            className="md:hidden"
           />
-          <StatCard label="Tail In Transit" value={stats.tails.inTransit} />
-          <StatCard label="Tail In Maintenance" value={stats.tails.maintenance} />
+          <StatCard label="Head In Transit" value={stats.heads.inTransit} className="md:min-w-[160px] md:flex-1" />
+          <StatCard label="Tail In Transit" value={stats.tails.inTransit} className="md:hidden" />
+          <StatCard
+            label="Head In Maintenance"
+            value={stats.heads.maintenance}
+            className="md:min-w-[160px] md:flex-1"
+          />
+          <StatCard label="Tail In Maintenance" value={stats.tails.maintenance} className="md:hidden" />
+          <StatCard
+            label="Head Out of Service"
+            value={stats.heads.out}
+            {...(stats.heads.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
+            className="md:min-w-[160px] md:flex-1"
+          />
           <StatCard
             label="Tail Out of Service"
             value={stats.tails.out}
-            hint={stats.tails.out > 0 ? "unavailable" : undefined}
-            hintClass="text-[#ED351D]"
+            {...(stats.tails.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
+            className="md:hidden"
+          />
+        </div>
+        <div className="hidden flex-wrap gap-5 md:flex">
+          <StatCard label="Total Tail" value={stats.tails.total} className="md:min-w-[160px] md:flex-1" />
+          <StatCard
+            label="Available Tail"
+            value={stats.tails.available}
+            {...(stats.tails.available > 0
+              ? { hint: "ready to dispatch", hintClass: "text-[#34C759]" }
+              : {})}
+            className="md:min-w-[160px] md:flex-1"
+          />
+          <StatCard label="Tail In Transit" value={stats.tails.inTransit} className="md:min-w-[160px] md:flex-1" />
+          <StatCard
+            label="Tail In Maintenance"
+            value={stats.tails.maintenance}
+            className="md:min-w-[160px] md:flex-1"
+          />
+          <StatCard
+            label="Tail Out of Service"
+            value={stats.tails.out}
+            {...(stats.tails.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
+            className="md:min-w-[160px] md:flex-1"
           />
         </div>
       </div>
 
       <SectionTitle>Staff Registry</SectionTitle>
-      <div className="flex flex-wrap gap-5">
-        <StatCard label="Total Staff Account" value={stats.staff.total} />
-        <StatCard label="Active Accounts" value={stats.staff.active} />
-        <StatCard label="Suspended Accounts" value={stats.staff.suspended} />
+      <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
+        <StatCard
+          label="Total Staff Account"
+          value={stats.staff.total}
+          className="col-span-2 md:col-span-1 md:min-w-[160px] md:flex-1"
+        />
+        <StatCard label="Active Accounts" value={stats.staff.active} className="md:min-w-[160px] md:flex-1" />
+        <StatCard label="Suspended Accounts" value={stats.staff.suspended} className="md:min-w-[160px] md:flex-1" />
       </div>
     </div>
   );

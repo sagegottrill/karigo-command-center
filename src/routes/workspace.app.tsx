@@ -10,7 +10,10 @@ import {
   TrackingOperationsSidebar,
   shouldUseTrackingOpsShell,
 } from "@/components/fleetopsx/tracking-operations-sidebar";
-import { TransportAdminSidebar } from "@/components/fleetopsx/transport-admin-sidebar";
+import {
+  TransportAdminMobileNav,
+  TransportAdminSidebar,
+} from "@/components/fleetopsx/transport-admin-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
@@ -115,7 +118,7 @@ function AppShell() {
         <main
           className={cn(
             "scroll-edge min-w-0 flex-1 overflow-auto",
-            useFoShell || useTrackingShell ? "pb-24 md:pb-0" : "pb-20 md:pb-0",
+            "pb-24 md:pb-0",
           )}
         >
           <div className="mx-auto w-full max-w-[1920px]">
@@ -126,7 +129,9 @@ function AppShell() {
           <TrackingOperationsMobileNav />
         ) : useFoShell ? (
           <FleetOperationsMobileNav />
-        ) : null}
+        ) : (
+          <TransportAdminMobileNav />
+        )}
       </div>
     </div>
   );
