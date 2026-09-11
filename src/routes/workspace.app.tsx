@@ -5,6 +5,11 @@ import {
   FleetOperationsSidebar,
   shouldUseFleetOpsShell,
 } from "@/components/fleetopsx/fleet-operations-sidebar";
+import {
+  TrackingOperationsMobileNav,
+  TrackingOperationsSidebar,
+  shouldUseTrackingOpsShell,
+} from "@/components/fleetopsx/tracking-operations-sidebar";
 import { TransportAdminSidebar } from "@/components/fleetopsx/transport-admin-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
@@ -35,13 +40,19 @@ export const Route = createFileRoute("/workspace/app")({
       throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
 
-    // Figma FO home is Dispatch Queue, not Admin Overview
+    // Figma FO home is Dispatch Queue; Tracking Ops home is Active Dispatch
     const path = location.pathname;
     if (
       shouldUseFleetOpsShell(roles) &&
       (path === "/workspace/app" || path === "/workspace/app/")
     ) {
       throw redirect({ to: "/workspace/app/dispatch" });
+    }
+    if (
+      shouldUseTrackingOpsShell(roles) &&
+      (path === "/workspace/app" || path === "/workspace/app/")
+    ) {
+      throw redirect({ to: "/workspace/app/active-dispatch" });
     }
   },
   component: AppShell,
@@ -52,11 +63,14 @@ function AppShell() {
   // Always start with SSR-safe defaults, then sync after mount (avoids React #419 hydration crash)
   const [collapsed, setCollapsed] = useState(false);
   const [useFoShell, setUseFoShell] = useState(false);
+  const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [shellReady, setShellReady] = useState(false);
 
   useEffect(() => {
     setCollapsed(window.innerWidth < 768);
-    setUseFoShell(shouldUseFleetOpsShell(authService.getRoles()));
+    const roles = authService.getRoles();
+    setUseFoShell(shouldUseFleetOpsShell(roles));
+    setUseTrackingShell(shouldUseTrackingOpsShell(roles));
     setShellReady(true);
   }, []);
 
@@ -85,7 +99,9 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      {useFoShell ? (
+      {useTrackingShell ? (
+        <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      ) : useFoShell ? (
         <FleetOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : (
         <TransportAdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
@@ -94,18 +110,23 @@ function AppShell() {
         <AppHeader
           onToggleSidebar={() => setCollapsed((c) => !c)}
           forceFleetOps={shellReady ? useFoShell : false}
+          forceTrackingOps={shellReady ? useTrackingShell : false}
         />
         <main
           className={cn(
             "scroll-edge min-w-0 flex-1 overflow-auto",
-            useFoShell ? "pb-24 md:pb-0" : "pb-20 md:pb-0",
+            useFoShell || useTrackingShell ? "pb-24 md:pb-0" : "pb-20 md:pb-0",
           )}
         >
           <div className="mx-auto w-full max-w-[1920px]">
             <Outlet />
           </div>
         </main>
-        {useFoShell ? <FleetOperationsMobileNav /> : null}
+        {useTrackingShell ? (
+          <TrackingOperationsMobileNav />
+        ) : useFoShell ? (
+          <FleetOperationsMobileNav />
+        ) : null}
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import { Route as WorkspaceForgotPasswordRouteImport } from './routes/workspace.
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceAppIndexRouteImport } from './routes/workspace.app.index'
 import { Route as WorkspaceAppAccountsRouteImport } from './routes/workspace.app.accounts'
+import { Route as WorkspaceAppActiveDispatchRouteImport } from './routes/workspace.app.active-dispatch'
 import { Route as WorkspaceAppAddAccountRouteImport } from './routes/workspace.app.add-account'
 import { Route as WorkspaceAppAddPartnerRouteImport } from './routes/workspace.app.add-partner'
 import { Route as WorkspaceAppAdminRouteImport } from './routes/workspace.app.admin'
@@ -36,6 +37,7 @@ import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gat
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
+import { Route as WorkspaceAppLiveTrackingRouteImport } from './routes/workspace.app.live-tracking'
 import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
 import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
@@ -47,6 +49,8 @@ import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace
 import { Route as WorkspaceCustomerPortalIndexRouteImport } from './routes/workspace.customer-portal.index'
 import { Route as WorkspaceCustomerPortalAuthRouteImport } from './routes/workspace.customer-portal._auth'
 import { Route as WorkspaceCustomerPortalLoginRouteImport } from './routes/workspace.customer-portal.login'
+import { Route as WorkspaceAppActiveDispatchDispatchIdRouteImport } from './routes/workspace.app.active-dispatch.$dispatchId'
+import { Route as WorkspaceAppActiveDispatchIndexRouteImport } from './routes/workspace.app.active-dispatch.index'
 import { Route as WorkspaceAppDriversIndexRouteImport } from './routes/workspace.app.drivers.index'
 import { Route as WorkspaceAppDriversDriverIdRouteImport } from './routes/workspace.app.drivers.$driverId'
 import { Route as WorkspaceAppTripsIndexRouteImport } from './routes/workspace.app.trips.index'
@@ -110,6 +114,12 @@ const WorkspaceAppAccountsRoute = WorkspaceAppAccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppActiveDispatchRoute =
+  WorkspaceAppActiveDispatchRouteImport.update({
+    id: '/active-dispatch',
+    path: '/active-dispatch',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppAddAccountRoute = WorkspaceAppAddAccountRouteImport.update({
   id: '/add-account',
   path: '/add-account',
@@ -193,6 +203,12 @@ const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppLiveTrackingRoute =
+  WorkspaceAppLiveTrackingRouteImport.update({
+    id: '/live-tracking',
+    path: '/live-tracking',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppManageAccountRoute =
   WorkspaceAppManageAccountRouteImport.update({
     id: '/manage-account',
@@ -256,6 +272,18 @@ const WorkspaceCustomerPortalLoginRoute =
     path: '/login',
     getParentRoute: () => WorkspaceCustomerPortalRoute,
   } as any)
+const WorkspaceAppActiveDispatchDispatchIdRoute =
+  WorkspaceAppActiveDispatchDispatchIdRouteImport.update({
+    id: '/$dispatchId',
+    path: '/$dispatchId',
+    getParentRoute: () => WorkspaceAppActiveDispatchRoute,
+  } as any)
+const WorkspaceAppActiveDispatchIndexRoute =
+  WorkspaceAppActiveDispatchIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => WorkspaceAppActiveDispatchRoute,
+  } as any)
 const WorkspaceAppDriversIndexRoute =
   WorkspaceAppDriversIndexRouteImport.update({
     id: '/drivers/',
@@ -308,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/workspace/login': typeof WorkspaceLoginRoute
   '/superadmin/': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchRouteWithChildren
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
@@ -324,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -335,6 +365,8 @@ export interface FileRoutesByFullPath {
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
+  '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
+  '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
@@ -352,6 +384,7 @@ export interface FileRoutesByTo {
   '/workspace/login': typeof WorkspaceLoginRoute
   '/superadmin': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchIndexRoute
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
@@ -368,6 +401,7 @@ export interface FileRoutesByTo {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -379,6 +413,7 @@ export interface FileRoutesByTo {
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app': typeof WorkspaceAppIndexRoute
+  '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
@@ -399,6 +434,7 @@ export interface FileRoutesById {
   '/workspace/login': typeof WorkspaceLoginRoute
   '/superadmin/': typeof SuperadminIndexRoute
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
+  '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchRouteWithChildren
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/admin': typeof WorkspaceAppAdminRoute
@@ -415,6 +451,7 @@ export interface FileRoutesById {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -427,6 +464,8 @@ export interface FileRoutesById {
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
+  '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
+  '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
@@ -448,6 +487,7 @@ export interface FileRouteTypes {
     | '/workspace/login'
     | '/superadmin/'
     | '/workspace/app/accounts'
+    | '/workspace/app/active-dispatch'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
@@ -464,6 +504,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
+    | '/workspace/app/live-tracking'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -475,6 +516,8 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal/login'
     | '/workspace/app/'
     | '/workspace/customer-portal/'
+    | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/active-dispatch/'
     | '/workspace/app/drivers/$driverId'
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
@@ -492,6 +535,7 @@ export interface FileRouteTypes {
     | '/workspace/login'
     | '/superadmin'
     | '/workspace/app/accounts'
+    | '/workspace/app/active-dispatch'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
@@ -508,6 +552,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
+    | '/workspace/app/live-tracking'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -519,6 +564,8 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal'
     | '/workspace/customer-portal/login'
     | '/workspace/app'
+    | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/active-dispatch/'
     | '/workspace/app/drivers/$driverId'
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
@@ -538,6 +585,7 @@ export interface FileRouteTypes {
     | '/workspace/login'
     | '/superadmin/'
     | '/workspace/app/accounts'
+    | '/workspace/app/active-dispatch'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/admin'
@@ -554,6 +602,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
+    | '/workspace/app/live-tracking'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -566,6 +615,8 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal/login'
     | '/workspace/app/'
     | '/workspace/customer-portal/'
+    | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/active-dispatch/'
     | '/workspace/app/drivers/$driverId'
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/_auth/$requestId'
@@ -659,6 +710,13 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/workspace/app/accounts'
       preLoaderRoute: typeof WorkspaceAppAccountsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/active-dispatch': {
+      id: '/workspace/app/active-dispatch'
+      path: '/active-dispatch'
+      fullPath: '/workspace/app/active-dispatch'
+      preLoaderRoute: typeof WorkspaceAppActiveDispatchRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/add-account': {
@@ -773,6 +831,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppInventoryRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/live-tracking': {
+      id: '/workspace/app/live-tracking'
+      path: '/live-tracking'
+      fullPath: '/workspace/app/live-tracking'
+      preLoaderRoute: typeof WorkspaceAppLiveTrackingRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/manage-account': {
       id: '/workspace/app/manage-account'
       path: '/manage-account'
@@ -850,6 +915,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceCustomerPortalLoginRouteImport
       parentRoute: typeof WorkspaceCustomerPortalRoute
     }
+    '/workspace/app/active-dispatch/$dispatchId': {
+      id: '/workspace/app/active-dispatch/$dispatchId'
+      path: '/$dispatchId'
+      fullPath: '/workspace/app/active-dispatch/$dispatchId'
+      preLoaderRoute: typeof WorkspaceAppActiveDispatchDispatchIdRouteImport
+      parentRoute: typeof WorkspaceAppActiveDispatchRoute
+    }
+    '/workspace/app/active-dispatch/': {
+      id: '/workspace/app/active-dispatch/'
+      path: '/'
+      fullPath: '/workspace/app/active-dispatch/'
+      preLoaderRoute: typeof WorkspaceAppActiveDispatchIndexRouteImport
+      parentRoute: typeof WorkspaceAppActiveDispatchRoute
+    }
     '/workspace/app/drivers/': {
       id: '/workspace/app/drivers/'
       path: '/drivers'
@@ -902,8 +981,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface WorkspaceAppActiveDispatchRouteChildren {
+  WorkspaceAppActiveDispatchDispatchIdRoute: typeof WorkspaceAppActiveDispatchDispatchIdRoute
+  WorkspaceAppActiveDispatchIndexRoute: typeof WorkspaceAppActiveDispatchIndexRoute
+}
+
+const WorkspaceAppActiveDispatchRouteChildren: WorkspaceAppActiveDispatchRouteChildren =
+  {
+    WorkspaceAppActiveDispatchDispatchIdRoute:
+      WorkspaceAppActiveDispatchDispatchIdRoute,
+    WorkspaceAppActiveDispatchIndexRoute: WorkspaceAppActiveDispatchIndexRoute,
+  }
+
+const WorkspaceAppActiveDispatchRouteWithChildren =
+  WorkspaceAppActiveDispatchRoute._addFileChildren(
+    WorkspaceAppActiveDispatchRouteChildren,
+  )
+
 interface WorkspaceAppRouteChildren {
   WorkspaceAppAccountsRoute: typeof WorkspaceAppAccountsRoute
+  WorkspaceAppActiveDispatchRoute: typeof WorkspaceAppActiveDispatchRouteWithChildren
   WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
   WorkspaceAppAddPartnerRoute: typeof WorkspaceAppAddPartnerRoute
   WorkspaceAppAdminRoute: typeof WorkspaceAppAdminRoute
@@ -920,6 +1017,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
+  WorkspaceAppLiveTrackingRoute: typeof WorkspaceAppLiveTrackingRoute
   WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
   WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
@@ -937,6 +1035,7 @@ interface WorkspaceAppRouteChildren {
 
 const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppAccountsRoute: WorkspaceAppAccountsRoute,
+  WorkspaceAppActiveDispatchRoute: WorkspaceAppActiveDispatchRouteWithChildren,
   WorkspaceAppAddAccountRoute: WorkspaceAppAddAccountRoute,
   WorkspaceAppAddPartnerRoute: WorkspaceAppAddPartnerRoute,
   WorkspaceAppAdminRoute: WorkspaceAppAdminRoute,
@@ -953,6 +1052,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
+  WorkspaceAppLiveTrackingRoute: WorkspaceAppLiveTrackingRoute,
   WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
   WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
@@ -1041,13 +1141,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

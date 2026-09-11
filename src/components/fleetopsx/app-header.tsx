@@ -46,13 +46,27 @@ function isFleetOpsPortalPath(pathname: string) {
   return FLEET_OPS_PORTAL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+function formatPortalClock(now = new Date()) {
+  const date = now.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const time = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return { date, time };
+}
+
 export function AppHeader({
   onToggleSidebar,
   forceFleetOps = false,
+  forceTrackingOps = false,
 }: {
   onToggleSidebar: () => void;
   /** When Fleet Ops shell is active, use FO portal chrome on all app routes */
   forceFleetOps?: boolean;
+  /** When Tracking Ops shell is active, use Tracking portal chrome */
+  forceTrackingOps?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -109,10 +123,45 @@ export function AppHeader({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* Figma Admin / Fleet Ops portal chrome */
+  /* Figma Admin / Fleet Ops / Tracking Ops portal chrome */
   if (adminPortal) {
-    const fleetOps = forceFleetOps || isFleetOpsPortalPath(pathname);
+    const trackingOps = forceTrackingOps;
+    const fleetOps = !trackingOps && (forceFleetOps || isFleetOpsPortalPath(pathname));
     const initials = mounted && currentUser?.initials ? currentUser.initials : "JD";
+    const clock = formatPortalClock();
+
+    if (trackingOps) {
+      return (
+        <>
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 md:hidden">
+            <div className="flex flex-col gap-2">
+              <p className="text-[16px] font-semibold text-white">Tracking Operations Portal</p>
+              <div className="flex items-center gap-[5px] text-[12px] tracking-[0.4px] text-white/70">
+                <span>{clock.date}</span>
+                <span className="size-1.5 rounded-full bg-[#0ACF83]" />
+                <span>{clock.time}</span>
+              </div>
+            </div>
+            <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+              {initials}
+            </div>
+          </header>
+          <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
+            <div className="flex min-w-0 flex-col gap-[5px]">
+              <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Tracking Operations Portal</h1>
+              <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                Monitor active dispatches and manually log location checkpoints
+              </p>
+            </div>
+            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              <span>{clock.date}</span>
+              <span className="size-2 rounded-full bg-[#0ACF83]" />
+              <span>{clock.time}</span>
+            </div>
+          </header>
+        </>
+      );
+    }
 
     if (fleetOps) {
       return (
