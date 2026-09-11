@@ -14,7 +14,7 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
 const PAGE_SIZE = 10;
 
 function isPartnerRequest(trip: Trip) {
-  return trip.status === "Requested" || trip.customer === "Customer Portal";
+  return trip.status === "Requested";
 }
 
 function requestId(trip: Trip) {

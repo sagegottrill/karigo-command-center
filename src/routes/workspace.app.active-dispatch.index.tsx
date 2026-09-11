@@ -32,7 +32,7 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/")({
   component: ActiveDispatchPage,
 });
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 const FILTERS = ["All", "On Schedule", "Slight delay", "Significant Delay"] as const;
 type FilterTab = (typeof FILTERS)[number];
 

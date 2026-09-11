@@ -27,7 +27,11 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 const PAGE_SIZE = 10;
 
 function isDispatchRequest(trip: Trip) {
-  return trip.status === "Requested" || trip.status === "Awaiting Approval";
+  // Process step 04 — FO assigned; TM final approval (not initial Partner Request).
+  return (
+    trip.status === "Awaiting Approval" &&
+    Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg)
+  );
 }
 
 function dispatchId(trip: Trip) {
@@ -123,7 +127,7 @@ function FleetDispatchRequests() {
 
   const handleApprove = async (trip: Trip) => {
     setMenuFor(null);
-    await tripService.initialApprove(trip.id);
+    await tripService.approveDispatch(trip.id);
     toast.success(`Dispatch ${dispatchId(trip)} approved.`);
     void tripService.list().then(setTrips);
   };
@@ -206,13 +210,12 @@ function FleetDispatchRequests() {
               body={
                 query
                   ? "Try a different dispatch ID, driver, or destination."
-                  : "Requests waiting for dispatch will list here from the live API."
+                  : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval."
               }
             />
           )}
           {slice.map((trip) => {
             const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
-            const approved = trip.status === "Awaiting Approval";
             return (
               <div
                 key={trip.id}
@@ -242,24 +245,20 @@ function FleetDispatchRequests() {
                         >
                           View Details
                         </button>
-                        {!approved && (
-                          <>
-                            <button
-                              type="button"
-                              className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                              onClick={() => void handleApprove(trip)}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                              onClick={() => handleDecline(trip)}
-                            >
-                              Decline
-                            </button>
-                          </>
-                        )}
+                        <button
+                          type="button"
+                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          onClick={() => void handleApprove(trip)}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                          onClick={() => void handleDecline(trip)}
+                        >
+                          Decline
+                        </button>
                       </div>
                     )}
                   </div>
@@ -269,11 +268,6 @@ function FleetDispatchRequests() {
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Destination:" value={trip.dropoff || ""} />
-                {approved && (
-                  <span className="w-fit rounded bg-[#34C759] px-2.5 py-[5px] text-[12px] tracking-[0.4px] text-white">
-                    Approved
-                  </span>
-                )}
               </div>
             );
           })}
@@ -352,7 +346,6 @@ function FleetDispatchRequests() {
 
               {slice.map((trip) => {
                 const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
-                const approved = trip.status === "Awaiting Approval";
                 return (
                   <div
                     key={trip.id}
@@ -379,11 +372,6 @@ function FleetDispatchRequests() {
                       >
                         <MoreVertical className="size-5" strokeWidth={1.75} />
                       </button>
-                      {approved && (
-                        <span className="rounded bg-[#34C759] px-2.5 py-[5px] text-[12px] tracking-[0.4px] text-white">
-                          Approved
-                        </span>
-                      )}
                       {menuFor === trip.id && (
                         <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                           <button
@@ -396,24 +384,20 @@ function FleetDispatchRequests() {
                           >
                             View Details
                           </button>
-                          {!approved && (
-                            <>
-                              <button
-                                type="button"
-                                className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                                onClick={() => void handleApprove(trip)}
-                              >
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                                onClick={() => void handleDecline(trip)}
-                              >
-                                Decline
-                              </button>
-                            </>
-                          )}
+                          <button
+                            type="button"
+                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                            onClick={() => void handleApprove(trip)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                            onClick={() => void handleDecline(trip)}
+                          >
+                            Decline
+                          </button>
                         </div>
                       )}
                     </div>
@@ -429,7 +413,7 @@ function FleetDispatchRequests() {
               body={
                 query
                   ? "Try a different dispatch ID, driver, or destination."
-                  : "Requests waiting for dispatch will list here from the live API."
+                  : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval."
               }
             />
           )}

@@ -1,32 +1,36 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  MoreVertical,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { adminService } from "@/lib/fleetopsx/services";
+import { isPartnerUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
   component: AdminManagePartner,
 });
 
+const PAGE_SIZE = 10;
+
 type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 type SortKey = "name" | "username" | "company";
 type SortDir = "asc" | "desc";
-
-function isPartnerUser(user: User) {
-  return (
-    user.department === "External Partner" ||
-    user.roles.includes("Customer Portals (External)") ||
-    Boolean(user.partnerCompanyName)
-  );
-}
 
 function AdminManagePartner() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -69,6 +73,12 @@ function AdminManagePartner() {
         sortKey === "company" ? (b.partnerCompanyName ?? "") : sortKey === "username" ? (b.username ?? "") : b.name;
       return av.localeCompare(bv) * dir;
     });
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
     const headers = "S/N,Name,Company Name,Username,Status\n";
@@ -157,7 +167,10 @@ function AdminManagePartner() {
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
               placeholder="Search"
               className="h-10 w-full rounded border border-[#E2E5E9] bg-white pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
@@ -252,14 +265,14 @@ function AdminManagePartner() {
           {!loading && filtered.length > 0 && (
             <>
               <div className="flex flex-col gap-3 md:hidden">
-                {filtered.map((u, i) => (
+                {slice.map((u, i) => (
                   <div
                     key={`m-${u.id}`}
                     className="relative flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5"
                   >
                     <div className="flex items-center justify-between">
                       <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
-                        #{i + 1}
+                        #{currentPage * PAGE_SIZE + i + 1}
                       </span>
                       <div ref={menuFor === `m-${u.id}` ? menuRef : undefined} className="relative">
                         <button
@@ -367,13 +380,15 @@ function AdminManagePartner() {
                     <span className="w-5 shrink-0" />
                   </div>
 
-                  {filtered.map((u, i) => (
+                  {slice.map((u, i) => (
                     <div
                       key={u.id}
                       className="relative z-0 flex items-center gap-[60px] border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 data-[open=true]:z-20"
                       data-open={menuFor === u.id ? "true" : "false"}
                     >
-                      <span className="w-[29px] shrink-0 text-[14px] capitalize text-[#5C6470]">{i + 1}</span>
+                      <span className="w-[29px] shrink-0 text-[14px] capitalize text-[#5C6470]">
+                        {currentPage * PAGE_SIZE + i + 1}
+                      </span>
                       <div className="flex w-[590px] shrink-0 items-center text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         <span className="w-[167px] shrink-0 truncate">{u.name}</span>
                         <span className="w-[250px] shrink-0 truncate">{u.partnerCompanyName}</span>
@@ -457,6 +472,33 @@ function AdminManagePartner() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] px-5 py-4">
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  {from} - {to}
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+                <div className="ml-2 flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-[18px] text-[#627084]" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={currentPage >= pageCount - 1}
+                    onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                    className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-[18px] text-[#627084]" />
+                  </button>
                 </div>
               </div>
             </>

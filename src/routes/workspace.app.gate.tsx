@@ -13,7 +13,7 @@ import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 export const Route = createFileRoute("/workspace/app/gate")({
   beforeLoad: () => {

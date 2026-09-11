@@ -1,16 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertCircle, Download, MoreVertical, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  MoreVertical,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
 import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService } from "@/lib/fleetopsx/services";
+import { displayStaffDepartment, isManageableStaffUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
   component: AdminManageAccount,
 });
+
+const PAGE_SIZE = 10;
 
 type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 
@@ -19,10 +31,18 @@ function staffIdLabel(user: User) {
   return code ? `ID:${code}` : "ID:—";
 }
 
+function displayUsername(user: User) {
+  const raw = (user.username || "").trim();
+  if (!raw) return "—";
+  if (raw.includes("@")) return raw.split("@")[0] || raw;
+  return raw;
+}
+
 function AdminManageAccount() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [deptFilter, setDeptFilter] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -50,17 +70,33 @@ function AdminManageAccount() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const listing = users.filter((u) => u.status !== "Deleted" && u.department !== "External Partner");
+  const listing = users.filter(isManageableStaffUser);
   const filtered = listing.filter((u) => {
-    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${u.department}`.toLowerCase();
+    const dept = displayStaffDepartment(u.department);
+    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${dept} ${staffIdLabel(u)}`.toLowerCase();
     const matchesQuery = !query || hay.includes(query.toLowerCase());
-    const matchesDept = !deptFilter || u.department === deptFilter;
+    const matchesDept =
+      !deptFilter ||
+      u.department === deptFilter ||
+      displayStaffDepartment(u.department) === deptFilter ||
+      displayStaffDepartment(deptFilter) === dept;
     return matchesQuery && matchesDept;
   });
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
+
   const exportCSV = () => {
     const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
-    const csv = filtered.map((u, i) => `${i + 1},${u.name},${u.department},${staffIdLabel(u)},${u.username ?? ""},${u.status}`).join("\n");
+    const csv = filtered
+      .map(
+        (u, i) =>
+          `${i + 1},${u.name},${displayStaffDepartment(u.department)},${staffIdLabel(u)},${displayUsername(u)},${u.status}`,
+      )
+      .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -143,7 +179,10 @@ function AdminManageAccount() {
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
               placeholder="Search"
               className="h-10 w-full rounded border border-[#E2E5E9] bg-white pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
@@ -163,6 +202,7 @@ function AdminManageAccount() {
                   type="button"
                   onClick={() => {
                     setDeptFilter(null);
+                    setPage(0);
                     setFilterOpen(false);
                   }}
                   className="flex w-full px-4 py-2 text-left text-[14px] text-[#5C6470] hover:bg-[#F1F2F4]"
@@ -175,6 +215,7 @@ function AdminManageAccount() {
                     type="button"
                     onClick={() => {
                       setDeptFilter(d);
+                      setPage(0);
                       setFilterOpen(false);
                     }}
                     className={`flex w-full px-4 py-2 text-left text-[14px] hover:bg-[#F1F2F4] ${
@@ -193,21 +234,37 @@ function AdminManageAccount() {
           {loading && <FigmaLoadingState label="Loading staff accounts…" />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title="No staff accounts yet"
-              body="Add internal staff from New Account — live users list here."
+              title={query || deptFilter ? "No matching staff accounts" : "No staff accounts yet"}
+              body={
+                query || deptFilter
+                  ? "Try a different name, department, or staff ID."
+                  : "Create internal staff from New Account — portal login accounts (gate, fleet, manager…) stay off this list."
+              }
+              action={
+                !query && !deptFilter ? (
+                  <Link
+                    to="/workspace/app/add-account"
+                    className="flex h-10 items-center rounded bg-[#ED351D] px-4 text-[14px] font-medium text-white"
+                  >
+                    + Add New Staff Account
+                  </Link>
+                ) : undefined
+              }
             />
           )}
 
+          {!loading && filtered.length > 0 && (
+            <>
           {/* Mobile cards — Figma Staff-Card-1 `134:3253` */}
           <div className="flex flex-col gap-2.5 md:hidden">
-            {filtered.map((u, i) => (
+            {slice.map((u, i) => (
               <div
                 key={u.id}
                 className="relative flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5"
               >
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
-                    #{i + 1}
+                    #{currentPage * PAGE_SIZE + i + 1}
                   </span>
                   <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
                     <button
@@ -288,7 +345,7 @@ function AdminManageAccount() {
                 <div className="flex flex-col gap-[5px] text-[12px]">
                   <div className="flex gap-2">
                     <span className="w-20 shrink-0 font-medium text-[#5C6470]">Department:</span>
-                    <span className="min-w-0 flex-1 text-[#344256]">{u.department}</span>
+                    <span className="min-w-0 flex-1 text-[#344256]">{displayStaffDepartment(u.department)}</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
@@ -296,7 +353,7 @@ function AdminManageAccount() {
                   </div>
                   <div className="flex gap-2">
                     <span className="w-20 shrink-0 font-medium text-[#5C6470]">Username:</span>
-                    <span className="min-w-0 flex-1 text-[#344256]">{u.username ?? "—"}</span>
+                    <span className="min-w-0 flex-1 text-[#344256]">{displayUsername(u)}</span>
                   </div>
                 </div>
               </div>
@@ -316,18 +373,18 @@ function AdminManageAccount() {
                 </div>
                 <span className="w-5 shrink-0" />
               </div>
-              {filtered.map((u, i) => (
+              {slice.map((u, i) => (
                 <div
                   key={u.id}
                   className="relative z-0 flex items-center gap-[40px] border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 data-[open=true]:z-20"
                   data-open={menuFor === u.id ? "true" : "false"}
                 >
-                  <span className="w-[29px] shrink-0 text-[14px] text-[#5C6470]">{i + 1}</span>
+                  <span className="w-[29px] shrink-0 text-[14px] text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
                   <div className="flex w-[720px] shrink-0 items-center text-[14px] tracking-[0.4px] text-[#5C6470]">
                     <span className="w-[167px] shrink-0 truncate text-[#1B2432]">{u.name}</span>
-                    <span className="w-[180px] shrink-0 truncate">{u.department}</span>
+                    <span className="w-[180px] shrink-0 truncate">{displayStaffDepartment(u.department)}</span>
                     <span className="w-[140px] shrink-0 truncate">{staffIdLabel(u)}</span>
-                    <span className="w-[167px] shrink-0 truncate">{u.username ?? "—"}</span>
+                    <span className="w-[167px] shrink-0 truncate">{displayUsername(u)}</span>
                   </div>
                   <div className="relative flex shrink-0 items-center gap-2">
                     <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
@@ -407,6 +464,35 @@ function AdminManageAccount() {
               ))}
             </div>
           </div>
+
+          <div className="mt-1 flex flex-wrap items-center gap-2.5 pt-2">
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {from} - {to}
+            </span>
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+            <div className="ml-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-[18px] text-[#627084]" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= pageCount - 1}
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-[18px] text-[#627084]" />
+              </button>
+            </div>
+          </div>
+            </>
+          )}
         </div>
       </div>
 
