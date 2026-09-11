@@ -665,9 +665,10 @@ export const tripService = {
 /* --------------------------------- orders --------------------------------- */
 export const orderService = {
   submitCustomerOrder: async (payload: { customerConsignee: string; pickup: string; dropoff: string; cargo: string; tailType: string; loadingRoutingType: "Single"|"Multiple"; loadingSite: string[] }) => {
+    const partnerName = authService.getCurrentUser()?.partnerCompanyName || "Customer Portal";
     if (!useMock()) {
       return liveCreateTrip({
-        customer: "Customer Portal",
+        customer: partnerName,
         customerConsignee: payload.customerConsignee,
         cargo: payload.cargo,
         pickup: payload.pickup,
@@ -691,7 +692,7 @@ export const orderService = {
     const id = `TRP-${String(850 + store.trips.length).padStart(5, "0")}`;
     const newOrder: Trip = {
       id,
-      customer: "Customer Portal",
+      customer: partnerName,
       customerConsignee: payload.customerConsignee,
       cargo: payload.cargo,
       pickup: payload.pickup,

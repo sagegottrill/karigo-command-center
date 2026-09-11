@@ -1,55 +1,131 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { tripService, authService, tenantService } from "@/lib/fleetopsx/services";
-import type { Trip, PlatformTenant } from "@/lib/fleetopsx/types";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, LayoutDashboard, ListFilter, LogOut, MoreVertical, Search, Truck, X } from "lucide-react";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { authService, tenantService, tripService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
-import { StatusBadge } from "@/components/fleetopsx/status-badge";
-import { MoreVertical, Search, ListFilter, AlertCircle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { PlatformTenant, Trip, TripStatus } from "@/lib/fleetopsx/types";
+import { cn } from "@/lib/utils";
+import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard")({
   component: PartnerPortalDashboard,
 });
 
+type PartnerUiStatus = "Pending" | "Declined" | "In transit" | "Completed";
+
+function toPartnerStatus(status: TripStatus): PartnerUiStatus {
+  switch (status) {
+    case "Requested":
+    case "Awaiting Approval":
+      return "Pending";
+    case "Stopped":
+      return "Declined";
+    case "Completed":
+      return "Completed";
+    case "Scheduled":
+    case "En Route":
+    case "Loaded":
+    case "Offloading":
+    case "Returning":
+    case "Delayed":
+      return "In transit";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function partnerStatusClass(status: PartnerUiStatus) {
+  switch (status) {
+    case "Pending":
+      return "bg-[#FC0] text-white";
+    case "Declined":
+      return "bg-[#ED351D] text-white";
+    case "In transit":
+      return "bg-[#CB30E0] text-white";
+    case "Completed":
+      return "bg-[#34C759] text-white";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function formatTripDate(value: string | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function isPartnerTrip(trip: Trip, companyName: string | undefined) {
+  if (trip.customer === "Customer Portal") return true;
+  if (companyName && trip.customer === companyName) return true;
+  return false;
+}
+
 function PartnerPortalDashboard() {
   const navigate = useNavigate();
+  const { tenantLogo, tenantName } = RootRoute.useRouteContext();
   const currentUser = authService.getCurrentUser();
   const [requests, setRequests] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
-  
-  // Modals state
   const [sortModalOpen, setSortModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
-
-  // Filters state (mock for UI)
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending");
+  const [tenant, setTenant] = useState<PlatformTenant | null>(null);
 
-  const filteredRequests = React.useMemo(() => {
+  const companyName = currentUser?.partnerCompanyName || currentUser?.name || "Partner";
+  const userEmail = currentUser?.email || "";
+  const userInitials = currentUser?.initials || "PT";
+  const logoSrc = tenant?.logo || tenantLogo || "/figma/petroline-logo.png";
+
+  const refresh = async () => {
+    const allTrips = await tripService.list();
+    setRequests(allTrips.filter((t) => isPartnerTrip(t, currentUser?.partnerCompanyName)));
+  };
+
+  useEffect(() => {
+    void refresh()
+      .catch(() => setRequests([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
+    if (slug && slug !== "localhost" && slug !== "fleetopsx") {
+      void tenantService.getBySlug(slug).then(setTenant).catch(() => setTenant(null));
+    }
+  }, []);
+
+  const filteredRequests = useMemo(() => {
     let result = requests;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(r => 
-        (r.customerConsignee && r.customerConsignee.toLowerCase().includes(q)) ||
-        (r.id && r.id.toLowerCase().includes(q)) ||
-        (r.dropoff && r.dropoff.toLowerCase().includes(q)) ||
-        (r.cargo && r.cargo.toLowerCase().includes(q))
+      result = result.filter(
+        (r) =>
+          (r.customerConsignee && r.customerConsignee.toLowerCase().includes(q)) ||
+          (r.id && r.id.toLowerCase().includes(q)) ||
+          (r.dropoff && r.dropoff.toLowerCase().includes(q)) ||
+          (r.cargo && r.cargo.toLowerCase().includes(q)),
       );
     }
-    if (sortOrder === "Descending") {
-      result = [...result].sort((a, b) => b.id.localeCompare(a.id));
-    } else {
-      result = [...result].sort((a, b) => a.id.localeCompare(b.id));
-    }
-    return result;
+    return [...result].sort((a, b) =>
+      sortOrder === "Descending" ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id),
+    );
   }, [requests, searchQuery, sortOrder]);
 
-  useEffect(() => {
-    tripService.list().then((allTrips) => {
-      setRequests(allTrips.filter((t) => t.customer === "Customer Portal"));
-    });
-  }, []);
+  const totalRequests = requests.length;
+  const inTransit = requests.filter((r) => toPartnerStatus(r.status) === "In transit").length;
+  const pending = requests.filter((r) => toPartnerStatus(r.status) === "Pending").length;
+  const declined = requests.filter((r) => toPartnerStatus(r.status) === "Declined").length;
+  const completed = requests.filter((r) => toPartnerStatus(r.status) === "Completed").length;
 
   const handleLogout = () => {
     authService.logout();
@@ -57,368 +133,280 @@ function PartnerPortalDashboard() {
   };
 
   const handleDelete = async () => {
-    if (deleteModalOpen) {
-      await tripService.delete(deleteModalOpen);
-      setDeleteModalOpen(null);
-      const allTrips = await tripService.list();
-      setRequests(allTrips.filter((t) => t.customer === "Customer Portal"));
-    }
+    if (!deleteModalOpen) return;
+    await tripService.delete(deleteModalOpen);
+    setDeleteModalOpen(null);
+    await refresh();
   };
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
-  const [tenant, setTenant] = useState<PlatformTenant | null>(null);
-  
-  useEffect(() => {
-    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
-    if (slug !== "localhost" && slug !== "fleetopsx") {
-      tenantService.getBySlug(slug).then(setTenant);
-    }
-  }, []);
-
-  const companyName = mounted && currentUser ? (
-    currentUser.partnerCompanyName || 
-    (currentUser.roles.includes("Customer Portals (External)") ? "Sabar Electrics" : "Sabar Electrics")
-  ) : "Partner Workspace";
-  const userEmail = mounted && currentUser?.email ? currentUser.email : "";
-  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
-
-  const totalRequests = requests.length;
-  const inTransit = requests.filter(r => r.status === "In transit").length;
-  const pending = requests.filter(r => r.status === "Pending").length;
-  const declined = requests.filter(r => r.status === "Declined").length;
-  const completed = requests.filter(r => r.status === "Completed").length;
+  const statCards = [
+    { label: "Total Requests", value: totalRequests },
+    { label: "In transit", value: inTransit, hint: inTransit > 0 ? "Look out for your delivery" : undefined },
+    { label: "Pending", value: pending },
+    { label: "Declined", value: declined },
+    { label: "Completed", value: completed },
+  ] as const;
 
   return (
-    <div className="flex h-screen w-full bg-[#E5E6EB] font-['Inter',sans-serif]">
-      {/* Sidebar */}
-      <div className="hidden lg:flex flex-col w-[260px] bg-[#1a232f] h-full shrink-0">
-        <Link to="/workspace/account-type" className="pt-[32px] pb-[40px] px-[24px] flex justify-start">
-          {tenant?.logo ? (
-            <img src={tenant.logo} alt={tenant.name} className="h-[40px] object-contain" />
-          ) : (
-            <img src="/petroline-transparent.png" alt="Platform Tenant" className="h-[40px] object-contain" />
-          )}
+    <div className="flex min-h-screen w-full bg-[#F1F2F4]">
+      <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col bg-[#1B2432] lg:flex">
+        <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
+          <img src={logoSrc} alt={tenant?.name || tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
         </Link>
-        <div className="flex flex-col flex-1">
-          <div className="px-[24px] mb-[16px]">
-            <span className="text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">TRANSPORT REQUEST</span>
-          </div>
-          <div className="flex flex-col gap-1 px-3">
-            <Link to="/workspace/customer-portal/dashboard" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] bg-[#e3351d] rounded-md">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="2" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
-                <rect x="9" y="2" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
-                <rect x="2" y="9" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
-                <rect x="9" y="9" width="5" height="5" rx="1" stroke="#ffffff" strokeWidth="1.5"/>
-              </svg>
-              <span className="text-[13px] font-[500] text-[#ffffff]">Dashboard</span>
+        <nav className="flex flex-1 flex-col items-center py-5">
+          <div className="flex w-[224px] flex-col gap-[5px]">
+            <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">Transport Request</span>
+            <Link
+              to="/workspace/customer-portal/dashboard"
+              className="flex h-8 items-center gap-2 rounded bg-[#ED351D] p-2"
+            >
+              <LayoutDashboard className="size-4 text-white" strokeWidth={1.5} />
+              <span className="text-[14px] tracking-[0.4px] text-white">Dashboard</span>
             </Link>
-            <Link to="/workspace/customer-portal/request" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] hover:bg-white/5 transition-colors rounded-md">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 3V13" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M3 8H13" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <span className="text-[13px] font-[400] text-[#ffffff]">New Request</span>
+            <Link
+              to="/workspace/customer-portal/request"
+              className="flex h-8 items-center gap-2 rounded p-2 hover:bg-white/5"
+            >
+              <Truck className="size-4 text-white" strokeWidth={1.5} />
+              <span className="text-[14px] tracking-[0.4px] text-white">New Request</span>
             </Link>
           </div>
-        </div>
-
-        <div className="mt-auto pb-[24px]">
+        </nav>
+        <div className="p-2">
           {showLogout && (
-            <div className="px-[24px] pb-[12px]">
-              <button onClick={handleLogout} className="w-full py-[8px] rounded-[6px] border border-[#e3351d] hover:bg-[#e3351d]/10 transition-colors">
-                <span className="text-[13px] font-[500] text-[#e3351d]">Log Out</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded border border-[#ED351D] bg-[#ED351D]/10 text-[14px] font-medium text-[#ED351D]"
+            >
+              <LogOut className="size-3.5" />
+              Log Out
+            </button>
           )}
-          <div className="px-[24px]">
-            <div className="flex flex-row items-center justify-between">
-              <div className="flex flex-row items-center gap-[12px]">
-                <div className="w-[32px] h-[32px] rounded bg-[#e5e7eb] flex items-center justify-center">
-                  <span className="text-[13px] font-[600] text-[#141a1f]">{userInitials}</span>
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[13px] font-[600] text-[#ffffff]">{companyName}</span>
-                  <span className="text-[11px] font-[400] text-[#8e95a1]">{userEmail}</span>
-                </div>
-              </div>
-              <button onClick={() => setShowLogout(!showLogout)}>
-                <MoreVertical className="w-[16px] h-[16px] text-[#8e95a1] cursor-pointer hover:text-white transition-colors" />
-              </button>
+          <div className="flex h-12 items-center gap-2 rounded p-2">
+            <div className="grid size-8 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
+              {userInitials}
             </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium text-white">{companyName}</p>
+              <p className="truncate text-[12px] text-[#5C6470]">{userEmail}</p>
+            </div>
+            <button type="button" onClick={() => setShowLogout((v) => !v)} className="p-0.5">
+              <MoreVertical className="size-4 text-white/70" />
+            </button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-auto relative bg-[#f1f2f4]">
-        
-        {/* Mobile Header */}
-        <div className="flex lg:hidden flex-row items-center justify-between px-[16px] py-[16px] bg-[#1a232f]">
-          <div className="flex items-center gap-[12px]">
-            <span className="text-[18px] font-[600] text-[#ffffff]">Partner Dashboard</span>
-          </div>
-          <button onClick={() => setShowLogout(!showLogout)} className="w-[36px] h-[36px] rounded-[6px] bg-[#e3351d] flex items-center justify-center relative">
-            <span className="text-[13px] font-[600] text-[#ffffff]">{userInitials}</span>
-          </button>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex flex-col px-[40px] pt-[32px] pb-[20px] border-b border-[#e2e5e9]">
-          <h1 className="text-[24px] font-[500] text-[#141a1f] mb-[4px]">Partner Portal</h1>
-          <p className="text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">
-            MANAGE THE LIFECYCLE OF EVERY ACCOUNT WITHIN THE COMPANY TO MAINTAIN DATA INTEGRITY.
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
+          <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
+          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            Manage the lifecycle of every account within the company to maintain data integrity.
           </p>
-        </div>
+        </header>
 
-        <div className="px-[16px] lg:px-[40px] py-[24px] lg:py-[32px] flex flex-col h-full bg-[#f1f2f4]">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8 overflow-x-auto pb-2 -mb-2">
-            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
-              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Total Requests</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{totalRequests}</span>
-            </div>
-            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
-              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">In transit</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{inTransit}</span>
-              <span className="text-[10px] font-[500] text-[#34c759] mt-2">Look out for your delivery</span>
-            </div>
-            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
-              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Pending</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{pending}</span>
-            </div>
-            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
-              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Declined</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{declined}</span>
-            </div>
-            <div className="bg-white rounded-[10px] p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] min-w-[150px]">
-              <span className="text-[13px] font-[500] text-[#5c6470] mb-2">Completed</span>
-              <span className="text-[32px] font-[600] text-[#141a1f] leading-none">{completed}</span>
-            </div>
-          </div>
-
-          {/* Table Header Section */}
-          <div className="flex flex-col mb-[16px] lg:mb-[20px]">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-[16px] lg:mb-[20px] gap-4">
-              <div className="flex flex-col gap-[4px]">
-                <h2 className="text-[18px] lg:text-[20px] font-[600] lg:font-[500] text-[#141a1f]">Recent Requests</h2>
-                <p className="text-[9px] lg:text-[10px] font-[600] tracking-[0.05em] text-[#8e95a1] uppercase">
-                  TRACK YOUR TRANSPORT REQUESTS AND THEIR CURRENT STATUSES
-                </p>
-              </div>
-              <Link to="/workspace/customer-portal/request" className="w-full lg:w-auto">
-                <button className="w-full h-[44px] lg:h-[40px] px-[24px] rounded-[6px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors flex items-center justify-center shadow-sm">
-                  <span className="text-[14px] font-[500] text-white">+ New Request</span>
-                </button>
-              </Link>
-            </div>
-
-            <div className="flex gap-3 lg:gap-4 items-center">
-              <div className="relative flex-1 lg:max-w-[400px]">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 lg:h-4 lg:w-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 h-[44px] lg:h-[40px] border border-gray-300 rounded-[6px] lg:rounded-[4px] bg-white lg:bg-transparent focus:outline-none focus:ring-1 focus:ring-[#e3351d] text-[14px] lg:text-sm"
-                />
-              </div>
-              <button 
-                onClick={() => setSortModalOpen(true)}
-                className="w-[44px] h-[44px] lg:w-[40px] lg:h-[40px] shrink-0 bg-[#e3351d] rounded-[6px] lg:rounded-[4px] flex items-center justify-center hover:bg-[#d62e19] transition-colors shadow-sm"
+        <main className="flex flex-col gap-[30px] p-[30px] max-md:px-4 max-md:py-5">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+            {statCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]"
               >
-                <ListFilter className="w-5 h-5 lg:w-4 lg:h-4 text-white" />
-              </button>
-            </div>
-            
-            {/* Active Filters Row */}
-            <div className="flex gap-2 mt-4 flex-wrap">
-              <div className="bg-[#e3351d] text-white px-3 py-1.5 rounded-[4px] flex items-center gap-2 text-[12px] font-[500]">
-                Username <X className="w-3 h-3 cursor-pointer" />
-              </div>
-              <div className="bg-[#141a1f] text-white px-3 py-1.5 rounded-[4px] flex items-center gap-2 text-[12px] font-[500]">
-                {sortOrder === "Ascending" ? "Ascending" : "Descending"} <X className="w-3 h-3 cursor-pointer" />
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Card List (Hidden on Desktop) */}
-          <div className="flex lg:hidden flex-col gap-3 pb-[40px]">
-            {filteredRequests.map((r) => (
-              <div 
-                key={r.id} 
-                className="bg-white rounded-[10px] border border-gray-200 p-4 shadow-sm relative cursor-pointer hover:border-gray-300 transition-colors"
-                onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[11px] font-[500] text-[#8e95a1]">{r.scheduledDate || new Date().toLocaleDateString()}</span>
-                  <div className="relative">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setRowMenuOpen(rowMenuOpen === r.id ? null : r.id); }} 
-                      className="p-1 -m-1 rounded hover:bg-gray-100 transition-colors"
-                    >
-                      <MoreVertical className="w-4 h-4 text-[#5c6470]" />
-                    </button>
-                    {rowMenuOpen === r.id && (
-                      <div className="absolute right-0 top-6 bg-white border border-gray-100 rounded-[10px] shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-2 w-[160px] z-10">
-                        <button onClick={(e) => { e.stopPropagation(); navigate({ to: `/workspace/customer-portal/${r.id}` as any }); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2.5 text-[14px] text-[#141a1f] hover:bg-gray-50 font-[500]">Details</button>
-                        <button onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }} className="w-full text-left px-4 py-2.5 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]">Delete</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-[16px] font-[600] text-[#141a1f]">{r.customerConsignee || "—"}</h3>
-                  <StatusBadge status={r.status} />
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
-                    <span className="text-[13px] font-[500] text-[#5c6470]">ID No:</span>
-                    <span className="text-[13px] font-[600] text-[#e3351d]">{r.id}</span>
-                  </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Product</span>
-                    <span className="text-[13px] font-[500] text-[#141a1f]">{r.cargo || "Steel"}</span>
-                  </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Truck Type</span>
-                    <span className="text-[13px] font-[500] text-[#141a1f]">{r.tailType || "Flat"}</span>
-                  </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
-                    <span className="text-[13px] font-[500] text-[#5c6470]">Destination</span>
-                    <span className="text-[13px] font-[500] text-[#141a1f] leading-snug">{r.dropoff || "ABC, Alake Estate"}</span>
-                  </div>
-                </div>
+                <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{card.label}</p>
+                <p className="mt-2.5 font-space-grotesk text-[36px] font-bold leading-9 text-[#1B2432]">{card.value}</p>
+                {"hint" in card && card.hint ? (
+                  <p className="mt-3.5 text-[10px] font-medium text-[#34C759]">{card.hint}</p>
+                ) : null}
               </div>
             ))}
-            {requests.length === 0 && (
-              <div className="text-center p-8 text-sm text-gray-500">No requests found.</div>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-col gap-[5px]">
+              <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Recent Requests</h2>
+              <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                Track your transport requests and their current statuses
+              </p>
+            </div>
+            <Link
+              to="/workspace/customer-portal/request"
+              className="flex h-10 w-full items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
+            >
+              + New Request
+            </Link>
+          </div>
+
+          <div className="flex max-w-[600px] items-center gap-5">
+            <div className="flex h-10 flex-1 items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] bg-transparent px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+              <Search className="size-[22px] text-[#5C6470]" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSortModalOpen(true)}
+              className="grid size-10 place-items-center rounded bg-[#ED351D]"
+            >
+              <ListFilter className="size-5 text-white" />
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
+            {loading ? (
+              <FigmaLoadingState label="Loading requests…" />
+            ) : filteredRequests.length === 0 ? (
+              <FigmaEmptyState
+                title={searchQuery ? "No matching requests" : "No transport requests yet"}
+                body="Submit a new request — live trips from the API will list here."
+              />
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <div className="mb-2 flex min-w-[1000px] gap-[30px] border-b border-[#E2E5E9] py-2.5 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  <span className="w-[81px]">ID No.</span>
+                  <span className="w-[167px]">Date</span>
+                  <span className="w-[219px]">Consignee</span>
+                  <span className="w-[150px]">Product</span>
+                  <span className="w-[119px]">Truck Type</span>
+                  <span className="w-[158px]">Destination</span>
+                  <span className="w-[120px]">Status</span>
+                </div>
+                {filteredRequests.map((r) => {
+                  const uiStatus = toPartnerStatus(r.status);
+                  return (
+                    <div
+                      key={r.id}
+                      className="flex min-w-[1000px] cursor-pointer items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-0"
+                      onClick={() =>
+                        navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: r.id } })
+                      }
+                    >
+                      <span className="w-[81px] text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{r.id}</span>
+                      <span className="w-[167px] text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {formatTripDate(r.scheduledDate)}
+                      </span>
+                      <span className="w-[219px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {r.customerConsignee || "—"}
+                      </span>
+                      <span className="w-[150px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {r.cargo || "—"}
+                      </span>
+                      <span className="w-[119px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {r.tailType || "—"}
+                      </span>
+                      <span className="w-[158px] truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {r.dropoff || "—"}
+                      </span>
+                      <div className="flex w-[120px] items-center justify-between gap-2">
+                        <span
+                          className={cn(
+                            "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium text-white",
+                            partnerStatusClass(uiStatus),
+                          )}
+                        >
+                          {uiStatus}
+                        </span>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="p-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRowMenuOpen(rowMenuOpen === r.id ? null : r.id);
+                            }}
+                          >
+                            <MoreVertical className="size-5 text-[#5C6470]" />
+                          </button>
+                          {rowMenuOpen === r.id && (
+                            <div className="absolute right-0 top-7 z-10 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
+                              <button
+                                type="button"
+                                className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRowMenuOpen(null);
+                                  navigate({
+                                    to: "/workspace/customer-portal/$requestId",
+                                    params: { requestId: r.id },
+                                  });
+                                }}
+                              >
+                                Details
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#ED351D] hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRowMenuOpen(null);
+                                  setDeleteModalOpen(r.id);
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-
-          {/* Desktop Table - Custom Implementation to match Figma exactly */}
-          <div className="hidden lg:block bg-white rounded-[10px] border border-gray-200 overflow-hidden shadow-sm">
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">ID No.</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Date</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Customer</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Product</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Truck Type</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Destination</th>
-                    <th className="px-6 py-4 text-[13px] font-[600] text-[#141a1f]">Status</th>
-                    <th className="px-6 py-4 w-[60px]"></th>
-                  </tr>
-                </thead>
-                  <tbody>
-                    {filteredRequests.map((r) => (
-                    <tr 
-                      key={r.id} 
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
-                      onClick={() => navigate({ to: `/workspace/customer-portal/${r.id}` as any })}
-                    >
-                      <td className="px-6 py-4 text-[13px] font-[600] text-[#5c6470]">{r.id}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.scheduledDate || new Date().toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.customerConsignee || "—"}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.cargo || "Steel"}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.tailType || "Flat"}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#5c6470]">{r.dropoff || "ABC, Alake Estate"}</td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="px-6 py-4 relative">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setRowMenuOpen(rowMenuOpen === r.id ? null : r.id); }} 
-                          className="p-1 rounded hover:bg-gray-100"
-                        >
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
-                        </button>
-                        {rowMenuOpen === r.id && (
-                          <div className="absolute right-8 top-10 bg-white border border-gray-100 rounded-[10px] shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-2 w-[160px] z-10">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); navigate({ to: `/workspace/customer-portal/${r.id}` as any }); setRowMenuOpen(null); }}
-                              className="w-full text-left px-4 py-2.5 text-[14px] text-[#141a1f] hover:bg-gray-50 font-[500]"
-                            >
-                              Details
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setDeleteModalOpen(r.id); setRowMenuOpen(null); }}
-                              className="w-full text-left px-4 py-2.5 text-[14px] text-[#e3351d] hover:bg-red-50 font-[500]"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredRequests.length === 0 && (
-                    <tr><td colSpan={8} className="text-center p-8 text-sm text-gray-500">No requests found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
 
-      {/* SORT MODAL */}
       {sortModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-lg w-[90%] max-w-[400px]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-[#141a1f]">Sort Requests</h3>
-                <button onClick={() => setSortModalOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
-              </div>
-              <div className="space-y-4">
-                <button 
-                  className={`w-full text-left p-4 rounded-[6px] border ${sortOrder === "Ascending" ? "border-[#e3351d] bg-[#e3351d]/5" : "border-gray-200"}`}
-                  onClick={() => { setSortOrder("Ascending"); setSortModalOpen(false); }}
-                >
-                  <div className="font-semibold text-[14px]">Ascending (Oldest First)</div>
-                </button>
-                <button 
-                  className={`w-full text-left p-4 rounded-[6px] border ${sortOrder === "Descending" ? "border-[#e3351d] bg-[#e3351d]/5" : "border-gray-200"}`}
-                  onClick={() => { setSortOrder("Descending"); setSortModalOpen(false); }}
-                >
-                  <div className="font-semibold text-[14px]">Descending (Newest First)</div>
-                </button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-[400px] rounded-lg bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[#1B2432]">Sort Requests</h3>
+              <button type="button" onClick={() => setSortModalOpen(false)}>
+                <X className="size-5 text-[#5C6470]" />
+              </button>
             </div>
+            <div className="space-y-4">
+              {(["Ascending", "Descending"] as const).map((order) => (
+                <button
+                  key={order}
+                  type="button"
+                  className={cn(
+                    "w-full rounded border p-4 text-left text-[14px] font-semibold",
+                    sortOrder === order ? "border-[#ED351D] bg-[#ED351D]/5" : "border-[#E2E5E9]",
+                  )}
+                  onClick={() => {
+                    setSortOrder(order);
+                    setSortModalOpen(false);
+                  }}
+                >
+                  {order === "Ascending" ? "Ascending (Oldest First)" : "Descending (Newest First)"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-
-
-      {/* DELETE CONFIRMATION MODAL - High Z-Index for Nesting */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px] p-6 lg:p-8 flex flex-col items-center text-center">
-            <div className="w-[60px] h-[60px] mb-6 flex items-center justify-center">
-              <AlertCircle className="w-12 h-12 text-[#e3351d]" strokeWidth={1.5} />
-            </div>
-            <p className="text-[15px] text-[#5c6470] font-[500] mb-8 max-w-[240px]">
-              Are you sure you want to delete this account?
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-[420px] flex-col items-center rounded-lg bg-white p-8 text-center">
+            <AlertCircle className="mb-6 size-12 text-[#ED351D]" strokeWidth={1.5} />
+            <p className="mb-8 max-w-[240px] text-[15px] font-medium text-[#5C6470]">
+              Are you sure you want to delete this request?
             </p>
-            <div className="flex gap-4 w-full justify-center">
-              <button 
-                onClick={() => setDeleteModalOpen(null)}
-                className="h-[40px] px-6 lg:px-8 bg-transparent text-[#e3351d] font-[500] text-[14px]"
-              >
+            <div className="flex w-full justify-center gap-4">
+              <button type="button" onClick={() => setDeleteModalOpen(null)} className="h-10 px-6 text-[14px] font-medium text-[#ED351D]">
                 Cancel
               </button>
-              <button 
-                onClick={handleDelete}
-                className="h-[40px] px-6 lg:px-8 bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                className="h-10 rounded bg-[#ED351D] px-6 text-[14px] font-medium text-white"
               >
                 Confirm
               </button>

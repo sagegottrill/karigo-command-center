@@ -49,11 +49,11 @@ function PartnerNewRequest() {
 
     const payload = {
       customerConsignee,
-      cargo: product,
+      cargo: product || "—",
       tailType: truckType,
       loadingRoutingType: routingType,
       loadingSite: finalSites,
-      pickup: finalSites[0],
+      pickup: finalSites[0] || destination,
       dropoff: destination,
     };
 
@@ -74,27 +74,27 @@ function PartnerNewRequest() {
   
   useEffect(() => {
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
-    if (slug !== "localhost" && slug !== "fleetopsx") {
+    if (slug && slug !== "localhost" && slug !== "fleetopsx") {
       tenantService.getBySlug(slug).then(setTenant);
     }
   }, []);
 
-  const companyName = mounted && currentUser ? (
-    currentUser.partnerCompanyName || 
-    (currentUser.roles.includes("Customer Portals (External)") ? "Sabar Electrics" : "Sabar Electrics")
-  ) : "Partner Workspace";
+  const companyName =
+    mounted && currentUser
+      ? currentUser.partnerCompanyName || currentUser.name || "Partner"
+      : "Partner Workspace";
   const userEmail = mounted && currentUser?.email ? currentUser.email : "";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "PT";
 
   return (
-    <div className="flex h-screen w-full bg-[#f6f7f9] font-['Inter',sans-serif]">
+    <div className="flex h-screen w-full bg-[#F1F2F4] font-['Inter',sans-serif]">
       {/* Sidebar */}
-      <div className="hidden lg:flex flex-col w-[260px] bg-[#1B2432] h-full shrink-0">
-        <Link to="/workspace/account-type" className="pt-[24px] pb-[32px] px-[24px] flex justify-center border-b border-[#ffffff]/5">
+      <div className="hidden lg:flex flex-col w-[240px] bg-[#1B2432] h-full shrink-0">
+        <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
           {tenant?.logo ? (
-            <img src={tenant.logo} alt={tenant.name} className="w-[140px] h-[48px] object-contain" />
+            <img src={tenant.logo} alt={tenant.name} className="h-[60px] w-[107px] object-contain" />
           ) : (
-            <img src="/petroline-transparent.png" alt="Platform Tenant" className="w-[140px] h-[48px] object-contain" />
+            <img src="/figma/petroline-logo.png" alt="Platform Tenant" className="h-[60px] w-[107px] object-contain" />
           )}
         </Link>
         <div className="flex flex-col flex-1 py-[24px]">
