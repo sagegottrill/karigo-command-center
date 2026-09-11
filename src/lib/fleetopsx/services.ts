@@ -498,7 +498,20 @@ export const tripService = {
   },
   update: async (id: string, payload: Partial<Trip>) => {
     if (!useMock()) {
-      return liveUpdateTrip(id, payload);
+      const updated = await liveUpdateTrip(id, payload);
+      // Ensure assets reflect their new status instantly after live dispatch assignment
+      if (payload.status === "Awaiting Approval") {
+        if (payload.headId) {
+          liveUpdateTruck(payload.headId, { status: "Assigned" }).catch(console.error);
+        }
+        if (payload.tailId) {
+          // No liveUpdateTail yet, tails are mocked for now
+        }
+        if (payload.driverId) {
+          liveUpdateDriver(payload.driverId, { status: "On Trip" }).catch(console.error);
+        }
+      }
+      return settle(updated);
     }
     store.trips = store.trips.map(t => (t.id === id ? { ...t, ...payload } : t));
     

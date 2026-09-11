@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
+import { ImportCvsUnavailableModal } from "@/components/fleetopsx/import-cvs-unavailable";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
   component: AddPartner,
@@ -20,6 +21,7 @@ function AddPartner() {
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [createdUsername, setCreatedUsername] = useState("");
 
   const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
@@ -131,11 +133,7 @@ function AddPartner() {
         </div>
         <button
           type="button"
-          onClick={() =>
-            toast.message("Import not available yet", {
-              description: "Bulk partner import will connect to the live CSV endpoint next.",
-            })
-          }
+          onClick={() => setShowImportModal(true)}
           className="hidden lg:flex items-center gap-[8px] px-[16px] py-[8px] text-[#141a1f] hover:bg-gray-200/50 rounded-md transition-colors font-[500] text-[14px]"
         >
           <Download className="w-[18px] h-[18px]" />
@@ -317,6 +315,55 @@ function AddPartner() {
           </div>
         </PortalOverlay>
       )}
+      <ImportCvsUnavailableModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        entityLabel="partners"
+        onImport={async (rows) => {
+          const currentUser = authService.getCurrentUser();
+          const tenantCompanyId = currentUser?.companyId || "tnt_001";
+          
+          let successCount = 0;
+          for (const row of rows) {
+            const rowCompany = row["company name"] || row["company"];
+            const rowFirst = row["first name"] || row["firstname"] || "Partner";
+            const rowLast = row["last name"] || row["surname"] || "User";
+            
+            if (!rowCompany) continue;
+            
+            const emailDomain = `${rowCompany.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`;
+            let generatedUsername = `${rowFirst.charAt(0).toUpperCase()}.${rowLast.charAt(0).toUpperCase()}${rowLast.slice(1).toLowerCase()}`;
+            
+            let usernameForLogin = generatedUsername;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              const suffix = attempt === 0 ? "" : String(attempt + 1);
+              usernameForLogin = `${generatedUsername}${suffix}`;
+              try {
+                await adminService.createUser({
+                  firstName: rowFirst,
+                  surname: rowLast,
+                  roles: ["Customer Portals (External)"],
+                  username: usernameForLogin,
+                  email: `${usernameForLogin}@${emailDomain}`,
+                  department: "External Partner",
+                  companyId: tenantCompanyId,
+                  partnerCompanyName: rowCompany,
+                  password: "ChangeMe123!",
+                });
+                successCount++;
+                break;
+              } catch (err) {
+                const msg = err instanceof Error ? err.message.toLowerCase() : "";
+                if (!(msg.includes("unique") || msg.includes("already") || msg.includes("exist"))) break;
+              }
+            }
+          }
+          
+          if (successCount === 0 && rows.length > 0) {
+            throw new Error("Failed to import any partners. Please check your CSV format.");
+          }
+        }}
+      />
     </div>
   );
 }
