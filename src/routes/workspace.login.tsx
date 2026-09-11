@@ -1,11 +1,18 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
+import { enterAuthenticatedApp, hasLiveSession, installSessionGuards } from "@/lib/fleetopsx/session";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/login")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (hasLiveSession()) {
+      throw redirect({ to: "/workspace/app" });
+    }
+  },
   head: ({ routeContext }) => {
     // @ts-ignore
     const tenantName = routeContext?.tenantName || "Workspace";
@@ -22,12 +29,13 @@ export const Route = createFileRoute("/workspace/login")({
 
 function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
-  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
+
+  useEffect(() => installSessionGuards(), []);
 
   const canSubmit = Boolean(username && password);
 
@@ -44,10 +52,11 @@ function LoginPage() {
       authService.setRoles(user.roles ?? []);
       toast.success(`Welcome back, ${user?.name}`);
       if (user.passwordResetRequired) {
-        navigate({ to: "/workspace/forgot-password" });
+        window.location.replace("/workspace/forgot-password");
         return;
       }
-      navigate({ to: "/workspace/app" });
+      void keepSignedIn;
+      enterAuthenticatedApp("/workspace/app");
     } catch (err) {
       setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");

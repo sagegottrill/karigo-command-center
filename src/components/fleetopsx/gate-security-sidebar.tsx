@@ -1,21 +1,20 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, LogOut, MapPinCheck, MoreVertical } from "lucide-react";
+import { Bell, LockKeyhole, LogOut, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
-type TrackingNavItem = {
+type SecurityNavItem = {
   label: string;
   to: string;
-  icon: typeof ClipboardList;
+  icon: typeof LockKeyhole;
 };
 
-/** Figma Tracking Ops sidebar — TRACKING group (459:10574) */
-const TRACKING_NAV: TrackingNavItem[] = [
-  { label: "Active Dispatch", to: "/workspace/app/active-dispatch", icon: ClipboardList },
-  { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
+/** Figma Gate Security Portal sidebar — SECURITY group (530:16330 / 533:16727) */
+const SECURITY_NAV: SecurityNavItem[] = [
+  { label: "Security Log", to: "/workspace/app/gate", icon: LockKeyhole },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
 ];
 
@@ -23,15 +22,14 @@ function isPathActive(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
-/** Tracking Ops shell — never Security (Gate Security Portal is separate). */
-export function shouldUseTrackingOpsShell(roles: string[]) {
+/** Security-only users get Gate Security Portal chrome (not Tracking Ops). */
+export function shouldUseGateSecurityShell(roles: string[]) {
   if (roles.includes("Transport Manager") || roles.includes("Platform Admin")) return false;
   if (roles.includes("Fleet Operations")) return false;
-  if (roles.includes("Security")) return false;
-  return roles.some((r) => /tracking/i.test(r));
+  return roles.includes("Security");
 }
 
-export function TrackingOperationsSidebar({
+export function GateSecuritySidebar({
   collapsed,
   onToggle,
 }: {
@@ -105,10 +103,10 @@ export function TrackingOperationsSidebar({
           <div className={cn("flex w-full flex-col gap-[5px]", collapsed ? "items-center px-2" : "w-[224px]")}>
             {!collapsed && (
               <span className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-white/70">
-                TRACKING
+                SECURITY
               </span>
             )}
-            {TRACKING_NAV.map((item) => {
+            {SECURITY_NAV.map((item) => {
               const active = isPathActive(pathname, item.to);
               const Icon = item.icon;
               const showBadge = item.to.includes("notifications") && unread > 0;
@@ -180,8 +178,8 @@ export function TrackingOperationsSidebar({
   );
 }
 
-/** Figma Tracking Ops mobile bottom tab bar (468:11005) */
-export function TrackingOperationsMobileNav() {
+/** Gate Security mobile bottom tab bar */
+export function GateSecurityMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [unread, setUnread] = useState(0);
 
@@ -206,16 +204,10 @@ export function TrackingOperationsMobileNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-5 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
-      {TRACKING_NAV.map((item) => {
+      {SECURITY_NAV.map((item) => {
         const active = isPathActive(pathname, item.to);
         const Icon = item.icon;
         const showBadge = item.to.includes("notifications") && unread > 0;
-        const shortLabel =
-          item.label === "Notifications"
-            ? "Notification"
-            : item.label === "Active Dispatch"
-              ? "Active Dispatch"
-              : item.label;
         return (
           <Link
             key={item.to}
@@ -233,7 +225,9 @@ export function TrackingOperationsMobileNav() {
                 </span>
               )}
             </span>
-            <span className="w-full text-center text-[10px] font-medium leading-tight">{shortLabel}</span>
+            <span className="w-full text-center text-[10px] font-medium leading-tight">
+              {item.label === "Notifications" ? "Notification" : item.label}
+            </span>
           </Link>
         );
       })}

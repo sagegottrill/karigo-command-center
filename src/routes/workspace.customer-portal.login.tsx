@@ -1,9 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
+import { clearSession } from "@/lib/fleetopsx/apiClient";
+import { enterAuthenticatedApp } from "@/lib/fleetopsx/session";
 
 export const Route = createFileRoute("/workspace/customer-portal/login")({
   loader: async () => {
@@ -27,7 +29,6 @@ export const Route = createFileRoute("/workspace/customer-portal/login")({
 
 function CustomerLogin() {
   const { tenant } = Route.useLoaderData();
-  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
@@ -50,12 +51,13 @@ function CustomerLogin() {
       if (!user.roles.includes("Customer Portals (External)")) {
         setLoginError(true);
         toast.error("Access denied. Please use the main employee login portal.");
-        authService.logout();
+        clearSession();
         return;
       }
       authService.setRoles(user.roles ?? []);
       toast.success("Welcome back", { description: `Signed in as ${user.name}` });
-      navigate({ to: "/workspace/customer-portal/dashboard" });
+      void keepSignedIn;
+      enterAuthenticatedApp("/workspace/customer-portal/dashboard");
     } catch (err) {
       setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");

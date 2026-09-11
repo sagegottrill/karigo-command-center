@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, ClipboardList, History, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
@@ -32,7 +32,6 @@ export function FleetOperationsSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -69,7 +68,6 @@ export function FleetOperationsSidebar({
 
   const handleLogout = () => {
     authService.logout();
-    navigate({ to: "/workspace/login" });
   };
 
   return (

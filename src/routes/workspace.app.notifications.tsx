@@ -1,13 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { tabsForRoles } from "@/lib/fleetopsx/notification-scope";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
 import type { Notification } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/notifications")({
-  // Live JWT is browser-only — never SSR-fetch
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = [
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
       "Security",
       "Driver",
       "Customer Portals (External)",
+      "Platform Admin",
     ];
     if (!authService.getRoles().some((r) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -29,8 +30,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
   component: NotificationsPage,
 });
 
-const CATEGORIES = ["All", "Operations", "Approval", "Engineering"] as const;
-type CategoryTab = (typeof CATEGORIES)[number];
+type CategoryTab = ReturnType<typeof tabsForRoles>[number];
 
 function matchesCategory(category: string, tab: CategoryTab) {
   switch (tab) {
@@ -42,6 +42,10 @@ function matchesCategory(category: string, tab: CategoryTab) {
       return category === "Approvals";
     case "Engineering":
       return category === "Engineering";
+    case "Security":
+      return category === "Security";
+    case "Compliance":
+      return category === "Compliance";
     default: {
       const _exhaustive: never = tab;
       return _exhaustive;
@@ -50,6 +54,8 @@ function matchesCategory(category: string, tab: CategoryTab) {
 }
 
 function NotificationsPage() {
+  const roles = authService.getRoles();
+  const categories = useMemo(() => tabsForRoles(roles), [roles]);
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState<CategoryTab>("All");
@@ -75,12 +81,11 @@ function NotificationsPage() {
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-5 max-md:px-4 md:gap-[30px] md:p-[30px]">
-      {/* Desktop title row */}
       <div className="hidden flex-wrap items-center justify-between gap-4 md:flex">
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Notification</h2>
           <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            items that needs to be checked out categorized
+            items that need to be checked out for your department
           </p>
         </div>
         <button
@@ -97,12 +102,11 @@ function NotificationsPage() {
         </button>
       </div>
 
-      {/* Figma FO mobile title (454:15098) */}
       <div className="flex flex-col gap-4 md:hidden">
         <div className="flex flex-col gap-1">
           <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#141A1F]">Notification Center</h2>
           <p className="text-[12px] font-normal text-[rgba(92,100,112,0.6)]">
-            Items that need to be checked out categorized.
+            Items that need to be checked out for your department.
           </p>
         </div>
         <button
@@ -130,7 +134,7 @@ function NotificationsPage() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-2.5">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -180,8 +184,8 @@ function NotificationsPage() {
 
         {rows.length === 0 && (
           <FigmaEmptyState
-            title={cat === "All" ? "No notifications yet" : `No ${cat.toLowerCase()} notifications`}
-            body="Live alerts will list here when the notifications API has items."
+            title={cat === "All" ? "No notifications for your department" : `No ${cat.toLowerCase()} notifications`}
+            body="Alerts for your role will list here from live operations."
           />
         )}
       </div>

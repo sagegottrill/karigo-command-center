@@ -6,6 +6,11 @@ import {
   shouldUseFleetOpsShell,
 } from "@/components/fleetopsx/fleet-operations-sidebar";
 import {
+  GateSecurityMobileNav,
+  GateSecuritySidebar,
+  shouldUseGateSecurityShell,
+} from "@/components/fleetopsx/gate-security-sidebar";
+import {
   TrackingOperationsMobileNav,
   TrackingOperationsSidebar,
   shouldUseTrackingOpsShell,
@@ -17,6 +22,7 @@ import {
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
+import { installSessionGuards } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app")({
@@ -43,13 +49,18 @@ export const Route = createFileRoute("/workspace/app")({
       throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
 
-    // Figma FO home is Dispatch Queue; Tracking Ops home is Active Dispatch
     const path = location.pathname;
     if (
       shouldUseFleetOpsShell(roles) &&
       (path === "/workspace/app" || path === "/workspace/app/")
     ) {
       throw redirect({ to: "/workspace/app/dispatch" });
+    }
+    if (
+      shouldUseGateSecurityShell(roles) &&
+      (path === "/workspace/app" || path === "/workspace/app/")
+    ) {
+      throw redirect({ to: "/workspace/app/gate" });
     }
     if (
       shouldUseTrackingOpsShell(roles) &&
@@ -63,9 +74,9 @@ export const Route = createFileRoute("/workspace/app")({
 
 function AppShell() {
   const navigate = useNavigate();
-  // Always start with SSR-safe defaults, then sync after mount (avoids React #419 hydration crash)
   const [collapsed, setCollapsed] = useState(false);
   const [useFoShell, setUseFoShell] = useState(false);
+  const [useGateShell, setUseGateShell] = useState(false);
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [shellReady, setShellReady] = useState(false);
 
@@ -73,14 +84,19 @@ function AppShell() {
     setCollapsed(window.innerWidth < 768);
     const roles = authService.getRoles();
     setUseFoShell(shouldUseFleetOpsShell(roles));
+    setUseGateShell(shouldUseGateSecurityShell(roles));
     setUseTrackingShell(shouldUseTrackingOpsShell(roles));
     setShellReady(true);
   }, []);
 
   useEffect(() => {
+    return installSessionGuards();
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const user = authService.getCurrentUser();
-    if (!user) {
+    if (!user || !getToken()) {
       navigate({ to: "/workspace/login" });
     } else if (user.passwordResetRequired) {
       navigate({ to: "/workspace/forgot-password" });
@@ -102,7 +118,9 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      {useTrackingShell ? (
+      {useGateShell ? (
+        <GateSecuritySidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      ) : useTrackingShell ? (
         <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useFoShell ? (
         <FleetOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
@@ -114,6 +132,7 @@ function AppShell() {
           onToggleSidebar={() => setCollapsed((c) => !c)}
           forceFleetOps={shellReady ? useFoShell : false}
           forceTrackingOps={shellReady ? useTrackingShell : false}
+          forceGateSecurity={shellReady ? useGateShell : false}
         />
         <main
           className={cn(
@@ -125,7 +144,9 @@ function AppShell() {
             <Outlet />
           </div>
         </main>
-        {useTrackingShell ? (
+        {useGateShell ? (
+          <GateSecurityMobileNav />
+        ) : useTrackingShell ? (
           <TrackingOperationsMobileNav />
         ) : useFoShell ? (
           <FleetOperationsMobileNav />

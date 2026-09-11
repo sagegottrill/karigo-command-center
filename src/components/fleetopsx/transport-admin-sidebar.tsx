@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   Briefcase,
@@ -73,7 +73,6 @@ export function TransportAdminSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -90,7 +89,6 @@ export function TransportAdminSidebar({
 
   const handleLogout = () => {
     authService.logout();
-    navigate({ to: "/workspace/login" });
   };
 
   return (

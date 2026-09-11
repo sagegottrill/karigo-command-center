@@ -9,6 +9,7 @@ import type {
   ExpenseStatus,
   GateEntry,
   InventoryItem,
+  Notification,
   ProcurementRequest,
   Trip,
   TimelineStep,
@@ -21,6 +22,8 @@ import type {
 } from "./types";
 import { allowMockFallback, getStoredUser, getToken } from "./apiClient";
 import { rosterBodiesAsTails } from "./display-ids";
+import { mergeRoleNotifications, synthesizeRoleNotifications } from "./notification-scope";
+import { hardLogout } from "./session";
 import {
   applyLoginSession,
   liveCreateDriver,
@@ -74,7 +77,6 @@ import {
   liveUpdateTruck,
   liveUpdateUser,
   liveUpdateWorkOrder,
-  logoutLive,
 } from "./live-api";
 
 const LATENCY = 0;
@@ -433,7 +435,7 @@ export const authService = {
     localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
   },
   logout: () => {
-    logoutLive();
+    hardLogout();
   },
   getAllRoles: () => db.ROLES,
   getWorkspaces: () => db.WORKSPACES,
@@ -1146,37 +1148,45 @@ export const messageService = {
 
 export const notificationService = {
   list: async () => {
+    const roles = authService.getRoles();
     if (!useMock()) {
       if (!getToken()) return [];
+      let apiItems: Notification[] = [];
       try {
-        return await liveListNotifications({ softAuth: true });
+        apiItems = await liveListNotifications({ softAuth: true });
       } catch {
-        return [];
+        apiItems = [];
       }
+      let trips: Trip[] = [];
+      let expenses: Expense[] = [];
+      let workOrders: WorkOrder[] = [];
+      let drivers: Driver[] = [];
+      try {
+        const [t, e, w, d] = await Promise.all([
+          liveListTrips().catch(() => [] as Trip[]),
+          liveListExpenses().catch(() => [] as Expense[]),
+          liveListWorkOrders().catch(() => [] as WorkOrder[]),
+          liveListDrivers().catch(() => [] as Driver[]),
+        ]);
+        trips = t;
+        expenses = e;
+        workOrders = w;
+        drivers = d;
+      } catch {
+        /* soft */
+      }
+      const synthesized = synthesizeRoleNotifications({ roles, trips, expenses, workOrders, drivers });
+      return mergeRoleNotifications(apiItems, roles, synthesized);
     }
     let notifications = [...store.notifications];
-    const roles = authService.getRoles();
     if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
-      notifications = notifications.filter(n => n.category !== "Compliance" && n.category !== "Engineering" && n.category !== "Approvals");
+      notifications = notifications.filter((n) => n.category !== "Compliance" && n.category !== "Engineering" && n.category !== "Approvals");
     }
     return settle(notifications);
   },
   getUnreadCount: async () => {
-    if (!useMock()) {
-      if (!getToken()) return 0;
-      try {
-        const list = await liveListNotifications({ softAuth: true });
-        return list.filter((n) => !n.read).length;
-      } catch {
-        return 0;
-      }
-    }
-    let notifications = [...store.notifications];
-    const roles = authService.getRoles();
-    if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {
-      notifications = notifications.filter(n => n.category !== "Compliance" && n.category !== "Engineering" && n.category !== "Approvals");
-    }
-    return notifications.filter(n => !n.read).length;
+    const list = await notificationService.list();
+    return list.filter((n) => !n.read).length;
   },
   markAllRead: async () => {
     if (!useMock()) {
@@ -1188,6 +1198,9 @@ export const notificationService = {
   },
   toggleRead: async (id: string) => {
     if (!useMock()) {
+      if (id.startsWith("syn-") || id.startsWith("fo-") || id.startsWith("tm-") || id.startsWith("sec-") || id.startsWith("acc-") || id.startsWith("eng-") || id.startsWith("hr-") || id.startsWith("pt-")) {
+        return true;
+      }
       const list = await liveListNotifications();
       const current = list.find((n) => n.id === id);
       await liveToggleNotification(id, !(current?.read ?? false));
