@@ -137,7 +137,7 @@ function HrStaffDirectory() {
           </div>
         </div>
 
-        <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />

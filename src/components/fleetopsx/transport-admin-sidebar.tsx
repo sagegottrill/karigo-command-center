@@ -2,14 +2,13 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   Briefcase,
+  CircleHelp,
   CirclePlus,
-  HelpCircle,
   LayoutDashboard,
   List,
   LogOut,
   MoreVertical,
   Truck,
-  UserCog,
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -39,16 +38,16 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     label: "PARTNER Account",
     items: [
       { label: "New Account", to: "/workspace/app/add-partner", icon: CirclePlus },
-      { label: "Account Management", to: "/workspace/app/manage-partner", icon: UserCog },
-      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: HelpCircle, dot: true },
+      { label: "Account Management", to: "/workspace/app/manage-partner", icon: Users },
+      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CircleHelp, dot: true },
     ],
   },
   {
     label: "INTERNAL Account",
     items: [
       { label: "New Account", to: "/workspace/app/add-account", icon: CirclePlus },
-      { label: "Account Management", to: "/workspace/app/manage-account", icon: UserCog },
-      { label: "Password Request", to: "/workspace/app/password-request", icon: HelpCircle },
+      { label: "Account Management", to: "/workspace/app/manage-account", icon: Users },
+      { label: "Password Request", to: "/workspace/app/password-request", icon: CircleHelp },
     ],
   },
   {

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { adminService } from "@/lib/fleetopsx/services";
 import type { User } from "@/lib/fleetopsx/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
   component: AdminManagePartner,
@@ -133,7 +134,7 @@ function AdminManagePartner() {
               manage listing of partner companies
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
             <Link
               to="/workspace/app/add-partner"
               className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] text-white hover:bg-[#d62e19]"
@@ -143,7 +144,7 @@ function AdminManagePartner() {
             <button
               type="button"
               onClick={exportCSV}
-              className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+              className="flex h-10 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <Download className="size-4" strokeWidth={1.75} />
               Export CSV
@@ -226,7 +227,7 @@ function AdminManagePartner() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white max-md:border-0 max-md:bg-transparent">
+        <div className="rounded-[10px] border border-[#E2E5E9] bg-white max-md:border-0 max-md:bg-transparent">
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
@@ -250,10 +251,16 @@ function AdminManagePartner() {
           )}
           {!loading && filtered.length > 0 && (
             <>
-              <div className="hidden grid-cols-[48px_1fr_1fr_1fr_40px] gap-2 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-                {["S/N", "Name", "Company Name", "Username", ""].map((h) => (
-                  <span key={h || "act"} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                    {h}
+              <div className="hidden grid-cols-[48px_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(72px,auto)] gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+                {["S/N", "Name", "Company Name", "Username", "Actions"].map((h) => (
+                  <span
+                    key={h}
+                    className={cn(
+                      "text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]",
+                      h === "Actions" && "text-right",
+                    )}
+                  >
+                    {h === "Actions" ? "" : h}
                   </span>
                 ))}
               </div>
@@ -278,7 +285,7 @@ function AdminManagePartner() {
                           <MoreVertical className="size-4" />
                         </button>
                         {menuFor === `m-${u.id}` && (
-                          <div className="absolute top-6 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                          <div className="absolute top-6 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
                             <button
                               type="button"
                               className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
@@ -365,28 +372,25 @@ function AdminManagePartner() {
               {filtered.map((u, i) => (
                 <div
                   key={u.id}
-                  className="relative hidden grid-cols-[48px_1fr_1fr_1fr_40px] items-center gap-2 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid"
+                  className="relative z-0 hidden grid-cols-[48px_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(72px,auto)] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 md:grid data-[open=true]:z-20"
+                  data-open={menuFor === u.id ? "true" : "false"}
                 >
                   <span className="text-[14px] text-[#5C6470]">{i + 1}</span>
-                  <span className="text-[14px] capitalize text-[#5C6470]">{u.name}</span>
-                  <span className="text-[14px] capitalize text-[#5C6470]">{u.partnerCompanyName}</span>
-                  <span className="text-[14px] text-[#5C6470]">{u.username}</span>
+                  <span className="truncate text-[14px] capitalize text-[#5C6470]">{u.name}</span>
+                  <span className="truncate text-[14px] capitalize text-[#5C6470]">{u.partnerCompanyName}</span>
+                  <span className="truncate text-[14px] text-[#5C6470]">{u.username}</span>
                   <div className="flex items-center justify-end gap-2">
-                    {u.status === "Suspended" && (
-                      <span className="rounded bg-[#ED351D] px-2 py-0.5 text-[11px] font-medium text-white">
-                        Suspended
-                      </span>
-                    )}
-                    <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
+                    <div ref={menuFor === u.id ? menuRef : undefined} className="relative shrink-0">
                       <button
                         type="button"
-                        className="grid size-8 place-items-center text-[#1B2432]"
+                        className="grid size-8 place-items-center rounded text-[#1B2432] hover:bg-[#F1F2F4]"
                         onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
+                        aria-label="Partner options"
                       >
-                        <MoreVertical className="size-4" />
+                        <MoreVertical className="size-5" strokeWidth={1.75} />
                       </button>
                       {menuFor === u.id && (
-                        <div className="absolute top-8 right-0 z-30 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                        <div className="absolute top-9 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
                           <button
                             type="button"
                             className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
@@ -445,6 +449,11 @@ function AdminManagePartner() {
                         </div>
                       )}
                     </div>
+                    {u.status === "Suspended" && (
+                      <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                        Suspended
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

@@ -231,7 +231,7 @@ function FleetDispatchRequests() {
                       <MoreVertical className="size-5" />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute top-6 right-0 z-30 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                      <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                         <button
                           type="button"
                           className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
@@ -310,7 +310,7 @@ function FleetDispatchRequests() {
         </div>
 
         {/* Desktop table card */}
-        <div className="hidden w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:block">
+        <div className="hidden w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:block">
           <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
               <Search
@@ -378,7 +378,7 @@ function FleetDispatchRequests() {
                     </span>
                   )}
                   {menuFor === trip.id && (
-                    <div className="absolute top-8 right-0 z-30 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                    <div className="absolute top-8 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                       <button
                         type="button"
                         className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
