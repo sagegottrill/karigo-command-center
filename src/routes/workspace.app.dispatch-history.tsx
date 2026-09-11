@@ -1,12 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Download, Search, SlidersHorizontal, ArrowLeft } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { FigmaEmptyState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
-import { ArrowLeft, Download, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DataTable, type Column } from "@/components/fleetopsx/data-table";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/app/dispatch-history")({
   loader: async () => {
@@ -15,8 +14,8 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   },
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations"];
-    if (!authService.getRoles().some(r => allowed.includes(r as any))) {
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    if (!authService.getRoles().some((r) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
@@ -29,33 +28,85 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   component: DispatchHistoryPage,
 });
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  "In Transit": { bg: "#ea3a3d", text: "#fff" },
-  "Pending": { bg: "#ff9f0a", text: "#fff" },
-  "Cancelled": { bg: "#dc2626", text: "#fff" },
-  "Completed": { bg: "#34c759", text: "#fff" },
-  "Scheduled": { bg: "#3b82f6", text: "#fff" },
-  "Requested": { bg: "#8b5cf6", text: "#fff" },
+type DisplayStatus = "In Transit" | "Pending" | "Declined" | "Completed";
+
+const STATUS_STYLES: Record<DisplayStatus, string> = {
+  "In Transit": "bg-[#A259FF] text-white",
+  Pending: "bg-[#FC0] text-[#1B2432]",
+  Declined: "bg-[#FF383C] text-white",
+  Completed: "bg-[#34C759] text-white",
 };
 
-function StatusPill({ status }: { status: string }) {
-  const style = STATUS_STYLES[status] || { bg: "#6b7280", text: "#fff" };
+function toDisplayStatus(status: Trip["status"]): DisplayStatus {
+  switch (status) {
+    case "En Route":
+    case "Loaded":
+    case "Offloading":
+    case "Returning":
+    case "Delayed":
+      return "In Transit";
+    case "Requested":
+    case "Awaiting Approval":
+    case "Scheduled":
+      return "Pending";
+    case "Stopped":
+      return "Declined";
+    case "Completed":
+      return "Completed";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function StatusPill({ status }: { status: DisplayStatus }) {
   return (
     <span
-      className="text-[11px] font-semibold px-3 py-1 rounded-[4px] whitespace-nowrap"
-      style={{ backgroundColor: style.bg, color: style.text }}
+      className={cn(
+        "inline-flex h-[22px] items-center rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
+        STATUS_STYLES[status],
+      )}
     >
       {status}
     </span>
   );
 }
 
-const formatN = (num: number) =>
-  new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+function dispatchId(trip: Trip) {
+  if (/^DIS-/i.test(trip.id)) return trip.id;
+  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
+  return `DIS-${digits.padStart(5, "0")}`;
+}
 
-// ─────────────────────────────────────────────────────────────
-// DISPATCH DETAIL & TIMELINE (shown when a row is clicked)
-// ─────────────────────────────────────────────────────────────
+function formatHistoryDate(trip: Trip) {
+  const raw = trip.scheduledDate?.trim();
+  if (!raw) return "";
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  return raw;
+}
+
+function companyName(trip: Trip) {
+  if (trip.customer && trip.customer !== "Customer Portal") return trip.customer;
+  return trip.customerConsignee ?? "";
+}
+
+function formatN(num: number) {
+  return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+}
+
+function DetailRow({ label, value }: { label: string; value?: string | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start justify-between gap-4 text-[13px]">
+      <span className="shrink-0 text-[#5C6470]">{label}</span>
+      <span className="max-w-[58%] text-right font-semibold whitespace-pre-line text-[#1B2432]">{value}</span>
+    </div>
+  );
+}
 
 const TIMELINE_STEPS = [
   { label: "Request Approved", done: true },
@@ -78,346 +129,297 @@ const TIMELINE_STEPS = [
   { label: "Arrival at Gate House", done: false, confirmable: true },
 ];
 
-function buildTimeline(status: string) {
-  // For "Completed" trips, mark everything as done
+function buildTimeline(status: Trip["status"]) {
   if (status === "Completed") {
-    return TIMELINE_STEPS.map(s => ({
+    return TIMELINE_STEPS.map((s) => ({
       ...s,
       done: true,
-      children: s.children?.map(c => ({ ...c, done: true })),
+      children: s.children?.map((c) => ({ ...c, done: true })),
     }));
   }
-  // For "In Transit", show default above
   return TIMELINE_STEPS;
 }
 
 function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
   const timeline = buildTimeline(trip.status);
+  const displayStatus = toDisplayStatus(trip.status);
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] font-['Inter',sans-serif]">
-      {/* Desktop Header */}
-      <div className="hidden md:block w-full bg-white border-b border-[#e2e5e9] px-6 py-4">
-        <h1 className="text-xl font-bold text-[#141a1f]">Fleet Operations Portal</h1>
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage the lifecycle of every dispatch within the company</p>
+    <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-2 text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]"
+        >
+          <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+          Dispatch Details and Timeline
+        </button>
+        <button
+          type="button"
+          onClick={() => toast.success("Exported CSV successfully.")}
+          className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
+        >
+          <Download className="size-[18px]" strokeWidth={1.75} />
+          Export CVS
+        </button>
       </div>
 
-      <div className="px-4 md:px-6 py-4 md:py-6 max-w-[1400px] mx-auto">
-        {/* Back + Export Row */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={onBack} className="flex items-center gap-2 text-[13px] md:text-[14px] font-semibold text-[#141a1f] hover:text-black transition-colors">
-            <ArrowLeft className="h-5 w-5" strokeWidth={2} />
-            <span>Dispatch Details and Timeline</span>
-          </button>
-          <button className="flex items-center gap-2 bg-[#1B2432] text-white text-[12px] font-semibold h-9 px-4 rounded-[4px] hover:bg-black transition-colors">
-            <Download className="h-4 w-4" />
-            Export CVS
-          </button>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left — Dispatch Details */}
-          <div className="flex-1 bg-white rounded-xl border border-[#e2e5e9] shadow-sm overflow-hidden">
-            <div className="p-5 md:p-6 border-b border-[#e2e5e9] flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-[#141a1f]">Dispatch Details</h2>
-                <p className="text-[12px] text-[#5c6470] mt-1">TICKET REQ-8126 &bull; SABA STEEL</p>
-              </div>
-              <StatusPill status={trip.status === "En Route" || trip.status === "Loaded" ? "In Transit" : trip.status} />
+      <div className="flex flex-col gap-5 lg:flex-row">
+        <div className="flex-1 overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="flex items-start justify-between gap-3 border-b border-[#E2E5E9] p-5">
+            <div>
+              <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch Details</h2>
+              <p className="mt-1 text-[11.4px] uppercase tracking-[0.4px] text-[#5C6470]">
+                Ticket {dispatchId(trip)}
+                {companyName(trip) ? `  •  ${companyName(trip)}` : ""}
+              </p>
             </div>
-
-            <div className="p-5 md:p-6 space-y-6">
-              {/* Customer Details */}
-              <div>
-                <h4 className="text-[14px] font-bold text-[#141a1f] mb-3 border-b border-[#e2e5e9] pb-2">Customer Details</h4>
-                <div className="space-y-2.5">
-                  <DetailRow label="Customer Name:" value={trip.customer || "—"} />
-                  <DetailRow label="Destination:" value={trip.dropoff || "ABC, Alake Estate"} />
-                  <DetailRow label="Loading Site(s):" value="Babangida\nHappy Home" />
-                </div>
-              </div>
-
-              {/* Vehicle & Operator Details */}
-              <div>
-                <h4 className="text-[14px] font-bold text-[#141a1f] mb-3 border-b border-[#e2e5e9] pb-2">Vehicle & Operator Details</h4>
-                <div className="space-y-2.5">
-                  <DetailRow label="Truck Head (Cap Number):" value={trip.headId || trip.truckReg || "—"} />
-                  <DetailRow label="Truck Head Plate Number:" value="LA-223-XA" />
-                  <DetailRow label="Truck Tail assigned:" value="Semi Sided (TL-4402-A)" />
-                  <DetailRow label="Driver Assigned:" value={trip.driverName ? `${trip.driverName}${trip.driverId ? ` (${trip.driverId})` : ""}` : "—"} />
-                  <DetailRow label="Driver Contact Phone:" value="+234 803 111 2222" />
-                </div>
-              </div>
-
-              {/* Expense Configuration Breakdown */}
-              <div>
-                <h4 className="text-[14px] font-bold text-[#141a1f] mb-3 border-b border-[#e2e5e9] pb-2">Expense Configuration Breakdown</h4>
-                <div className="space-y-2.5">
-                  <DetailRow label="Trip Allowance:" value={formatN(trip.directCosts?.tripAllowance || 10000)} />
-                  <DetailRow label="Return Waybill:" value={formatN(trip.directCosts?.returnWaybill || 10000)} />
-                  <DetailRow label="Motor Boy Allowance:" value={formatN(trip.directCosts?.motorBoy || 5000)} />
-                  <DetailRow label="Transit Road Tickets:" value={formatN(trip.directCosts?.ticket || 2000)} />
-                  <DetailRow label="Extra Contingency:" value={formatN(trip.directCosts?.extraAllowance || 8000)} />
-                  <DetailRow label="Lubricant:" value="(60litres) 76,800.00" />
-                  <div className="border-t border-[#e2e5e9] my-1"></div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[13px] font-bold text-[#141a1f]">Total Configured Expense:</span>
-                    <span className="font-bold text-[15px] text-[#34c759]">{formatN(35000)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StatusPill status={displayStatus} />
           </div>
 
-          {/* Right — Dispatch Timeline */}
-          <div className="flex-1 lg:max-w-[480px] bg-white rounded-xl border border-[#e2e5e9] shadow-sm overflow-hidden">
-            <div className="p-5 md:p-6 border-b border-[#e2e5e9]">
-              <h2 className="text-xl font-bold text-[#141a1f]">Dispatch Timeline</h2>
+          <div className="flex flex-col gap-4 p-5">
+            <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
+              <span className="text-[14px] font-bold text-[#1B2432]">Customer Details</span>
+              <DetailRow label="Customer Name:" value={trip.customerConsignee} />
+              <DetailRow label="Destination:" value={trip.dropoff} />
+              <DetailRow
+                label="Loading Site(s):"
+                value={trip.loadingSite?.filter(Boolean).join("\n") || trip.pickup}
+              />
             </div>
-            <div className="p-5 md:p-6">
-              <ol className="relative ml-3 border-l-2 border-[#e2e5e9] pl-7 space-y-0">
-                {timeline.map((step, i) => (
-                  <li key={step.label} className="relative pb-6 last:pb-0">
-                    {/* Main Dot */}
-                    <span className={cn(
-                      "absolute -left-[33px] top-0.5 w-4 h-4 rounded-full border-2",
-                      step.done
-                        ? "bg-[#ea3a3d] border-[#ea3a3d]"
-                        : "bg-white border-[#d1d5db]"
-                    )} />
-                    <div>
-                      <p className={cn("text-[13px] font-bold", step.done ? "text-[#ea3a3d]" : "text-[#9ca3af]")}>
-                        {step.label}
-                      </p>
-                      <p className="text-[11px] text-[#9ca3af] mt-0.5">3rd Aug 2026 • 06:25</p>
+
+            <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
+              <span className="text-[14px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
+              <DetailRow label="Truck Head (Cap Number):" value={trip.headId} />
+              <DetailRow label="Truck Head Plate Number:" value={trip.truckReg} />
+              <DetailRow
+                label="Truck Tail assigned:"
+                value={[trip.tailType, trip.tailNumber].filter(Boolean).join(" ")}
+              />
+              <DetailRow label="Driver Assigned:" value={trip.driverName} />
+            </div>
+
+            {(trip.directCosts || typeof trip.totalCosts === "number") && (
+              <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
+                <span className="text-[14px] font-bold text-[#1B2432]">Expense Configuration Breakdown</span>
+                {trip.directCosts && (
+                  <>
+                    <DetailRow label="Trip Allowance:" value={formatN(trip.directCosts.tripAllowance)} />
+                    <DetailRow label="Return Waybill:" value={formatN(trip.directCosts.returnWaybill)} />
+                    <DetailRow label="Motor Boy Allowance:" value={formatN(trip.directCosts.motorBoy)} />
+                    <DetailRow label="Transit Road Tickets:" value={formatN(trip.directCosts.ticket)} />
+                    <DetailRow label="Extra Contingency:" value={formatN(trip.directCosts.extraAllowance)} />
+                    <DetailRow label="Lubricant:" value={trip.directCosts.lubricantType} />
+                  </>
+                )}
+                {typeof trip.totalCosts === "number" && (
+                  <>
+                    <div className="h-px w-full bg-[#E2E5E9]" />
+                    <div className="flex items-center justify-between gap-4 text-[14px] font-bold">
+                      <span className="text-[#1B2432]">Total Configured Expense:</span>
+                      <span className="text-[#ED351D]">{formatN(trip.totalCosts)}</span>
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
-                    {/* Sub-locations for In Transit / Return Trip */}
-                    {step.children && (
-                      <ol className="relative ml-2 mt-3 border-l border-[#e2e5e9] pl-5 space-y-3">
-                        {step.children.map((child) => (
-                          <li key={child.label} className="relative">
-                            <span className={cn(
-                              "absolute -left-[22px] top-0.5 w-2.5 h-2.5 rounded-full border-2",
-                              child.done ? "bg-[#ea3a3d] border-[#ea3a3d]" : "bg-white border-[#d1d5db]"
-                            )} />
-                            <p className={cn("text-[12px] font-semibold", child.done ? "text-[#ea3a3d]" : "text-[#9ca3af]")}>
-                              {child.label}
-                            </p>
-                            <p className="text-[10px] text-[#9ca3af]">3rd Aug 2026 • 06:25</p>
-                          </li>
-                        ))}
-                      </ol>
+        <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)] lg:max-w-[480px]">
+          <div className="border-b border-[#E2E5E9] p-5">
+            <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch Timeline</h2>
+          </div>
+          <div className="p-5">
+            <ol className="relative ml-3 space-y-0 border-l-2 border-[#E2E5E9] pl-7">
+              {timeline.map((step) => (
+                <li key={step.label} className="relative pb-6 last:pb-0">
+                  <span
+                    className={cn(
+                      "absolute -left-[33px] top-0.5 size-4 rounded-full border-2",
+                      step.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
                     )}
-
-                    {/* Arrival Confirmation Button */}
-                    {step.confirmable && step.done && (
-                      <button 
-                        className="flex items-center gap-2 mt-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toast.success("Arrival confirmed", { description: "Timestamp and location logged." });
-                        }}
-                      >
-                        <span className="w-3 h-3 rounded-full bg-[#34c759]"></span>
-                        <span className="bg-[#1B2432] text-white text-[10px] font-semibold px-3 py-1 rounded-full hover:bg-black transition-colors">
-                          Arrival Confirmation
-                        </span>
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
+                  />
+                  <p className={cn("text-[13px] font-bold", step.done ? "text-[#ED351D]" : "text-[#9CA3AF]")}>
+                    {step.label}
+                  </p>
+                  {formatHistoryDate(trip) && (
+                    <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{formatHistoryDate(trip)}</p>
+                  )}
+                  {step.children && (
+                    <ol className="relative mt-3 ml-2 space-y-3 border-l border-[#E2E5E9] pl-5">
+                      {step.children.map((child) => (
+                        <li key={child.label} className="relative">
+                          <span
+                            className={cn(
+                              "absolute -left-[22px] top-0.5 size-2.5 rounded-full border-2",
+                              child.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
+                            )}
+                          />
+                          <p
+                            className={cn(
+                              "text-[12px] font-semibold",
+                              child.done ? "text-[#ED351D]" : "text-[#9CA3AF]",
+                            )}
+                          >
+                            {child.label}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  {step.confirmable && step.done && (
+                    <button
+                      type="button"
+                      className="mt-2 flex items-center gap-2"
+                      onClick={() => toast.success("Arrival confirmed", { description: "Timestamp and location logged." })}
+                    >
+                      <span className="size-3 rounded-full bg-[#34C759]" />
+                      <span className="rounded-full bg-[#1B2432] px-3 py-1 text-[10px] font-semibold text-white">
+                        Arrival Confirmation
+                      </span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-start text-[13px]">
-      <span className="text-[#5c6470] shrink-0">{label}</span>
-      <span className="font-semibold text-[#141a1f] text-right whitespace-pre-line">{value}</span>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// DISPATCH HISTORY LIST PAGE
-// ─────────────────────────────────────────────────────────────
 
 function DispatchHistoryPage() {
   const { trips } = Route.useLoaderData();
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter trips based on search
-  const filteredTrips = trips.filter(t =>
-    !searchQuery ||
-    t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.cargo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTrips = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return trips.filter((t) => {
+      if (!q) return true;
+      const hay = `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.cargo} ${t.tailType ?? ""} ${t.dropoff} ${t.status}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [trips, searchQuery]);
+
+  const exportCSV = () => {
+    const headers = "Dispatch ID,Date,Company,Product,Truck Type,Destination,Status\n";
+    const csv = filteredTrips
+      .map(
+        (t) =>
+          `${dispatchId(t)},${formatHistoryDate(t)},${companyName(t)},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toDisplayStatus(t.status)}`,
+      )
+      .join("\n");
+    const blob = new Blob([headers + csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dispatch_history.csv";
+    a.click();
+    toast.success("Exported CSV successfully.");
+  };
 
   if (selectedTrip) {
     return <DispatchDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
   }
 
-  const historyColumns: Column<Trip>[] = [
-    { key: "id", header: "Request ID", sortValue: (r) => r.id, cell: (r) => <span className="font-semibold text-[#141a1f]">{r.id}</span> },
-    { key: "date", header: "Date", sortValue: (r) => r.scheduledDate, cell: (r) => <span className="text-[#5c6470]">{r.scheduledDate || "02 Sept 2026"}</span> },
-    { key: "company", header: "Company", sortValue: (r) => r.customer, cell: (r) => <span className="text-[#141a1f]">{r.customer}</span> },
-    { key: "product", header: "Product", sortValue: (r) => r.cargo, cell: (r) => <span className="text-[#5c6470]">{r.cargo}</span> },
-    { key: "truckType", header: "Truck Type", sortValue: () => "Flat", cell: () => <span className="text-[#5c6470]">Flat</span> },
-    { key: "destination", header: "Destination", sortValue: (r) => r.dropoff, cell: (r) => <span className="text-[#5c6470]">{r.dropoff || "ABC, Alake Estate"}</span> },
-    {
-      key: "status",
-      header: "Status",
-      sortValue: (r) => r.status,
-      cell: (r) => {
-        // Map internal statuses to display statuses
-        const displayStatus = r.status === "En Route" || r.status === "Loaded" ? "In Transit" :
-          r.status === "Requested" || r.status === "Awaiting Approval" ? "Pending" :
-          r.status === "Approved for Dispatch" || r.status === "Scheduled" ? "Pending" :
-          r.status;
-        return <StatusPill status={displayStatus} />;
-      }
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#f4f5f7] font-['Inter',sans-serif]">
-      {/* Desktop Header */}
-      <div className="hidden md:block w-full bg-white border-b border-[#e2e5e9] px-6 py-4">
-        <h1 className="text-xl font-bold text-[#141a1f]">Dispatch History</h1>
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Manage and track live fleet status.</p>
+    <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-[5px]">
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Dispatch History</h2>
+          <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            Manage and track live fleet status.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={exportCSV}
+          className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
+        >
+          <Download className="size-[18px]" strokeWidth={1.75} />
+          Export CVS
+        </button>
       </div>
 
-      <div className="px-4 md:px-6 py-4 md:py-6 max-w-[1400px] mx-auto">
-        {/* Mobile Header */}
-        <div className="md:hidden mb-6">
-          <h1 className="text-[22px] font-bold text-[#141a1f]">Dispatch History</h1>
-          <p className="text-[13px] text-slate-500 leading-snug mt-1.5">Manage and track live fleet status.</p>
-        </div>
-
-        {/* Export Button */}
-        <div className="flex justify-end mb-4">
-          <button 
-            className="flex items-center gap-2 bg-[#1B2432] text-white text-[12px] font-semibold h-9 px-4 rounded-[4px] hover:bg-black transition-colors"
-            onClick={() => toast.success("Export queued")}
-          >
-            <Download className="h-4 w-4" />
-            Export CVS
-          </button>
-        </div>
-
-        {/* Mobile Fleet Register Header */}
-        <div className="md:hidden mb-4">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-[16px] font-bold text-[#141a1f]">Fleet Register</h2>
-            <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
+      <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E5E9] pb-2.5">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">History</h3>
+            <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white">
               {filteredTrips.length}
             </span>
           </div>
-          
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
+          <div className="flex items-center gap-5">
+            <div className="relative w-full max-w-[400px] min-w-[200px]">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
+                strokeWidth={1.5}
+              />
               <input
-                type="text"
-                placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-3 bg-white border border-[#e2e5e9] rounded-[8px] text-sm focus:outline-none focus:border-[#ea3a3d]"
+                placeholder="Search"
+                className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button className="h-10 w-10 bg-[#ea3a3d] rounded-[8px] flex items-center justify-center shrink-0">
-              <SlidersHorizontal className="h-4 w-4 text-white" />
+            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
             </button>
           </div>
         </div>
 
-        {/* Desktop Table */}
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden hidden md:block">
-          <div className="p-4 border-b border-[#e2e5e9] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-[#141a1f]">History</h2>
-              <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
-                {filteredTrips.length}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 pl-10 pr-3 bg-white border border-[#e2e5e9] rounded-[6px] text-sm w-[200px] focus:outline-none focus:border-[#ea3a3d]"
-                />
-              </div>
-              <button className="h-9 w-9 bg-[#ea3a3d] rounded-[6px] flex items-center justify-center shrink-0">
-                <SlidersHorizontal className="h-4 w-4 text-white" />
-              </button>
-            </div>
-          </div>
-          <div onClick={(e) => {
-            const row = (e.target as HTMLElement).closest("tr");
-            if (row) {
-              const idx = Array.from(row.parentElement?.children || []).indexOf(row);
-              if (idx >= 0 && filteredTrips[idx]) {
-                setSelectedTrip(filteredTrips[idx]);
-              }
-            }
-          }} className="cursor-pointer">
-            <DataTable
-              rows={filteredTrips}
-              columns={historyColumns}
-              pageSize={10}
-            />
-          </div>
+        <div className="hidden grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 md:grid">
+          {["Dispatch ID", "Date", "Company", "Product", "Truck Type", "Destination", "Status"].map((h) => (
+            <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {h}
+            </span>
+          ))}
         </div>
 
-        {/* Mobile Card View */}
-        <div className="md:hidden flex flex-col gap-3 pb-24">
-          {filteredTrips.map(r => {
-            const displayStatus = r.status === "En Route" || r.status === "Loaded" ? "In Transit" :
-              r.status === "Requested" || r.status === "Awaiting Approval" ? "Pending" :
-              r.status === "Approved for Dispatch" || r.status === "Scheduled" ? "Pending" :
-              r.status;
-            return (
-              <div
-                key={r.id}
-                onClick={() => setSelectedTrip(r)}
-                className="bg-white rounded-[8px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e2e5e9] cursor-pointer active:bg-slate-50 transition-colors"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <div className="text-[11px] text-[#5c6470]">{r.scheduledDate || new Date().toLocaleDateString()}</div>
-                  <StatusPill status={displayStatus} />
+        {filteredTrips.map((trip) => {
+          const status = toDisplayStatus(trip.status);
+          return (
+            <button
+              key={trip.id}
+              type="button"
+              onClick={() => setSelectedTrip(trip)}
+              className="grid w-full grid-cols-1 items-center gap-2 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0 md:grid-cols-[110px_150px_180px_140px_120px_1fr_120px] md:gap-[30px]"
+            >
+              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+                {formatHistoryDate(trip)}
+              </span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
+                {companyName(trip)}
+              </span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.cargo}</span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.tailType}</span>
+              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
+              <div className="flex items-center justify-between gap-3 md:justify-start">
+                <div className="md:hidden">
+                  <p className="text-[14px] font-medium text-[#1B2432]">{companyName(trip) || trip.cargo}</p>
+                  <p className="text-[12px] text-[#5C6470]">{trip.dropoff}</p>
                 </div>
-                <h3 className="font-bold text-[#1a2332] text-[15px] mb-3">{r.customer}</h3>
-                <div className="grid grid-cols-[100px_1fr] gap-y-1.5 text-[13px]">
-                  <span className="text-[#5c6470]">Request ID:</span>
-                  <span className="text-[#ea3a3d] font-semibold">{r.id}</span>
-                  
-                  <span className="text-[#5c6470]">Product:</span>
-                  <span className="text-[#3c4250]">{r.cargo}</span>
-                  
-                  <span className="text-[#5c6470]">Truck Type:</span>
-                  <span className="text-[#3c4250]">{r.tailType || "Flat"}</span>
-                  
-                  <span className="text-[#5c6470]">Destination:</span>
-                  <span className="text-[#3c4250]">{r.dropoff}</span>
-                </div>
+                <StatusPill status={status} />
               </div>
-            );
-          })}
-        </div>
+            </button>
+          );
+        })}
+
+        {filteredTrips.length === 0 && (
+          <FigmaEmptyState
+            title={searchQuery ? "No matching dispatch history" : "No dispatch history yet"}
+            body={
+              searchQuery
+                ? "Try a different dispatch ID, company, or destination."
+                : "Completed and in-progress dispatches from the live API will list here."
+            }
+          />
+        )}
       </div>
     </div>
   );
