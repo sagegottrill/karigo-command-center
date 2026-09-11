@@ -419,12 +419,19 @@ function PartnerRequestDetailsPage() {
               </div>
             </section>
 
-            {/* Real-Time Tracking */}
-            <section className="w-full min-w-0 overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+            {/* Real-Time Tracking — Figma `356:9890` / pending `356:9825` */}
+            <section className="flex w-full min-w-0 flex-col overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
               <div className="border-b border-[#5C6470]/40 px-5 py-2.5">
-                <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Real-Time Tracking</h3>
+                <h3 className="text-[18px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+                  Real-Time Tracking
+                </h3>
               </div>
-              <div className="relative flex h-[280px] items-center justify-center bg-[#E8ECF0] sm:h-[419px]">
+              <div
+                className={cn(
+                  "relative flex min-h-[280px] flex-1 items-center justify-center sm:min-h-[419px]",
+                  uiStatus === "In transit" || uiStatus === "Completed" ? "bg-[#E8ECF0]" : "bg-white",
+                )}
+              >
                 {uiStatus === "In transit" || uiStatus === "Completed" ? (
                   <>
                     <div className="absolute inset-0 bg-[linear-gradient(135deg,#d7dde5_0%,#eef1f4_50%,#d5dbe3_100%)]" />
@@ -436,15 +443,17 @@ function PartnerRequestDetailsPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="relative z-[1] flex max-w-sm flex-col items-center gap-[15px] px-6 text-center">
-                    <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Awaiting Assignment</p>
-                    <p className="text-[10px] font-medium text-[rgba(92,100,112,0.3)]">
+                  <div className="relative z-[1] flex w-full max-w-[355px] flex-col items-center justify-center gap-[15px] px-6 text-center">
+                    <p className="text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-[#5C6470]">
+                      Awaiting Assignment
+                    </p>
+                    <p className="text-[10px] font-medium leading-normal text-[rgba(92,100,112,0.3)]">
                       Live tracking will begin once a truck has been assigned and the request is approved.
                     </p>
                   </div>
                 )}
               </div>
-              <div className="h-12 border-t border-[#5C6470]/40 px-5" />
+              <div className="h-12 shrink-0 border-t border-[#5C6470]/40 px-5" />
             </section>
 
             {/* Assignment Details */}
@@ -453,7 +462,7 @@ function PartnerRequestDetailsPage() {
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
               </div>
               {trip.status === "Requested" || trip.status === "Awaiting Approval" ? (
-                <div className="px-4 py-10 text-center text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+                <div className="px-4 py-10 text-center text-[14px] font-normal italic tracking-[0.4px] text-[#5C6470]">
                   Awaiting Transport Manager approval and assignment.
                 </div>
               ) : (

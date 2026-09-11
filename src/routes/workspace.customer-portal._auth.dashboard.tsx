@@ -211,20 +211,35 @@ function PartnerPortalDashboard() {
 
   const activeSortLabel = sortOptions.find((o) => o.key === sortKey)?.label ?? "Date";
 
-  const FilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-    <span className="inline-flex h-8 items-center gap-1.5 rounded border border-[#E2E5E9] bg-white px-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]">
-      <span className="text-[13px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
+  /** Figma SearchAndFilter Variant2 (`124:3827`): sort-key = red, order = navy. */
+  const FilterChip = ({
+    label,
+    onRemove,
+    tone,
+  }: {
+    label: string;
+    onRemove: () => void;
+    tone: "sort" | "order";
+  }) => (
+    <span
+      className={cn(
+        "inline-flex h-8 items-center gap-3.5 rounded px-[7px] py-[5px]",
+        tone === "sort" ? "bg-[#ED351D]" : "bg-[#1B2432]",
+      )}
+    >
+      <span className="text-[12px] font-normal tracking-[0.4px] text-white">{label}</span>
       <button
         type="button"
         onClick={onRemove}
-        className="grid size-4 place-items-center rounded text-[#5C6470] hover:text-[#ED351D]"
+        className="grid size-3 place-items-center text-white/90 hover:text-white"
         aria-label={`Remove ${label}`}
       >
-        <X className="size-3.5" strokeWidth={2.25} />
+        <X className="size-3" strokeWidth={2.5} />
       </button>
     </span>
   );
 
+  /** Figma Filter-Order (`124:3478`): white row; only checkbox fills red when selected. */
   const CheckRow = ({
     selected,
     label,
@@ -237,12 +252,12 @@ function PartnerPortalDashboard() {
     <button
       type="button"
       onClick={onSelect}
-      className="flex h-9 w-full items-center gap-2.5 rounded px-2.5 py-[7px] text-left"
+      className="flex h-9 w-fit items-center gap-2.5 rounded bg-white px-2.5 py-[7px] text-left"
     >
       <span
         className={cn(
           "grid size-4 shrink-0 place-items-center rounded border border-[#E2E5E9] shadow-[0px_4px_5px_rgba(0,0,0,0.05)]",
-          selected ? "bg-[#ED351D]" : "bg-white",
+          selected ? "bg-[#ED351D]" : "bg-transparent",
         )}
       >
         {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
@@ -319,8 +334,8 @@ function PartnerPortalDashboard() {
           </div>
           {filtersApplied ? (
             <div className="flex flex-wrap items-center gap-2">
-              <FilterChip label={activeSortLabel} onRemove={clearSortKeyChip} />
-              <FilterChip label={sortOrder} onRemove={clearSortOrderChip} />
+              <FilterChip label={activeSortLabel} onRemove={clearSortKeyChip} tone="sort" />
+              <FilterChip label={sortOrder} onRemove={clearSortOrderChip} tone="order" />
               <button
                 type="button"
                 onClick={clearAllFilterChips}

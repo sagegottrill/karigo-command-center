@@ -148,7 +148,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] lg:flex">
           <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            Manage the lifecycle of every account within the company to maintain data integrity.
+            Track your transport requests and their current statuses
           </p>
         </header>
 
