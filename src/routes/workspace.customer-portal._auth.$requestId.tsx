@@ -541,50 +541,54 @@ function PartnerRequestDetailsPage() {
                   className={inputClass}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Product</span>
-                <input
-                  value={draftProduct}
-                  onChange={(e) => setDraftProduct(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
 
-              <div className={cn("relative flex flex-col gap-1.5", truckDropdownOpen ? "z-40" : "z-10")}>
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Truck Type</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTruckDropdownOpen((o) => !o);
-                    setSiteDropdownIndex(null);
-                  }}
-                  className={cn(inputClass, "justify-between")}
-                >
-                  <span className={draftTruckType ? "text-[#1B2432]" : "text-[#5C6470]"}>
-                    {draftTruckType || "Select"}
-                  </span>
-                  <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
-                </button>
-                {truckDropdownOpen ? (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[220px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                    {PARTNER_TRUCK_TYPE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => {
-                          setDraftTruckType(opt);
-                          setTruckDropdownOpen(false);
-                        }}
-                        className={cn(
-                          "w-full px-3 py-2.5 text-left text-[14px]",
-                          draftTruckType === opt ? "bg-[#ED351D] text-white" : "text-[#1B2432] hover:bg-[#F1F2F4]",
-                        )}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+              {/* Figma Partner Request Details: Product + Truck Type share one row */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Product</span>
+                  <input
+                    value={draftProduct}
+                    onChange={(e) => setDraftProduct(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className={cn("relative flex min-w-0 flex-col gap-1.5", truckDropdownOpen ? "z-40" : "z-10")}>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Truck Type</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTruckDropdownOpen((o) => !o);
+                      setSiteDropdownIndex(null);
+                    }}
+                    className={cn(inputClass, "justify-between")}
+                  >
+                    <span className={draftTruckType ? "text-[#1B2432]" : "text-[#5C6470]"}>
+                      {draftTruckType || "Select"}
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
+                  </button>
+                  {truckDropdownOpen ? (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[220px] overflow-y-auto rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                      {PARTNER_TRUCK_TYPE_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            setDraftTruckType(opt);
+                            setTruckDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2.5 text-left text-[14px]",
+                            draftTruckType === opt ? "bg-[#ED351D] text-white" : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
