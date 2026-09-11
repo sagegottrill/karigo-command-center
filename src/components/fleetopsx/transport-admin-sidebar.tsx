@@ -85,6 +85,8 @@ export function TransportAdminSidebar({
   const userEmail = mounted && currentUser?.email ? currentUser.email : "";
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "";
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
+  const [logoBroken, setLogoBroken] = useState(false);
+  const displayLogo = logoBroken ? "/figma/petroline-logo.png" : logoSrc;
 
   const handleLogout = () => {
     authService.logout();
@@ -111,9 +113,10 @@ export function TransportAdminSidebar({
           )}
         >
           <img
-            src={logoSrc}
+            src={displayLogo}
             alt={tenantName || "Petroline"}
             className={cn("object-contain", collapsed ? "h-10 w-10" : "h-[60px] w-[107px]")}
+            onError={() => setLogoBroken(true)}
           />
         </Link>
 
