@@ -174,3 +174,55 @@ export function FleetOperationsSidebar({
 export function shouldUseFleetOpsShell(roles: string[]) {
   return roles.includes("Fleet Operations") && !roles.includes("Transport Manager");
 }
+
+/** Figma FO mobile bottom tab bar (390 frames) */
+export function FleetOperationsMobileNav() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void notificationService
+      .getUnreadCount()
+      .then((count) => {
+        if (!cancelled) setUnread(count);
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] md:hidden">
+      {FO_NAV.map((item) => {
+        const active = isPathActive(pathname, item.to);
+        const Icon = item.icon;
+        const showBadge = item.to.includes("notifications") && unread > 0;
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={cn(
+              "relative flex flex-1 flex-col items-center justify-center gap-0.5 px-1",
+              active ? "text-white" : "text-white/50",
+            )}
+          >
+            <span className="relative">
+              <Icon className="size-5" strokeWidth={1.5} />
+              {showBadge && (
+                <span className="absolute -right-2 -top-1 grid size-4 place-items-center rounded-full bg-[#ED351D] text-[9px] text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </span>
+            <span className="text-[10px] font-medium leading-tight">{item.label.replace("Fleet ", "").replace("Manage ", "")}</span>
+            {active && <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" />}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}

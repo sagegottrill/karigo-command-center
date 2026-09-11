@@ -65,7 +65,7 @@ export function AppHeader({
     setMounted(true);
   }, []);
   const currentUser = mounted ? authService.getCurrentUser() : null;
-  const roleNames = authService.getRoles();
+  const roleNames = mounted ? authService.getRoles() : [];
   const roleName = roleNames.join(", ");
   const role = ROLES.find((r) => r.name === roleName) ?? ROLES[0]!;
   const navigate = useNavigate();

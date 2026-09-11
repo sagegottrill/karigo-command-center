@@ -11,12 +11,19 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { tenantLogo, tenantName } = RootRoute.useRouteContext();
-  const currentUser = authService.getCurrentUser();
   const [showLogout, setShowLogout] = useState(false);
   const [logoSrc, setLogoSrc] = useState(tenantLogo || "/figma/petroline-logo.png");
+  const [companyName, setCompanyName] = useState("Partner");
+  const [userEmail, setUserEmail] = useState("");
+  const [userInitials, setUserInitials] = useState("PT");
 
   useEffect(() => {
-    const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
+    const currentUser = authService.getCurrentUser();
+    setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
+    setUserEmail(currentUser?.email || "");
+    setUserInitials(currentUser?.initials || "PT");
+
+    const slug = getTenantSlug();
     if (slug && slug !== "localhost" && slug !== "fleetopsx") {
       void tenantService
         .getBySlug(slug)
@@ -26,10 +33,6 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         .catch(() => undefined);
     }
   }, []);
-
-  const companyName = currentUser?.partnerCompanyName || currentUser?.name || "Partner";
-  const userEmail = currentUser?.email || "";
-  const userInitials = currentUser?.initials || "PT";
 
   const handleLogout = () => {
     authService.logout();

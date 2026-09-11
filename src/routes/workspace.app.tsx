@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { FleetOperationsSidebar, shouldUseFleetOpsShell } from "@/components/fleetopsx/fleet-operations-sidebar";
+import {
+  FleetOperationsMobileNav,
+  FleetOperationsSidebar,
+  shouldUseFleetOpsShell,
+} from "@/components/fleetopsx/fleet-operations-sidebar";
 import { TransportAdminSidebar } from "@/components/fleetopsx/transport-admin-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app")({
   beforeLoad: ({ location }) => {
@@ -44,14 +49,16 @@ export const Route = createFileRoute("/workspace/app")({
 
 function AppShell() {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window !== "undefined") return window.innerWidth < 768;
-    return false;
-  });
-  const [useFoShell] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return shouldUseFleetOpsShell(authService.getRoles());
-  });
+  // Always start with SSR-safe defaults, then sync after mount (avoids React #419 hydration crash)
+  const [collapsed, setCollapsed] = useState(false);
+  const [useFoShell, setUseFoShell] = useState(false);
+  const [shellReady, setShellReady] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(window.innerWidth < 768);
+    setUseFoShell(shouldUseFleetOpsShell(authService.getRoles()));
+    setShellReady(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -84,12 +91,21 @@ function AppShell() {
         <TransportAdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader onToggleSidebar={() => setCollapsed((c) => !c)} forceFleetOps={useFoShell} />
-        <main className="scroll-edge min-w-0 flex-1 overflow-auto pb-20 md:pb-0">
+        <AppHeader
+          onToggleSidebar={() => setCollapsed((c) => !c)}
+          forceFleetOps={shellReady ? useFoShell : false}
+        />
+        <main
+          className={cn(
+            "scroll-edge min-w-0 flex-1 overflow-auto",
+            useFoShell ? "pb-24 md:pb-0" : "pb-20 md:pb-0",
+          )}
+        >
           <div className="mx-auto w-full max-w-[1920px]">
             <Outlet />
           </div>
         </main>
+        {useFoShell ? <FleetOperationsMobileNav /> : null}
       </div>
     </div>
   );
