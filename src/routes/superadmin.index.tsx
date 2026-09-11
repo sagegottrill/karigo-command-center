@@ -240,9 +240,9 @@ function SuperAdminLayout() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-[#f8f9fa]">
               <DialogHeader className="bg-white px-6 py-4 border-b border-gray-200">
-                <DialogTitle className="text-xl font-bold text-gray-900">Onboard New Tenant</DialogTitle>
-                <DialogDescription className="text-sm text-gray-500 mt-1">
-                  Provision a new enterprise workspace, configure subscription, and create the initial Transport Manager.
+                <DialogTitle className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Onboard New Tenants</DialogTitle>
+                <DialogDescription className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)] mt-1">
+                  Provide enterprise workspace for new tenants and assign primary administrator
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-6 p-6">
@@ -251,7 +251,7 @@ function SuperAdminLayout() {
                 <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                   <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
                     <Building className="h-4 w-4 text-gray-500" />
-                    1. Workspace Profile
+                    Workspace Profile
                   </h3>
                   <div className="grid gap-5">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -265,7 +265,7 @@ function SuperAdminLayout() {
                       />
                     </div>
                     <div className="grid grid-cols-4 items-start gap-4">
-                      <Label htmlFor="domain" className="text-right text-sm font-medium text-gray-700 mt-2">Workspace Domain <span className="text-red-500">*</span></Label>
+                      <Label htmlFor="domain" className="text-right text-sm font-medium text-gray-700 mt-2">Workplace Domain <span className="text-red-500">*</span></Label>
                       <div className="col-span-3 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <Input
@@ -299,7 +299,7 @@ function SuperAdminLayout() {
                 <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                   <h3 className="text-sm font-semibold text-gray-900 border-b pb-3 mb-4 flex items-center gap-2">
                     <Users className="h-4 w-4 text-gray-500" />
-                    2. Primary Administrator (Transport Manager)
+                    Primary Administrator
                   </h3>
                   <div className="grid gap-5">
                     <div className="grid grid-cols-2 gap-4">
@@ -341,10 +341,10 @@ function SuperAdminLayout() {
               </div>
               <DialogFooter className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center sm:justify-between">
                 <p className="text-xs text-gray-500">
-                  Provisioning a tenant will automatically generate a <br/>Transport Manager account and send welcome emails.
+                  Creating a tenant will automatically generate a Transport Manager Account.
                 </p>
-                <Button onClick={handleCreateTenant} className="bg-[#e3351d] hover:bg-[#d62e19] text-white h-10 px-6">
-                  Provision Workspace & Admin
+                <Button onClick={handleCreateTenant} className="bg-[#ED351D] hover:bg-[#d62e19] text-white h-10 px-6">
+                  Create Workplace
                 </Button>
               </DialogFooter>
             </DialogContent>
