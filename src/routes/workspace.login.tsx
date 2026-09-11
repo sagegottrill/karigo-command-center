@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
+import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
   clearPortalSession,
   enterAuthenticatedApp,
@@ -62,6 +63,7 @@ function LoginPage() {
       authService.setRoles(user.roles ?? []);
       toast.success(`Welcome back, ${user?.name}`);
       if (user.passwordResetRequired) {
+        stashPendingLoginPassword(password);
         window.location.replace("/workspace/forgot-password");
         return;
       }

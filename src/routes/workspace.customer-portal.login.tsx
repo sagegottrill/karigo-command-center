@@ -5,6 +5,7 @@ import { UserRound, KeyRound } from "lucide-react";
 import { authService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { clearSession } from "@/lib/fleetopsx/apiClient";
+import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
   clearPortalSession,
   enterAuthenticatedApp,
@@ -70,6 +71,11 @@ function CustomerLogin() {
       }
       authService.setRoles(user.roles ?? []);
       toast.success("Welcome back", { description: `Signed in as ${user.name}` });
+      if (user.passwordResetRequired) {
+        stashPendingLoginPassword(password);
+        window.location.replace("/workspace/forgot-password");
+        return;
+      }
       void keepSignedIn;
       enterAuthenticatedApp("/workspace/customer-portal/dashboard");
     } catch (err) {

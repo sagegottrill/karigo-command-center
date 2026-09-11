@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, KeyRound, UserRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
+import { assertNewPasswordAllowed } from "@/lib/fleetopsx/password-policy";
 import { Route as RootRoute } from "./__root";
 
 type ForgotSearch = {
@@ -95,11 +96,8 @@ function ForgotPasswordPage() {
       navigate({ to: "/workspace/login" });
       return;
     }
-    if (password.trim().length < 6) {
-      toast.error("Password must be at least 6 characters.");
-      return;
-    }
     try {
+      assertNewPasswordAllowed(password);
       await authService.completeFirstTimeLogin(user.id, password.trim());
       toast.success("Password updated", {
         description: "Your new password has been set.",
@@ -182,7 +180,7 @@ function ForgotPasswordPage() {
         <div className="flex flex-col gap-[14px]">
           <h1 className="text-[24px] font-[600] leading-[32px] text-[#141a1f] tracking-[0.4px]">Set New Password</h1>
           <p className="text-[14px] font-[400] leading-[20px] text-[#5c6470] max-w-[307px] tracking-[0.4px]">
-            First-time login requires a password update to secure your account.
+            First-time login requires a password update to secure your account. Do not reuse your temporary or default password.
           </p>
         </div>
 

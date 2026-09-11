@@ -22,7 +22,12 @@ import type {
 } from "./types";
 import { allowMockFallback, getStoredUser, getToken } from "./apiClient";
 import { rosterBodiesAsTails } from "./display-ids";
+import { getTenantSlug } from "./hostname";
 import { mergeRoleNotifications, synthesizeRoleNotifications } from "./notification-scope";
+import {
+  assertNewPasswordAllowed,
+  clearPendingLoginPassword,
+} from "./password-policy";
 import { hardLogout } from "./session";
 import {
   applyLoginSession,
@@ -82,8 +87,6 @@ import {
 const LATENCY = 0;
 const settle = <T,>(value: T): Promise<T> =>
   LATENCY ? new Promise((res) => setTimeout(() => res(value), LATENCY)) : Promise.resolve(value);
-
-import { getTenantSlug } from "./hostname";
 
 const useMock = () => allowMockFallback();
 
@@ -419,14 +422,13 @@ export const authService = {
     return !!(localStorage.getItem("fleetopsx_token") || localStorage.getItem("fleetopsx_user_id"));
   },
   completeFirstTimeLogin: async (userId: string, newPassword?: string) => {
+    assertNewPasswordAllowed(newPassword ?? "");
     if (!useMock()) {
-      if (!newPassword || newPassword.length < 6) {
-        throw new Error("Password must be at least 6 characters.");
-      }
       const updated = await liveUpdateUser(userId, {
-        password: newPassword,
+        password: newPassword!.trim(),
         passwordResetRequired: false,
       });
+      clearPendingLoginPassword();
       if (typeof window !== "undefined") {
         localStorage.setItem("fleetopsx_user", JSON.stringify({ ...updated, passwordResetRequired: false }));
         localStorage.setItem("fleetopsx_user_id", updated.id);
@@ -435,6 +437,7 @@ export const authService = {
       return true;
     }
     store.users = store.users.map((u) => (u.id === userId ? { ...u, passwordResetRequired: false } : u));
+    clearPendingLoginPassword();
     if (typeof window !== "undefined") {
       const cached = getStoredUser<User>();
       if (cached?.id === userId) {

@@ -4,6 +4,7 @@
  * Browser: prefer same-origin `/api` (Vercel rewrite / Vite proxy) to avoid mixed-content.
  * SSR: hit the absolute backend URL.
  */
+import { clearPendingLoginPassword } from "./password-policy";
 
 const TOKEN_KEY = "fleetopsx_token";
 const USER_KEY = "fleetopsx_user_id";
@@ -69,6 +70,7 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(ROLES_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
+  clearPendingLoginPassword();
 }
 
 export class ApiError extends Error {
