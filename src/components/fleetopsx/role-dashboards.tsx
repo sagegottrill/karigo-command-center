@@ -3,9 +3,21 @@ import { formatNaira } from "@/lib/fleetopsx/services";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
 import { Button } from "@/components/ui/button";
-import type { Trip, TruckHead, TruckTail, Expense, GateEntry, Driver, Alert, WorkOrder, InventoryItem, ProcurementRequest } from "@/lib/fleetopsx/types";
+import type {
+  Trip,
+  TruckHead,
+  TruckTail,
+  Expense,
+  GateEntry,
+  Driver,
+  AlertItem,
+  WorkOrder,
+  InventoryItem,
+  ProcurementRequest,
+} from "@/lib/fleetopsx/types";
 
-const card = "rounded-[24px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] p-6";
+const card =
+  "rounded border border-[#E2E5E9] bg-white p-5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]";
 
 export interface DashboardProps {
   trips: Trip[];
@@ -13,97 +25,172 @@ export interface DashboardProps {
   expenses: Expense[];
   gateEntries: GateEntry[];
   drivers: Driver[];
-  alerts: Alert[];
+  alerts: AlertItem[];
   workOrders: WorkOrder[];
   inventory: InventoryItem[];
   procurement: ProcurementRequest[];
 }
 
 export function TransportManagerDashboard({ trips }: DashboardProps) {
-  const awaitingOrders = trips.filter(t => t.status === "Scheduled");
+  const awaitingOrders = trips.filter((t) => t.status === "Scheduled" || t.status === "Awaiting Approval");
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Transport Manager Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <MetricCard label="Orders Awaiting Accept/Cancel" value={awaitingOrders.length} variant="warning" />
-      </div>
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Transport Manager</h2>
+      <MetricCard label="Orders awaiting action" value={awaitingOrders.length} />
       <div className={card}>
-        <h3 className="font-semibold mb-4">Pending Orders</h3>
-        {awaitingOrders.map(t => (
-          <div key={t.id} className="flex justify-between py-2 border-b last:border-0">
-            <span>{t.id} - {t.origin} to {t.destination}</span>
-            <Link to="/workspace/app/trips/$tripId" params={{ tripId: t.id }}><Button size="sm">Review</Button></Link>
-          </div>
-        ))}
+        <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Pending orders</h3>
+        {awaitingOrders.length === 0 ? (
+          <p className="text-[14px] text-[#5C6470]">No scheduled trips waiting.</p>
+        ) : (
+          awaitingOrders.map((t) => (
+            <div key={t.id} className="flex justify-between gap-3 border-b border-[#E2E5E9] py-2 last:border-0">
+              <span className="text-[14px] text-[#1B2432]">
+                {t.id} — {t.pickup} to {t.dropoff}
+              </span>
+              <Link to="/workspace/app/fleet">
+                <Button size="sm">Review</Button>
+              </Link>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
-  const activeDispatch = trips.filter(t => t.status === "Approved for Dispatch");
-  const pendingOrders = trips.filter(t => t.status === "Awaiting Approval");
-  const availableHeads = trucks.filter(t => t.type === "Head" && t.status === "Available").length;
-  const availableTails = trucks.filter(t => t.type === "Tail" && t.status === "Available").length;
-  
+  const incoming = trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval");
+  const activeDispatch = trips.filter(
+    (t) =>
+      t.status === "Scheduled" ||
+      t.status === "En Route" ||
+      t.status === "Loaded" ||
+      t.status === "Offloading" ||
+      t.status === "Returning" ||
+      t.status === "Delayed",
+  );
+  const availableHeads = trucks.filter((t) => t.status === "Available").length;
+  const inUseHeads = trucks.filter((t) => t.status === "Assigned" || t.status === "In Transit").length;
+  const completed = trips.filter((t) => t.status === "Completed").length;
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Fleet Operations Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard label="Incoming Orders" value={pendingOrders.length} variant="warning" />
-        <MetricCard label="Active Dispatch Queue" value={activeDispatch.length} variant="info" />
-        <MetricCard label="Available Heads" value={availableHeads} variant="success" />
-        <MetricCard label="Available Tails" value={availableTails} variant="success" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <div className="flex flex-col gap-[5px]">
+        <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Operations</h2>
+        <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+          Live dispatch queue and fleet readiness
+        </p>
       </div>
-      {pendingOrders.length > 0 && (
-        <div className={card}>
-          <h3 className="font-semibold mb-4">Pending Approvals (Trips Awaiting Auth)</h3>
-          {pendingOrders.map(t => (
-            <div key={t.id} className="flex justify-between py-2 border-b last:border-0 items-center">
-              <div>
-                <span className="block font-medium">{t.customer}</span>
-                <span className="text-xs text-muted-foreground">{t.cargo} - {t.pickup || t.origin} to {t.dropoff || t.destination}</span>
-              </div>
-              <Link to="/workspace/app/approvals"><Button size="sm">Review & Approve</Button></Link>
-            </div>
-          ))}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link
+          to="/workspace/app/dispatch"
+          className="rounded border border-[#E2E5E9] bg-white p-5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)] transition-colors hover:border-[#ED351D]/40"
+        >
+          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Incoming dispatch</p>
+          <p className="mt-2 font-space-grotesk text-[32px] font-medium leading-10 text-[#1B2432]">{incoming.length}</p>
+        </Link>
+        <Link
+          to="/workspace/app/dispatch"
+          className="rounded border border-[#E2E5E9] bg-white p-5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)] transition-colors hover:border-[#ED351D]/40"
+        >
+          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Active on road</p>
+          <p className="mt-2 font-space-grotesk text-[32px] font-medium leading-10 text-[#1B2432]">
+            {activeDispatch.length}
+          </p>
+        </Link>
+        <Link
+          to="/workspace/app/fleet-registry"
+          className="rounded border border-[#E2E5E9] bg-white p-5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)] transition-colors hover:border-[#ED351D]/40"
+        >
+          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Available heads</p>
+          <p className="mt-2 font-space-grotesk text-[32px] font-medium leading-10 text-[#1B2432]">{availableHeads}</p>
+          <p className="mt-1 text-[12px] text-[#5C6470]">{inUseHeads} assigned / in transit</p>
+        </Link>
+        <Link
+          to="/workspace/app/dispatch-history"
+          className="rounded border border-[#E2E5E9] bg-white p-5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)] transition-colors hover:border-[#ED351D]/40"
+        >
+          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Completed trips</p>
+          <p className="mt-2 font-space-grotesk text-[32px] font-medium leading-10 text-[#1B2432]">{completed}</p>
+        </Link>
+      </div>
+
+      <div className={card}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-[16px] font-medium text-[#1B2432]">Queue needing assignment</h3>
+          <Link to="/workspace/app/dispatch" className="text-[14px] font-medium text-[#ED351D]">
+            Open dispatch
+          </Link>
         </div>
-      )}
+        {incoming.length === 0 ? (
+          <p className="text-[14px] text-[#5C6470]">No trips waiting in the live queue.</p>
+        ) : (
+          <ul className="divide-y divide-[#E2E5E9]">
+            {incoming.slice(0, 8).map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-medium text-[#1B2432]">{t.customer || t.id}</p>
+                  <p className="truncate text-[12px] text-[#5C6470]">
+                    {t.cargo} — {t.pickup || "—"} → {t.dropoff || "—"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={t.status} />
+                  <Link to="/workspace/app/dispatch">
+                    <Button size="sm" className="bg-[#ED351D] text-white hover:bg-[#ED351D]/90">
+                      Assign
+                    </Button>
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
 
 export function FuelManagerDashboard({ expenses }: DashboardProps) {
-  const pendingFuel = expenses.filter(e => e.type === "Direct Cost" && e.status === "Pending" && e.category === "Fuel");
+  const pendingFuel = expenses.filter((e) => e.type === "Fuel" && e.status === "Pending");
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Fuel Management Dashboard</h2>
-      <MetricCard label="Pending Diesel to Confirm" value={pendingFuel.length} variant="warning" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Fuel Management</h2>
+      <MetricCard label="Pending diesel to confirm" value={pendingFuel.length} />
       <div className={card}>
-        <h3 className="font-semibold mb-4">Pending Requisitions</h3>
-        {pendingFuel.map(f => (
-          <div key={f.id} className="flex justify-between py-2 border-b last:border-0">
-            <span>{f.id} - {f.description}</span>
-            <span>{formatNaira(f.amount)}</span>
-          </div>
-        ))}
+        <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Pending requisitions</h3>
+        {pendingFuel.length === 0 ? (
+          <p className="text-[14px] text-[#5C6470]">No pending fuel expenses from the live API.</p>
+        ) : (
+          pendingFuel.map((f) => (
+            <div key={f.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
+              <span className="text-[14px]">
+                {f.id} — {f.requester}
+              </span>
+              <span>{formatNaira(f.amount)}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 export function AccountantDashboard({ expenses }: DashboardProps) {
-  const pendingFunds = expenses.filter(e => e.status === "Pending");
-  const directCosts = expenses.filter(e => e.type === "Direct Cost").reduce((a, b) => a + b.amount, 0);
-  const indirectCosts = expenses.filter(e => e.type === "Indirect Cost").reduce((a, b) => a + b.amount, 0);
-  
+  const pendingFunds = expenses.filter((e) => e.status === "Pending");
+  const fuelCosts = expenses.filter((e) => e.type === "Fuel").reduce((a, b) => a + b.amount, 0);
+  const otherCosts = expenses
+    .filter((e) => e.type !== "Fuel")
+    .reduce((a, b) => a + b.amount, 0);
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Accounts Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Funds Pending Release" value={pendingFunds.length} variant="warning" />
-        <MetricCard label="Today's Direct Costs" value={formatNaira(directCosts)} variant="info" />
-        <MetricCard label="Today's Indirect Costs" value={formatNaira(indirectCosts)} variant="critical" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Accounts</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Funds pending release" value={pendingFunds.length} />
+        <MetricCard label="Fuel costs (loaded)" value={formatNaira(fuelCosts)} />
+        <MetricCard label="Other costs (loaded)" value={formatNaira(otherCosts)} />
       </div>
     </div>
   );
@@ -112,65 +199,88 @@ export function AccountantDashboard({ expenses }: DashboardProps) {
 export function GateDashboard({ gateEntries }: DashboardProps) {
   const todayLog = gateEntries.slice(0, 5);
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Security & Gate Dashboard</h2>
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Security & Gate</h2>
       <div className={card}>
-        <h3 className="font-semibold mb-4">Today's Log</h3>
-        {todayLog.map(g => (
-          <div key={g.id} className="flex justify-between py-2 border-b last:border-0">
-            <span>{g.truckId} - {g.type}</span>
-            <span>{g.time}</span>
-          </div>
-        ))}
+        <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Recent log</h3>
+        {todayLog.length === 0 ? (
+          <p className="text-[14px] text-[#5C6470]">No gate entries from the live API.</p>
+        ) : (
+          todayLog.map((g) => (
+            <div key={g.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
+              <span className="text-[14px]">
+                {g.asset} — {g.direction}
+              </span>
+              <span className="text-[12px] text-[#5C6470]">{g.time}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
-export function HRDashboard({ alerts }: DashboardProps) {
-  const complianceAlerts = alerts.filter(a => a.message.includes("expire"));
+export function HRDashboard({ alerts, drivers }: DashboardProps) {
+  const complianceAlerts = alerts.filter((a) => /expire/i.test(a.message));
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">HR & Compliance Dashboard</h2>
-      <MetricCard label="Alerts Nearing Expiry" value={complianceAlerts.length} variant="critical" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">HR & Compliance</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MetricCard label="Alerts nearing expiry" value={complianceAlerts.length} />
+        <MetricCard label="Staff on directory" value={drivers.length} />
+      </div>
       <div className={card}>
-        <h3 className="font-semibold mb-4">Driver Stats Review</h3>
-        <p className="text-muted-foreground">No drivers require review at this time.</p>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-[16px] font-medium text-[#1B2432]">Staff directory</h3>
+          <Link to="/workspace/app/hr" className="text-[14px] font-medium text-[#ED351D]">
+            Open HR
+          </Link>
+        </div>
+        <p className="text-[14px] text-[#5C6470]">
+          {drivers.length === 0
+            ? "No drivers returned from the live API yet."
+            : `${drivers.length} drivers loaded — manage them on HR & Personnel.`}
+        </p>
       </div>
     </div>
   );
 }
 
 export function EngineerDashboard({ workOrders, inventory }: DashboardProps) {
-  const activeRepairs = workOrders.filter(w => w.status === "Repairing");
-  const lowStock = inventory.filter(i => i.stock <= i.reorderLevel);
+  const activeRepairs = workOrders.filter((w) => w.status === "Repairing" || w.status === "Diagnosing");
+  const lowStock = inventory.filter((i) => i.stock <= i.reorderLevel);
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Engineering Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <MetricCard label="Active Repairs" value={activeRepairs.length} variant="warning" />
-        <MetricCard label="Low Stock Alerts" value={lowStock.length} variant="critical" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Engineering</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MetricCard label="Active repairs" value={activeRepairs.length} />
+        <MetricCard label="Low stock alerts" value={lowStock.length} />
       </div>
     </div>
   );
 }
 
 export function ProcurementDashboard({ procurement }: DashboardProps) {
-  const pendingRequests = procurement.filter(p => p.status === "Requested");
+  const pendingRequests = procurement.filter((p) => p.status === "Requested");
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Procurement Dashboard</h2>
-      <MetricCard label="Incoming Parts Requests" value={pendingRequests.length} variant="info" />
+    <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+      <h2 className="text-[24px] font-medium text-[#1B2432]">Procurement</h2>
+      <MetricCard label="Incoming parts requests" value={pendingRequests.length} />
       <div className={card}>
-        <h3 className="font-semibold mb-4">Requests Queue</h3>
-        {pendingRequests.map(p => (
-          <div key={p.id} className="flex justify-between py-2 border-b last:border-0">
-            <span>{p.partName} ({p.quantity})</span>
-            <StatusBadge status={p.status} />
-          </div>
-        ))}
+        <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Requests queue</h3>
+        {pendingRequests.length === 0 ? (
+          <p className="text-[14px] text-[#5C6470]">No procurement requests from the live API.</p>
+        ) : (
+          pendingRequests.map((p) => (
+            <div key={p.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
+              <span className="text-[14px]">
+                {p.partName} ({p.quantity})
+              </span>
+              <StatusBadge status={p.status} />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
-

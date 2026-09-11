@@ -39,13 +39,21 @@ const FLEET_OPS_PORTAL_PATHS = [
   "/workspace/app/fleet-registry",
   "/workspace/app/dispatch",
   "/workspace/app/dispatch-history",
+  "/workspace/app/notifications",
 ];
 
 function isFleetOpsPortalPath(pathname: string) {
   return FLEET_OPS_PORTAL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+export function AppHeader({
+  onToggleSidebar,
+  forceFleetOps = false,
+}: {
+  onToggleSidebar: () => void;
+  /** When Fleet Ops shell is active, use FO portal chrome on all app routes */
+  forceFleetOps?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ROLES = authService.getAllRoles();
@@ -102,7 +110,7 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
 
   /* Figma Admin / Fleet Ops portal chrome */
   if (adminPortal) {
-    const fleetOps = isFleetOpsPortalPath(pathname);
+    const fleetOps = forceFleetOps || isFleetOpsPortalPath(pathname);
     return (
       <header className="sticky top-0 z-30 flex w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
         <div className="flex items-end gap-3">
