@@ -180,6 +180,30 @@ export function tripToApi(input: Partial<Trip>): Record<string, unknown> {
   };
 }
 
+/** Partial patch — only send fields the caller actually set (avoids wiping trip on status-only updates). */
+export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (input.driverName !== undefined) out.driverName = input.driverName;
+  if (input.truckReg !== undefined || input.headId !== undefined) {
+    out.truckReg = input.truckReg || input.headId || "TBD";
+  }
+  if (input.tailType !== undefined) out.tailType = input.tailType || null;
+  if (input.pickup !== undefined) out.pickup = input.pickup;
+  if (input.dropoff !== undefined) out.dropoff = input.dropoff;
+  if (input.customer !== undefined) out.customer = input.customer || null;
+  if (input.customerConsignee !== undefined) out.customerConsignee = input.customerConsignee;
+  if (input.cargo !== undefined) out.cargo = input.cargo;
+  if (input.loadingSite !== undefined) {
+    out.loadingSite = Array.isArray(input.loadingSite)
+      ? input.loadingSite.join(", ")
+      : input.loadingSite || null;
+  }
+  if (input.revenue !== undefined) out.revenue = input.revenue;
+  if (input.status !== undefined) out.status = input.status;
+  if (input.directCosts !== undefined) out.directCosts = input.directCosts || null;
+  return out;
+}
+
 export function mapExpense(e: Record<string, unknown>): Expense {
   const typeRaw = String(e.type ?? e.category ?? "Other");
   const typeMap: Record<string, Expense["type"]> = {
@@ -370,7 +394,7 @@ export async function liveCreateTrip(body: Partial<Trip>): Promise<Trip> {
 }
 
 export async function liveUpdateTrip(id: string, body: Partial<Trip>): Promise<Trip> {
-  return mapTrip(await api.patch(`/trips/${id}`, tripToApi(body)));
+  return mapTrip(await api.patch(`/trips/${id}`, tripPatchToApi(body)));
 }
 
 export async function liveDeleteTrip(id: string): Promise<void> {

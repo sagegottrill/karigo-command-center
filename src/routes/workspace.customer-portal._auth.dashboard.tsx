@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ListFilter, MoreVertical, Search, X } from "lucide-react";
+import { Check, ListFilter, MoreVertical, Search } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { authService, tripService } from "@/lib/fleetopsx/services";
@@ -76,7 +76,10 @@ function PartnerPortalDashboard() {
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState<"id" | "date" | "product" | "truck" | "status">("id");
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending");
+  const [draftSortKey, setDraftSortKey] = useState<"id" | "date" | "product" | "truck" | "status">("id");
+  const [draftSortOrder, setDraftSortOrder] = useState<"Ascending" | "Descending">("Ascending");
 
   const refresh = async () => {
     const allTrips = await tripService.list();
@@ -89,6 +92,12 @@ function PartnerPortalDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const displayRequestId = (trip: Trip) => {
+    if (/^REQ-/i.test(trip.id)) return trip.id;
+    const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
+    return `REQ-${digits.padStart(5, "0")}`;
+  };
+
   const filteredRequests = useMemo(() => {
     let result = requests;
     if (searchQuery) {
@@ -96,15 +105,41 @@ function PartnerPortalDashboard() {
       result = result.filter(
         (r) =>
           (r.customerConsignee && r.customerConsignee.toLowerCase().includes(q)) ||
+          displayRequestId(r).toLowerCase().includes(q) ||
           (r.id && r.id.toLowerCase().includes(q)) ||
           (r.dropoff && r.dropoff.toLowerCase().includes(q)) ||
           (r.cargo && r.cargo.toLowerCase().includes(q)),
       );
     }
-    return [...result].sort((a, b) =>
-      sortOrder === "Descending" ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id),
-    );
-  }, [requests, searchQuery, sortOrder]);
+    const dir = sortOrder === "Descending" ? -1 : 1;
+    return [...result].sort((a, b) => {
+      const statusA = toPartnerStatus(a.status);
+      const statusB = toPartnerStatus(b.status);
+      let cmp = 0;
+      switch (sortKey) {
+        case "id":
+          cmp = displayRequestId(a).localeCompare(displayRequestId(b));
+          break;
+        case "date":
+          cmp = String(a.scheduledDate || "").localeCompare(String(b.scheduledDate || ""));
+          break;
+        case "product":
+          cmp = (a.cargo || "").localeCompare(b.cargo || "");
+          break;
+        case "truck":
+          cmp = (a.tailType || "").localeCompare(b.tailType || "");
+          break;
+        case "status":
+          cmp = statusA.localeCompare(statusB);
+          break;
+        default: {
+          const _exhaustive: never = sortKey;
+          return _exhaustive;
+        }
+      }
+      return cmp * dir;
+    });
+  }, [requests, searchQuery, sortKey, sortOrder]);
 
   const totalRequests = requests.length;
   const inTransit = requests.filter((r) => toPartnerStatus(r.status) === "In transit").length;
@@ -122,6 +157,57 @@ function PartnerPortalDashboard() {
   const openDetails = (id: string) => {
     navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: id } });
   };
+
+  const openSortModal = () => {
+    setDraftSortKey(sortKey);
+    setDraftSortOrder(sortOrder);
+    setSortModalOpen(true);
+  };
+
+  const saveSort = () => {
+    setSortKey(draftSortKey);
+    setSortOrder(draftSortOrder);
+    setSortModalOpen(false);
+  };
+
+  const sortOptions = [
+    { key: "id" as const, label: "ID No." },
+    { key: "date" as const, label: "Date" },
+    { key: "product" as const, label: "Product" },
+    { key: "truck" as const, label: "Truck Type" },
+    { key: "status" as const, label: "Status" },
+  ];
+
+  const orderOptions = [
+    { key: "Ascending" as const, label: "Ascending" },
+    { key: "Descending" as const, label: "Descending" },
+  ];
+
+  const CheckRow = ({
+    selected,
+    label,
+    onSelect,
+  }: {
+    selected: boolean;
+    label: string;
+    onSelect: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex h-9 w-full items-center gap-2 rounded px-2.5 py-[7px] text-left"
+    >
+      <span
+        className={cn(
+          "grid size-4 shrink-0 place-items-center rounded border border-[#E2E5E9] shadow-[0px_4px_5px_rgba(0,0,0,0.05)]",
+          selected ? "bg-[#ED351D]" : "bg-transparent",
+        )}
+      >
+        {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
+      </span>
+      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{label}</span>
+    </button>
+  );
 
   const statCards = [
     { label: "Total Requests", value: totalRequests },
@@ -179,7 +265,7 @@ function PartnerPortalDashboard() {
           </div>
           <button
             type="button"
-            onClick={() => setSortModalOpen(true)}
+            onClick={openSortModal}
             className="grid size-10 shrink-0 place-items-center rounded bg-[#ED351D]"
             aria-label="Filter requests"
           >
@@ -224,7 +310,7 @@ function PartnerPortalDashboard() {
                     <dl className="grid gap-2 text-[13px]">
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">ID No:</dt>
-                        <dd className="font-semibold text-[#ED351D]">{r.id}</dd>
+                        <dd className="font-semibold text-[#ED351D]">{displayRequestId(r)}</dd>
                       </div>
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Product</dt>
@@ -264,7 +350,7 @@ function PartnerPortalDashboard() {
                       className="flex min-w-[1000px] cursor-pointer items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-0"
                       onClick={() => openDetails(r.id)}
                     >
-                      <span className="w-[81px] text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{r.id}</span>
+                      <span className="w-[81px] text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{displayRequestId(r)}</span>
                       <span className="w-[167px] text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {formatTripDate(r.scheduledDate)}
                       </span>
@@ -338,51 +424,62 @@ function PartnerPortalDashboard() {
       </main>
 
       {sortModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-[400px] rounded-lg bg-white p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#1B2432]">Sort Requests</h3>
-              <button type="button" onClick={() => setSortModalOpen(false)}>
-                <X className="size-5 text-[#5C6470]" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-[490px] flex-col items-end gap-[15px] rounded-[10px] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
+            <div className="w-full border-b border-[#E2E5E9]">
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Sort By</h3>
             </div>
-            <div className="space-y-4">
-              {(["Ascending", "Descending"] as const).map((order) => (
-                <button
-                  key={order}
-                  type="button"
-                  className={cn(
-                    "w-full rounded border p-4 text-left text-[14px] font-semibold",
-                    sortOrder === order ? "border-[#ED351D] bg-[#ED351D]/5" : "border-[#E2E5E9]",
-                  )}
-                  onClick={() => {
-                    setSortOrder(order);
-                    setSortModalOpen(false);
-                  }}
-                >
-                  {order === "Ascending" ? "Ascending (Oldest First)" : "Descending (Newest First)"}
-                </button>
+            <div className="flex w-full flex-col gap-1">
+              {sortOptions.map((opt) => (
+                <CheckRow
+                  key={opt.key}
+                  label={opt.label}
+                  selected={draftSortKey === opt.key}
+                  onSelect={() => setDraftSortKey(opt.key)}
+                />
               ))}
             </div>
+            <div className="w-full border-b border-[#E2E5E9]">
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Order By</h3>
+            </div>
+            <div className="flex w-full flex-col gap-[5px]">
+              {orderOptions.map((opt) => (
+                <CheckRow
+                  key={opt.key}
+                  label={opt.label}
+                  selected={draftSortOrder === opt.key}
+                  onSelect={() => setDraftSortOrder(opt.key)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={saveSort}
+              className="flex h-8 w-[119px] items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+            >
+              Save
+            </button>
           </div>
         </div>
       )}
 
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-[420px] flex-col items-center rounded-lg bg-white p-8 text-center">
-            <AlertCircle className="mb-6 size-12 text-[#ED351D]" strokeWidth={1.5} />
-            <p className="mb-8 max-w-[240px] text-[15px] font-medium text-[#5C6470]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-[320px] flex-col items-center rounded-lg bg-white p-8 text-center shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
+            <div className="mb-4 grid size-[60px] place-items-center rounded-lg border-2 border-[#ED351D]">
+              <span className="text-[24px] font-semibold text-[#ED351D]">!</span>
+            </div>
+            <p className="mb-8 max-w-[200px] text-[14px] font-medium text-[#5C6470]">
               Are you sure you want to delete this request?
             </p>
             <div className="flex w-full justify-center gap-4">
-              <button type="button" onClick={() => setDeleteModalOpen(null)} className="h-10 px-6 text-[14px] font-medium text-[#ED351D]">
+              <button type="button" onClick={() => setDeleteModalOpen(null)} className="h-10 flex-1 text-[14px] font-medium text-[#ED351D]">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void handleDelete()}
-                className="h-10 rounded bg-[#ED351D] px-6 text-[14px] font-medium text-white"
+                className="h-10 flex-1 rounded bg-[#ED351D] text-[14px] font-medium text-white"
               >
                 Confirm
               </button>

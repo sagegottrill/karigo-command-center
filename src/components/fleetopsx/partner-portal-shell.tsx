@@ -39,9 +39,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     navigate({ to: "/workspace/customer-portal/login" });
   };
 
-  const dashActive = pathname.includes("/dashboard");
-  const requestActive = pathname.includes("/request") && !pathname.includes("/dashboard");
-  const onRequest = pathname.includes("/request");
+  const dashActive = pathname.includes("/dashboard") || (!pathname.endsWith("/request") && !pathname.includes("/login") && pathname.includes("/customer-portal/"));
+  const requestActive = pathname.endsWith("/request");
+  const showBack = !pathname.includes("/dashboard") && !pathname.includes("/login");
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
@@ -102,7 +102,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         {/* Mobile header — Figma 390 frames: dark bar, back, title, initials */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 lg:hidden">
           <div className="flex items-center gap-2">
-            {onRequest ? (
+            {showBack ? (
               <button
                 type="button"
                 onClick={() => navigate({ to: "/workspace/customer-portal/dashboard" })}

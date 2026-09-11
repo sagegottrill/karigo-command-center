@@ -471,8 +471,7 @@ export const tripService = {
   },
   update: async (id: string, payload: Partial<Trip>) => {
     if (!useMock()) {
-      await liveUpdateTrip(id, payload);
-      return true;
+      return liveUpdateTrip(id, payload);
     }
     store.trips = store.trips.map(t => (t.id === id ? { ...t, ...payload } : t));
     
@@ -485,7 +484,8 @@ export const tripService = {
         if (t.driverId) store.drivers = store.drivers.map(d => d.id === t.driverId ? { ...d, status: "On Trip" } : d);
       }
     }
-    return settle(true);
+    const updated = store.trips.find((t) => t.id === id);
+    return settle(updated!);
   },
   /** Alias used by customer portal modify flow */
   updateTrip: async (id: string, payload: Partial<Trip>) => tripService.update(id, payload),
@@ -629,33 +629,40 @@ export const tripService = {
   },
   timeline: (trip: Trip): TimelineStep[] => {
     const order = [
+      "Request Approved",
       "Dispatch Created",
       "Driver Assigned",
-      "Truck Departed",
       "Pickup Completed",
-      "En Route",
-      "Offloading",
-      "Returning",
-      "Trip Completed",
+      "In Transit",
+      "At Destination",
+      "Offloaded",
     ];
     const idx: Record<string, number> = {
+      Requested: -1,
+      "Awaiting Approval": 0,
       Scheduled: 1,
       Loaded: 3,
       "En Route": 4,
-      Stopped: 4,
       Delayed: 4,
+      Stopped: 4,
       Offloading: 5,
       Returning: 6,
-      Completed: 7,
+      Completed: 6,
     };
-    const current = idx[trip.status] ?? 4;
+    const current = idx[trip.status] ?? -1;
+    const when = trip.scheduledDate ? new Date(trip.scheduledDate) : null;
+    const dateLabel =
+      when && !Number.isNaN(when.getTime())
+        ? when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+        : undefined;
+    const timeLabel = trip.startTime && trip.startTime !== "—" ? trip.startTime : undefined;
     return order.map((label, i) => {
       const step: TimelineStep = {
         label,
-        state: i < current ? "done" : i === current ? "current" : "pending",
+        state: current < 0 ? "pending" : i < current ? "done" : i === current ? "current" : "pending",
       };
-      if (i <= current) {
-        step.at = `${String(6 + i).padStart(2, "0")}:${String((i * 17) % 60).padStart(2, "0")}`;
+      if (current >= 0 && i <= current && dateLabel) {
+        step.at = timeLabel ? `${dateLabel} • ${timeLabel}` : dateLabel;
       }
       return step;
     });

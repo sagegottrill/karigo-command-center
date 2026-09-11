@@ -1,326 +1,373 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Check, MapPin, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { tripService } from "@/lib/fleetopsx/services";
-import type { Trip, TimelineStep } from "@/lib/fleetopsx/types";
-import { PageHeader, SectionPanel, FieldRow } from "@/components/fleetopsx/page-header";
-import { StatusBadge } from "@/components/fleetopsx/status-badge";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Navigation, Truck, Pencil, Upload, Trash2 } from "lucide-react";
+import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestId")({
-  component: RequestTrackingPage,
+  component: PartnerRequestDetailsPage,
 });
 
-function RequestTrackingPage() {
-  const { requestId } = Route.useParams();
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [timeline, setTimeline] = useState<TimelineStep[]>([]);
-  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+type PartnerUiStatus = "Pending" | "Declined" | "In transit" | "Completed";
 
-  // Edit form state
-  const [editForm, setEditForm] = useState({
-    customerConsignee: '',
-    cargo: '',
-    tailType: '',
-    dropoff: '',
-    loadingSite: ''
-  });
+function toPartnerStatus(status: TripStatus): PartnerUiStatus {
+  switch (status) {
+    case "Requested":
+    case "Awaiting Approval":
+      return "Pending";
+    case "Stopped":
+      return "Declined";
+    case "Completed":
+      return "Completed";
+    case "Scheduled":
+    case "En Route":
+    case "Loaded":
+    case "Offloading":
+    case "Returning":
+    case "Delayed":
+      return "In transit";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function partnerStatusClass(status: PartnerUiStatus) {
+  switch (status) {
+    case "Pending":
+      return "bg-[#FC0] text-white";
+    case "Declined":
+      return "bg-[#ED351D] text-white";
+    case "In transit":
+      return "bg-[#CB30E0] text-white";
+    case "Completed":
+      return "bg-[#34C759] text-white";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function displayRequestId(trip: Trip) {
+  if (/^REQ-/i.test(trip.id)) return trip.id;
+  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
+  return `REQ-${digits.padStart(5, "0")}`;
+}
+
+function ReadonlyField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex w-full flex-col gap-1.5">
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
+      <div className="flex min-h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
+        {value?.trim() ? value : "—"}
+      </div>
+    </div>
+  );
+}
+
+function PartnerRequestDetailsPage() {
+  const { requestId } = Route.useParams();
+  const navigate = useNavigate();
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const refresh = async () => {
+    const t = await tripService.get(requestId);
+    setTrip(t);
+  };
 
   useEffect(() => {
-    tripService.get(requestId).then((t) => {
-      setTrip(t);
-      if (t) setTimeline(tripService.timeline(t));
-    });
+    void refresh()
+      .catch(() => setTrip(null))
+      .finally(() => setLoading(false));
   }, [requestId]);
 
-  const handleOpenModify = () => {
-    if (trip) {
-      setEditForm({
-        customerConsignee: trip.customerConsignee || '',
-        cargo: trip.cargo || '',
-        tailType: trip.tailType || '',
-        dropoff: trip.dropoff || '',
-        loadingSite: (trip.loadingSite && trip.loadingSite.length > 0) ? trip.loadingSite.join(", ") : ''
-      });
-      setIsModifyModalOpen(true);
+  const timeline = useMemo(() => (trip ? tripService.timeline(trip) : []), [trip]);
+  const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
+  const loadingSites =
+    trip?.loadingSite && trip.loadingSite.length > 0
+      ? trip.loadingSite
+      : trip?.pickup
+        ? [trip.pickup]
+        : [];
+  const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);
+  const truckHead = truckParts[0] && truckParts[0] !== "TBD" ? truckParts[0] : trip?.headId || "—";
+  const truckTail = trip?.tailType || truckParts[1] || "—";
+  const serial = trip?.tailNumber || trip?.tailId || "—";
+  const canConfirmArrival = trip
+    ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
+    : false;
+  const canDelete = trip
+    ? ["Requested", "Awaiting Approval", "Stopped"].includes(trip.status)
+    : false;
+
+  const handleExport = () => {
+    if (!trip) return;
+    const rows = [
+      ["Ticket", displayRequestId(trip)],
+      ["Status", uiStatus],
+      ["Customer Name", trip.customerConsignee || ""],
+      ["Product", trip.cargo],
+      ["Truck Type", trip.tailType || ""],
+      ["Destination", trip.dropoff],
+      ["Loading Sites", loadingSites.join("; ")],
+      ["Driver", trip.driverName || ""],
+      ["Truck Head", truckHead],
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${displayRequestId(trip)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDelete = async () => {
+    if (!trip) return;
+    try {
+      await tripService.delete(trip.id);
+      toast.success("Request deleted");
+      navigate({ to: "/workspace/customer-portal/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete request");
     }
   };
 
-  const handleSaveModify = async () => {
-    if (trip) {
-      const sitesArray = editForm.loadingSite.split(',').map(s => s.trim()).filter(Boolean);
-      
-      const updatedTrip = await tripService.updateTrip(trip.id, {
-        customerConsignee: editForm.customerConsignee,
-        cargo: editForm.cargo,
-        tailType: editForm.tailType as any,
-        dropoff: editForm.dropoff,
-        loadingSite: sitesArray.length > 0 ? sitesArray : undefined
-      });
-      
-      setTrip(updatedTrip);
-      setIsModifyModalOpen(false);
+  const handleConfirmArrival = async () => {
+    if (!trip) return;
+    setConfirming(true);
+    try {
+      const updated = await tripService.updateTrip(trip.id, { status: "Offloading" });
+      setTrip(updated);
+      toast.success("Arrival confirmed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to confirm arrival");
+    } finally {
+      setConfirming(false);
     }
   };
-
-  if (!trip) return <div className="p-12 text-center text-muted-foreground">Loading request details...</div>;
 
   return (
-    <div className="space-y-6 pb-24">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-        <div>
-          <Button variant="ghost" size="sm" asChild className="mb-4 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
-            <Link to="/workspace/customer-portal/dashboard"><ArrowLeft className="h-4 w-4" /> Back to Dashboard</Link>
-          </Button>
-          <PageHeader
-            title={`Request ${trip.id}`}
-            description={`Delivery to ${trip.dropoff}`}
-            meta={<StatusBadge status={trip.status} />}
-          />
+    <PartnerPortalShell>
+      {loading ? (
+        <div className="p-8">
+          <FigmaLoadingState label="Loading request…" />
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 lg:gap-4 flex-wrap mt-2 lg:mt-8">
-          {trip.status !== 'In transit' && trip.status !== 'Completed' && (
-            <Button 
-              variant="outline" 
-              className="gap-2 font-semibold"
-              onClick={handleOpenModify}
-            >
-              <Pencil className="w-4 h-4" /> Modify
-            </Button>
-          )}
-          <Button className="gap-2 bg-[#141a1f] text-white hover:bg-black font-medium">
-            <Upload className="w-4 h-4" /> Export CVS
-          </Button>
-          <Button 
-            variant="outline" 
-            className="text-[#e3351d] hover:text-[#e3351d] hover:bg-red-50 border-transparent lg:border-border px-3"
-            onClick={() => setIsDeleteModalOpen(true)}
+      ) : !trip ? (
+        <div className="p-8">
+          <FigmaEmptyState title="Request not found" body="This ticket is missing or was removed from the live API." />
+          <Link
+            to="/workspace/customer-portal/dashboard"
+            className="mt-4 inline-flex text-[14px] font-medium text-[#ED351D]"
           >
-            <Trash2 className="w-5 h-5" />
-          </Button>
+            Back to Dashboard
+          </Link>
         </div>
-      </div>
+      ) : (
+        <main className="flex flex-col gap-5 px-4 py-5 sm:gap-[20px] sm:px-10 sm:py-[30px]">
+          <Link
+            to="/workspace/customer-portal/dashboard"
+            className="inline-flex items-center gap-2 text-[16px] tracking-[0.4px] text-[#5C6470]"
+          >
+            <ArrowLeft className="size-6" strokeWidth={1.75} />
+            Back to Dashboard
+          </Link>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Details */}
-        <div className="space-y-6 lg:col-span-1">
-          <SectionPanel title="Original Request" bodyClassName="pt-1">
-            <FieldRow label="Consignee" value={trip.customerConsignee || "—"} />
-            <FieldRow label="Cargo Details" value={trip.cargo} />
-            <FieldRow label="Pickup Site" value={trip.loadingRoutingType === "Multiple" && trip.loadingSite ? trip.loadingSite.join(", ") : trip.pickup} />
-            <FieldRow label="Destination" value={trip.dropoff} />
-            <FieldRow label="Scheduled Date" value={trip.scheduledDate || "—"} />
-          </SectionPanel>
-
-          {trip.status !== "Requested" && trip.status !== "Scheduled" ? (
-            <SectionPanel title="Fulfillment Details" bodyClassName="pt-1 bg-[#f8f9fa]">
-              <div className="mb-3 rounded-md bg-blue-50 p-3 text-xs text-blue-800 flex gap-2 items-start">
-                <Truck className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>Your request has been approved and assets have been deployed. See assigned details below.</span>
-              </div>
-              <FieldRow label="Truck Head (Cap No)" value={trip.truckReg.split(" / ")[0] || "—"} />
-              <FieldRow label="Truck Tail (Tail No)" value={trip.truckReg.split(" / ")[1] || "—"} />
-              <FieldRow label="Tail Type" value={trip.tailType || "—"} />
-              <div className="mt-4 border-t border-black/[0.05] pt-4">
-                <FieldRow label="Assigned Driver" value={trip.driverName || "—"} />
-                <FieldRow label="Driver Phone" value="+234 800 000 0000" />
-              </div>
-            </SectionPanel>
-          ) : (
-            <SectionPanel title="Fulfillment Details" bodyClassName="pt-1">
-              <div className="p-4 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                Awaiting final asset and driver assignment from Transport Manager.
-              </div>
-            </SectionPanel>
-          )}
-
-          <SectionPanel title="Milestones" bodyClassName="p-4">
-            <div className="relative space-y-4 before:absolute before:inset-y-0 before:left-[11px] before:w-px before:bg-border">
-              {timeline.map((step, i) => (
-                <div key={i} className={cn("relative flex items-center gap-4 text-sm", step.state === "pending" && "opacity-40")}>
-                  <div className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full bg-background ring-2", step.state === "current" ? "ring-primary" : step.state === "done" ? "ring-[#34c759]" : "ring-muted")}>
-                    <div className={cn("h-2 w-2 rounded-full", step.state === "current" ? "bg-primary animate-pulse" : step.state === "done" ? "bg-[#34c759]" : "bg-muted")} />
-                  </div>
-                  <div className="flex-1">
-                    <p className={cn("font-medium", step.state === "current" ? "text-primary" : "text-foreground")}>{step.label}</p>
-                    {step.at && <p className="text-xs text-muted-foreground">{step.at}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionPanel>
-        </div>
-
-        {/* Right Column: Live Map Integration */}
-        <div className="lg:col-span-2">
-          <SectionPanel title="Live Tracking Map" description="Real-time GPS telemetry from assigned asset." bodyClassName="p-0">
-            {trip.status === "Requested" || trip.status === "Scheduled" ? (
-              <div className="flex h-[500px] flex-col items-center justify-center bg-[#f5f5f7] p-6 text-center">
-                <MapPin className="mb-4 h-12 w-12 text-muted-foreground/30" />
-                <h3 className="text-sm font-semibold">Map Offline</h3>
-                <p className="mt-2 max-w-sm text-xs text-muted-foreground">
-                  Live tracking will automatically activate once a vehicle is dispatched from the depot.
-                </p>
-              </div>
-            ) : (
-              <div className="relative h-[500px] w-full overflow-hidden bg-[#e5e5ea]">
-                {/* Simulated Map Background */}
-                <div className="absolute inset-0 bg-slate-300 opacity-60 mix-blend-multiply grayscale" />
-                
-                {/* Simulated Map Route & Vehicle */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative h-[300px] w-[400px]">
-                    <svg className="absolute inset-0 h-full w-full" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>
-                      <path d="M 50,250 C 100,200 200,250 250,150 C 300,50 350,100 380,50" fill="none" stroke="#0071e3" strokeWidth="4" strokeDasharray="8 4" className="animate-[dash_20s_linear_infinite]" />
-                    </svg>
-                    <div className="absolute bottom-10 left-10 flex -translate-x-1/2 translate-y-1/2 flex-col items-center gap-1">
-                      <div className="rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-bold shadow-sm">{trip.pickup.split(',')[0]}</div>
-                      <div className="h-3 w-3 rounded-full border-2 border-white bg-black shadow-sm" />
-                    </div>
-                    <div className="absolute right-5 top-12 flex -translate-x-1/2 translate-y-1/2 flex-col items-center gap-1">
-                      <div className="rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-bold shadow-sm">{trip.dropoff.split(',')[0]}</div>
-                      <div className="grid h-4 w-4 place-items-center rounded-full bg-[#34c759] shadow-sm ring-2 ring-white">
-                        <MapPin className="h-2.5 w-2.5 text-white" />
-                      </div>
-                    </div>
-                    
-                    {/* Simulated Truck Blip */}
-                    <div className="absolute left-[200px] top-[180px] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1">
-                      <div className="flex items-center gap-1 rounded bg-[#1d1d1f] px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#34c759] animate-pulse" />
-                        {trip.truckReg.split(" / ")[0]}
-                      </div>
-                      <div className="grid h-8 w-8 place-items-center rounded-full bg-white shadow-[0_0_15px_rgba(0,113,227,0.3)] ring-2 ring-[#0071e3]">
-                        <Navigation className="h-4 w-4 text-[#0071e3] rotate-45" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Map Overlay Stats */}
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-2xl bg-white/90 p-4 shadow-lg backdrop-blur-md">
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Current Speed</p>
-                    <p className="font-mono text-xl font-semibold">42 <span className="text-sm text-muted-foreground">km/h</span></p>
-                  </div>
-                  <div className="h-10 w-px bg-black/10" />
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ETA</p>
-                    <p className="font-mono text-xl font-semibold">{trip.eta}</p>
-                  </div>
-                  <div className="h-10 w-px bg-black/10" />
-                  <div className="text-right">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</p>
-                    <p className="text-sm font-semibold text-primary">{trip.status}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </SectionPanel>
-        </div>
-      </div>
-
-      {/* MODIFY MODAL */}
-      {isModifyModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-end lg:items-center justify-center lg:p-4">
-          <div className="bg-white rounded-t-[16px] lg:rounded-[10px] shadow-xl w-full max-w-[500px] overflow-hidden flex flex-col">
-            <div className="p-6 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-[18px] font-[600] text-[#141a1f]">Modify Request Details</h3>
-                <StatusBadge status={trip.status} />
-              </div>
-
-              <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <label className="text-[12px] font-[500] text-[#5c6470]">Customer Consignee</label>
-                  <input 
-                    type="text" 
-                    value={editForm.customerConsignee}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, customerConsignee: e.target.value }))}
-                    className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-primary" 
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[12px] font-[500] text-[#5c6470]">Product</label>
-                  <input 
-                    type="text" 
-                    value={editForm.cargo}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, cargo: e.target.value }))}
-                    className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-primary" 
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[12px] font-[500] text-[#5c6470]">Truck Type</label>
-                  <input 
-                    type="text" 
-                    value={editForm.tailType}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, tailType: e.target.value }))}
-                    className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-primary" 
-                  />
-                </div>
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <label className="text-[12px] font-[500] text-[#5c6470]">Destination</label>
-                  <input 
-                    type="text" 
-                    value={editForm.dropoff}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, dropoff: e.target.value }))}
-                    className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-primary" 
-                  />
-                </div>
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <label className="text-[12px] font-[500] text-[#5c6470]">Loading Site(s) (comma separated)</label>
-                  <input 
-                    type="text" 
-                    value={editForm.loadingSite}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, loadingSite: e.target.value }))}
-                    className="h-[44px] bg-[#f8f9fa] border border-[#e2e5e9] rounded-[4px] px-4 text-[13px] text-[#141a1f] focus:outline-none focus:border-primary" 
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center mt-8 pt-4 border-t border-[#e2e5e9]">
-                <button 
-                  onClick={() => setIsModifyModalOpen(false)}
-                  className="text-[#141a1f] lg:text-[#e3351d] text-[14px] font-[600] px-4 hover:underline"
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Ticket {displayRequestId(trip)}</h2>
+            <div className="flex items-center gap-[30px]">
+              <button
+                type="button"
+                onClick={handleExport}
+                className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
+              >
+                <Upload className="size-[18px]" />
+                Export CVS
+              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(true)}
+                  className="grid size-8 place-items-center rounded"
+                  aria-label="Delete request"
                 >
-                  Cancel
+                  <Trash2 className="size-[22px] text-[#ED351D]" />
                 </button>
-                <button 
-                  onClick={handleSaveModify}
-                  className="h-[40px] px-6 bg-[#e3351d] hover:bg-[#d62e19] text-white rounded-[4px] text-[14px] font-[500] transition-colors"
-                >
-                  Save changes
-                </button>
-              </div>
+              ) : null}
             </div>
           </div>
-        </div>
+
+          <div className="grid gap-[35px] xl:grid-cols-2">
+            {/* Request Details */}
+            <section className="rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="mb-4 flex items-center justify-between border-b border-[#E2E5E9] py-2">
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Details</h3>
+                <span
+                  className={cn(
+                    "inline-flex h-[22px] min-w-[77px] items-center justify-center rounded px-3 text-[12px]",
+                    partnerStatusClass(uiStatus),
+                  )}
+                >
+                  {uiStatus === "In transit" ? "In Transit" : uiStatus}
+                </span>
+              </div>
+              <div className="flex flex-col gap-5">
+                <ReadonlyField label="Customer Name" value={trip.customerConsignee} />
+                <ReadonlyField label="Product" value={trip.cargo} />
+                <ReadonlyField label="Truck Type" value={trip.tailType} />
+                <ReadonlyField label="Destination" value={trip.dropoff} />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                    Loading Site(s)
+                  </span>
+                  <div className="flex flex-col gap-2">
+                    {(loadingSites.length ? loadingSites : ["—"]).map((site) => (
+                      <div
+                        key={site}
+                        className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                      >
+                        {site}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Real-Time Tracking */}
+            <section className="overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="border-b border-[#5C6470]/40 px-5 py-2.5">
+                <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Real-Time Tracking</h3>
+              </div>
+              <div className="relative flex h-[280px] items-center justify-center bg-[#E8ECF0] sm:h-[419px]">
+                {uiStatus === "In transit" || uiStatus === "Completed" ? (
+                  <>
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#d7dde5_0%,#eef1f4_50%,#d5dbe3_100%)]" />
+                    <div className="relative z-[1] flex flex-col items-center gap-1">
+                      <div className="rounded-lg bg-[rgba(15,15,20,0.88)] px-2.5 py-1.5 text-[11px] font-medium text-white">
+                        {trip.dropoff || "Destination"}
+                      </div>
+                      <MapPin className="size-8 text-[#ED351D]" fill="#ED351D" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative z-[1] max-w-sm px-6 text-center">
+                    <MapPin className="mx-auto mb-3 size-10 text-[#5C6470]/40" />
+                    <p className="text-[14px] font-medium text-[#1B2432]">Tracking unavailable</p>
+                    <p className="mt-1 text-[12px] text-[#5C6470]">
+                      Live map activates once Fleet Operations dispatches a vehicle.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="h-12 border-t border-[#5C6470]/40 px-5" />
+            </section>
+
+            {/* Assignment Details */}
+            <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="mb-4 border-b border-[#E2E5E9] py-2">
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
+              </div>
+              {trip.status === "Requested" || trip.status === "Awaiting Approval" ? (
+                <div className="rounded border border-dashed border-[#E2E5E9] px-4 py-8 text-center text-[13px] text-[#5C6470]">
+                  Awaiting asset and driver assignment from Fleet Operations.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  <ReadonlyField label="Driver Name" value={trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : "—"} />
+                  <ReadonlyField label="Driver Phone Number" value="—" />
+                  <ReadonlyField label="Truck Head" value={truckHead} />
+                  <ReadonlyField label="Truck Tail (Type)" value={truckTail} />
+                  <ReadonlyField label="Serial Number" value={serial} />
+                </div>
+              )}
+            </section>
+
+            {/* Request Timeline */}
+            <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-[30px] py-2.5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+              <div className="mb-5 border-b border-[#E2E5E9] py-2">
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Timeline</h3>
+              </div>
+              <div className="relative flex flex-col gap-5 pb-4">
+                <div className="absolute bottom-6 left-[9px] top-2 w-px bg-[#E2E5E9]" />
+                {timeline.map((step) => {
+                  const active = step.state === "done" || step.state === "current";
+                  const isDestination = step.label === "At Destination";
+                  return (
+                    <div key={step.label} className="relative flex items-start gap-[50px]">
+                      <div
+                        className={cn(
+                          "relative z-[1] mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full",
+                          active ? "bg-[#ED351D]" : "bg-[#D1D5DB]",
+                        )}
+                      >
+                        {active ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p
+                            className={cn(
+                              "text-[14px] font-medium tracking-[0.4px]",
+                              active ? "text-[#ED351D]" : "text-[#5C6470]",
+                            )}
+                          >
+                            {step.label}
+                          </p>
+                          {isDestination && canConfirmArrival ? (
+                            <button
+                              type="button"
+                              disabled={confirming}
+                              onClick={() => void handleConfirmArrival()}
+                              className="h-8 rounded bg-[#1B2432] px-3 text-[12px] font-medium text-white disabled:opacity-60"
+                            >
+                              {confirming ? "Confirming…" : "Confirm Arrival"}
+                            </button>
+                          ) : null}
+                        </div>
+                        {step.at ? (
+                          <p className="text-[10px] font-medium text-[rgba(92,100,112,0.6)]">{step.at}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </main>
       )}
 
-      {/* DELETE MODAL */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[320px] p-8 flex flex-col items-center text-center">
-            <div className="w-[60px] h-[60px] mb-4 flex items-center justify-center border-2 border-[#e3351d] rounded-lg">
-              <span className="text-[#e3351d] text-[24px] font-[600]">!</span>
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-[320px] flex-col items-center rounded-lg bg-white p-8 text-center shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
+            <div className="mb-4 grid size-[60px] place-items-center rounded-lg border-2 border-[#ED351D]">
+              <span className="text-[24px] font-semibold text-[#ED351D]">!</span>
             </div>
-            <p className="text-[14px] text-[#5c6470] font-[500] mb-8 max-w-[200px]">
+            <p className="mb-8 max-w-[200px] text-[14px] font-medium text-[#5C6470]">
               Are you sure you want to delete this request?
             </p>
-            <div className="flex gap-4 w-full justify-center">
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 h-[40px] bg-transparent text-[#e3351d] font-[500] text-[14px]"
+            <div className="flex w-full justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(false)}
+                className="h-10 flex-1 text-[14px] font-medium text-[#ED351D]"
               >
                 Cancel
               </button>
-              <button 
-                onClick={() => { setIsDeleteModalOpen(false); /* Add navigation back logic here */ }}
-                className="flex-1 h-[40px] bg-[#e3351d] text-white rounded-[4px] font-[500] text-[14px] hover:bg-[#d62e19]"
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                className="h-10 flex-1 rounded bg-[#ED351D] text-[14px] font-medium text-white"
               >
                 Confirm
               </button>
@@ -328,6 +375,6 @@ function RequestTrackingPage() {
           </div>
         </div>
       )}
-    </div>
+    </PartnerPortalShell>
   );
 }
