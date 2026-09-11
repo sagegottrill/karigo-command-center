@@ -3,7 +3,6 @@ import { HelpCircle, LayoutDashboard, LogOut, MoreVertical, Truck, UserCog, User
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
-import { NAV } from "@/components/fleetopsx/app-sidebar";
 import { Route as RootRoute } from "../../routes/__root";
 
 type AdminNavItem = {
@@ -18,7 +17,7 @@ type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
-/** Figma Admin sidebar — Overview is the live dashboard, not “Central Dashboard” */
+/** Figma Admin sidebar only — no non-Figma “More” extras */
 const ADMIN_GROUPS: AdminNavGroup[] = [
   {
     items: [{ label: "Overview", to: "/workspace/app", icon: LayoutDashboard }],
@@ -48,15 +47,6 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
   },
 ];
 
-const FIGMA_PATHS = new Set(ADMIN_GROUPS.flatMap((g) => g.items.map((i) => i.to)));
-
-/** Live modules that are not on the Figma Admin sidebar — folded under More */
-const EXTRA_ITEMS: AdminNavItem[] = NAV.filter((item) => !FIGMA_PATHS.has(item.to)).map((item) => ({
-  label: item.label,
-  to: item.to,
-  icon: LayoutDashboard,
-}));
-
 function isPathActive(pathname: string, to: string) {
   if (to === "/workspace/app") return pathname === "/workspace/app" || pathname === "/workspace/app/";
   return pathname === to || pathname.startsWith(`${to}/`);
@@ -74,17 +64,10 @@ export function TransportAdminSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [extrasOpen, setExtrasOpen] = useState(false);
-
-  const onExtraRoute = EXTRA_ITEMS.some((item) => isPathActive(pathname, item.to));
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (onExtraRoute) setExtrasOpen(true);
-  }, [onExtraRoute]);
 
   const currentUser = authService.getCurrentUser();
   const userName = mounted && currentUser?.name ? currentUser.name : "J.Doe";
@@ -164,37 +147,6 @@ export function TransportAdminSidebar({
                 })}
               </div>
             ))}
-
-            {/* Extras fold — modules not in Figma Admin sidebar */}
-            {!collapsed && (
-              <div className="flex w-full flex-col gap-[5px] pt-2">
-                <button
-                  type="button"
-                  onClick={() => setExtrasOpen((o) => !o)}
-                  className="text-left text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-white/70 hover:text-white"
-                >
-                  More {extrasOpen ? "−" : "+"}
-                </button>
-                {extrasOpen &&
-                  EXTRA_ITEMS.map((item) => {
-                    const active = isPathActive(pathname, item.to);
-                    return (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        className={cn(
-                          "flex h-8 items-center gap-2 overflow-hidden rounded p-2",
-                          active ? "bg-[#ED351D]" : "hover:bg-white/5",
-                        )}
-                      >
-                        <span className="truncate text-[14px] font-normal leading-5 tracking-[0.4px] text-white">
-                          {item.label}
-                        </span>
-                      </Link>
-                    );
-                  })}
-              </div>
-            )}
           </div>
         </nav>
 
