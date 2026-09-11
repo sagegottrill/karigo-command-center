@@ -223,25 +223,27 @@ function PartnerPortalDashboard() {
 
   return (
     <PartnerPortalShell>
-      <main className="flex w-full flex-col gap-4 p-4 sm:gap-[30px] sm:p-[30px]">
-        {/* Stat cards — scroll on mobile, 5-up full width on desktop */}
-        <div className="-mx-1 flex w-full gap-3 overflow-x-auto px-1 pb-1 xl:mx-0 xl:grid xl:grid-cols-5 xl:overflow-visible xl:px-0">
+      <main className="box-border flex w-full max-w-none flex-1 flex-col gap-5 p-4 md:gap-[30px] md:p-[30px]">
+        {/* Stat cards — responsive grid fills content width from lg (sidebar) up */}
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-[14px]">
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="min-w-[150px] w-full shrink-0 rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] xl:min-w-0"
+              className="flex min-h-[100px] w-full flex-col rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] lg:min-h-[116px]"
             >
-              <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{card.label}</p>
-              <p className="mt-2.5 font-space-grotesk text-[36px] font-bold leading-9 text-[#1B2432]">{card.value}</p>
+              <p className="text-[13px] font-medium tracking-[0.4px] text-[#5C6470] sm:text-[14px]">{card.label}</p>
+              <p className="mt-2 font-space-grotesk text-[28px] font-bold leading-none text-[#1B2432] sm:mt-2.5 sm:text-[36px] sm:leading-9">
+                {card.value}
+              </p>
               {"hint" in card && card.hint ? (
-                <p className="mt-3.5 text-[10px] font-medium text-[#34C759]">{card.hint}</p>
+                <p className="mt-auto pt-2 text-[10px] font-medium text-[#34C759]">{card.hint}</p>
               ) : null}
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-[5px]">
+        <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-[5px]">
             <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432] sm:text-[24px] sm:font-medium sm:leading-8">
               Recent Requests
             </h2>
@@ -251,20 +253,20 @@ function PartnerPortalDashboard() {
           </div>
           <Link
             to="/workspace/customer-portal/request"
-            className="flex h-10 w-full items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
+            className="flex h-10 w-full shrink-0 items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
           >
             + New Request
           </Link>
         </div>
 
-        <div className="flex w-full items-center justify-end gap-3 sm:gap-5">
+        <div className="flex w-full items-center justify-start gap-3 sm:gap-5">
           <div className="flex h-10 w-full max-w-[540px] items-center gap-2.5 rounded border border-[rgba(92,100,112,0.6)] px-3 shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
             <Search className="size-5 shrink-0 text-[#5C6470] sm:size-[22px]" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search"
-              className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
+              className="w-full min-w-0 bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
             />
           </div>
           <button
@@ -334,95 +336,103 @@ function PartnerPortalDashboard() {
               })}
             </div>
 
-            {/* Desktop table — Figma 294:5225 (full-width columns) */}
-            <div className="hidden w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)] lg:block">
-              <div className="w-full min-w-0">
-                <div className="mb-2 grid w-full grid-cols-[minmax(96px,0.9fr)_minmax(110px,1.1fr)_minmax(140px,1.6fr)_minmax(100px,1.1fr)_minmax(100px,1fr)_minmax(140px,1.5fr)_minmax(120px,1fr)] gap-3 border-b border-[#E2E5E9] py-2.5 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  <span>ID No.</span>
-                  <span>Date</span>
-                  <span>Cosignee</span>
-                  <span>Product</span>
-                  <span>Truck Type</span>
-                  <span>Destination</span>
-                  <span>Status</span>
-                </div>
-                {filteredRequests.map((r) => {
-                  const uiStatus = toPartnerStatus(r.status);
-                  return (
-                    <div
-                      key={r.id}
-                      className="grid w-full cursor-pointer grid-cols-[minmax(96px,0.9fr)_minmax(110px,1.1fr)_minmax(140px,1.6fr)_minmax(100px,1.1fr)_minmax(100px,1fr)_minmax(140px,1.5fr)_minmax(120px,1fr)] items-center gap-3 border-b border-[#E2E5E9] py-2.5 last:border-0"
-                      onClick={() => openDetails(r)}
-                    >
-                      <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                        {displayRequestId(r)}
-                      </span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        {formatTripDate(r.scheduledDate)}
-                      </span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        {r.customerConsignee || "—"}
-                      </span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        {r.cargo || "—"}
-                      </span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        {r.tailType || "—"}
-                      </span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        {r.dropoff || "—"}
-                      </span>
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={cn(
-                            "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium",
-                            partnerStatusClass(uiStatus),
-                          )}
+            {/* Desktop table — Figma 294:5225 */}
+            <div className="hidden w-full rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)] lg:block lg:px-5 lg:py-6">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[920px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-[#E2E5E9] text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">ID No.</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Date</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Cosignee</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Product</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Truck Type</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Destination</th>
+                      <th className="whitespace-nowrap py-2.5 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRequests.map((r) => {
+                      const uiStatus = toPartnerStatus(r.status);
+                      return (
+                        <tr
+                          key={r.id}
+                          className="cursor-pointer border-b border-[#E2E5E9] last:border-0 hover:bg-[#F8F9FA]"
+                          onClick={() => openDetails(r)}
                         >
-                          {uiStatus}
-                        </span>
-                        <div className="relative">
-                          <button
-                            type="button"
-                            className="p-0.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRowMenuOpen(rowMenuOpen === r.id ? null : r.id);
-                            }}
-                          >
-                            <MoreVertical className="size-5 text-[#5C6470]" />
-                          </button>
-                          {rowMenuOpen === r.id && (
-                            <div className="absolute right-0 top-7 z-10 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
-                              <button
-                                type="button"
-                                className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRowMenuOpen(null);
-                                  openDetails(r);
-                                }}
+                          <td className="whitespace-nowrap py-2.5 pr-3 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                            {displayRequestId(r)}
+                          </td>
+                          <td className="whitespace-nowrap py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                            {formatTripDate(r.scheduledDate)}
+                          </td>
+                          <td className="max-w-[220px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                            {r.customerConsignee || "—"}
+                          </td>
+                          <td className="max-w-[160px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                            {r.cargo || "—"}
+                          </td>
+                          <td className="max-w-[140px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                            {r.tailType || "—"}
+                          </td>
+                          <td className="max-w-[200px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                            {r.dropoff || "—"}
+                          </td>
+                          <td className="py-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className={cn(
+                                  "inline-flex h-[22px] min-w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium",
+                                  partnerStatusClass(uiStatus),
+                                )}
                               >
-                                Details
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#ED351D] hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRowMenuOpen(null);
-                                  setDeleteModalOpen(r.id);
-                                }}
-                              >
-                                Delete
-                              </button>
+                                {uiStatus}
+                              </span>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  className="p-0.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRowMenuOpen(rowMenuOpen === r.id ? null : r.id);
+                                  }}
+                                >
+                                  <MoreVertical className="size-5 text-[#5C6470]" />
+                                </button>
+                                {rowMenuOpen === r.id && (
+                                  <div className="absolute right-0 top-7 z-10 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
+                                    <button
+                                      type="button"
+                                      className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRowMenuOpen(null);
+                                        openDetails(r);
+                                      }}
+                                    >
+                                      Details
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#ED351D] hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRowMenuOpen(null);
+                                        setDeleteModalOpen(r.id);
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </>

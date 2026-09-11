@@ -108,7 +108,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         {/* Mobile header — Figma 390 frames: dark bar, back, title, initials */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 lg:hidden">
           <div className="flex items-center gap-2">

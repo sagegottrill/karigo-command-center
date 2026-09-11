@@ -203,7 +203,7 @@ function PartnerRequestDetailsPage() {
           </Link>
         </div>
       ) : (
-        <main className="flex w-full min-w-0 flex-col gap-5 px-4 py-5 sm:gap-5 sm:px-[30px] sm:py-[30px]">
+        <main className="box-border flex w-full min-w-0 max-w-none flex-col gap-5 p-4 md:gap-5 md:p-[30px]">
           <Link
             to="/workspace/customer-portal/dashboard"
             className="inline-flex items-center gap-2 text-[16px] tracking-[0.4px] text-[#5C6470]"
@@ -308,8 +308,8 @@ function PartnerRequestDetailsPage() {
                 <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
               </div>
               {trip.status === "Requested" || trip.status === "Awaiting Approval" ? (
-                <div className="rounded border border-dashed border-[#E2E5E9] px-4 py-8 text-center text-[13px] text-[#5C6470]">
-                  Awaiting asset and driver assignment from Fleet Operations.
+                <div className="px-4 py-10 text-center text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+                  Awaiting Transport Manager approval and assignment.
                 </div>
               ) : (
                 <div className="flex flex-col gap-5">
@@ -346,7 +346,7 @@ function PartnerRequestDetailsPage() {
                         <div className="flex flex-wrap items-center gap-3">
                           <p
                             className={cn(
-                              "text-[14px] font-medium tracking-[0.4px]",
+                              "text-[14px] font-normal tracking-[0.4px]",
                               active ? "text-[#ED351D]" : "text-[#5C6470]",
                             )}
                           >
@@ -364,7 +364,7 @@ function PartnerRequestDetailsPage() {
                           ) : null}
                         </div>
                         {step.at ? (
-                          <p className="text-[10px] font-medium text-[rgba(92,100,112,0.6)]">{step.at}</p>
+                          <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{step.at}</p>
                         ) : null}
                       </div>
                     </div>

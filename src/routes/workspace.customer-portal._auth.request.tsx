@@ -97,7 +97,7 @@ function PartnerNewRequest() {
 
   return (
     <PartnerPortalShell>
-      <main className="flex flex-col gap-[25px] overflow-visible px-[30px] py-5 max-md:px-4">
+      <main className="box-border flex w-full max-w-none flex-col gap-[25px] overflow-visible p-4 md:px-[30px] md:py-5">
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">New Delivery Request</h2>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
