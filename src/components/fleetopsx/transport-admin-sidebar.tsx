@@ -198,12 +198,37 @@ export function TransportAdminSidebar({
 
 /** Figma Admin mobile bottom tab bar (472:17760) */
 const ADMIN_MOBILE_NAV = [
-  { label: "Dashboard", to: "/workspace/app", icon: LayoutDashboard },
-  { label: "Partners", to: "/workspace/app/manage-partner", icon: Briefcase },
-  { label: "Internal Staff", to: "/workspace/app/manage-account", icon: Users },
-  { label: "Department", to: "/workspace/app/fleet", icon: List },
-  { label: "Notification", to: "/workspace/app/notifications", icon: Bell },
+  { label: "Dashboard", to: "/workspace/app", icon: LayoutDashboard, match: ["exact"] as const },
+  {
+    label: "Partners",
+    to: "/workspace/app/manage-partner",
+    icon: Briefcase,
+    matchPrefixes: ["/workspace/app/manage-partner", "/workspace/app/add-partner", "/workspace/app/partner-requests"],
+  },
+  {
+    label: "Internal Staff",
+    to: "/workspace/app/manage-account",
+    icon: Users,
+    matchPrefixes: ["/workspace/app/manage-account", "/workspace/app/add-account", "/workspace/app/password-request"],
+  },
+  {
+    label: "Department",
+    to: "/workspace/app/fleet",
+    icon: List,
+    matchPrefixes: ["/workspace/app/fleet", "/workspace/app/hr"],
+  },
+  { label: "Notification", to: "/workspace/app/notifications", icon: Bell, matchPrefixes: ["/workspace/app/notifications"] },
 ] as const;
+
+function isMobileNavActive(pathname: string, item: (typeof ADMIN_MOBILE_NAV)[number]) {
+  if ("match" in item && item.match?.[0] === "exact") {
+    return pathname === "/workspace/app" || pathname === "/workspace/app/";
+  }
+  if ("matchPrefixes" in item && item.matchPrefixes) {
+    return item.matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  }
+  return isPathActive(pathname, item.to);
+}
 
 export function TransportAdminMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -231,7 +256,7 @@ export function TransportAdminMobileNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-2 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
       {ADMIN_MOBILE_NAV.map((item) => {
-        const active = isPathActive(pathname, item.to);
+        const active = isMobileNavActive(pathname, item);
         const Icon = item.icon;
         const showBadge = item.to.includes("notifications") && unread > 0;
         return (
