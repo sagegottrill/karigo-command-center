@@ -52,6 +52,7 @@ function AdminManagePartner() {
   const [draftSortDir, setDraftSortDir] = useState<SortDir>("asc");
   const [filtersApplied, setFiltersApplied] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [detailUser, setDetailUser] = useState<User | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedTempPassword, setSharedTempPassword] = useState("");
@@ -359,9 +360,7 @@ function AdminManagePartner() {
                               className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
                               onClick={() => {
                                 setMenuFor(null);
-                                toast.message("Account details", {
-                                  description: `${u.name} · ${u.partnerCompanyName || "Partner"} · ${u.email}`,
-                                });
+                                setDetailUser(u);
                               }}
                             >
                               View details
@@ -476,9 +475,7 @@ function AdminManagePartner() {
                                 className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
                                 onClick={() => {
                                   setMenuFor(null);
-                                  toast.message("Account details", {
-                                    description: `${u.name} · ${u.partnerCompanyName || "Partner"} · ${u.email}`,
-                                  });
+                                  setDetailUser(u);
                                 }}
                               >
                                 View details
@@ -570,6 +567,47 @@ function AdminManagePartner() {
           )}
         </div>
       </div>
+
+      {detailUser && (
+        <PortalOverlay onBackdropClick={() => setDetailUser(null)}>
+          <div
+            className="relative w-full max-w-[440px] rounded-[10px] bg-white p-6 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" onClick={() => setDetailUser(null)} className="absolute top-5 right-5 text-[#8E95A1]">
+              <X className="size-4" />
+            </button>
+            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">Partner Account</h3>
+            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Read-only account details</p>
+            <div className="flex flex-col gap-3">
+              {(
+                [
+                  ["Name", detailUser.name],
+                  ["Company", detailUser.partnerCompanyName || "—"],
+                  ["Username", detailUser.username || "—"],
+                  ["Email", detailUser.email],
+                  ["Status", detailUser.status],
+                  ["Department", detailUser.department || "External Partner"],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label} className="flex flex-col gap-1">
+                  <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
+                  <div className="rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 py-2.5 text-[14px] text-[#1B2432]">
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailUser(null)}
+              className="mt-6 flex h-10 w-full items-center justify-center rounded bg-[#ED351D] text-[14px] font-medium text-white"
+            >
+              Close
+            </button>
+          </div>
+        </PortalOverlay>
+      )}
 
       {sortModalOpen && (
         <PortalOverlay onBackdropClick={() => setSortModalOpen(false)}>

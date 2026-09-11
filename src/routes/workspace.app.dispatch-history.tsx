@@ -394,35 +394,61 @@ function DispatchHistoryPage() {
           ))}
         </div>
 
-        {filteredTrips.map((trip) => {
-          const status = toDisplayStatus(trip.status);
-          return (
-            <button
-              key={trip.id}
-              type="button"
-              onClick={() => setSelectedTrip(trip)}
-              className="grid w-full grid-cols-1 items-center gap-2 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0 md:grid-cols-[110px_150px_180px_140px_120px_1fr_120px] md:gap-[30px]"
-            >
-              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
-                {formatHistoryDate(trip)}
-              </span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
-                {companyName(trip)}
-              </span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.cargo}</span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.tailType}</span>
-              <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
-              <div className="flex items-center justify-between gap-3 md:justify-start">
-                <div className="md:hidden">
-                  <p className="text-[14px] font-medium text-[#1B2432]">{companyName(trip) || trip.cargo}</p>
-                  <p className="text-[12px] text-[#5C6470]">{trip.dropoff}</p>
+        <div className="flex flex-col gap-2.5 md:hidden">
+          {filteredTrips.map((trip) => {
+            const status = toDisplayStatus(trip.status);
+            return (
+              <button
+                key={`m-${trip.id}`}
+                type="button"
+                onClick={() => setSelectedTrip(trip)}
+                className="flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 text-left shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{dispatchId(trip)}</span>
+                  <StatusPill status={status} />
                 </div>
+                <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{companyName(trip) || "—"}</p>
+                <div className="flex flex-col gap-1 text-[12px]">
+                  <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Date:</span>
+                    <span className="flex-1 text-[#344256]">{formatHistoryDate(trip)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Product:</span>
+                    <span className="flex-1 text-[#344256]">{trip.cargo || "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Destination:</span>
+                    <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="hidden md:block">
+          {filteredTrips.map((trip) => {
+            const status = toDisplayStatus(trip.status);
+            return (
+              <button
+                key={trip.id}
+                type="button"
+                onClick={() => setSelectedTrip(trip)}
+                className="grid w-full grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
+              >
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
+                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
+                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
+                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
+                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                 <StatusPill status={status} />
-              </div>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
 
         {filteredTrips.length === 0 && (
           <FigmaEmptyState

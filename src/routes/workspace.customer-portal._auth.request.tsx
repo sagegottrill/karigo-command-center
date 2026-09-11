@@ -86,16 +86,18 @@ function PartnerNewRequest() {
 
   return (
     <PartnerPortalShell>
-      <main className="box-border flex w-full max-w-none flex-col gap-[25px] overflow-visible p-4 md:px-[30px] md:py-5">
-        <div className="flex flex-col gap-[5px]">
-          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">New Delivery Request</h2>
-          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+      <main className="box-border flex w-full max-w-none flex-col gap-[15px] overflow-visible p-4 md:gap-[25px] md:px-[30px] md:py-5">
+        <div className="flex flex-col gap-1 md:gap-[5px]">
+          <h2 className="text-[18px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[24px] md:font-medium md:leading-8">
+            New Delivery Request
+          </h2>
+          <p className="text-[10px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)] md:text-[11.4px]">
             Submit delivery requests
           </p>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
-          <section className="rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-6 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
+        <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4 md:gap-4">
+          <section className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_5px_rgba(0,0,0,0.05)] md:px-5 md:py-6 md:shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
             <h3 className="border-b border-[#E2E5E9] pb-2 text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
               Request Details
             </h3>
@@ -115,7 +117,7 @@ function PartnerNewRequest() {
 
               <label className="flex flex-col gap-3">
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
-                  Product <span className="text-[#ED351D]">*</span>
+                  Select Product <span className="text-[#ED351D]">*</span>
                 </span>
                 <input
                   value={product}
