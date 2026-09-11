@@ -173,6 +173,8 @@ export interface Trip {
     ticket: number;
     extraAllowance: number;
     lubricantType: "Diesel" | "Gas";
+    lubricantQuantity?: number;
+    lubricantCost?: number;
   };
   status: TripStatus;
   priority: "Low" | "Normal" | "High" | "Critical";

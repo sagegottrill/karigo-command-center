@@ -140,6 +140,8 @@ function DispatchPage() {
   const [ticketCost, setTicketCost] = useState("");
   const [extraAllowance, setExtraAllowance] = useState("");
   const [lubricant, setLubricant] = useState("Diesel");
+  const [lubricantQty, setLubricantQty] = useState("");
+  const [lubricantCost, setLubricantCost] = useState("");
 
   // Selection Lookups
   const head = useMemo(() => TRUCK_HEADS.find(h => h.id === headId), [TRUCK_HEADS, headId]);
@@ -147,12 +149,13 @@ function DispatchPage() {
   const driver = useMemo(() => drivers.find(d => d.id === driverId), [drivers, driverId]);
 
   // Derived Values
-  const totalExpense = 
-    (Number(tripAllowance) || 0) + 
-    (Number(returnWaybill) || 0) + 
-    (Number(motorBoy) || 0) + 
-    (Number(ticketCost) || 0) + 
-    (Number(extraAllowance) || 0);
+  const totalExpense =
+    (Number(tripAllowance) || 0) +
+    (Number(returnWaybill) || 0) +
+    (Number(motorBoy) || 0) +
+    (Number(ticketCost) || 0) +
+    (Number(extraAllowance) || 0) +
+    (Number(lubricantCost) || 0);
 
   // Auto-fill logic
   useEffect(() => {
@@ -205,7 +208,10 @@ function DispatchPage() {
         ticket: Number(ticketCost) || 0,
         extraAllowance: Number(extraAllowance) || 0,
         lubricantType: lubricant === "Gas" ? "Gas" : "Diesel",
+        ...(lubricantQty.trim() ? { lubricantQuantity: Number(lubricantQty) || 0 } : {}),
+        ...(lubricantCost.trim() ? { lubricantCost: Number(lubricantCost) || 0 } : {}),
       },
+      ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
       status: "Awaiting Approval",
     });
     
@@ -467,104 +473,104 @@ function DispatchPage() {
           </div>
         </div>
 
-        {/* Step 3 */}
+        {/* Step 3 — Figma: Direct Cost Estimation + lubricant Quantity/Cost */}
         <div>
-          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 3: Direct Cost Configuration</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Trip Allowance <span className="text-red-500">*</span>
+          <h3 className="mb-4 border-b border-[#e2e5e9] pb-2 text-[15px] font-bold text-[#1B2432]">
+            Step 3: Direct Cost Estimation
+          </h3>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
+            {(
+              [
+                ["Trip Allowance", tripAllowance, setTripAllowance],
+                ["Return Waybill", returnWaybill, setReturnWaybill],
+                ["Motor Boy", motorBoy, setMotorBoy],
+                ["Ticket Cost", ticketCost, setTicketCost],
+                ["Extra Allowance", extraAllowance, setExtraAllowance],
+              ] as const
+            ).map(([label, value, setter]) => (
+              <div key={label}>
+                <label className="mb-1.5 block text-[13px] font-semibold text-[#141a1f]">
+                  {label} <span className="text-[#ED351D]">*</span>
+                </label>
+                <input
+                  type="number"
+                  className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm"
+                  placeholder="Auto-populated or manual"
+                  value={value}
+                  onChange={(e) => setter(e.target.value)}
+                />
+              </div>
+            ))}
+            <div className="md:col-span-3">
+              <label className="mb-2 block text-[13px] font-semibold text-[#141a1f]">
+                Lubricant <span className="text-[#ED351D]">*</span>
               </label>
-              <input 
-                type="number" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
-                placeholder="Auto-populated or manual"
-                value={tripAllowance}
-                onChange={e => setTripAllowance(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Return Waybill <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="number" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
-                placeholder="Auto-populated or manual"
-                value={returnWaybill}
-                onChange={e => setReturnWaybill(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Motor Boy <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="number" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
-                placeholder="Auto-populated or manual"
-                value={motorBoy}
-                onChange={e => setMotorBoy(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Ticket Cost <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="number" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
-                placeholder="Auto-populated or manual"
-                value={ticketCost}
-                onChange={e => setTicketCost(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Extra Contingency <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="number" 
-                className="w-full h-11 px-3 bg-white border border-[#e2e5e9] rounded-lg text-sm"
-                placeholder="Auto-populated or manual"
-                value={extraAllowance}
-                onChange={e => setExtraAllowance(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Lubricant <span className="text-red-500">*</span>
-              </label>
-              <select 
-                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
-                value={lubricant}
-                onChange={e => setLubricant(e.target.value)}
-              >
-                <option value="Diesel">Diesel</option>
-                <option value="Gas">Gas</option>
-              </select>
+              <div className="flex flex-wrap items-center gap-[30px]">
+                {(["Diesel", "Gas"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setLubricant(opt)}
+                    className="flex items-center gap-3 rounded-md p-3"
+                  >
+                    <span
+                      className={cn(
+                        "grid size-4 place-items-center rounded-full border shadow-[0px_4px_10px_rgba(0,0,0,0.05)]",
+                        lubricant === opt ? "border-[#ED351D]" : "border-[#E2E5E9]",
+                      )}
+                    >
+                      {lubricant === opt ? <span className="size-2.5 rounded-full bg-[#ED351D]" /> : null}
+                    </span>
+                    <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">{opt}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2.5 flex flex-col gap-2.5">
+                <div>
+                  <label className="mb-1 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Quantity</label>
+                  <input
+                    type="number"
+                    className="h-9 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                    placeholder="Auto-populated or manual"
+                    value={lubricantQty}
+                    onChange={(e) => setLubricantQty(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Cost</label>
+                  <input
+                    type="number"
+                    className="h-9 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                    placeholder="Auto-populated or manual"
+                    value={lubricantCost}
+                    onChange={(e) => setLubricantCost(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Form Actions */}
-        <div className="flex justify-end items-center gap-6 pt-4">
-          <button 
+        {/* Form Actions — Figma: Cancel left, Confirm right */}
+        <div className="flex items-center justify-between gap-4 border-t border-[#E2E5E9] pt-4">
+          <button
+            type="button"
             onClick={handleBackToQueue}
-            className="text-[14px] font-bold text-[#f04438] hover:text-[#d92d20]"
+            className="text-[14px] font-medium text-[#ED351D] hover:underline"
           >
             Cancel
           </button>
-          
-          <button 
+
+          <button
+            type="button"
             onClick={() => {
               if (window.innerWidth < 1024) {
                 handleMobileConfirmDispatch();
               } else {
-                handleFinalConfirm();
+                void handleFinalConfirm();
               }
             }}
-            className="bg-[#f04438] hover:bg-[#d92d20] text-white h-11 px-6 rounded-lg text-[14px] font-bold shadow-sm transition-colors"
+            className="flex h-8 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium text-white hover:bg-[#d62e19]"
           >
             Confirm Dispatch
           </button>
@@ -637,9 +643,15 @@ function DispatchPage() {
               <span className="font-semibold text-[#141a1f]">{ticketCost ? formatN(Number(ticketCost)) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
-              <span className="text-[#5c6470]">Extra Contingency:</span>
+              <span className="text-[#5c6470]">Extra Allowance:</span>
               <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(Number(extraAllowance)) : "-"}</span>
             </div>
+            {lubricantCost ? (
+              <div className="flex justify-between items-center text-[13px]">
+                <span className="text-[#5c6470]">Lubricant Cost:</span>
+                <span className="font-semibold text-[#141a1f]">{formatN(Number(lubricantCost))}</span>
+              </div>
+            ) : null}
             <div className="border-t border-[#e2e5e9] my-2"></div>
             <div className="flex justify-between items-center">
               <span className="text-[14px] font-bold text-[#141a1f]">Total Configured Expense:</span>

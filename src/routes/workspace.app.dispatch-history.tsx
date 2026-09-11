@@ -143,7 +143,8 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Figma 443:13089 — Export under title on mobile */}
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
         <button
           type="button"
           onClick={onBack}
@@ -158,7 +159,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
           className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
         >
           <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CSV
+          Export CVS
         </button>
       </div>
 
@@ -195,6 +196,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                 value={[trip.tailType, trip.tailNumber].filter(Boolean).join(" ")}
               />
               <DetailRow label="Driver Assigned:" value={trip.driverName} />
+              <DetailRow label="Driver Contact Phone:" value={(trip as Trip & { driverPhone?: string }).driverPhone} />
             </div>
 
             {(trip.directCosts || typeof trip.totalCosts === "number") && (
@@ -208,6 +210,12 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                     <DetailRow label="Transit Road Tickets:" value={formatN(trip.directCosts.ticket)} />
                     <DetailRow label="Extra Contingency:" value={formatN(trip.directCosts.extraAllowance)} />
                     <DetailRow label="Lubricant:" value={trip.directCosts.lubricantType} />
+                    {typeof trip.directCosts.lubricantQuantity === "number" ? (
+                      <DetailRow label="Lubricant Quantity:" value={String(trip.directCosts.lubricantQuantity)} />
+                    ) : null}
+                    {typeof trip.directCosts.lubricantCost === "number" ? (
+                      <DetailRow label="Lubricant Cost:" value={formatN(trip.directCosts.lubricantCost)} />
+                    ) : null}
                   </>
                 )}
                 {typeof trip.totalCosts === "number" && (
@@ -228,16 +236,20 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
           <div className="border-b border-[#E2E5E9] p-5">
             <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch Timeline</h2>
           </div>
-          <div className="p-5">
-            <ol className="relative ml-3 space-y-0 border-l-2 border-[#E2E5E9] pl-7">
+          <div className="p-4 md:p-5">
+            <ol className="relative ml-2 space-y-0 border-l-2 border-[#E2E5E9] pl-6 md:ml-3 md:pl-7">
               {timeline.map((step) => (
-                <li key={step.label} className="relative pb-6 last:pb-0">
+                <li key={step.label} className="relative pb-4 last:pb-0 md:pb-6">
                   <span
                     className={cn(
-                      "absolute -left-[33px] top-0.5 size-4 rounded-full border-2",
+                      "absolute -left-[29px] top-0.5 size-3.5 rounded-full border-2 md:-left-[33px] md:size-4",
                       step.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
                     )}
-                  />
+                  >
+                    {step.done ? (
+                      <span className="absolute inset-[3px] rounded-full bg-white md:inset-1" />
+                    ) : null}
+                  </span>
                   <p className={cn("text-[13px] font-bold", step.done ? "text-[#ED351D]" : "text-[#9CA3AF]")}>
                     {step.label}
                   </p>
@@ -245,8 +257,31 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                     <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{formatHistoryDate(trip)}</p>
                   )}
                   {step.children && (
-                    <ol className="relative mt-3 ml-2 space-y-3 border-l border-[#E2E5E9] pl-5">
+                    <ol className="relative mt-2 ml-1 space-y-2 border-l border-[#E2E5E9] pl-4 md:mt-3 md:ml-2 md:space-y-3 md:pl-5">
                       {step.children.map((child) => (
+                        <li key={child.label} className="relative">
+                          <span
+                            className={cn(
+                              "absolute -left-[21px] top-1 size-2 rounded-full border md:-left-[23px]",
+                              child.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
+                            )}
+                          />
+                          <p className={cn("text-[12px] font-medium", child.done ? "text-[#5C6470]" : "text-[#9CA3AF]")}>
+                            {child.label}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
                         <li key={child.label} className="relative">
                           <span
                             className={cn(
