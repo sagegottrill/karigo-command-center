@@ -1,17 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Download, Search, SlidersHorizontal, ArrowLeft } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FigmaEmptyState } from "@/components/fleetopsx/figma-empty-state";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/dispatch-history")({
-  loader: async () => {
-    const trips = await tripService.list();
-    return { trips };
-  },
+  // Live JWT is browser-only — never SSR-fetch
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -292,9 +289,18 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
 }
 
 function DispatchHistoryPage() {
-  const { trips } = Route.useLoaderData();
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    void tripService
+      .list()
+      .then(setTrips)
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load dispatch history"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredTrips = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -324,6 +330,14 @@ function DispatchHistoryPage() {
 
   if (selectedTrip) {
     return <DispatchDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <FigmaLoadingState label="Loading dispatch history…" />
+      </div>
+    );
   }
 
   return (

@@ -13,13 +13,36 @@ import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dashboardService, formatNaira } from "@/lib/fleetopsx/services";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
+
+const EMPTY_GOD_VIEW = {
+  trips: [],
+  trucks: [],
+  drivers: [],
+  expenses: [],
+  gateEntries: [],
+  alerts: [],
+  workOrders: [],
+  inventory: [],
+  procurement: [],
+  charts: {
+    costRevenue: [] as { name: string; cost: number; revenue: number }[],
+    utilisation: [] as { name: string; value: number }[],
+    tripPerformance: [] as { name: string; onTime: number; delayed: number }[],
+    fuel: [] as { name: string; litres: number }[],
+    expenseSplit: [] as { name: string; value: number }[],
+  },
+};
 
 export const Route = createFileRoute("/workspace/app/god-view")({
-  loader: async () => {
-    const overview = await dashboardService.getOverview();
-    const charts = await dashboardService.charts();
-    return { ...overview, charts };
-  },
+  loader: () =>
+    loadWithBrowserAuth(async () => {
+      const overview = await dashboardService.getOverview();
+      const charts = await dashboardService.charts();
+      return { ...overview, charts };
+    }, EMPTY_GOD_VIEW as Awaited<ReturnType<typeof dashboardService.getOverview>> & {
+      charts: Awaited<ReturnType<typeof dashboardService.charts>>;
+    }),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager"];

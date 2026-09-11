@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { PageHeader, SectionPanel } from "@/components/fleetopsx/page-header";
 import { MetricCard } from "@/components/fleetopsx/metric-card";
@@ -10,10 +10,11 @@ import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { tripService } from "@/lib/fleetopsx/services";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
 import type { Trip } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/trips/")({
-  loader: () => tripService.list(),
+  loader: () => loadWithBrowserAuth(() => tripService.list(), [] as Trip[]),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations"];
@@ -35,9 +36,14 @@ export const Route = createFileRoute("/workspace/app/trips/")({
 const FILTERS = ["All", "En Route", "Loaded", "Offloading", "Returning", "Delayed", "Scheduled", "Completed"] as const;
 
 function TripsPage() {
-  const TRIPS = Route.useLoaderData();
+  const initial = Route.useLoaderData();
+  const [TRIPS, setTrips] = useState(initial);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    void tripService.list().then(setTrips).catch(() => undefined);
+  }, []);
   const rows = filter === "All" ? TRIPS : TRIPS.filter((t) => t.status === filter);
 
   const columns: Column<Trip>[] = [

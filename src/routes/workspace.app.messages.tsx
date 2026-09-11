@@ -1,21 +1,23 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { authService, messageService, tripService } from "@/lib/fleetopsx/services";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
 import { useState, useRef, useEffect } from "react";
 import { Send, Check, CheckCheck, Paperclip, MoreVertical, Search, Phone, Video, Smile } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Conversation, Message } from "@/lib/fleetopsx/types";
+import type { Conversation, Message, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/messages")({
-  loader: async () => {
-    const [convos, trips] = await Promise.all([
-      messageService.list(),
-      tripService.list()
-    ]);
-    return { convos, trips };
-  },
+  loader: () =>
+    loadWithBrowserAuth(
+      async () => {
+        const [convos, trips] = await Promise.all([messageService.list(), tripService.list()]);
+        return { convos, trips };
+      },
+      { convos: [] as Conversation[], trips: [] as Trip[] },
+    ),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Diesel", "Engineering", "Parts & Store", "Accounts", "HR", "Security", "Driver", "Customer Portals (External)"];
@@ -38,10 +40,17 @@ function MessagesPage() {
   const [activeId, setActiveId] = useState(initialConvos[0]?.id || "");
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    void messageService.list().then((next) => {
+      setConvos(next);
+      setActiveId((prev) => prev || next[0]?.id || "");
+    });
+  }, []);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const active = convos.find((c) => c.id === activeId) || convos[0]!;
+  const active = convos.find((c) => c.id === activeId) || convos[0];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,7 +62,7 @@ function MessagesPage() {
 
   const send = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || !active) return;
     const msg: Message = { id: `m${active.messages.length + 1}`, author: "You", role: "Operations Admin", body: draft, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), self: true };
     setConvos(convos.map((c) => (c.id === activeId ? { ...c, unread: 0, messages: [...c.messages, msg] } : c)));
     setDraft("");

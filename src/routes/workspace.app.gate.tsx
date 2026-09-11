@@ -19,22 +19,27 @@ import {
 } from "@/components/ui/select";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { gateService, driverService, fleetService } from "@/lib/fleetopsx/services";
-import type { GateEntry } from "@/lib/fleetopsx/types";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
+import type { Driver, GateEntry, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 
 const FILTERS = ["Today", "Incoming", "Outgoing", "All"] as const;
 
 export const Route = createFileRoute("/workspace/app/gate")({
-  loader: async () => {
-    const [drivers, heads, tails] = await Promise.all([
-      driverService.list(),
-      fleetService.listHeads(),
-      fleetService.listTails(),
-    ]);
-    return {
-      drivers,
-      trucks: [...heads, ...tails],
-    };
-  },
+  loader: () =>
+    loadWithBrowserAuth(
+      async () => {
+        const [drivers, heads, tails] = await Promise.all([
+          driverService.list(),
+          fleetService.listHeads(),
+          fleetService.listTails(),
+        ]);
+        return {
+          drivers,
+          trucks: [...heads, ...tails] as (TruckHead | TruckTail)[],
+        };
+      },
+      { drivers: [] as Driver[], trucks: [] as (TruckHead | TruckTail)[] },
+    ),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Security"];

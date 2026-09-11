@@ -19,18 +19,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { engineeringService, formatNaira, fleetService } from "@/lib/fleetopsx/services";
-import type { WorkOrder } from "@/lib/fleetopsx/types";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
+import type { TruckHead, TruckTail, WorkOrder } from "@/lib/fleetopsx/types";
 import { redirect } from "@tanstack/react-router";
 import { authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/engineering")({
-  loader: async () => {
-    const [heads, tails] = await Promise.all([
-      fleetService.listHeads(),
-      fleetService.listTails(),
-    ]);
-    return { trucks: [...heads, ...tails] };
-  },
+  loader: () =>
+    loadWithBrowserAuth(
+      async () => {
+        const [heads, tails] = await Promise.all([fleetService.listHeads(), fleetService.listTails()]);
+        return { trucks: [...heads, ...tails] as (TruckHead | TruckTail)[] };
+      },
+      { trucks: [] as (TruckHead | TruckTail)[] },
+    ),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Engineering"];

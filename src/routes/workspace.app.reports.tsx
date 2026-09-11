@@ -14,14 +14,37 @@ import { ChartFrame } from "@/components/fleetopsx/chart-frame";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatNaira, dashboardService } from "@/lib/fleetopsx/services";
+import { loadWithBrowserAuth } from "@/lib/fleetopsx/live-loader";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/workspace/app/reports")({
-  loader: async () => {
-    const overview = await dashboardService.getOverview();
-    const charts = await dashboardService.charts();
-    return { ...overview, charts };
+const EMPTY_REPORTS = {
+  trips: [],
+  trucks: [],
+  drivers: [],
+  expenses: [],
+  gateEntries: [],
+  alerts: [],
+  workOrders: [],
+  inventory: [],
+  procurement: [],
+  charts: {
+    costRevenue: [] as { name: string; cost: number; revenue: number }[],
+    utilisation: [] as { name: string; value: number }[],
+    tripPerformance: [] as { name: string; onTime: number; delayed: number }[],
+    fuel: [] as { name: string; litres: number }[],
+    expenseSplit: [] as { name: string; value: number }[],
   },
+};
+
+export const Route = createFileRoute("/workspace/app/reports")({
+  loader: () =>
+    loadWithBrowserAuth(async () => {
+      const overview = await dashboardService.getOverview();
+      const charts = await dashboardService.charts();
+      return { ...overview, charts };
+    }, EMPTY_REPORTS as Awaited<ReturnType<typeof dashboardService.getOverview>> & {
+      charts: Awaited<ReturnType<typeof dashboardService.charts>>;
+    }),
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Accounts"];

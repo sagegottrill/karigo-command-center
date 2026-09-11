@@ -2,27 +2,14 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
-import { FigmaEmptyState } from "@/components/fleetopsx/figma-empty-state";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
-import type { Trip } from "@/lib/fleetopsx/types";
+import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/app/dispatch")({
-  loader: async () => {
-    const [heads, tails, drivers, trips] = await Promise.all([
-      fleetService.listHeads(),
-      fleetService.listTails(),
-      driverService.list(),
-      tripService.list()
-    ]);
-    return {
-      heads,
-      tails,
-      drivers,
-      pendingOrders: trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval"),
-    };
-  },
+  // Live JWT is browser-only — never SSR-fetch (was causing document 500 Unauthorized)
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -102,7 +89,30 @@ function ViewModeTabs({
 
 function DispatchPage() {
   const navigate = useNavigate();
-  const { heads: TRUCK_HEADS, tails: TRUCK_TAILS, drivers, pendingOrders } = Route.useLoaderData();
+  const [TRUCK_HEADS, setHeads] = useState<TruckHead[]>([]);
+  const [TRUCK_TAILS, setTails] = useState<TruckTail[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refreshQueue = async () => {
+    const [heads, tails, nextDrivers, trips] = await Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+      driverService.list(),
+      tripService.list(),
+    ]);
+    setHeads(heads);
+    setTails(tails);
+    setDrivers(nextDrivers);
+    setPendingOrders(trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval"));
+  };
+
+  useEffect(() => {
+    void refreshQueue()
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load dispatch queue"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const [selectedOrder, setSelectedOrder] = useState<Trip | null>(null);
   const [mobileView, setMobileView] = useState<"form" | "audit">("form");
@@ -605,6 +615,14 @@ function DispatchPage() {
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex w-full flex-col bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <FigmaLoadingState label="Loading dispatch queue…" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full flex-col bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
