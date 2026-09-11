@@ -32,6 +32,7 @@ function AdminManagePartner() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [sharedTempPassword, setSharedTempPassword] = useState("");
   const filterRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -87,12 +88,9 @@ function AdminManagePartner() {
     switch (confirmAction.type) {
       case "password": {
         const tempPassword = await adminService.resetPassword(confirmAction.userId);
-        toast.success(
-          typeof tempPassword === "string" && tempPassword
-            ? `Temporary password: ${tempPassword}`
-            : "Password reset initiated.",
-          { duration: 12_000 },
-        );
+        const pwd = typeof tempPassword === "string" ? tempPassword : "";
+        setSharedTempPassword(pwd);
+        toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", { duration: 12_000 });
         setConfirmAction(null);
         setShowShareModal(true);
         break;
@@ -122,7 +120,7 @@ function AdminManagePartner() {
     }
   };
 
-  const shareText = `Hello,\n\nYour account password has been reset for the Partner Portal.\nPlease check your email or contact your administrator for the temporary password.\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
+  const shareText = `Hello,\n\nYour account password has been reset for the Partner Portal.\nTemporary password: ${sharedTempPassword || "(see your administrator)"}\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
 
   return (
     <>
@@ -502,6 +500,9 @@ function AdminManagePartner() {
                   setShowShareModal(false);
                 }}
               >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M20.52 3.44C18.24 1.17 15.2 0 11.96 0C5.36 0 0 5.36 0 11.97C0 14.1 .56 16.14 1.6 17.92L0 24L6.19 22.39C7.94 23.34 9.93 23.86 11.96 23.86C18.57 23.86 23.94 18.5 23.94 11.89C23.94 8.7 22.72 5.67 20.44 3.39H20.52Z" fill="#141A1F" />
+                </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">WhatsApp</span>
               </button>
               <button
@@ -512,6 +513,9 @@ function AdminManagePartner() {
                   setShowShareModal(false);
                 }}
               >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141A1F" />
+                </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Gmail</span>
               </button>
               <button
@@ -523,6 +527,9 @@ function AdminManagePartner() {
                   setShowShareModal(false);
                 }}
               >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141A1F" />
+                </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Copy</span>
               </button>
             </div>

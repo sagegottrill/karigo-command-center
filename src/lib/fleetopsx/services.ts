@@ -1229,21 +1229,37 @@ export const adminService = {
     if (!useMock()) return liveListLoginReports();
     return settle([...store.loginReports]);
   },
-  createUser: async (payload: { firstName: string; surname: string; roles: string[]; username: string; department: string; companyId?: string; staffId?: string; partnerCompanyName?: string; email?: string }) => {
+  createUser: async (payload: {
+    firstName: string;
+    surname: string;
+    roles: string[];
+    username: string;
+    department: string;
+    companyId?: string;
+    staffId?: string;
+    partnerCompanyName?: string;
+    email?: string;
+    password?: string;
+  }) => {
     const name = `${payload.firstName} ${payload.surname}`;
     let emailDomain = "petroline.ng";
     if (payload.roles.includes("Customer Portals (External)") && payload.partnerCompanyName) {
       emailDomain = payload.partnerCompanyName.toLowerCase().replace(/[^a-z]+/g, "") + ".com";
     }
     const email = payload.email || `${payload.username}@${emailDomain}`;
+    const password = payload.password || generateTempPassword();
     if (!useMock()) {
       return liveCreateUser({
         email,
         name,
         role: payload.roles[0] || "Transport Manager",
-        password: "ChangeMe@2026",
+        password,
         tenantId: payload.companyId,
         status: "Active",
+        username: payload.username,
+        department: payload.department,
+        staffId: payload.staffId,
+        partnerCompanyName: payload.partnerCompanyName,
       });
     }
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;

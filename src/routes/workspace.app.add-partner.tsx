@@ -21,7 +21,14 @@ function AddPartner() {
   const [showShareModal, setShowShareModal] = useState(false);
 
   const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
-  const [generatedPassword] = useState(() => Math.random().toString(36).slice(-8));
+  const [generatedPassword] = useState(() => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const bytes = new Uint8Array(10);
+    crypto.getRandomValues(bytes);
+    let body = "";
+    for (let i = 0; i < bytes.length; i++) body += alphabet[bytes[i]! % alphabet.length];
+    return `Tmp${body}!`;
+  });
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,8 +62,9 @@ function AddPartner() {
         roles: ["Customer Portals (External)"],
         username: generatedUsername,
         department: "External Partner",
-        companyId: tenantCompanyId, // Links partner to the tenant that created them
-        partnerCompanyName: companyName, // The partner's actual company name
+        companyId: tenantCompanyId,
+        partnerCompanyName: companyName,
+        password: generatedPassword,
       });
       toast.success("Partner account created.");
       setShowConfirmModal(false);
@@ -103,7 +111,15 @@ function AddPartner() {
             <MoreVertical className="w-[20px] h-[20px]" />
           </button>
         </div>
-        <button className="hidden lg:flex items-center gap-[8px] px-[16px] py-[8px] text-[#141a1f] hover:bg-gray-200/50 rounded-md transition-colors font-[500] text-[14px]">
+        <button
+          type="button"
+          onClick={() =>
+            toast.message("Import not available yet", {
+              description: "Bulk partner import will connect to the live CSV endpoint next.",
+            })
+          }
+          className="hidden lg:flex items-center gap-[8px] px-[16px] py-[8px] text-[#141a1f] hover:bg-gray-200/50 rounded-md transition-colors font-[500] text-[14px]"
+        >
           <Download className="w-[18px] h-[18px]" />
           Import CVS
         </button>
@@ -122,7 +138,7 @@ function AddPartner() {
               type="text" 
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="example: Joe"
+              placeholder="example: Saba Steel"
               className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
             />
           </div>

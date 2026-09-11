@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check, Download, MoreVertical, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
+import { ADMIN_DEPARTMENTS, departmentToRoleKey } from "@/lib/fleetopsx/admin-departments";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/add-account")({
@@ -12,6 +12,15 @@ export const Route = createFileRoute("/workspace/app/add-account")({
 function buildUsername(firstName: string, surname: string) {
   if (!firstName || !surname) return "";
   return `${firstName[0]!.toUpperCase()}.${surname[0]!.toUpperCase()}${surname.slice(1)}`;
+}
+
+function generateSharePassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  let body = "";
+  for (let i = 0; i < bytes.length; i++) body += alphabet[bytes[i]! % alphabet.length];
+  return `Tmp${body}!`;
 }
 
 function AdminAddAccount() {
@@ -28,7 +37,7 @@ function AdminAddAccount() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [generatedPassword] = useState(() => Math.random().toString(36).slice(2, 11));
+  const [generatedPassword] = useState(() => generateSharePassword());
 
   const generatedUsername = buildUsername(firstName.trim(), surname.trim());
 
@@ -55,13 +64,14 @@ function AdminAddAccount() {
       await adminService.createUser({
         firstName,
         surname,
-        roles: [department],
+        roles: [departmentToRoleKey(department)],
         username: generatedUsername,
         department,
         staffId,
         companyId: currentUser?.companyId,
+        password: generatedPassword,
       });
-      toast.success("User created. Default password requires reset on login.");
+      toast.success("Staff account created.");
       setShowConfirmModal(false);
       setShowShareModal(true);
     } catch {
@@ -103,6 +113,12 @@ function AdminAddAccount() {
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-[#141A1F] hover:bg-[#F1F2F4]"
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    toast.message("Import not available yet", {
+                      description: "Bulk staff import will connect to the live CSV endpoint next.",
+                    });
+                  }}
                 >
                   <Download className="size-3.5" /> Import CVS
                 </button>
@@ -113,6 +129,11 @@ function AdminAddAccount() {
           {/* Figma: Import CVS only — 123×32, no Export */}
           <button
             type="button"
+            onClick={() =>
+              toast.message("Import not available yet", {
+                description: "Bulk staff import will connect to the live CSV endpoint next.",
+              })
+            }
             className="hidden h-8 w-[123px] items-center gap-[5px] rounded px-[7px] py-[5px] md:flex"
           >
             <Download className="size-[18px] text-[#1B2432]" strokeWidth={1.5} />
@@ -203,7 +224,7 @@ function AdminAddAccount() {
               type="text"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder="example: J.Doe"
+              placeholder="example: Dispatcher"
               className={fieldClass}
             />
           </div>

@@ -183,16 +183,20 @@ function HrStaffDirectory() {
                   </div>
                   <div className="flex flex-col gap-1.5 text-[12px]">
                     <div className="flex gap-2">
-                      <span className="w-20 font-medium text-[#5C6470]">Department:</span>
-                      <span className="flex-1 text-[#344256]">Fleet Operation</span>
-                    </div>
-                    <div className="flex gap-2">
                       <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
                       <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
                     </div>
                     <div className="flex gap-2">
-                      <span className="w-20 font-medium text-[#5C6470]">Username:</span>
+                      <span className="w-20 font-medium text-[#5C6470]">Phone:</span>
                       <span className="flex-1 text-[#344256]">{driver.phone || "—"}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">License:</span>
+                      <span className="flex-1 text-[#344256]">{driver.licenseNumber || "—"}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Asset:</span>
+                      <span className="flex-1 text-[#344256]">{driver.assignedTruck || "—"}</span>
                     </div>
                   </div>
                   {driver.status !== "Suspended" && (

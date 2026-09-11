@@ -50,7 +50,6 @@ function AdminPartnerRequests() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [declinedIds, setDeclinedIds] = useState<string[]>([]);
   const [detail, setDetail] = useState<Trip | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -70,11 +69,8 @@ function AdminPartnerRequests() {
   }, []);
 
   const listing = useMemo(
-    () =>
-      trips.filter(
-        (t) => isPartnerRequest(t) && t.status === "Requested" && !declinedIds.includes(t.id),
-      ),
-    [trips, declinedIds],
+    () => trips.filter((t) => isPartnerRequest(t) && t.status === "Requested"),
+    [trips],
   );
 
   const filtered = listing.filter((t) => {
@@ -112,10 +108,16 @@ function AdminPartnerRequests() {
     void tripService.list().then(setTrips);
   };
 
-  const handleDecline = (trip: Trip) => {
+  const handleDecline = async (trip: Trip) => {
     setMenuFor(null);
-    setDeclinedIds((ids) => [...ids, trip.id]);
-    toast.warning(`Request ${requestId(trip)} declined.`);
+    setDetail(null);
+    try {
+      await tripService.update(trip.id, { status: "Stopped" });
+      toast.warning(`Request ${requestId(trip)} declined.`);
+      void tripService.list().then(setTrips);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to decline request.");
+    }
   };
 
   return (

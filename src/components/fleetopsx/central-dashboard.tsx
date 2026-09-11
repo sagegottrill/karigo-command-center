@@ -14,7 +14,11 @@ const CARD_SHADOW =
   "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]";
 
 function isPartnerTrip(trip: Trip) {
-  return trip.customer === "Customer Portal" || trip.status === "Requested";
+  return (
+    trip.status === "Requested" ||
+    trip.customer === "Customer Portal" ||
+    Boolean(trip.customerConsignee?.trim())
+  );
 }
 
 function countByStatus(items: { status: string }[], status: string) {
@@ -86,7 +90,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         t.status === "Returning",
     );
     const completed = partnerTrips.filter((t) => t.status === "Completed");
-    const declined = 0;
+    const declined = partnerTrips.filter((t) => t.status === "Stopped" && !t.headId).length;
 
     const active = trips.filter(
       (t) =>
@@ -96,7 +100,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         t.status === "Offloading" ||
         t.status === "Returning" ||
         t.status === "Delayed" ||
-        t.status === "Stopped",
+        (t.status === "Stopped" && Boolean(t.headId)),
     );
     const slight = active.filter((t) => t.status === "Delayed");
     const significant = active.filter((t) => t.status === "Stopped");
