@@ -49,10 +49,6 @@ function AddPartner() {
       toast.error("Please fill in all required fields.");
       return;
     }
-    if (!logo) {
-      toast.error("Please upload a company logo.");
-      return;
-    }
     setShowConfirmModal(true);
   };
 
@@ -192,8 +188,8 @@ function AddPartner() {
           {/* Logo Upload */}
           <div className="flex flex-col gap-[8px] w-full">
             <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
-              Attach Company Logo <span className="text-[#ED351D] font-[400]">*</span>{" "}
-              <span className="text-[#8e95a1] font-[400]">(max. 10mb)</span>
+              Attach Company Logo{" "}
+              <span className="text-[#8e95a1] font-[400]">(optional · max. 10mb)</span>
             </label>
             <div 
               className="flex items-center justify-center w-full h-[48px] border-[1px] border-[#e3351d] rounded-[4px] bg-[#ffffff] cursor-pointer hover:bg-[#e3351d]/5 transition-colors"

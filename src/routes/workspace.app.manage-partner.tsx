@@ -252,19 +252,20 @@ function AdminManagePartner() {
               manage listing of partner companies
             </p>
           </div>
-          <div className="flex w-full flex-row flex-nowrap items-center gap-2.5 sm:w-auto sm:shrink-0">
+          {/* Figma 327:11741 — Export stacks under Add New (not same row) */}
+          <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-[235px] sm:shrink-0 sm:items-end">
             <Link
               to="/workspace/app/add-partner"
-              className="flex h-10 min-w-0 flex-1 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19] sm:flex-none"
+              className="flex h-10 w-full items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium leading-5 tracking-[0.4px] whitespace-nowrap text-white hover:bg-[#d62e19] sm:w-[235px]"
             >
               + Add New Account
             </Link>
             <button
               type="button"
               onClick={exportCSV}
-              className="flex h-10 shrink-0 flex-row items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white"
+              className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white sm:w-[123px]"
             >
-              <Download className="size-4" strokeWidth={1.75} />
+              <Download className="size-[18px]" strokeWidth={1.75} />
               Export CSV
             </button>
           </div>
