@@ -1138,7 +1138,14 @@ export const messageService = {
 
 export const notificationService = {
   list: async () => {
-    if (!useMock()) return liveListNotifications();
+    if (!useMock()) {
+      if (!getToken()) return [];
+      try {
+        return await liveListNotifications({ softAuth: true });
+      } catch {
+        return [];
+      }
+    }
     let notifications = [...store.notifications];
     const roles = authService.getRoles();
     if (roles.includes("Fleet Operations") && !roles.includes("Transport Manager") && !roles.includes("Superadmin")) {

@@ -112,6 +112,31 @@ export function AppHeader({
   /* Figma Admin / Fleet Ops portal chrome */
   if (adminPortal) {
     const fleetOps = forceFleetOps || isFleetOpsPortalPath(pathname);
+    const initials = mounted && currentUser?.initials ? currentUser.initials : "JD";
+
+    if (fleetOps) {
+      return (
+        <>
+          {/* Figma FO mobile header bar (390) */}
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 md:hidden">
+            <p className="text-[16px] font-semibold text-white">Fleet Operations Portal</p>
+            <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+              {initials}
+            </div>
+          </header>
+          {/* Desktop FO portal title */}
+          <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
+            <div className="flex min-w-0 flex-col gap-[5px]">
+              <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Operations Portal</h1>
+              <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                Manage the lifecycle of every dispatch within the company
+              </p>
+            </div>
+          </header>
+        </>
+      );
+    }
+
     return (
       <header className="sticky top-0 z-30 flex w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
         <div className="flex items-end gap-3">
@@ -123,13 +148,9 @@ export function AppHeader({
             <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
           </button>
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">
-              {fleetOps ? "Fleet Operations Portal" : "Transport Manager Portal"}
-            </h1>
+            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Transport Manager Portal</h1>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              {fleetOps
-                ? "Manage the lifecycle of every dispatch within the company"
-                : "Manage the lifecycle of every account within the company to maintain data integrity."}
+              Manage the lifecycle of every account within the company to maintain data integrity.
             </p>
           </div>
         </div>
