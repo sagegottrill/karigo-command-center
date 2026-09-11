@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -67,19 +67,102 @@ function isPendingStamp(label: string) {
 }
 
 function SecurityLogPage() {
-  const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [logOpen, setLogOpen] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState("");
+  const [logForm, setLogForm] = useState({
+    driverName: "",
+    truckHead: "",
+    tailNumber: "",
+    plateNumber: "",
+  });
+  const [menuTripId, setMenuTripId] = useState<string | null>(null);
+
+  const stampNow = () =>
+    new Date().toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const handleLogReturn = async (trip: Trip) => {
+    try {
+      await tripService.update(trip.id, {
+        status: "Completed",
+        eta: stampNow(),
+        progress: 100,
+      });
+      toast.success("Return logged");
+      setMenuTripId(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log return");
+    }
+  };
+
+  const refresh = async () => {
+    const list = await tripService.list();
+    setTrips(list);
+  };
 
   useEffect(() => {
-    void tripService
-      .list()
-      .then(setTrips)
+    void refresh()
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load security log"))
       .finally(() => setLoading(false));
   }, []);
+
+  const openLogModal = (trip?: Trip) => {
+    const t = trip ?? trips.find((x) => x.status === "Scheduled") ?? trips[0];
+    if (t) {
+      setSelectedTripId(t.id);
+      setLogForm({
+        driverName: t.driverName || "",
+        truckHead: headOf(t),
+        tailNumber: tailOf(t) === "—" ? "" : tailOf(t),
+        plateNumber: plateOf(t) === "—" ? "" : plateOf(t),
+      });
+    } else {
+      setSelectedTripId("");
+      setLogForm({ driverName: "", truckHead: "", tailNumber: "", plateNumber: "" });
+    }
+    setLogOpen(true);
+  };
+
+  const handleLogDeparture = async () => {
+    if (!selectedTripId) {
+      toast.error("Select a dispatch to log.");
+      return;
+    }
+    if (!logForm.driverName.trim() || !logForm.truckHead.trim() || !logForm.plateNumber.trim()) {
+      toast.error("Driver, truck head, and plate are required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const stamp = stampNow();
+      await tripService.update(selectedTripId, {
+        status: "En Route",
+        driverName: logForm.driverName.trim(),
+        truckReg: logForm.tailNumber.trim()
+          ? `${logForm.plateNumber.trim()} / ${logForm.tailNumber.trim()}`
+          : logForm.plateNumber.trim(),
+        tailNumber: logForm.tailNumber.trim() || undefined,
+        startTime: stamp,
+      });
+      toast.success("Departure logged");
+      setLogOpen(false);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log departure");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const listing = useMemo(() => {
     return trips.filter((t) =>
@@ -147,7 +230,7 @@ function SecurityLogPage() {
         </div>
         <button
           type="button"
-          onClick={() => toast.message("Log vehicle", { description: "Use trip status updates to record departure and return." })}
+          onClick={() => openLogModal()}
           className="flex h-9 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
         >
           <Plus className="size-4" strokeWidth={2} />
@@ -220,9 +303,37 @@ function SecurityLogPage() {
               >
                 {ret}
               </span>
-              <button type="button" className="hidden justify-self-end text-[#1B2432] md:grid" aria-label="Options">
-                <MoreVertical className="size-5" />
-              </button>
+              <div className="relative hidden justify-self-end md:block">
+                <button
+                  type="button"
+                  className="grid place-items-center text-[#1B2432]"
+                  aria-label="Options"
+                  onClick={() => setMenuTripId((id) => (id === trip.id ? null : trip.id))}
+                >
+                  <MoreVertical className="size-5" />
+                </button>
+                {menuTripId === trip.id && (
+                  <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+                    <button
+                      type="button"
+                      className="block w-full px-3 py-2.5 text-left text-[13px] text-[#1B2432] hover:bg-[#F1F2F4]"
+                      onClick={() => {
+                        setMenuTripId(null);
+                        openLogModal(trip);
+                      }}
+                    >
+                      Log Departure
+                    </button>
+                    <button
+                      type="button"
+                      className="block w-full px-3 py-2.5 text-left text-[13px] text-[#1B2432] hover:bg-[#F1F2F4]"
+                      onClick={() => void handleLogReturn(trip)}
+                    >
+                      Log Return
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -275,12 +386,86 @@ function SecurityLogPage() {
 
       <button
         type="button"
-        onClick={() => navigate({ to: "/workspace/app/notifications" })}
+        onClick={() => openLogModal()}
         className="fixed right-4 bottom-24 flex h-11 items-center gap-2 rounded-full bg-[#ED351D] px-4 text-[14px] font-medium text-white shadow-lg md:hidden"
       >
         <Plus className="size-4" />
         Log Vehicle
       </button>
+
+      {logOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+            <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Log Vehicle</h3>
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                Dispatch *
+                <select
+                  className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+                  value={selectedTripId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedTripId(id);
+                    const t = trips.find((x) => x.id === id);
+                    if (t) {
+                      setLogForm({
+                        driverName: t.driverName || "",
+                        truckHead: headOf(t),
+                        tailNumber: tailOf(t) === "—" ? "" : tailOf(t),
+                        plateNumber: plateOf(t) === "—" ? "" : plateOf(t),
+                      });
+                    }
+                  }}
+                >
+                  <option value="">Select dispatch</option>
+                  {trips
+                    .filter((t) => ["Scheduled", "En Route", "Loaded", "Returning"].includes(t.status))
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {dispatchId(t)} · {t.driverName || "Driver TBD"}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {(
+                [
+                  ["driverName", "Driver Name *", "example: J.Doe"],
+                  ["truckHead", "Truck Head *", "example: P002"],
+                  ["tailNumber", "Tail Number", "example: B001"],
+                  ["plateNumber", "Plate Number *", "example: KSF 72 YF"],
+                ] as const
+              ).map(([key, label, placeholder]) => (
+                <label key={key} className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                  {label}
+                  <input
+                    className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+                    placeholder={placeholder}
+                    value={logForm[key]}
+                    onChange={(e) => setLogForm((f) => ({ ...f, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => setLogOpen(false)}
+                className="text-[14px] font-bold text-[#ED351D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void handleLogDeparture()}
+                className="h-11 rounded-lg bg-[#ED351D] px-6 text-[14px] font-bold text-white disabled:opacity-60"
+              >
+                {saving ? "Logging…" : "Log Departure"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Plus, Server, Users, CreditCard, Settings, Activity, Building, LogOut, ArrowLeft, MoreHorizontal, AlertCircle } from "lucide-react";
+import { Plus, Building, LogOut, AlertCircle, MoreHorizontal, Users } from "lucide-react";
 import { DataTable } from "@/components/fleetopsx/data-table";
 import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import type { Column } from "@/components/fleetopsx/data-table";
@@ -184,48 +184,40 @@ function SuperAdminLayout() {
   return (
     <div className="flex h-screen w-full bg-[#F9FAFB] font-['Inter',sans-serif]">
       {/* Sidebar */}
-      <div className="hidden lg:flex flex-col w-[260px] bg-[#1a232f] h-full shrink-0">
-        <div className="pt-[32px] pb-[40px] px-[24px] flex items-center gap-3">
-          <div className="w-[32px] h-[32px] rounded bg-[#e3351d] flex items-center justify-center">
-            <Server className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-[16px] font-[600] text-[#ffffff]">Platform Admin</span>
+      <div className="hidden lg:flex flex-col w-[240px] bg-[#1B2432] h-full shrink-0">
+        <div className="h-20 px-5 flex items-center justify-end">
+          <span className="font-['Space_Grotesk',sans-serif] text-[24px] font-bold tracking-[0.4px] text-white">FleetOpsX</span>
         </div>
         
-        <div className="flex flex-col flex-1">
-          <div className="flex flex-col gap-1 px-3">
-            <Link to="/superadmin" className="flex flex-row items-center px-[12px] py-[10px] gap-[12px] bg-[#e3351d] rounded-md">
+        <div className="flex flex-col flex-1 py-5 items-center">
+          <div className="flex flex-col gap-1 w-[224px]">
+            <Link to="/superadmin" className="flex flex-row items-center gap-2 h-8 px-2 bg-[#ED351D] rounded">
               <Building className="h-4 w-4 text-white" />
-              <span className="text-[13px] font-[500] text-[#ffffff]">Tenants Directory</span>
+              <span className="text-[14px] tracking-[0.4px] text-white">Tenants Directory</span>
             </Link>
           </div>
         </div>
 
-        <div className="mt-auto pb-[24px]">
-          <div className="px-[24px] pb-[12px]">
-            <Link to="/">
-              <button className="w-full flex items-center justify-center gap-2 py-[8px] rounded-[6px] border border-[#8e95a1] hover:bg-white/5 transition-colors mb-3">
-                <ArrowLeft className="h-4 w-4 text-[#8e95a1]" />
-                <span className="text-[13px] font-[500] text-[#8e95a1]">Back to Main Site</span>
-              </button>
-            </Link>
-            <button onClick={() => { authService.logout(); window.location.href = "/superadmin/login"; }} className="w-full flex items-center justify-center gap-2 py-[8px] rounded-[6px] border border-[#e3351d] hover:bg-[#e3351d]/10 transition-colors">
-              <LogOut className="h-4 w-4 text-[#e3351d]" />
-              <span className="text-[13px] font-[500] text-[#e3351d]">Log Out</span>
-            </button>
-          </div>
-          <div className="px-[24px] mt-4">
-            <div className="flex flex-row items-center justify-between">
-              <div className="flex flex-row items-center gap-[12px]">
-                <div className="w-[32px] h-[32px] rounded bg-[#e5e7eb] flex items-center justify-center">
-                  <span className="text-[13px] font-[600] text-[#141a1f]">SA</span>
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[13px] font-[600] text-[#ffffff]">Super Admin</span>
-                  <span className="text-[11px] font-[400] text-[#8e95a1]">admin@fleetopsx.com</span>
-                </div>
-              </div>
+        <div className="p-2">
+          <div className="flex items-center gap-2 h-12 p-2 rounded">
+            <div className="size-8 rounded-[6px] bg-[#F1F2F4] grid place-items-center">
+              <span className="text-[14px] text-[#5C6470]">SA</span>
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-medium text-white leading-[17.5px]">Super Admin</div>
+              <div className="text-[12px] text-[#5C6470] truncate">admin@fleetopsx.com</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                authService.logout();
+                window.location.href = "/superadmin/login";
+              }}
+              className="text-[#5C6470]"
+              aria-label="Log out"
+            >
+              <LogOut className="size-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -233,15 +225,17 @@ function SuperAdminLayout() {
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* Header */}
-        <header className="h-[72px] bg-white border-b border-[#e2e5e9] flex items-center justify-between px-[32px] shrink-0">
-          <div className="flex flex-col">
-            <h1 className="text-[20px] font-[600] leading-[28px] text-[#141a1f]">Tenant Management</h1>
-            <p className="text-[13px] font-[400] text-[#5c6470]">Manage organizations, multi-tenant billing, and platform-wide settings.</p>
+        <header className="bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] flex items-end justify-between px-5 pt-5 pb-2.5 shrink-0">
+          <div className="flex flex-col gap-[5px]">
+            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Super Admin Portal</h1>
+            <p className="text-[11.4px] font-normal uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              onboard and Manage Tenant company account
+            </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 bg-[#e3351d] hover:bg-[#d62e19] text-white">
-                <Plus className="h-4 w-4" /> Onboard Tenant
+              <Button className="gap-1.5 h-9 rounded bg-[#ED351D] hover:bg-[#d62e19] text-white text-[14px] font-medium tracking-[0.4px]">
+                <Plus className="h-4 w-4" /> Add New Tenant
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-[#f8f9fa]">
@@ -363,48 +357,50 @@ function SuperAdminLayout() {
             
             {/* Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-[24px]">
-              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] p-[24px]" style={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <div className="bg-[#ffffff] rounded-[8px] p-[15px]" style={{ boxShadow: "0px 4px 16px -8px rgba(12,12,13,0.1), 0px 4px 4px -4px rgba(12,12,13,0.05)" }}>
                 <div className="flex items-center justify-between mb-[12px]">
-                  <span className="text-[13px] font-[600] text-[#5c6470] uppercase tracking-[0.05em]">Total Tenants</span>
-                  <Building className="h-4 w-4 text-[#8e95a1]" />
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Total Tenants</span>
                 </div>
                 <div className="flex items-end gap-[12px]">
-                  <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.length}</span>
+                  <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">{tenants.length}</span>
                 </div>
               </div>
               
-              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] p-[24px]" style={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[8px] p-[15px]" style={{ boxShadow: "0px 4px 16px -8px rgba(12,12,13,0.1), 0px 4px 4px -4px rgba(12,12,13,0.05)" }}>
                 <div className="flex items-center justify-between mb-[12px]">
-                  <span className="text-[13px] font-[600] text-[#5c6470] uppercase tracking-[0.05em]">Active Vehicles</span>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Total Requests</span>
                 </div>
                 <div className="flex items-end gap-[12px]">
-                  <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.reduce((sum, t) => sum + t.activeTrucks, 0).toLocaleString()}</span>
+                  <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">{tenants.reduce((sum, t) => sum + t.totalOrders, 0).toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] p-[24px]" style={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[8px] p-[15px]" style={{ boxShadow: "0px 4px 16px -8px rgba(12,12,13,0.1), 0px 4px 4px -4px rgba(12,12,13,0.05)" }}>
                 <div className="flex items-center justify-between mb-[12px]">
-                  <span className="text-[13px] font-[600] text-[#5c6470] uppercase tracking-[0.05em]">Platform Orders</span>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Active Fleets</span>
                 </div>
                 <div className="flex items-end gap-[12px]">
-                  <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.reduce((sum, t) => sum + t.totalOrders, 0).toLocaleString()}</span>
+                  <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">{tenants.reduce((sum, t) => sum + t.activeTrucks, 0).toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] p-[24px]" style={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[8px] p-[15px]" style={{ boxShadow: "0px 4px 16px -8px rgba(12,12,13,0.1), 0px 4px 4px -4px rgba(12,12,13,0.05)" }}>
                 <div className="flex items-center justify-between mb-[12px]">
-                  <span className="text-[13px] font-[600] text-[#5c6470] uppercase tracking-[0.05em]">Active Tenants</span>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">Active Tenants</span>
                 </div>
                 <div className="flex items-end gap-[12px]">
-                  <span className="text-[32px] font-[600] leading-[38px] text-[#141a1f]">{tenants.filter(t => t.status === "Active").length}</span>
+                  <span className="font-['Space_Grotesk',sans-serif] text-[36px] font-bold leading-9 text-[#1B2432]">{tenants.filter(t => t.status === "Active").length}</span>
                 </div>
               </div>
             </div>
 
             {/* Table */}
-            <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] flex flex-col" style={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)" }}>
-              <div className="px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9]">
-                <h2 className="text-[16px] font-[600] text-[#141a1f]">All Tenants</h2>
+            <div className="bg-[#ffffff] border-[1px] border-[#e2e5e9] rounded-[10px] flex flex-col" style={{ boxShadow: "0px 4px 16px rgba(12,12,13,0.05)" }}>
+              <div className="px-[24px] py-[20px] border-b-[1px] border-[#e2e5e9] flex items-center gap-2.5">
+                <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Tenant Registry</h2>
+                <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium text-white">
+                  {tenants.length}
+                </span>
               </div>
               <div className="p-4">
                 <DataTable columns={columns} rows={tenants} searchKeys={(r) => r.name} />

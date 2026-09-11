@@ -1,39 +1,81 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/fleetopsx/page-header";
-import { DataTable } from "@/components/fleetopsx/data-table";
-import { driverService } from "@/lib/fleetopsx/services";
-import { Upload, Users, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal, Upload, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useRouter } from "@tanstack/react-router";
+import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
+import { authService, driverService } from "@/lib/fleetopsx/services";
+import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/hr")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "HR", "Platform Admin", "Fleet Operations"];
+    if (!authService.getRoles().some((r) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: HrStaffDirectory,
 });
 
+const PAGE_SIZE = 4;
+
+function statusPillClass(status: DriverStatus) {
+  switch (status) {
+    case "Available":
+      return "bg-[#34C759] text-white";
+    case "On Trip":
+      return "bg-[#F99E1F] text-white";
+    case "Off Duty":
+      return "bg-[#627084] text-white";
+    case "Suspended":
+      return "bg-[#ED351D] text-white";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
 function HrStaffDirectory() {
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const router = useRouter();
-  
   const [newStaff, setNewStaff] = useState({
     name: "",
     phone: "",
     licenseNumber: "",
     licenseCategory: "Professional",
-    licenseExpiry: "2026-12-31"
+    licenseExpiry: "2026-12-31",
   });
 
   const refreshDrivers = async () => {
     const list = await driverService.list();
     setDrivers(list);
   };
+
+  useEffect(() => {
+    void refreshDrivers()
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load staff directory"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    return drivers.filter((d) => {
+      const salary = displayDriverSalary(d);
+      const hay = `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.assignedTruck ?? ""} ${d.status}`.toLowerCase();
+      return !query || hay.includes(query.toLowerCase());
+    });
+  }, [drivers, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const handleAddStaff = async () => {
     if (!newStaff.name || !newStaff.phone) {
@@ -42,169 +84,205 @@ function HrStaffDirectory() {
     }
     try {
       await driverService.create(newStaff);
-      toast.success("Staff added successfully!");
+      toast.success("Staff added successfully.");
       setIsAddOpen(false);
       setNewStaff({ name: "", phone: "", licenseNumber: "", licenseCategory: "Professional", licenseExpiry: "2026-12-31" });
       await refreshDrivers();
-      router.invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add staff");
     }
   };
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        await refreshDrivers();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load staff directory");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  const handleUpload = () => {
-    toast.message("Bulk upload", { description: "Connect your HR import endpoint to enable CSV/Excel upload." });
+  const exportCSV = () => {
+    const headers = "Staff ID,Name,Phone,License,Assigned Asset,Status\n";
+    const csv = filtered
+      .map((d) => `${displayDriverSalary(d) || d.employeeId},${d.name},${d.phone},${d.licenseNumber},${d.assignedTruck ?? ""},${d.status}`)
+      .join("\n");
+    const blob = new Blob([headers + csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "staff_directory.csv";
+    a.click();
+    toast.success("Exported CSV successfully.");
   };
 
-  const columns = [
-    {
-      key: "employeeId",
-      header: "Staff ID",
-      cell: (row: any) => <span className="font-semibold">{row.employeeId || row.staffId}</span>,
-    },
-    {
-      key: "name",
-      header: "Name",
-      cell: (row: any) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-semibold text-xs border border-slate-200">
-            {row.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || "—"}
-          </div>
-          <div>
-            <div className="font-medium">{row.name}</div>
-            {row.phone && <div className="text-xs text-muted-foreground">{row.phone}</div>}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "category",
-      header: "Category",
-      cell: (row: any) => (
-        <span className="text-sm font-medium">
-          {row.category || "—"}
-        </span>
-      ),
-    },
-    {
-      key: "truckReg",
-      header: "Assigned Asset",
-      cell: (row: any) => (
-        <span className="text-sm">
-          {row.truckReg || "—"}
-        </span>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      cell: (row: any) => (
-        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${row.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
-          {row.status}
-        </span>
-      ),
-    }
-  ];
-
   return (
-    <div className="p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <PageHeader
-          title="Staff Directory"
-          description="Manage HR records, driver allocations, and employee data."
-          action={
-            <div className="flex gap-3">
-              <Button onClick={handleUpload} variant="outline" className="gap-2">
-                <Upload className="w-4 h-4" /> Upload List
-              </Button>
-              <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2 bg-primary text-primary-foreground">
-                    <UserPlus className="w-4 h-4" /> Add Staff
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Add New Staff</DialogTitle>
-                    <DialogDescription>Register a new driver or staff member.</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">Name</Label>
-                      <Input id="name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="phone" className="text-right">Phone</Label>
-                      <Input id="phone" value={newStaff.phone} onChange={e => setNewStaff({...newStaff, phone: e.target.value})} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="license" className="text-right">License</Label>
-                      <Input id="license" value={newStaff.licenseNumber} onChange={e => setNewStaff({...newStaff, licenseNumber: e.target.value})} className="col-span-3" />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddStaff}>Add Staff</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+    <>
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-[5px]">
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">HR & Personnel</h2>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              manage staff records and driver allocations
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toast.message("Bulk upload", { description: "Connect your HR import endpoint to enable CSV/Excel upload." })}
+              className="flex h-8 items-center gap-1.5 px-[7px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
+            >
+              <Upload className="size-[18px]" strokeWidth={1.75} />
+              Import CVS
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAddOpen(true)}
+              className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+            >
+              <UserPlus className="size-4" />
+              Add Staff
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
+            <div className="relative w-full max-w-[400px]">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search"
+                className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+              />
             </div>
-          }
-        />
+            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            </button>
+          </div>
+
+          <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_120px] items-center gap-6 border-b border-[#E2E5E9] py-[15px] md:grid">
+            {["Staff ID", "Name", "Phone", "License", "Assigned Asset", "Status"].map((h) => (
+              <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {slice.map((driver) => {
+            const staffId = displayDriverSalary(driver) || driver.employeeId || "—";
+            return (
+              <div
+                key={driver.id}
+                className="grid grid-cols-1 items-center gap-2 border-b border-[#E2E5E9] py-2.5 md:grid-cols-[120px_180px_140px_140px_1fr_120px] md:gap-6"
+              >
+                <div className="flex items-start justify-between gap-3 md:contents">
+                  <div className="flex min-w-0 flex-col gap-1 md:contents">
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
+                    <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:hidden">{driver.name}</span>
+                    <span className="text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.7)] md:hidden">
+                      {driver.phone || "—"} · {driver.licenseNumber || "No license"}
+                    </span>
+                    <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{driver.name}</span>
+                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.phone}</span>
+                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.licenseNumber}</span>
+                    <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver.assignedTruck || "—"}</span>
+                  </div>
+                  <span className={cn("inline-flex h-[22px] shrink-0 items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
+                    {driver.status}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {loading && <FigmaLoadingState />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState
+              title={query ? "No matching staff" : "No staff records yet"}
+              body={query ? "Try a different name, staff ID, or phone number." : "Drivers from the live API will list here."}
+            />
+          )}
+
+          {!loading && filtered.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {from} - {to}
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+              <div className="ml-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={currentPage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-[18px] text-[#627084]" />
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage >= pageCount - 1}
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-[18px] text-[#627084]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCSV}
+                  className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
+                >
+                  <Download className="size-[18px]" strokeWidth={1.75} />
+                  Export CVS
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-sm text-muted-foreground font-medium">Total Staff</div>
-            <div className="text-2xl font-bold">{drivers.length}</div>
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+            <div className="border-b border-[#E2E5E9] py-2">
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Add Staff</h3>
+            </div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Name</span>
+              <input
+                value={newStaff.name}
+                onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Phone</span>
+              <input
+                value={newStaff.phone}
+                onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License</span>
+              <input
+                value={newStaff.licenseNumber}
+                onChange={(e) => setNewStaff({ ...newStaff, licenseNumber: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <div className="flex items-center justify-between pt-1">
+              <button type="button" onClick={() => setIsAddOpen(false)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleAddStaff()}
+                className="flex h-8 items-center rounded bg-[#ED351D] px-3 text-[12px] tracking-[0.4px] text-white"
+              >
+                Add Staff
+              </button>
+            </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-            <div className="font-bold text-lg">L</div>
-          </div>
-          <div>
-            <div className="text-sm text-muted-foreground font-medium">Local Drivers</div>
-            <div className="text-2xl font-bold">{drivers.filter(d => d.category === 'Local').length}</div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-            <div className="font-bold text-lg">U</div>
-          </div>
-          <div>
-            <div className="text-sm text-muted-foreground font-medium">Up Country</div>
-            <div className="text-2xl font-bold">{drivers.filter(d => d.category === 'Up Country' || d.category === 'Up Company').length}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <DataTable
-          columns={columns as any}
-          rows={drivers}
-          isLoading={isLoading}
-          emptyMessage="No staff members found."
-          emptyIcon={<Users className="w-10 h-10 text-muted-foreground/30" />}
-        />
-      </div>
-    </div>
+      )}
+    </>
   );
 }
