@@ -191,6 +191,11 @@ function PartnerRequestDetailsPage() {
       .split(";")
       .map((s) => s.trim())
       .filter(Boolean);
+    const unique = new Set(sites.map((s) => s.toLowerCase()));
+    if (sites.length > 0 && unique.size !== sites.length) {
+      toast.error("Each loading site can only be selected once");
+      return;
+    }
     setSaving(true);
     try {
       const updated = await tripService.updateTrip(trip.id, {
@@ -317,7 +322,7 @@ function PartnerRequestDetailsPage() {
                   <button
                     type="button"
                     onClick={beginModify}
-                    className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
+                    className="flex h-8 items-center gap-[5px] rounded px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
                   >
                     <Pencil className="size-[16px]" />
                     Modify

@@ -61,11 +61,17 @@ function PartnerNewRequest() {
     }
 
     const finalSites = loadingSites
-      .map((s) => (s.type === "Others" ? s.customValue : s.type))
+      .map((s) => (s.type === "Others" ? s.customValue.trim() : s.type.trim()))
       .filter(Boolean);
 
     if (finalSites.length === 0 || (routingType === "Multiple" && finalSites.length !== loadingSites.length)) {
       toast.error("Please specify all loading sites");
+      return;
+    }
+
+    const uniqueSites = new Set(finalSites.map((s) => s.toLowerCase()));
+    if (uniqueSites.size !== finalSites.length) {
+      toast.error("Each loading site can only be selected once");
       return;
     }
 
@@ -253,28 +259,42 @@ function PartnerNewRequest() {
                     </div>
                     {openDropdownIndex === index ? (
                       <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                        {LOADING_SITE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => {
-                              setLoadingSites((prev) =>
-                                prev.map((s, i) =>
-                                  i === index
-                                    ? { id: s.id, type: opt, customValue: opt === "Others" ? s.customValue : "" }
-                                    : s,
-                                ),
-                              );
-                              setOpenDropdownIndex(null);
-                            }}
-                            className={cn(
-                              "w-full px-3 py-2.5 text-left text-[14px]",
-                              site.type === opt ? "bg-[#ED351D] text-white" : "text-[#1B2432] hover:bg-[#F1F2F4]",
-                            )}
-                          >
-                            {opt}
-                          </button>
-                        ))}
+                        {LOADING_SITE_OPTIONS.map((opt) => {
+                          const takenElsewhere = loadingSites.some((s, i) => {
+                            if (i === index) return false;
+                            if (opt === "Others") return false;
+                            return s.type === opt;
+                          });
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              disabled={takenElsewhere}
+                              onClick={() => {
+                                if (takenElsewhere) return;
+                                setLoadingSites((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index
+                                      ? { id: s.id, type: opt, customValue: opt === "Others" ? s.customValue : "" }
+                                      : s,
+                                  ),
+                                );
+                                setOpenDropdownIndex(null);
+                              }}
+                              className={cn(
+                                "w-full px-3 py-2.5 text-left text-[14px]",
+                                takenElsewhere
+                                  ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
+                                  : site.type === opt
+                                    ? "bg-[#ED351D] text-white"
+                                    : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                              )}
+                            >
+                              {opt}
+                              {takenElsewhere ? " (already selected)" : ""}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : null}
                     {site.type === "Others" ? (
@@ -285,6 +305,21 @@ function PartnerNewRequest() {
                           setLoadingSites((prev) =>
                             prev.map((s, i) => (i === index ? { ...s, customValue: value } : s)),
                           );
+                        }}
+                        onBlur={() => {
+                          const custom = site.customValue.trim().toLowerCase();
+                          if (!custom) return;
+                          const duplicate = loadingSites.some((s, i) => {
+                            if (i === index) return false;
+                            const other = (s.type === "Others" ? s.customValue : s.type).trim().toLowerCase();
+                            return Boolean(other) && other === custom;
+                          });
+                          if (duplicate) {
+                            toast.error("Each loading site can only be selected once");
+                            setLoadingSites((prev) =>
+                              prev.map((s, i) => (i === index ? { ...s, customValue: "" } : s)),
+                            );
+                          }
                         }}
                         placeholder="Enter specific loading address"
                         className={inputClass}
