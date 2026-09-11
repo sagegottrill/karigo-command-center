@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterPills } from "@/components/fleetopsx/filter-pills";
 import { driverService } from "@/lib/fleetopsx/services";
+import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import type { Driver } from "@/lib/fleetopsx/types";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -102,7 +103,7 @@ function DriversPage() {
         </span>
       ),
     },
-    { key: "id", header: "ID", sortValue: (r) => r.employeeId, cell: (r) => <span className="num font-semibold">{r.employeeId}</span> },
+    { key: "id", header: "ID", sortValue: (r) => displayDriverSalary(r) || r.employeeId, cell: (r) => <span className="num font-semibold">{displayDriverSalary(r) || r.employeeId}</span> },
     { key: "license", header: "License", cell: (r) => <span className="num text-muted-foreground">{r.licenseNumber}</span> },
     { key: "status", header: "Status", sortValue: (r) => r.status, cell: (r) => <StatusBadge status={r.status} /> },
     {
@@ -226,7 +227,7 @@ function DriversPage() {
                 <span className="font-medium text-sm">{d.name}</span>
                 <StatusBadge status={d.compliance} />
               </div>
-              <p className="num mt-2 text-[11px] text-muted-foreground">{d.id} · {d.licenseNumber} · {d.licenseCategory}</p>
+              <p className="num mt-2 text-[11px] text-muted-foreground">{displayDriverSalary(d) || d.employeeId} · {d.licenseNumber} · {d.licenseCategory}</p>
               <p className="num mt-1 text-xs text-foreground">Expires {d.licenseExpiry}</p>
             </Link>
           ))}

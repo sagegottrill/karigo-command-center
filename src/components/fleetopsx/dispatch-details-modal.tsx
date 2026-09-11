@@ -1,13 +1,18 @@
 import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
+import {
+  displayDriverAssigned,
+  displayHeadCap,
+  humanCode,
+  looksLikeUuid,
+} from "@/lib/fleetopsx/display-ids";
+import { displayRequestId } from "@/lib/fleetopsx/request-id";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 function ticketId(trip: Trip) {
-  if (/^(REQ|DIS|TICKET)-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `REQ-${digits.padStart(5, "0")}`;
+  return displayRequestId(trip);
 }
 
 function DetailRow({
@@ -65,16 +70,16 @@ export function DispatchDetailsModal({
           .split(/[;,]/)
           .map((x) => x.trim())
           .filter(Boolean);
-  const capNumber = head?.capNumber || head?.number || trip.headId;
-  const plate = head?.registration || trip.truckReg;
-  const tailAssigned = trip.tailType
-    ? trip.tailNumber
+  const capNumber = displayHeadCap(head, trip.headId);
+  const plateRaw = head?.registration || trip.truckReg;
+  const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
+  const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
+    ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
       ? `${trip.tailType} (${trip.tailNumber})`
-      : trip.tailType
-    : trip.tailNumber;
+      : humanCode(trip.tailNumber, trip.tailType)
+    : undefined;
   const driverName = trip.driverName || driver?.name;
-  const driverLabel =
-    driverName && driver?.employeeId ? `${driverName} (${driver.employeeId})` : driverName;
+  const driverLabel = displayDriverAssigned(driver, driverName);
   const driverPhone = driver?.phone;
   const costs = trip.directCosts;
   const total = expenseTotal(trip);

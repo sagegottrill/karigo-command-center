@@ -3,6 +3,12 @@ import { ChevronLeft, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import {
+  displayCapFromTrip,
+  displayDriverAssigned,
+  displayPlateFromTrip,
+  humanCode,
+} from "@/lib/fleetopsx/display-ids";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import {
   addCheckpoint,
@@ -211,23 +217,21 @@ function LogLocationPage() {
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
               Vehicle & Operator Details
             </p>
-            <DetailRow label="Truck Head (Cap Number)" value={trip.truckReg || trip.headId || ""} />
-            <DetailRow label="Truck Head Plate Number" value={trip.truckReg || ""} />
+            <DetailRow label="Truck Head (Cap Number)" value={displayCapFromTrip(trip)} />
+            <DetailRow label="Truck Head Plate Number" value={displayPlateFromTrip(trip)} />
             <DetailRow
               label="Truck Tail assigned"
               value={
-                trip.tailType
-                  ? `${trip.tailType}${trip.tailNumber ? ` (${trip.tailNumber})` : ""}`
-                  : trip.tailNumber || ""
+                humanCode(trip.tailNumber, trip.tailType)
+                  ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
+                    ? `${trip.tailType} (${trip.tailNumber})`
+                    : humanCode(trip.tailNumber, trip.tailType)
+                  : ""
               }
             />
             <DetailRow
               label="Driver Assigned"
-              value={
-                trip.driverName
-                  ? `${trip.driverName}${driver?.employeeId ? ` (${driver.employeeId})` : ""}`
-                  : ""
-              }
+              value={displayDriverAssigned(driver, trip.driverName)}
             />
             <DetailRow label="Driver Contact Phone" value={driver?.phone || ""} />
           </div>

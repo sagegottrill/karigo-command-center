@@ -20,6 +20,7 @@ import type {
   WorkOrder,
 } from "./types";
 import { allowMockFallback, getStoredUser, getToken } from "./apiClient";
+import { rosterBodiesAsTails } from "./display-ids";
 import {
   applyLoginSession,
   liveCreateDriver,
@@ -202,7 +203,7 @@ export const fleetService = {
     return settle(isolate([...store.truckHeads]));
   },
   listTails: async () => {
-    if (!useMock()) return [] as TruckTail[];
+    if (!useMock()) return rosterBodiesAsTails();
     return settle(isolate([...store.truckTails]));
   },
   createHead: async (input: { registration: string; make: string; year: number; location: string }) => {

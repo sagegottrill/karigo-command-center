@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import {
+  displayCapFromTrip,
+  displayPlateFromTrip,
+} from "@/lib/fleetopsx/display-ids";
+import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -26,9 +31,23 @@ function isDispatchRequest(trip: Trip) {
 }
 
 function dispatchId(trip: Trip) {
+  const req = displayRequestId(trip);
   if (/^DIS-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `DIS-${digits.padStart(5, "0")}`;
+  return req.replace(/^REQ-/i, "DIS-");
+}
+
+function headLabel(trip: Trip, heads: TruckHead[]) {
+  const head =
+    heads.find(
+      (h) =>
+        h.id === trip.headId ||
+        h.number === trip.headId ||
+        h.capNumber === trip.headId,
+    ) ?? null;
+  const cap = displayCapFromTrip(trip, head);
+  const plate = displayPlateFromTrip(trip, head);
+  if (cap && plate) return `${cap} (${plate})`;
+  return cap || plate || "";
 }
 
 function FleetDispatchRequests() {
@@ -91,7 +110,7 @@ function FleetDispatchRequests() {
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${t.headId || t.truckReg || ""},${t.tailType || ""},${driver?.phone || ""},${t.dropoff}`;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${driver?.phone || ""},${t.dropoff}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -241,7 +260,7 @@ function FleetDispatchRequests() {
                   </div>
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
-                <MetaRow label="Head No:" value={trip.headId || trip.truckReg || ""} accent />
+                <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Destination:" value={trip.dropoff || ""} />
@@ -333,7 +352,7 @@ function FleetDispatchRequests() {
                 <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                   {trip.driverName || driver?.name}
                 </span>
-                <span className="text-[12px] tracking-[0.4px] text-[#627084]">{trip.headId || trip.truckReg}</span>
+                <span className="text-[12px] tracking-[0.4px] text-[#627084]">{headLabel(trip, heads)}</span>
                 <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                 <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver?.phone}</span>
                 <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>

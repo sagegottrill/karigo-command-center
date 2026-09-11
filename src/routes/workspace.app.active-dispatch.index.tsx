@@ -3,6 +3,7 @@ import { ArrowBigRight, ChevronLeft, ChevronRight, ListFilter, Search, Upload } 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
 import {
   dispatchDisplayId,
@@ -13,6 +14,13 @@ import {
 } from "@/lib/fleetopsx/tracking-ops";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
+
+function headCell(trip: Trip) {
+  const cap = displayCapFromTrip(trip);
+  const plate = displayPlateFromTrip(trip);
+  if (cap && plate) return `${cap} (${plate})`;
+  return cap || plate || "";
+}
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/")({
   head: () => ({
@@ -106,7 +114,7 @@ function ActiveDispatchPage() {
       return [
         dispatchDisplayId(trip),
         trip.driverName ?? "",
-        trip.truckReg || trip.headId || "",
+        headCell(trip),
         trip.tailType ?? "",
         phone,
         trip.dropoff ?? "",
@@ -270,7 +278,7 @@ function ActiveDispatchPage() {
                       <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
                         <td className="px-3 py-4 font-semibold tracking-[0.4px]">{dispatchDisplayId(trip)}</td>
                         <td className="px-3 py-4">{trip.driverName || ""}</td>
-                        <td className="px-3 py-4">{trip.truckReg || trip.headId || ""}</td>
+                        <td className="px-3 py-4">{headCell(trip)}</td>
                         <td className="px-3 py-4">{trip.tailType || ""}</td>
                         <td className="px-3 py-4">{phone}</td>
                         <td className="px-3 py-4">{trip.dropoff || ""}</td>
@@ -371,7 +379,7 @@ function ActiveDispatchPage() {
                   </Link>
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || ""} />
-                <MetaRow label="Head No:" value={trip.truckReg || trip.headId || ""} accent />
+                <MetaRow label="Head No:" value={headCell(trip)} accent />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phone} />
               </div>

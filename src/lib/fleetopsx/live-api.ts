@@ -2,6 +2,7 @@
  * Live API mappers + calls for Hetzner FleetOpsX backend.
  */
 import { api, allowMockFallback, setToken, clearSession, setStoredUser } from "./apiClient";
+import { enrichDriver, enrichTruckHead, humanCode } from "./display-ids";
 import type {
   AuditLog,
   Conversation,
@@ -38,7 +39,7 @@ function asList(raw: unknown): Record<string, unknown>[] {
 }
 
 export function mapTruckHead(t: Record<string, unknown>): TruckHead {
-  const statusRaw = String(t.status ?? "Available");
+  const statusRaw = String(t["status"] ?? "Available");
   const status: TruckHead["status"] =
     statusRaw === "Active" || statusRaw === "Available"
       ? "Available"
@@ -49,25 +50,31 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
         ? statusRaw
         : "Out of Service";
 
-  return {
-    id: String(t.id ?? t.cabId ?? ""),
-    number: String(t.cabId ?? t.number ?? t.id ?? ""),
-    capNumber: t.capNumber ? String(t.capNumber) : undefined,
-    registration: String(t.registration ?? ""),
-    make: String(t.category ?? t.make ?? "Unknown"),
-    year: Number(t.year ?? 2024),
+  const cabCode = humanCode(
+    t["cabId"] != null ? String(t["cabId"]) : undefined,
+    t["capNumber"] != null ? String(t["capNumber"]) : undefined,
+    t["number"] != null ? String(t["number"]) : undefined,
+  );
+  const mapped: TruckHead = {
+    id: String(t["id"] ?? t["cabId"] ?? ""),
+    number: cabCode || String(t["cabId"] ?? t["number"] ?? t["id"] ?? ""),
+    registration: String(t["registration"] ?? ""),
+    make: String(t["category"] ?? t["make"] ?? "Unknown"),
+    year: Number(t["year"] ?? 2024),
     status,
-    location: String(t.destination ?? t.location ?? "Depot"),
-    odometer: Number(t.odometer ?? 0),
-    standardEfficiency: Number(t.standardEfficiency ?? 0),
-    lat: Number(t.lat ?? 6.5244),
-    lng: Number(t.lng ?? 3.3792),
+    location: String(t["destination"] ?? t["location"] ?? "Depot"),
+    odometer: Number(t["odometer"] ?? 0),
+    standardEfficiency: Number(t["standardEfficiency"] ?? 0),
+    lat: Number(t["lat"] ?? 6.5244),
+    lng: Number(t["lng"] ?? 3.3792),
   };
+  if (cabCode) mapped.capNumber = cabCode;
+  return enrichTruckHead(mapped);
 }
 
 export function mapDriver(d: Record<string, unknown>): Driver {
-  const name = String(d.name ?? "");
-  const statusRaw = String(d.status ?? "Available");
+  const name = String(d["name"] ?? "");
+  const statusRaw = String(d["status"] ?? "Available");
   const status: Driver["status"] =
     statusRaw === "Active" || statusRaw === "Available"
       ? "Available"
@@ -75,24 +82,28 @@ export function mapDriver(d: Record<string, unknown>): Driver {
         ? statusRaw
         : "Available";
 
-  return {
-    id: String(d.id ?? d.employeeId ?? d.staffId ?? ""),
+  const salary = humanCode(
+    d["salaryNumber"] != null ? String(d["salaryNumber"]) : undefined,
+    d["employeeId"] != null ? String(d["employeeId"]) : undefined,
+    d["staffId"] != null ? String(d["staffId"]) : undefined,
+  );
+  const mapped: Driver = {
+    id: String(d["id"] ?? d["employeeId"] ?? d["staffId"] ?? ""),
     name,
-    employeeId: String(d.employeeId ?? d.staffId ?? d.id ?? ""),
-    salaryNumber: d.salaryNumber ? String(d.salaryNumber) : undefined,
-    phone: String(d.phone ?? ""),
-    department: String(d.department ?? "Transport Operations"),
-    dateJoined: String(d.dateJoined ?? d.createdAt ?? ""),
-    licenseNumber: String(d.licenseNumber ?? d.license ?? ""),
-    licenseCategory: String(d.licenseCategory ?? d.category ?? "Professional"),
-    licenseExpiry: String(d.licenseExpiry ?? ""),
-    compliance: (d.compliance as Driver["compliance"]) || "Valid",
-    experienceYears: Number(d.experienceYears ?? 0),
+    employeeId: salary || String(d["employeeId"] ?? d["staffId"] ?? d["id"] ?? ""),
+    phone: String(d["phone"] ?? ""),
+    department: String(d["department"] ?? "Transport Operations"),
+    dateJoined: String(d["dateJoined"] ?? d["createdAt"] ?? ""),
+    licenseNumber: String(d["licenseNumber"] ?? d["license"] ?? ""),
+    licenseCategory: String(d["licenseCategory"] ?? d["category"] ?? "Professional"),
+    licenseExpiry: String(d["licenseExpiry"] ?? ""),
+    compliance: (d["compliance"] as Driver["compliance"]) || "Valid",
+    experienceYears: Number(d["experienceYears"] ?? 0),
     status,
-    assignedTruck: d.truckReg || d.assignedTruck ? String(d.truckReg ?? d.assignedTruck) : null,
-    currentTripId: d.currentTripId ? String(d.currentTripId) : null,
-    tripsCompleted: Number(d.tripsCompleted ?? 0),
-    safetyScore: Number(d.safetyScore ?? 100),
+    assignedTruck: d["truckReg"] || d["assignedTruck"] ? String(d["truckReg"] ?? d["assignedTruck"]) : null,
+    currentTripId: d["currentTripId"] ? String(d["currentTripId"]) : null,
+    tripsCompleted: Number(d["tripsCompleted"] ?? 0),
+    safetyScore: Number(d["safetyScore"] ?? 100),
     initials:
       name
         .split(" ")
@@ -101,6 +112,8 @@ export function mapDriver(d: Record<string, unknown>): Driver {
         .slice(0, 2)
         .toUpperCase() || "—",
   };
+  if (salary) mapped.salaryNumber = salary;
+  return enrichDriver(mapped);
 }
 
 export function mapTrip(t: Record<string, unknown>): Trip {

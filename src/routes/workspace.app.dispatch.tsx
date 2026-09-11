@@ -3,6 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import {
+  displayDriverAssigned,
+  displayDriverOption,
+  displayHeadCap,
+  displayHeadOption,
+  displayTailOption,
+  displayTicket,
+} from "@/lib/fleetopsx/display-ids";
+import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -34,9 +43,7 @@ const formatN = (num: number) => {
 };
 
 function requestId(trip: Trip) {
-  if (/^REQ-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `REQ-${digits.padStart(5, "0")}`;
+  return displayRequestId(trip);
 }
 
 function formatQueueDate(trip: Trip) {
@@ -160,7 +167,7 @@ function DispatchPage() {
 
   useEffect(() => {
     if (tail) {
-      setTailNumber(tail.registration);
+      setTailNumber(tail.number || tail.registration);
     } else {
       setTailNumber("");
     }
@@ -184,11 +191,11 @@ function DispatchPage() {
     await tripService.update(selectedOrder!.id, {
       headId: head.id,
       ...(tail?.id ? { tailId: tail.id } : {}),
-      ...(tail?.type || selectedOrder!.tailType
-        ? { tailType: tail?.type || selectedOrder!.tailType }
+      ...(tail?.number || tail?.type || selectedOrder!.tailType
+        ? { tailType: tail?.number || tail?.type || selectedOrder!.tailType }
         : {}),
       tailNumber: tail?.number || tailNumber,
-      truckReg: tail ? `${head.registration} / ${tail.registration}` : head.registration,
+      truckReg: tail ? `${head.registration} / ${tail.number || tail.registration}` : head.registration,
       driverId: driver.id,
       driverName: driver.name,
       directCosts: {
@@ -202,7 +209,9 @@ function DispatchPage() {
       status: "Awaiting Approval",
     });
     
-    toast.success(`Dispatch Configured`, { description: `${selectedOrder!.id} assigned to ${head.registration}` });
+    toast.success(`Dispatch Configured`, {
+      description: `${displayTicket(selectedOrder!)} assigned to ${displayHeadCap(head) || head.registration}`,
+    });
     navigate({ to: "/workspace/app/dispatch-history" });
   };
 
@@ -305,7 +314,7 @@ function DispatchPage() {
       <div className="bg-[#1B2432] p-6 text-white">
         <h2 className="text-xl font-bold tracking-tight">Fleet Dispatch</h2>
         <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">
-          Ticket {selectedOrder?.id}
+          Ticket {selectedOrder ? displayTicket(selectedOrder) : ""}
           {selectedOrder?.customer && selectedOrder.customer !== "Customer Portal" ? `  •  ${selectedOrder.customer}` : ""}
         </p>
       </div>
@@ -325,9 +334,9 @@ function DispatchPage() {
                 value={headId}
                 onChange={e => setHeadId(e.target.value)}
               >
-                <option value="">eg: CAP-101</option>
+                <option value="">eg: P002</option>
                 {TRUCK_HEADS.filter(h => h.status === "Available" || h.id === headId).map(h => (
-                  <option key={h.id} value={h.id}>{h.id} ({h.registration})</option>
+                  <option key={h.id} value={h.id}>{displayHeadOption(h)}</option>
                 ))}
               </select>
             </div>
@@ -352,9 +361,9 @@ function DispatchPage() {
                 value={tailId}
                 onChange={e => setTailId(e.target.value)}
               >
-                <option value="">Select Tail Type</option>
+                <option value="">Select Tail (Body)</option>
                 {TRUCK_TAILS.filter(t => t.status === "Available" || t.id === tailId).map(t => (
-                  <option key={t.id} value={t.id}>{t.type}</option>
+                  <option key={t.id} value={t.id}>{displayTailOption(t)}</option>
                 ))}
               </select>
             </div>
@@ -365,7 +374,7 @@ function DispatchPage() {
               <input 
                 type="text" 
                 className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm"
-                placeholder="eg: TL-999"
+                placeholder="eg: B001"
                 value={tailNumber}
                 onChange={e => setTailNumber(e.target.value)}
               />
@@ -386,9 +395,9 @@ function DispatchPage() {
                 value={driverId}
                 onChange={e => setDriverId(e.target.value)}
               >
-                <option value="">Select</option>
+                <option value="">eg: P00851</option>
                 {drivers.filter(d => d.status === "Available" || d.id === driverId).map(d => (
-                  <option key={d.id} value={d.id}>{d.id}</option>
+                  <option key={d.id} value={d.id}>{displayDriverOption(d)}</option>
                 ))}
               </select>
             </div>
@@ -544,7 +553,7 @@ function DispatchPage() {
           <div className="space-y-3">
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Truck Head (Cap Number):</span>
-              <span className="font-semibold text-[#141a1f]">{head?.id || "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{displayHeadCap(head) || "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Truck Head Plate Number:</span>
@@ -552,11 +561,15 @@ function DispatchPage() {
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Truck Tail assigned:</span>
-              <span className="font-semibold text-[#141a1f]">{tail ? `${tail.type} (${tailNumber})` : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">
+                {tail ? `${displayTailOption(tail)}${tailNumber && tailNumber !== tail.number ? ` · ${tailNumber}` : ""}` : "-"}
+              </span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Driver Assigned:</span>
-              <span className="font-semibold text-[#141a1f]">{driver ? `${driverName} (${driverId})` : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">
+                {driver ? displayDriverAssigned(driver, driverName) : "-"}
+              </span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Driver Contact Phone:</span>
