@@ -468,7 +468,7 @@ function PartnerPortalDashboard() {
                                   <MoreVertical className="size-5 text-[#5C6470]" />
                                 </button>
                                 {rowMenuOpen === r.id && (
-                                  <div className="absolute right-0 top-7 z-10 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
+                                  <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
                                     <button
                                       type="button"
                                       className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"

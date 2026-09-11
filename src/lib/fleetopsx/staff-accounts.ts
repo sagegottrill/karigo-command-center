@@ -31,8 +31,10 @@ function localPart(emailOrUsername: string) {
 
 /** Partner / external company accounts belong on Manage Partner, not Manage Staff. */
 export function isPartnerUser(user: User) {
+  const dept = (user.department || "").trim();
   return (
-    user.department === "External Partner" ||
+    dept === "External Partner" ||
+    dept === "Customer Portals (External)" ||
     user.roles.includes("Customer Portals (External)") ||
     Boolean(user.partnerCompanyName)
   );
@@ -46,9 +48,11 @@ export function isManageableStaffUser(user: User) {
   if (user.status === "Deleted") return false;
   if (isPartnerUser(user)) return false;
   if (user.roles.includes("Platform Admin")) return false;
+  if ((user.department || "").trim() === "Platform Admin") return false;
 
   const email = (user.email ?? "").trim().toLowerCase();
   if (email && PORTAL_SEED_EMAILS.has(email)) return false;
+  if (email.endsWith("@fleetopsx.com")) return false;
 
   const username = localPart(user.username || email);
   if (username && PORTAL_SEED_USERNAMES.has(username)) return false;

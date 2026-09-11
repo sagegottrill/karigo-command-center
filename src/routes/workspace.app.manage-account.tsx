@@ -361,32 +361,30 @@ function AdminManageAccount() {
           </div>
 
           {/* Desktop table — Figma Account Listing `124:3133` / Manage Account `93:1637` */}
-          <div className="hidden overflow-x-auto rounded-[10px] border border-[#E2E5E9] bg-white md:block">
-            <div className="min-w-[860px]">
-              <div className="flex items-center gap-[40px] border-b border-[#E2E5E9] px-5 py-3">
-                <span className="w-[29px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
-                <div className="flex w-[720px] shrink-0 items-center text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  <span className="w-[167px] shrink-0">Name</span>
-                  <span className="w-[180px] shrink-0">Department</span>
-                  <span className="w-[140px] shrink-0">Staff ID</span>
-                  <span className="w-[167px] shrink-0">Username</span>
-                </div>
-                <span className="w-5 shrink-0" />
+          <div className="hidden w-full overflow-x-auto rounded-[10px] border border-[#E2E5E9] bg-white md:block">
+            <div className="min-w-[640px] w-full">
+              <div className="grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Department</span>
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Staff ID</span>
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
+                <span className="w-5" />
               </div>
               {slice.map((u, i) => (
                 <div
                   key={u.id}
-                  className="relative z-0 flex items-center gap-[40px] border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 data-[open=true]:z-20"
+                  className="relative z-0 grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
                   data-open={menuFor === u.id ? "true" : "false"}
                 >
-                  <span className="w-[29px] shrink-0 text-[14px] text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
-                  <div className="flex w-[720px] shrink-0 items-center text-[14px] tracking-[0.4px] text-[#5C6470]">
-                    <span className="w-[167px] shrink-0 truncate text-[#1B2432]">{u.name}</span>
-                    <span className="w-[180px] shrink-0 truncate">{displayStaffDepartment(u.department)}</span>
-                    <span className="w-[140px] shrink-0 truncate">{staffIdLabel(u)}</span>
-                    <span className="w-[167px] shrink-0 truncate">{displayUsername(u)}</span>
-                  </div>
-                  <div className="relative flex shrink-0 items-center gap-2">
+                  <span className="text-[14px] text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#1B2432]">{u.name}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {displayStaffDepartment(u.department)}
+                  </span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
+                  <div className="relative flex shrink-0 items-center justify-end gap-2">
                     <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
                       <button
                         type="button"

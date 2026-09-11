@@ -36,7 +36,10 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
 }
 
 function loadingSitesFor(trip: Trip): string[] {
-  const fromArray = (trip.loadingSite ?? []).map((s) => s.trim()).filter(Boolean);
+  const fromArray = (trip.loadingSite ?? [])
+    .flatMap((s) => String(s).split(/[;,]/))
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (fromArray.length > 0) return fromArray;
   const raw = trip.pickup?.trim() ?? "";
   if (!raw) return [];
@@ -207,7 +210,7 @@ function AdminPartnerRequests() {
                       <MoreVertical className="size-5" />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                      <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                         <button
                           type="button"
                           className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
@@ -296,39 +299,35 @@ function AdminPartnerRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[980px]">
-              <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
-                <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
-                <div className="flex items-center tracking-[0.4px]">
-                  <span className="w-[156px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Partner</span>
-                  <span className="w-[167px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Customer Name</span>
-                  <span className="w-[116px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Product</span>
-                  <span className="w-[144px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Type</span>
-                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
-                </div>
-                <span className="w-5 shrink-0" />
+            <div className="min-w-[720px] w-full">
+              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Destination</span>
+                <span className="w-5" />
               </div>
 
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative flex h-12 items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
-                  <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                  <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                     {requestId(trip)}
                   </span>
-                  <div className="flex items-center tracking-[0.4px]">
-                    <span className="w-[156px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
-                      {trip.customer === "Customer Portal" ? "" : trip.customer}
-                    </span>
-                    <span className="w-[167px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
-                      {trip.customerConsignee}
-                    </span>
-                    <span className="w-[116px] shrink-0 truncate text-[12px] text-[#627084]">{trip.cargo}</span>
-                    <span className="w-[144px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
-                    <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                  </div>
-                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0">
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {trip.customer === "Customer Portal" ? "" : trip.customer}
+                  </span>
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {trip.customerConsignee}
+                  </span>
+                  <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0 justify-self-end">
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -338,7 +337,7 @@ function AdminPartnerRequests() {
                       <MoreVertical className="size-5" strokeWidth={1.75} />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute top-6 right-0 z-50 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
+                      <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
                         <button
                           type="button"
                           className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"

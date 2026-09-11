@@ -276,13 +276,24 @@ export function mapGateEntry(g: Record<string, unknown>): GateEntry {
   };
 }
 
-export function normalizeUser(user: User & { roles?: string[]; role?: string }): User {
+export function normalizeUser(
+  user: User & {
+    roles?: string[];
+    role?: string;
+    passwordResetRequired?: boolean;
+    mustChangePassword?: boolean;
+    forcePasswordChange?: boolean;
+  },
+): User {
   const roles = (user.roles?.length ? user.roles : user.role ? [user.role] : []) as User["roles"];
   // Platform Admin should also open the Petroline ops dashboard
   const withOps =
     roles.includes("Platform Admin") && !roles.includes("Transport Manager")
       ? ([...roles, "Transport Manager"] as User["roles"])
       : roles;
+  const passwordResetRequired = Boolean(
+    user.passwordResetRequired ?? user.mustChangePassword ?? user.forcePasswordChange,
+  );
   return {
     id: user.id,
     name: user.name,
@@ -292,7 +303,7 @@ export function normalizeUser(user: User & { roles?: string[]; role?: string }):
     roleNames: user.roleNames?.length ? user.roleNames : withOps,
     department: user.department || withOps[0] || "Operations",
     status: user.status || "Active",
-    passwordResetRequired: user.passwordResetRequired,
+    passwordResetRequired,
     lastActive: user.lastActive || "Just now",
     initials:
       user.initials ||

@@ -112,9 +112,15 @@ export function DispatchDetailsModal({
             <div className="flex w-full flex-col gap-[15px]">
               <DetailRow label="Customer Name:" value={customerName} />
               <DetailRow label="Destination:" value={trip.dropoff} />
-              {sites.length > 0 ? (
-                <DetailRow label="Loading Site(s):" value={sites.join("\n")} multiline />
-              ) : null}
+              {sites.length > 0
+                ? sites.map((site, i) => (
+                    <DetailRow
+                      key={`${site}-${i}`}
+                      label={sites.length === 1 ? "Loading Site:" : `Loading Site ${i + 1}:`}
+                      value={site}
+                    />
+                  ))
+                : null}
             </div>
           </div>
         )}

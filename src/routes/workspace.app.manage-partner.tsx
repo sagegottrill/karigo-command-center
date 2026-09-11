@@ -369,32 +369,28 @@ function AdminManagePartner() {
               </div>
 
               <div className="hidden overflow-x-auto md:block">
-                <div className="min-w-[720px]">
-                  <div className="flex items-center gap-[60px] border-b border-[#E2E5E9] px-5 py-3">
-                    <span className="w-[29px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
-                    <div className="flex w-[590px] shrink-0 items-center text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                      <span className="w-[167px] shrink-0">Name</span>
-                      <span className="w-[250px] shrink-0">Company Name</span>
-                      <span className="w-[167px] shrink-0">Username</span>
-                    </div>
-                    <span className="w-5 shrink-0" />
+                <div className="min-w-[640px] w-full">
+                  <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Company Name</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
+                    <span className="w-5" />
                   </div>
 
                   {slice.map((u, i) => (
                     <div
                       key={u.id}
-                      className="relative z-0 flex items-center gap-[60px] border-b border-[#E2E5E9] px-5 py-3 last:border-b-0 data-[open=true]:z-20"
+                      className="relative z-0 grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
                       data-open={menuFor === u.id ? "true" : "false"}
                     >
-                      <span className="w-[29px] shrink-0 text-[14px] capitalize text-[#5C6470]">
-                        {currentPage * PAGE_SIZE + i + 1}
+                      <span className="text-[14px] capitalize text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{u.name}</span>
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {u.partnerCompanyName}
                       </span>
-                      <div className="flex w-[590px] shrink-0 items-center text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                        <span className="w-[167px] shrink-0 truncate">{u.name}</span>
-                        <span className="w-[250px] shrink-0 truncate">{u.partnerCompanyName}</span>
-                        <span className="w-[167px] shrink-0 truncate normal-case">{u.username}</span>
-                      </div>
-                      <div className="relative flex shrink-0 items-center gap-2">
+                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{u.username}</span>
+                      <div className="relative flex shrink-0 items-center justify-end gap-2">
                         <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
                           <button
                             type="button"
@@ -405,7 +401,7 @@ function AdminManagePartner() {
                             <MoreVertical className="size-5" strokeWidth={1.75} />
                           </button>
                           {menuFor === u.id && (
-                            <div className="absolute top-6 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
+                            <div className="absolute bottom-full right-0 z-50 mb-1 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
                               <button
                                 type="button"
                                 className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"

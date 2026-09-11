@@ -418,8 +418,29 @@ export const authService = {
     if (!useMock()) return !!localStorage.getItem("fleetopsx_token");
     return !!(localStorage.getItem("fleetopsx_token") || localStorage.getItem("fleetopsx_user_id"));
   },
-  completeFirstTimeLogin: (userId: string) => {
-    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
+  completeFirstTimeLogin: async (userId: string, newPassword?: string) => {
+    if (!useMock()) {
+      if (!newPassword || newPassword.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
+      }
+      const updated = await liveUpdateUser(userId, {
+        password: newPassword,
+        passwordResetRequired: false,
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fleetopsx_user", JSON.stringify({ ...updated, passwordResetRequired: false }));
+        localStorage.setItem("fleetopsx_user_id", updated.id);
+        localStorage.setItem("fleetopsx_roles", JSON.stringify(updated.roles));
+      }
+      return true;
+    }
+    store.users = store.users.map((u) => (u.id === userId ? { ...u, passwordResetRequired: false } : u));
+    if (typeof window !== "undefined") {
+      const cached = getStoredUser<User>();
+      if (cached?.id === userId) {
+        localStorage.setItem("fleetopsx_user", JSON.stringify({ ...cached, passwordResetRequired: false }));
+      }
+    }
     return settle(true);
   },
   getRoles: (): string[] => {
@@ -1260,6 +1281,7 @@ export const adminService = {
         department: payload.department,
         staffId: payload.staffId,
         partnerCompanyName: payload.partnerCompanyName,
+        passwordResetRequired: true,
       });
     }
     const id = payload.staffId || `USR-${String(100 + store.users.length).padStart(4, "0")}`;
@@ -1284,10 +1306,10 @@ export const adminService = {
   resetPassword: async (userId: string) => {
     if (!useMock()) {
       const tempPassword = generateTempPassword();
-      await liveUpdateUser(userId, { password: tempPassword });
+      await liveUpdateUser(userId, { password: tempPassword, passwordResetRequired: true });
       return tempPassword;
     }
-    store.users = store.users.map(u => u.id === userId ? { ...u, passwordResetRequired: false } : u);
+    store.users = store.users.map((u) => (u.id === userId ? { ...u, passwordResetRequired: true } : u));
     return settle(generateTempPassword());
   },
   editUser: async (id: string, payload: Partial<import("./types").User>) => {

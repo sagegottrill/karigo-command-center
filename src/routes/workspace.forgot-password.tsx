@@ -90,8 +90,17 @@ function ForgotPasswordPage() {
   const handleSetNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = authService.getCurrentUser();
-    if (user) {
-      await authService.completeFirstTimeLogin(user.id);
+    if (!user) {
+      toast.error("Session expired. Please sign in again.");
+      navigate({ to: "/workspace/login" });
+      return;
+    }
+    if (password.trim().length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    try {
+      await authService.completeFirstTimeLogin(user.id, password.trim());
       toast.success("Password updated", {
         description: "Your new password has been set.",
       });
@@ -100,9 +109,8 @@ function ForgotPasswordPage() {
       } else {
         navigate({ to: "/workspace/app" });
       }
-    } else {
-      toast.error("Session expired. Please sign in again.");
-      navigate({ to: "/workspace/login" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update password.");
     }
   };
 
