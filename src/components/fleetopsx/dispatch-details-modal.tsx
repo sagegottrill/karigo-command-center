@@ -16,7 +16,7 @@ function DetailRow({
   multiline,
 }: {
   label: string;
-  value?: string;
+  value?: string | undefined;
   multiline?: boolean;
 }) {
   if (!value) return null;

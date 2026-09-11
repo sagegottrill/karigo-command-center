@@ -173,8 +173,10 @@ function DispatchPage() {
     
     await tripService.update(selectedOrder!.id, {
       headId: head.id,
-      tailId: tail?.id,
-      tailType: tail?.type || selectedOrder!.tailType,
+      ...(tail?.id ? { tailId: tail.id } : {}),
+      ...(tail?.type || selectedOrder!.tailType
+        ? { tailType: tail?.type || selectedOrder!.tailType }
+        : {}),
       tailNumber: tail?.number || tailNumber,
       truckReg: tail ? `${head.registration} / ${tail.registration}` : head.registration,
       driverId: driver.id,
