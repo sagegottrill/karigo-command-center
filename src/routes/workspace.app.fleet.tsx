@@ -2,9 +2,10 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import type { Driver, Trip } from "@/lib/fleetopsx/types";
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
   beforeLoad: () => {
@@ -32,6 +33,7 @@ function dispatchId(trip: Trip) {
 function FleetDispatchRequests() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [heads, setHeads] = useState<TruckHead[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -41,10 +43,11 @@ function FleetDispatchRequests() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void Promise.all([tripService.list(), driverService.list()])
-      .then(([nextTrips, nextDrivers]) => {
+    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads()])
+      .then(([nextTrips, nextDrivers, nextHeads]) => {
         setTrips(nextTrips);
         setDrivers(nextDrivers);
+        setHeads(nextHeads);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -140,27 +143,28 @@ function FleetDispatchRequests() {
             </button>
           </div>
 
-          <div className="hidden grid-cols-[110px_156px_144px_144px_140px_1fr_40px] items-center gap-6 border-b border-[#E2E5E9] py-[15px] md:grid">
+          <div className="hidden grid-cols-[96px_167px_144px_150px_134px_1fr_auto] items-center gap-[30px] border-b border-[#E2E5E9] py-[15px] md:grid">
             {["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Destination"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
             ))}
-            <span />
+            <span className="w-[100px]" />
           </div>
 
           {slice.map((trip) => {
             const driver = trip.driverId ? driverById.get(trip.driverId) : undefined;
+            const approved = trip.status === "Awaiting Approval";
             return (
               <div
                 key={trip.id}
-                className="relative grid grid-cols-[1fr_40px] items-center gap-2 border-b border-[#E2E5E9] py-2.5 md:grid-cols-[110px_156px_144px_144px_140px_1fr_40px] md:gap-6"
+                className="relative grid grid-cols-[1fr_auto] items-center gap-2 border-b border-[#E2E5E9] py-2.5 md:grid-cols-[96px_167px_144px_150px_134px_1fr_auto] md:gap-[30px]"
               >
                 <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
                 <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
                   {trip.driverName || driver?.name}
                 </span>
-                <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">
+                <span className="hidden text-[12px] tracking-[0.4px] text-[#627084] md:block">
                   {trip.headId || trip.truckReg}
                 </span>
                 <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">
@@ -168,7 +172,10 @@ function FleetDispatchRequests() {
                 </span>
                 <span className="hidden text-[14px] tracking-[0.4px] text-[#5C6470] md:block">{driver?.phone}</span>
                 <span className="hidden text-[14px] capitalize tracking-[0.4px] text-[#5C6470] md:block">{trip.dropoff}</span>
-                <div ref={menuFor === trip.id ? menuRef : undefined} className="relative justify-self-end">
+                <div
+                  ref={menuFor === trip.id ? menuRef : undefined}
+                  className="relative flex items-center justify-end gap-2 justify-self-end"
+                >
                   <button
                     type="button"
                     className="grid size-8 place-items-center text-[#1B2432]"
@@ -176,6 +183,11 @@ function FleetDispatchRequests() {
                   >
                     <MoreVertical className="size-5" />
                   </button>
+                  {approved && (
+                    <span className="rounded bg-[#34C759] px-2.5 py-[5px] text-[12px] tracking-[0.4px] text-white">
+                      Approved
+                    </span>
+                  )}
                   {menuFor === trip.id && (
                     <div className="absolute top-8 right-0 z-30 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
                       <button
@@ -188,20 +200,24 @@ function FleetDispatchRequests() {
                       >
                         View Details
                       </button>
-                      <button
-                        type="button"
-                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                        onClick={() => void handleApprove(trip)}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                        onClick={() => handleDecline(trip)}
-                      >
-                        Decline
-                      </button>
+                      {!approved && (
+                        <>
+                          <button
+                            type="button"
+                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                            onClick={() => void handleApprove(trip)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                            onClick={() => handleDecline(trip)}
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -261,48 +277,26 @@ function FleetDispatchRequests() {
       </div>
 
       {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="w-full max-w-[480px] rounded-[10px] bg-white p-8 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]">
-            <h3 className="mb-4 text-[18px] font-semibold text-[#1B2432]">{dispatchId(detail)}</h3>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
-              {detail.driverName && (
-                <>
-                  <dt className="text-[#8E95A1]">Driver</dt>
-                  <dd className="text-[#1B2432]">{detail.driverName}</dd>
-                </>
-              )}
-              {(detail.headId || detail.truckReg) && (
-                <>
-                  <dt className="text-[#8E95A1]">Truck head</dt>
-                  <dd className="text-[#1B2432]">{detail.headId || detail.truckReg}</dd>
-                </>
-              )}
-              {detail.tailType && (
-                <>
-                  <dt className="text-[#8E95A1]">Tail type</dt>
-                  <dd className="text-[#1B2432]">{detail.tailType}</dd>
-                </>
-              )}
-              {detail.dropoff && (
-                <>
-                  <dt className="text-[#8E95A1]">Destination</dt>
-                  <dd className="text-[#1B2432]">{detail.dropoff}</dd>
-                </>
-              )}
-              {detail.pickup && (
-                <>
-                  <dt className="text-[#8E95A1]">Pickup</dt>
-                  <dd className="text-[#1B2432]">{detail.pickup}</dd>
-                </>
-              )}
-            </dl>
-            <div className="mt-6 flex justify-end">
-              <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium text-[#ED351D]">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <DispatchDetailsModal
+          trip={detail}
+          driver={detail.driverId ? driverById.get(detail.driverId) : drivers.find((d) => d.name === detail.driverName)}
+          head={heads.find(
+            (h) =>
+              h.id === detail.headId ||
+              h.number === detail.headId ||
+              h.capNumber === detail.headId ||
+              (detail.truckReg ? h.registration === detail.truckReg : false),
+          )}
+          onClose={() => setDetail(null)}
+          onApprove={() => {
+            void handleApprove(detail);
+            setDetail(null);
+          }}
+          onDecline={() => {
+            handleDecline(detail);
+            setDetail(null);
+          }}
+        />
       )}
     </>
   );
