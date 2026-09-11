@@ -31,6 +31,7 @@ import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app
 import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
+import { Route as WorkspaceAppFleetRegistryRouteImport } from './routes/workspace.app.fleet-registry'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
@@ -166,6 +167,12 @@ const WorkspaceAppFleetRoute = WorkspaceAppFleetRouteImport.update({
   path: '/fleet',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppFleetRegistryRoute =
+  WorkspaceAppFleetRegistryRouteImport.update({
+    id: '/fleet-registry',
+    path: '/fleet-registry',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppGateRoute = WorkspaceAppGateRouteImport.update({
   id: '/gate',
   path: '/gate',
@@ -312,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -355,6 +363,7 @@ export interface FileRoutesByTo {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -401,6 +410,7 @@ export interface FileRoutesById {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
+  '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -449,6 +459,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
+    | '/workspace/app/fleet-registry'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
+    | '/workspace/app/fleet-registry'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -537,6 +549,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
+    | '/workspace/app/fleet-registry'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -725,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppFleetRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/fleet-registry': {
+      id: '/workspace/app/fleet-registry'
+      path: '/fleet-registry'
+      fullPath: '/workspace/app/fleet-registry'
+      preLoaderRoute: typeof WorkspaceAppFleetRegistryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/gate': {
       id: '/workspace/app/gate'
       path: '/gate'
@@ -895,6 +915,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
+  WorkspaceAppFleetRegistryRoute: typeof WorkspaceAppFleetRegistryRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
@@ -927,6 +948,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
+  WorkspaceAppFleetRegistryRoute: WorkspaceAppFleetRegistryRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,

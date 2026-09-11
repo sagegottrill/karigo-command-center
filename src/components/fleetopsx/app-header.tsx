@@ -35,6 +35,16 @@ function isAdminPortalPath(pathname: string) {
   return pathname === "/workspace/app" || pathname.startsWith("/workspace/app/");
 }
 
+const FLEET_OPS_PORTAL_PATHS = [
+  "/workspace/app/fleet-registry",
+  "/workspace/app/dispatch",
+  "/workspace/app/dispatch-history",
+];
+
+function isFleetOpsPortalPath(pathname: string) {
+  return FLEET_OPS_PORTAL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -90,8 +100,9 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* Figma 59:1020 top bar — Transport Manager Portal */
+  /* Figma Admin / Fleet Ops portal chrome */
   if (adminPortal) {
+    const fleetOps = isFleetOpsPortalPath(pathname);
     return (
       <header className="sticky top-0 z-30 flex w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
         <div className="flex items-end gap-3">
@@ -103,9 +114,13 @@ export function AppHeader({ onToggleSidebar }: { onToggleSidebar: () => void }) 
             <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
           </button>
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Transport Manager Portal</h1>
+            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              {fleetOps ? "Fleet Operations Portal" : "Transport Manager Portal"}
+            </h1>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              Manage the lifecycle of every account within the company to maintain data integrity.
+              {fleetOps
+                ? "Manage the lifecycle of every dispatch within the company"
+                : "Manage the lifecycle of every account within the company to maintain data integrity."}
             </p>
           </div>
         </div>
