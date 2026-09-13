@@ -267,56 +267,38 @@ function TenantLandingPage() {
         </header>
       </div>
 
-      {/* HERO SECTION - Black */}
-      <section className="bg-[#000000] text-white pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px] relative overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#ed351d] rounded-full blur-[150px] opacity-20 pointer-events-none" />
-        
-        <div className="w-full max-w-[1440px] flex flex-col relative z-10">
+      {/* HERO SECTION - Background Image */}
+      <section 
+        className="relative flex flex-col items-center justify-center overflow-hidden bg-[#000000] bg-cover bg-center bg-no-repeat pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px]"
+        style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('/HH.jpeg')" }}
+      >
+        <div className="w-full max-w-[1440px] flex flex-col relative z-10 text-white">
           <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-6">
             <div className="w-2 h-2 bg-[#ed351d]" />
             Enterprise Fleet Portal
           </div>
           
-          <div className="flex flex-col lg:flex-row justify-between items-start gap-12 w-full">
-            <div className="flex flex-col w-full lg:max-w-[700px]">
-              <h1 className="text-[50px] md:text-[80px] font-bold leading-[1.05] tracking-tight font-space-grotesk mb-10 text-transparent bg-clip-text bg-gradient-to-br from-white to-white/70">
-                Manage your fleet operation with confidence.
-              </h1>
-              
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10 mt-auto">
-                <div className="flex gap-8 text-white/50 text-sm font-medium uppercase tracking-widest">
-                  <span>+ Portal</span>
-                  <span>+ Secure</span>
-                  <span>+ Logistics</span>
-                </div>
-                <div className="max-w-[400px]">
-                  <p className="text-[20px] md:text-[22px] font-light leading-relaxed mb-8 text-white/80">
-                    Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
-                  </p>
-                  <div className="flex gap-4">
-                    <Link 
-                      to="/workspace/account-type" 
-                      className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base transition-all hover:shadow-[0_0_20px_rgba(237,53,29,0.4)] hover:-translate-y-0.5"
-                    >
-                      Access Portal ↗
-                    </Link>
-                  </div>
-                </div>
-              </div>
+          <h1 className="text-[50px] md:text-[90px] font-bold leading-[1.05] tracking-tight max-w-[1000px] font-space-grotesk mb-10 text-white">
+            Manage your fleet operation with confidence.
+          </h1>
+          
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10">
+            <div className="flex gap-10 text-white/50 text-sm font-medium uppercase tracking-widest">
+              <span>+ Portal</span>
+              <span>+ Secure</span>
+              <span>+ Logistics</span>
             </div>
-
-            {/* Added Image HH.jpeg */}
-            <div className="w-full lg:w-[600px] h-[400px] lg:h-[500px] rounded-[30px] overflow-hidden relative group shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10 opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
-              <img 
-                src="/HH.jpeg" 
-                alt="Fleet Operation" 
-                className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute bottom-6 left-6 z-20 flex items-center gap-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium tracking-widest uppercase text-white/90 drop-shadow-md">Live Fleet Tracking</span>
+            <div className="max-w-[400px]">
+              <p className="text-[20px] md:text-[24px] font-light leading-relaxed mb-8 text-white/80">
+                Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
+              </p>
+              <div className="flex gap-4">
+                <Link 
+                  to="/workspace/account-type" 
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base transition-colors"
+                >
+                  Access Portal ↗
+                </Link>
               </div>
             </div>
           </div>
@@ -421,11 +403,25 @@ function TenantLandingPage() {
         </section>
       </div>
 
-      {/* FOOTER - Black */}
-      <section className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
+      {/* FOOTER / SERVICES - Black */}
+      <section id="services" className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
         <div className="w-full max-w-[1440px] flex flex-col">
-          <div className="flex flex-col justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
-            <span className="uppercase tracking-widest font-semibold mb-4">POWERED BY FLEETOPSX</span>
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-12">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            Services
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-[100px]">
+            <h2 className="text-[40px] md:text-[70px] font-medium leading-none flex items-center gap-4">
+              Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Platform
+            </h2>
+            <p className="text-white/50 text-sm max-w-[300px] leading-relaxed">
+              We craft high-impact digital experiences through strategic design, seamless coding, and creative thinking.
+            </p>
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
+            <div className="flex items-center gap-4 mb-4 md:mb-0">
+              <Link to="/superadmin" className="hover:text-white transition-colors">Platform Admin</Link>
+            </div>
             <span>© {new Date().getFullYear()} {displayName}. All rights reserved.</span>
           </div>
         </div>
