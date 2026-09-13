@@ -77,7 +77,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   useEffect(() => {
     let cancelled = false;
     // GET /users is server-gated to Platform Admin + HR — other roles must not call it.
-    const canListUsers = authService.getRoles().some((r) => r === "Platform Admin" || r === "HR");
+    const canListUsers = authService.getRoles().some((r: string) => r === "Platform Admin" || r === "HR");
     const refresh = () => {
       void dashboardService
         .getOverview()
