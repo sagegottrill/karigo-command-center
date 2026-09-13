@@ -26,7 +26,7 @@ export const Route = createFileRoute("/workspace/customer-portal/login")({
   loader: async () => {
     const slug = typeof window !== "undefined" ? getTenantSlug() : "petrolline";
     if (slug === "localhost" || slug === "fleetopsx") return { tenant: null };
-    const tenant = await tenantService.getBySlug(slug);
+    const tenant = await tenantService.getBySlug(slug || "");
     return { tenant };
   },
   head: (args: any) => {

@@ -23,7 +23,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
       "Customer Portals (External)",
       "Platform Admin",
     ];
-    if (!authService.getRoles().some((r) => allowed.includes(r))) {
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },

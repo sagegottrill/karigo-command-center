@@ -669,7 +669,7 @@ export async function liveDeleteTenant(id: string): Promise<void> {
 }
 
 export async function liveListUsers(): Promise<User[]> {
-  return asList(await api.get("/users")).map((u) => normalizeUser(u as User & { role?: string; roles?: string[] }));
+  return asList(await api.get("/users")).map((u) => normalizeUser(u as unknown as User & { role?: string; roles?: string[] }));
 }
 export async function liveCreateUser(body: Record<string, unknown>): Promise<User> {
   return normalizeUser(await api.post("/users", body));

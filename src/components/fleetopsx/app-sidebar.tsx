@@ -105,7 +105,7 @@ export function AppSidebar({
   const roleNames = authService.getRoles();
   const roleName = roleNames.join(', ');
   const activeRole = authService.getAllRoles().find(r => roleNames.includes(r.name)) || authService.getAllRoles()[0];
-  const allowedModules = activeRole?.modules || [];
+  const allowedModules: string[] = activeRole?.modules || [];
 
   const userName = mounted && currentUser?.name ? currentUser.name : "System User";
   const displayRole = mounted ? roleName : "Loading...";

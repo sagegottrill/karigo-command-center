@@ -126,7 +126,7 @@ function SuperAdminLayout() {
   useEffect(() => {
     if (managingTenant) {
       adminService.users().then(users => {
-        setTenantAdmins(users.filter(u => u.companyId === managingTenant.id && u.roles.includes("Transport Manager")));
+        setTenantAdmins(users.filter((u: any) => u.companyId === managingTenant.id && u.roles.includes("Transport Manager")));
       });
     }
   }, [managingTenant]);

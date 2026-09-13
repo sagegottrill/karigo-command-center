@@ -26,7 +26,7 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/$dispatchId
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Security", "Platform Admin"];
-    if (!authService.getRoles().some((r) => allowed.includes(r))) {
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
@@ -55,7 +55,7 @@ function LogLocationPage() {
     let cancelled = false;
     void (async () => {
       try {
-        let next = await tripService.get(dispatchId);
+        let next: Trip | null = await tripService.get(dispatchId).catch(() => null);
         if (!next) {
           const all = await tripService.list();
           next = all.find((t) => t.id === dispatchId) ?? null;

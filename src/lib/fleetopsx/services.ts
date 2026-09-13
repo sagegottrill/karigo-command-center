@@ -28,7 +28,7 @@ export const companyService = {
 
 export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
-  listTails: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any)).catch(() => []),
+  listTails: (): Promise<TruckTail[]> => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any) as TruckTail[]).catch(() => [] as TruckTail[]),
   createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
   createTail: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
   updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -69,7 +69,7 @@ export const authService = {
     const u = getStoredUser<any>();
     if (u) setStoredUser({ ...u, roles });
   },
-  completeFirstTimeLogin: (userId: string) => fetchApi(`/auth/users/${userId}/complete-setup`, { method: 'POST' }).catch(() => {}),
+  completeFirstTimeLogin: (userId: string, newPassword?: string) => fetchApi(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ password: newPassword || 'ChangeMe@2026', passwordResetRequired: false }) }).catch(() => {}),
   logout: () => {
     clearSession();
     localStorage.removeItem("fleetopsx_user_id");

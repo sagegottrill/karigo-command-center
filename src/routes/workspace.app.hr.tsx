@@ -12,7 +12,7 @@ export const Route = createFileRoute("/workspace/app/hr")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "HR", "Platform Admin", "Fleet Operations"];
-    if (!authService.getRoles().some((r) => allowed.includes(r))) {
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },

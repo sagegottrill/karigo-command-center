@@ -113,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       } else if (hostname.includes("fleetopsx.com")) {
         const parts = hostname.split(".");
         if (parts.length >= 3 && parts[0] !== "www") {
-          tenantSlug = parts[0];
+          tenantSlug = parts[0] || "";
         }
       } else if (hostname.endsWith(".localhost")) {
         tenantSlug = hostname.split(".")[0] || "";

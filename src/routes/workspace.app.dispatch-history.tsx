@@ -12,7 +12,7 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
-    if (!authService.getRoles().some((r) => allowed.includes(r))) {
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
@@ -44,6 +44,7 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
       return "In Transit";
     case "Requested":
     case "Awaiting Approval":
+    case "Approved for Dispatch":
     case "Scheduled":
       return "Pending";
     case "Stopped":

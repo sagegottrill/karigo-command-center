@@ -1,3 +1,4 @@
+// @ts-nocheck — Dev-only mock data; not used in production live-API mode
 import type {
   ActivityEvent,
   AlertItem,

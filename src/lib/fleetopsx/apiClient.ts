@@ -140,10 +140,11 @@ export async function fetchApi<T = any>(endpoint: string, options: FetchApiOptio
         window.location.assign(`/workspace/login?next=${encodeURIComponent(next)}`);
       }
     }
-    const message =
-      (data && typeof data === "object" && "error" in data && String((data as { error: unknown }).error)) ||
-      (data && typeof data === "object" && "message" in data && String((data as { message: unknown }).message)) ||
-      `API Error: ${response.status}`;
+    const message = String(
+      (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error) ||
+      (data && typeof data === "object" && "message" in data && (data as { message: unknown }).message) ||
+      `API Error: ${response.status}`
+    );
     throw new ApiError(response.status, message, data);
   }
 

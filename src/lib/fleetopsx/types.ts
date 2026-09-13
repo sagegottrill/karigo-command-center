@@ -49,7 +49,8 @@ export type RoleKey =
   | "HR"
   | "Security"
   | "Driver"
-  | "Customer Portals (External)";
+  | "Customer Portals (External)"
+  | "Diesel";
 
 export interface Role {
   key: RoleKey;
@@ -88,6 +89,7 @@ export interface TruckHead {
   capNumber?: string;
   registration: string;
   make: string;
+  type?: string;
   year: number;
   status: TruckStatus;
   location: string;
@@ -141,6 +143,7 @@ export interface Driver {
 export type TripStatus =
   | "Requested"
   | "Awaiting Approval"
+  | "Approved for Dispatch"
   | "Scheduled"
   | "En Route"
   | "Loaded"
