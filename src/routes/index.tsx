@@ -279,7 +279,7 @@ function TenantLandingPage() {
           </div>
           
           <h1 className="text-[50px] md:text-[90px] font-bold leading-[1.05] tracking-tight max-w-[1000px] font-space-grotesk mb-10 text-white">
-            Manage your fleet operation with confidence.
+            Total visibility for your enterprise fleet operations.
           </h1>
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10">
@@ -290,7 +290,7 @@ function TenantLandingPage() {
             </div>
             <div className="max-w-[400px]">
               <p className="text-[20px] md:text-[24px] font-light leading-relaxed mb-8 text-white/80">
-                Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
+                Digitize your supply chain. Submit exact truck configurations, monitor assigned drivers via live map telemetry, and secure your delivery paperwork from one multi-tenant dashboard.
               </p>
               <div className="flex gap-4">
                 <Link 
