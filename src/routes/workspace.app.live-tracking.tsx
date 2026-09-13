@@ -14,7 +14,7 @@ import type { Trip } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/workspace/app/live-tracking")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Platform Admin"];
+    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Tracking", "Platform Admin"];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }

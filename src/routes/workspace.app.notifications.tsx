@@ -19,6 +19,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
       "Accounts",
       "HR",
       "Security",
+      "Tracking",
       "Driver",
       "Customer Portals (External)",
       "Platform Admin",

@@ -20,6 +20,7 @@ const ROLE_CATEGORIES: Record<string, NotificationCategory[]> = {
   Driver: ["Operations", "System"],
   "Customer Portals (External)": ["Operations", "System"],
   Diesel: ["Operations", "System"],
+  Tracking: ["Operations", "System"],
 };
 
 export function categoriesForRoles(roles: string[]): NotificationCategory[] {
@@ -106,6 +107,7 @@ export function synthesizeRoleNotifications(input: {
   const isEngineering = roles.includes("Engineering") && !isTm;
   const isHr = roles.includes("HR") && !isTm;
   const isPartner = roles.includes("Customer Portals (External)");
+  const isTracking = roles.includes("Tracking") && !isTm;
 
   if (isFo || isTm) {
     const queue = input.trips.filter((t) => t.status === "Requested");
@@ -191,6 +193,21 @@ export function synthesizeRoleNotifications(input: {
         body: `Expires ${d.licenseExpiry || "unknown"} · ${d.licenseNumber || ""}`.trim(),
         time: "Compliance watch",
         severity: d.compliance === "Expired" ? "critical" : "warning",
+      });
+    }
+  }
+
+  if (isTracking) {
+    for (const t of input.trips.filter((t) =>
+      ["Scheduled", "En Route", "Loaded", "Offloading", "Returning", "Delayed"].includes(t.status),
+    ).slice(0, 8)) {
+      push({
+        id: `trk-${t.id}`,
+        category: "Operations",
+        title: `Checkpoint due · ${displayRequestId(t)}`,
+        body: `${t.driverName || "Driver"} · ${t.truckReg || "Plate TBD"} · ${t.status}`,
+        time: relativeTime(t.scheduledDate),
+        severity: t.status === "Delayed" ? "warning" : "info",
       });
     }
   }

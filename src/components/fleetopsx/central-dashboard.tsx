@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { adminService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
+import { adminService, authService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +76,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
   useEffect(() => {
     let cancelled = false;
+    // GET /users is server-gated to Platform Admin + HR — other roles must not call it.
+    const canListUsers = authService.getRoles().some((r) => r === "Platform Admin" || r === "HR");
     const refresh = () => {
       void dashboardService
         .getOverview()
@@ -96,12 +98,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           if (!cancelled) setTails(t);
         })
         .catch(() => {});
-      void adminService
-        .users()
-        .then((u) => {
-          if (!cancelled) setUsers(u);
-        })
-        .catch(() => {});
+      if (canListUsers) {
+        void adminService
+          .users()
+          .then((u) => {
+            if (!cancelled) setUsers(u);
+          })
+          .catch(() => {});
+      }
     };
     refresh();
     const id = window.setInterval(refresh, 30_000);

@@ -4,7 +4,7 @@ import { authService } from "@/lib/fleetopsx/services";
 export const Route = createFileRoute("/workspace/app/active-dispatch")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Platform Admin"];
+    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Tracking", "Platform Admin"];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
