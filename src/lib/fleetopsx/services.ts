@@ -75,7 +75,23 @@ export const authService = {
   getRoles: () => {
     if (typeof window === "undefined") return [];
     return JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]");
-  }
+  },
+  getAllRoles: () => [
+    { key: "Platform Admin", name: "Platform Admin", modules: [] },
+    { key: "Transport Manager", name: "Transport Manager", modules: [] },
+    { key: "Fleet Operations", name: "Fleet Operations", modules: [] },
+    { key: "Diesel", name: "Fuel Manager", modules: [] },
+    { key: "Gate", name: "Gate Security", modules: [] },
+    { key: "Tracking", name: "Tracking Operations", modules: [] },
+    { key: "Engineering", name: "Engineering / Workshop", modules: [] },
+    { key: "Procurement", name: "Procurement", modules: [] },
+    { key: "Inventory", name: "Inventory", modules: [] },
+    { key: "Customer Portals (External)", name: "Customer Portal", modules: [] },
+  ],
+  getWorkspaces: () => [
+    { id: "W01", name: "Lagos Hub", role: "HQ" },
+    { id: "W02", name: "Abuja Depot", role: "Branch" }
+  ]
 };
 
 export const tripService = {

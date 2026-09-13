@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { globalSearch, authService, notificationService } from "@/lib/fleetopsx/services";
+import type { SearchHit } from "@/lib/fleetopsx/services";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
@@ -87,7 +88,24 @@ export function AppHeader({
   const role = ROLES.find((r) => r.name === roleName) ?? ROLES[0]!;
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const hits = globalSearch(query);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  useEffect(() => {
+    if (!query) {
+      setHits([]);
+      return;
+    }
+    let cancelled = false;
+    globalSearch(query)
+      .then((res) => {
+        if (!cancelled) setHits(res || []);
+      })
+      .catch(() => {
+        if (!cancelled) setHits([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
   const groups = [...new Set(hits.map((h) => h.group))];
   const [unread, setUnread] = useState(0);
   const adminPortal = isAdminPortalPath(pathname);
