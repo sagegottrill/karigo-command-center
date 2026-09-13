@@ -7,7 +7,14 @@ import { fetchApi } from "./apiClient";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
-  getBySlug: (slug: string) => fetchApi(`/tenants?slug=${slug}`),
+  getBySlug: async (slug: string) => {
+    try {
+      const res = await fetchApi<any>(`/tenants?slug=${slug}`, { softAuth: true });
+      return Array.isArray(res) ? res[0] : res;
+    } catch {
+      return null;
+    }
+  },
   create: (name: string, domain: string, logo?: string) => fetchApi('/tenants', { method: 'POST', body: JSON.stringify({ name, domain, logo }) }),
   updateTenant: (id: string, updates: Partial<PlatformTenant>) => fetchApi(`/tenants/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteTenant: (id: string) => fetchApi(`/tenants/${id}`, { method: 'DELETE' }),
