@@ -368,11 +368,11 @@ function DispatchPage() {
         
         {/* Step 1 */}
         <div>
-          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 1: Assign Truck</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <h3 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] mb-4 border-b border-[#E2E5E9] pb-2">Step 1: Assign Truck</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4">
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Assign Truck Head <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Assign Truck Head <span className="text-[#ED351D]">*</span>
               </label>
               <select 
                 className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
@@ -386,8 +386,8 @@ function DispatchPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Plate Number <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Plate Number <span className="text-[#ED351D]">*</span>
               </label>
               <input 
                 type="text" 
@@ -398,8 +398,8 @@ function DispatchPage() {
               />
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Assign Truck Tail <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Assign Truck Tail <span className="text-[#ED351D]">*</span>
               </label>
               <select 
                 className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
@@ -413,8 +413,8 @@ function DispatchPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Tail Number <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Tail Number <span className="text-[#ED351D]">*</span>
               </label>
               <input 
                 type="text" 
@@ -429,11 +429,11 @@ function DispatchPage() {
 
         {/* Step 2 */}
         <div>
-          <h3 className="text-[15px] font-bold text-[#1B2432] mb-4 border-b border-[#e2e5e9] pb-2">Step 2: Assign Driver</h3>
+          <h3 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] mb-4 border-b border-[#E2E5E9] pb-2">Step 2: Assign Driver</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Salary Number <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Salary Number <span className="text-[#ED351D]">*</span>
               </label>
               <select 
                 className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
@@ -447,8 +447,8 @@ function DispatchPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Driver Name <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Driver Name <span className="text-[#ED351D]">*</span>
               </label>
               <input 
                 type="text" 
@@ -459,8 +459,8 @@ function DispatchPage() {
               />
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#141a1f] mb-1.5">
-                Phone Number <span className="text-red-500">*</span>
+              <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
+                Phone Number <span className="text-[#ED351D]">*</span>
               </label>
               <input 
                 type="text" 
@@ -475,7 +475,7 @@ function DispatchPage() {
 
         {/* Step 3 — Figma: Direct Cost Estimation + lubricant Quantity/Cost */}
         <div>
-          <h3 className="mb-4 border-b border-[#e2e5e9] pb-2 text-[15px] font-bold text-[#1B2432]">
+          <h3 className="mb-4 border-b border-[#E2E5E9] pb-2 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
             Step 3: Direct Cost Estimation
           </h3>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
@@ -489,7 +489,7 @@ function DispatchPage() {
               ] as const
             ).map(([label, value, setter]) => (
               <div key={label}>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#141a1f]">
+                <label className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                   {label} <span className="text-[#ED351D]">*</span>
                 </label>
                 <input
@@ -502,7 +502,7 @@ function DispatchPage() {
               </div>
             ))}
             <div className="md:col-span-3">
-              <label className="mb-2 block text-[13px] font-semibold text-[#141a1f]">
+              <label className="mb-2 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                 Lubricant <span className="text-[#ED351D]">*</span>
               </label>
               <div className="flex flex-wrap items-center gap-[30px]">
