@@ -128,7 +128,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
     const platformTenant = tenantSlug
       ? await tenantService.getBySlug(tenantSlug)
       : null;
-    const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? "Unknown Tenant" : "FleetOpsX");
+    
+    let fallbackName = "Unknown Tenant";
+    if (tenantSlug === "petrolline") {
+      fallbackName = "Petroline Transport Ltd";
+    }
+    
+    const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? fallbackName : "FleetOpsX");
     const tenantLogo = platformTenant?.logo;
 
     return { tenantSlug, tenantName, tenantLogo };
