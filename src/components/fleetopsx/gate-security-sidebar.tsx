@@ -156,11 +156,13 @@ export function GateSecuritySidebar({
               {!collapsed && "Log Out"}
             </button>
           )}
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setShowLogout((v) => !v)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v); }}
             className={cn(
-              "flex h-12 w-full items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
+              "flex h-12 w-full cursor-pointer items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
               collapsed && "justify-center"
             )}
           >
@@ -178,7 +180,7 @@ export function GateSecuritySidebar({
                 </div>
               </>
             )}
-          </button>
+          </div>
         </div>
       </aside>
     </>

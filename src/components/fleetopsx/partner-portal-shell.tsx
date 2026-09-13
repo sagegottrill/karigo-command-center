@@ -107,10 +107,12 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
               Log Out
             </button>
           )}
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setShowLogout((v) => !v)}
-            className="flex h-12 w-full items-center gap-2 rounded p-2 hover:bg-white/5"
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v); }}
+            className="flex h-12 w-full cursor-pointer items-center gap-2 rounded p-2 hover:bg-white/5"
           >
             <div className="grid size-8 shrink-0 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
               {displayInitials}
@@ -122,7 +124,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             <div className="shrink-0 p-0.5">
               <MoreVertical className="size-4 text-white/70" />
             </div>
-          </button>
+          </div>
         </div>
       </aside>
 
