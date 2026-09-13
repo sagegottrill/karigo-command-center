@@ -29,17 +29,17 @@ export const companyService = {
 export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
   listTails: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any)).catch(() => []),
-  createHead: (input: any) => fetchApi('/fleet/heads', { method: 'POST', body: JSON.stringify(input) }),
-  createTail: (input: any) => fetchApi('/fleet/tails', { method: 'POST', body: JSON.stringify(input) }),
-  updateHeadStatus: (id: string, status: string) => fetchApi(`/fleet/heads/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-  updateTailStatus: (id: string, status: string) => fetchApi(`/fleet/tails/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-  updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/fleet/heads/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
-  deleteHead: (id: string) => fetchApi(`/fleet/heads/${id}`, { method: 'DELETE' }),
-  updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/fleet/tails/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
-  deleteTail: (id: string) => fetchApi(`/fleet/tails/${id}`, { method: 'DELETE' }),
-  getHead: (id: string) => fetchApi(`/fleet/heads/${id}`),
-  getTail: (id: string) => fetchApi(`/fleet/tails/${id}`),
-  summary: () => fetchApi('/fleet/summary'),
+  createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
+  createTail: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
+  updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateTailStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+  deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
+  updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+  deleteTail: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
+  getHead: (id: string) => fetchApi(`/trucks/${id}`),
+  getTail: (id: string) => fetchApi(`/trucks/${id}`),
+  summary: () => fetchApi('/dashboard/overview'),
 };
 
 export const driverService = {
@@ -113,16 +113,18 @@ export const authService = {
 };
 
 export const tripService = {
-  list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)),
+  list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch(() => []),
   get: (id: string) => fetchApi(`/trips/${id}`).then(mapTrip),
-  create: (input: any) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(input) }).then(mapTrip),
+  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(mapTrip),
   update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
   updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
+  assignResource: (id: string, updates: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapTrip),
+  setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapTrip),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
+  summary: () => fetchApi('/dashboard/overview'),
   initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }),
   approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }),
   updateStatus: (id: string) => fetchApi(`/trips/${id}/status/next`, { method: 'POST' }),
-  setStatus: (id: string, newStatus: string) => fetchApi(`/trips/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }),
   timeline: (trip: Trip): TimelineStep[] => {
     const order = ["Dispatch Created", "Driver Assigned", "Truck Departed", "Pickup Completed", "En Route", "Offloading", "Returning", "Trip Completed"];
     const idx: Record<string, number> = { Scheduled: 1, Loaded: 3, "En Route": 4, Stopped: 4, Delayed: 4, Offloading: 5, Returning: 6, Completed: 7 };
@@ -175,9 +177,9 @@ export const depreciationService = {
 };
 
 export const accountService = {
-  list: () => fetchApi('/accounts/expenses').then((res: any[]) => res.map(mapExpense)),
-  get: (id: string) => fetchApi(`/accounts/expenses/${id}`).then(mapExpense),
-  setStatus: (id: string, status: ExpenseStatus) => fetchApi(`/accounts/expenses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapExpense)
+  list: () => fetchApi('/expenses').then((res: any[]) => res.map(mapExpense)),
+  get: (id: string) => fetchApi(`/expenses/${id}`).then(mapExpense),
+  setStatus: (id: string, status: ExpenseStatus) => fetchApi(`/expenses/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapExpense)
 };
 
 export const gateService = {
@@ -186,31 +188,31 @@ export const gateService = {
 };
 
 export const messageService = {
-  list: () => fetchApi('/messages/conversations'),
-  send: (conversationId: string, body: string) => fetchApi(`/messages/conversations/${conversationId}`, { method: 'POST', body: JSON.stringify({ body }) }),
-  markRead: (conversationId: string) => fetchApi(`/messages/conversations/${conversationId}/read`, { method: 'POST' })
+  list: () => fetchApi('/conversations'),
+  send: (conversationId: string, body: string) => fetchApi(`/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
+  markRead: (conversationId: string) => fetchApi(`/conversations/${conversationId}`, { method: 'PATCH', body: JSON.stringify({ unread: 0 }) })
 };
 
 export const notificationService = {
   list: () => fetchApi('/notifications'),
   getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
-  markAllRead: () => fetchApi('/notifications/read-all', { method: 'POST' }),
-  toggleRead: (id: string) => fetchApi(`/notifications/${id}/toggle`, { method: 'POST' })
+  markAllRead: () => fetchApi('/notifications/mark-all-read', { method: 'POST' }),
+  toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }) // Simplify toggle to mark read
 };
 
 export const auditService = { list: () => fetchApi('/audit') };
 
 export const adminService = {
-  tenant: () => fetchApi('/admin/tenant'),
+  tenant: () => fetchApi('/tenants').then(res => res[0]),
   users: () => fetchApi('/users').catch(() => []),
-  roles: () => fetchApi('/admin/roles'),
-  loginReports: () => fetchApi('/admin/login-reports'),
-  createUser: (payload: any) => fetchApi('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
-  resetPassword: (userId: string) => fetchApi(`/admin/users/${userId}/reset-password`, { method: 'POST' }),
-  editUser: (id: string, payload: any) => fetchApi(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-  activateUser: (id: string) => fetchApi(`/admin/users/${id}/activate`, { method: 'POST' }),
-  suspendUser: (id: string) => fetchApi(`/admin/users/${id}/suspend`, { method: 'POST' }),
-  deleteUser: (id: string) => fetchApi(`/admin/users/${id}`, { method: 'DELETE' })
+  roles: () => fetchApi('/admin/roles').catch(() => []), // Local mock if needed
+  loginReports: () => fetchApi('/login-reports'),
+  createUser: (payload: any) => fetchApi('/users', { method: 'POST', body: JSON.stringify(payload) }),
+  resetPassword: (userId: string) => fetchApi(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ password: 'ChangeMe@2026', passwordResetRequired: true }) }),
+  editUser: (id: string, payload: any) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  activateUser: (id: string) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Active' }) }),
+  suspendUser: (id: string) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Suspended' }) }),
+  deleteUser: (id: string) => fetchApi(`/users/${id}`, { method: 'DELETE' })
 };
 
 export const dashboardService = {
