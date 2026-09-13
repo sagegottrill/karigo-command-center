@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String
+  phone     String?
+  tenantId  String?
+  status    String   @default("Active")
+  passwordResetRequired Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tenant {
+  id           String   @id @default(uuid())
+  name         String
+  domain       String   @unique
+  tenantSlug   String?  @unique
+  logo         String?
+  status       String   @default("Active")
+  activeTrucks Int      @default(0)
+  totalOrders  Int      @default(0)
+  joinedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Trip {
+  id                String   @id @default(uuid())
+  driverName        String
+  truckReg          String
+  tailType          String?
+  pickup            String
+  dropoff           String
+  customerConsignee String
+  customer          String?
+  cargo             String
+  loadingSite       String?
+  revenue           Float    @default(0)
+  status            String   @default("Draft")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  directCosts       Json?
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  requester   String
+  department  String
+  type        String
+  category    String
+  amount      Float
+  description String
+  status      String   @default("Pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkOrder {
+  id        String   @id @default(uuid())
+  truckReg  String
+  defect    String
+  priority  String
+  status    String   @default("Reported")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GateEntry {
+  id        String   @id @default(uuid())
+  type      String
+  truckReg  String
+  driver    String
+  purpose   String
+  status    String   @default("Logged")
+  timestamp DateTime @default(now())
+}
+
+model Driver {
+  id        String   @id @default(uuid())
+  staffId   String   @unique
+  name      String
+  phone     String?
+  truckReg  String?
+  truckReg2 String?
+  category  String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Truck {
+  id           String   @id @default(uuid())
+  cabId        String   @unique
+  registration String
+  category     String?
+  destination  String?
+  status       String   @default("Active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model InventoryItem {
+  id           String   @id @default(uuid())
+  name         String
+  sku          String   @unique
+  category     String
+  stock        Int      @default(0)
+  reorderLevel Int      @default(5)
+  unitCost     Float    @default(0)
+  location     String   @default("Main Store")
+  status       String   @default("In Stock")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model InventoryRequisition {
+  id         String   @id @default(uuid())
+  workOrder  String
+  truckReg   String
+  mechanic   String
+  part       String
+  itemId     String?
+  quantity   Int
+  reason     String
+  status     String   @default("Pending")
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ProcurementRequest {
+  id         String   @id @default(uuid())
+  partName   String
+  quantity   Int
+  linkedId   String
+  truckReg   String?
+  status     String   @default("Requested")
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model FuelRequisition {
+  id                  String   @id @default(uuid())
+  tripId              String
+  truckReg            String
+  driverName          String
+  requiredLitres      Float
+  approvedLitres      Float?
+  expectedConsumption Float    @default(0)
+  standardEfficiency  Float    @default(0)
+  odometer            Float    @default(0)
+  status              String   @default("Pending")
+  date                DateTime @default(now())
+  cost                Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  category  String
+  title     String
+  body      String
+  time      String   @default("Just now")
+  read      Boolean  @default(false)
+  severity  String   @default("info")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Conversation {
+  id           String   @id @default(uuid())
+  kind         String   @default("direct")
+  name         String
+  subtitle     String   @default("")
+  unread       Int      @default(0)
+  lastAt       String   @default("now")
+  tripId       String?
+  participants Json
+  messages     Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  user      String
+  module    String
+  action    String
+  record    String
+  device    String   @default("Web")
+  ip        String   @default("—")
+}
+
+model LoginReport {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  role      String
+  timestamp DateTime @default(now())
+  device    String   @default("Web")
+  ip        String   @default("—")
+  status    String   @default("Success")
+}

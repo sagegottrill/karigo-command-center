@@ -26,8 +26,8 @@ export const companyService = {
 };
 
 export const fleetService = {
-  listHeads: () => fetchApi('/fleet/heads').catch(() => []),
-  listTails: () => fetchApi('/fleet/tails').catch(() => []),
+  listHeads: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => t.category === 'head' || t.category === 'Truck Head')).catch(() => []),
+  listTails: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => t.category === 'tail' || t.category === 'Trailer' || t.category === 'Tanker')).catch(() => []),
   createHead: (input: any) => fetchApi('/fleet/heads', { method: 'POST', body: JSON.stringify(input) }),
   createTail: (input: any) => fetchApi('/fleet/tails', { method: 'POST', body: JSON.stringify(input) }),
   updateHeadStatus: (id: string, status: string) => fetchApi(`/fleet/heads/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -195,7 +195,7 @@ export const auditService = { list: () => fetchApi('/audit') };
 
 export const adminService = {
   tenant: () => fetchApi('/admin/tenant'),
-  users: () => fetchApi('/admin/users').catch(() => []),
+  users: () => fetchApi('/users').catch(() => []),
   roles: () => fetchApi('/admin/roles'),
   loginReports: () => fetchApi('/admin/login-reports'),
   createUser: (payload: any) => fetchApi('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
