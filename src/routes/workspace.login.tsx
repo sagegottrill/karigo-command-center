@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
-import { AuthSocialRow } from "@/components/fleetopsx/auth-social-row";
 import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
   clearPortalSession,
@@ -136,8 +135,6 @@ function LoginPage() {
                 />
               </div>
             </div>
-
-            <AuthSocialRow />
 
             <div className="flex flex-col gap-[12px] w-full">
               <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">Password</label>

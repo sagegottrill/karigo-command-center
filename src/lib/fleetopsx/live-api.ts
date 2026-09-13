@@ -30,7 +30,7 @@ export type LoginResponse = {
   user: User & { roles?: string[]; role?: string };
 };
 
-function asList(raw: unknown): Record<string, unknown>[] {
+export function asList(raw: unknown): Record<string, unknown>[] {
   if (Array.isArray(raw)) return raw as Record<string, unknown>[];
   if (raw && typeof raw === "object" && Array.isArray((raw as { data?: unknown }).data)) {
     return (raw as { data: Record<string, unknown>[] }).data;

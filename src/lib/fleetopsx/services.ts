@@ -4,7 +4,8 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, asList } from "./live-api";
+import { displayRequestId } from "./request-id";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
@@ -318,8 +319,49 @@ export interface SearchHit {
   params?: Record<string, string>;
 }
 
+/**
+ * Global search, wired client-side from live lists. The backend has no /search
+ * endpoint (404 in production), so we fan out to the same-origin APIs the app
+ * already uses and map hits into SearchHit groups. Each leg fails soft.
+ */
 export async function globalSearch(query: string): Promise<SearchHit[]> {
-  return await fetchApi(`/search?q=${encodeURIComponent(query)}`);
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const [trips, heads, drivers, expenses] = await Promise.all([
+    fetchApi("/trips", { softAuth: true }).then(asList).catch(() => []),
+    fetchApi("/trucks", { softAuth: true }).then(asList).catch(() => []),
+    fetchApi("/drivers", { softAuth: true }).then(asList).catch(() => []),
+    fetchApi("/expenses", { softAuth: true }).then(asList).catch(() => []),
+  ]);
+
+  const hits: SearchHit[] = [];
+  const push = (group: string, label: string, meta: string, to: string, params?: Record<string, string>) => {
+    if (hits.length < 24) hits.push({ group, label, meta, to, params });
+  };
+
+  for (const raw of trips as Record<string, unknown>[]) {
+    const t = mapTrip(raw);
+    const id = displayRequestId(t);
+    const hay = `${id} ${t.customer ?? ""} ${t.customerConsignee ?? ""} ${t.cargo ?? ""} ${t.dropoff ?? ""}`.toLowerCase();
+    if (hay.includes(q)) push("Trips", id, [t.customer, t.dropoff].filter(Boolean).join(" → "), "/workspace/app/dispatch-history");
+  }
+  for (const raw of heads as Record<string, unknown>[]) {
+    const h = mapTruckHead(raw);
+    const hay = `${h.number} ${h.capNumber ?? ""} ${h.registration} ${h.make}`.toLowerCase();
+    if (hay.includes(q)) push("Fleet", h.number, h.registration, "/workspace/app/fleet-registry");
+  }
+  for (const raw of drivers as Record<string, unknown>[]) {
+    const d = mapDriver(raw);
+    const hay = `${d.name} ${d.employeeId} ${d.phone ?? ""}`.toLowerCase();
+    if (hay.includes(q)) push("Drivers", d.name, d.employeeId, "/workspace/app/hr");
+  }
+  for (const raw of expenses as Record<string, unknown>[]) {
+    const e = mapExpense(raw);
+    const hay = `${e.id} ${e.requester} ${e.type}`.toLowerCase();
+    if (hay.includes(q)) push("Expenses", e.id, e.requester, "/workspace/app/accounts");
+  }
+  return hits;
 }
 
 export const formatNaira = (n: number) =>
