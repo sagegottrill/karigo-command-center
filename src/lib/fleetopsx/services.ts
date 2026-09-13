@@ -59,6 +59,9 @@ export const authService = {
     }
     return res.user;
   },
+  setRoles: (roles: string[]) => {
+    localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
+  },
   logout: () => {
     localStorage.removeItem("fleetopsx_token");
     localStorage.removeItem("fleetopsx_user_id");
