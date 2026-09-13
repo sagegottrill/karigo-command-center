@@ -1,9 +1,9 @@
-﻿import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/workspace/customer-portal")({
-  head: ({ routeContext }) => {
-    // @ts-ignore
-    const tenantName = routeContext?.tenantName || "Workspace";
+  head: (args: any) => {
+    const ctx = args.routeContext || args.context;
+    const tenantName = ctx?.tenantName || "Workspace";
     return {
       meta: [
         { title: `Partner Portal | ${tenantName}` },

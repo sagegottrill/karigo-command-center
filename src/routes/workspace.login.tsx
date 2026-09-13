@@ -24,9 +24,9 @@ export const Route = createFileRoute("/workspace/login")({
     }
     throw redirect({ to: "/workspace/app" });
   },
-  head: ({ routeContext }) => {
-    // @ts-ignore
-    const tenantName = routeContext?.tenantName || "Workspace";
+  head: (args: any) => {
+    const ctx = args.routeContext || args.context;
+    const tenantName = ctx?.tenantName || "Workspace";
 
     return {
       meta: [

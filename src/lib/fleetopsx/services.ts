@@ -26,8 +26,8 @@ export const companyService = {
 };
 
 export const fleetService = {
-  listHeads: () => fetchApi('/fleet/heads'),
-  listTails: () => fetchApi('/fleet/tails'),
+  listHeads: () => fetchApi('/fleet/heads').catch(() => []),
+  listTails: () => fetchApi('/fleet/tails').catch(() => []),
   createHead: (input: any) => fetchApi('/fleet/heads', { method: 'POST', body: JSON.stringify(input) }),
   createTail: (input: any) => fetchApi('/fleet/tails', { method: 'POST', body: JSON.stringify(input) }),
   updateHeadStatus: (id: string, status: string) => fetchApi(`/fleet/heads/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -62,6 +62,7 @@ export const authService = {
   setRoles: (roles: string[]) => {
     localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
   },
+  completeFirstTimeLogin: (userId: string) => fetchApi(`/auth/users/${userId}/complete-setup`, { method: 'POST' }).catch(() => {}),
   logout: () => {
     localStorage.removeItem("fleetopsx_token");
     localStorage.removeItem("fleetopsx_user_id");
@@ -109,6 +110,7 @@ export const tripService = {
   get: (id: string) => fetchApi(`/trips/${id}`),
   create: (input: any) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(input) }),
   update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
   initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }),
   approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }),
@@ -184,7 +186,7 @@ export const messageService = {
 
 export const notificationService = {
   list: () => fetchApi('/notifications'),
-  getUnreadCount: async () => { const res = await fetchApi('/notifications/unread'); return res.count || 0; },
+  getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
   markAllRead: () => fetchApi('/notifications/read-all', { method: 'POST' }),
   toggleRead: (id: string) => fetchApi(`/notifications/${id}/toggle`, { method: 'POST' })
 };
@@ -193,7 +195,7 @@ export const auditService = { list: () => fetchApi('/audit') };
 
 export const adminService = {
   tenant: () => fetchApi('/admin/tenant'),
-  users: () => fetchApi('/admin/users'),
+  users: () => fetchApi('/admin/users').catch(() => []),
   roles: () => fetchApi('/admin/roles'),
   loginReports: () => fetchApi('/admin/login-reports'),
   createUser: (payload: any) => fetchApi('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
@@ -208,7 +210,7 @@ export const dashboardService = {
   activity: () => fetchApi('/dashboard/activity'),
   alerts: () => fetchApi('/dashboard/alerts'),
   charts: () => fetchApi('/dashboard/charts'),
-  getOverview: () => fetchApi('/dashboard/overview')
+  getOverview: () => fetchApi('/dashboard/overview').catch(() => ({})),
 };
 
 export interface SearchHit {

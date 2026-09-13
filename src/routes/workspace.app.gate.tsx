@@ -80,6 +80,7 @@ function SecurityLogPage() {
     plateNumber: "",
   });
   const [menuTripId, setMenuTripId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const stampNow = () =>
     new Date().toLocaleString("en-GB", {

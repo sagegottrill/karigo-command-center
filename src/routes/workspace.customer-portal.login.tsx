@@ -29,9 +29,9 @@ export const Route = createFileRoute("/workspace/customer-portal/login")({
     const tenant = await tenantService.getBySlug(slug);
     return { tenant };
   },
-  head: ({ routeContext }) => {
-    // @ts-ignore
-    const tenantName = routeContext?.tenantName || "Partner";
+  head: (args: any) => {
+    const ctx = args.routeContext || args.context;
+    const tenantName = ctx?.tenantName || "Partner";
     return {
       meta: [
         { title: `Partner Sign in | ${tenantName}` },

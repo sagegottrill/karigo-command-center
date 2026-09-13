@@ -90,7 +90,7 @@ export type FetchApiOptions = RequestInit & {
   softAuth?: boolean;
 };
 
-export async function fetchApi<T = unknown>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
+export async function fetchApi<T = any>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
   const { softAuth, ...init } = options;
   const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${getApiBaseUrl()}${path}`;
@@ -151,26 +151,26 @@ export async function fetchApi<T = unknown>(endpoint: string, options: FetchApiO
 }
 
 export const api = {
-  get: <T = unknown>(endpoint: string, options?: FetchApiOptions) => fetchApi<T>(endpoint, options),
-  post: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+  get: <T = any>(endpoint: string, options?: FetchApiOptions) => fetchApi<T>(endpoint, options),
+  post: <T = any>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
     fetchApi<T>(endpoint, {
       ...options,
       method: "POST",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-  put: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+  put: <T = any>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
     fetchApi<T>(endpoint, {
       ...options,
       method: "PUT",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-  patch: <T = unknown>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
+  patch: <T = any>(endpoint: string, body?: unknown, options?: FetchApiOptions) =>
     fetchApi<T>(endpoint, {
       ...options,
       method: "PATCH",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-  delete: <T = unknown>(endpoint: string, options?: FetchApiOptions) =>
+  delete: <T = any>(endpoint: string, options?: FetchApiOptions) =>
     fetchApi<T>(endpoint, { ...options, method: "DELETE" }),
 };
 

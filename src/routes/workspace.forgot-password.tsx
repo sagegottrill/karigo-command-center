@@ -14,10 +14,10 @@ export const Route = createFileRoute("/workspace/forgot-password")({
   validateSearch: (search: Record<string, unknown>): ForgotSearch => ({
     mode: search.mode === "request" ? "request" : "new",
   }),
-  head: ({ routeContext, match }) => {
-    // @ts-ignore
-    const tenantName = routeContext?.tenantName || "Workspace";
-    const mode = match.search.mode === "request" ? "request" : "new";
+  head: (args: any) => {
+    const ctx = args.routeContext || args.context;
+    const tenantName = ctx?.tenantName || "Workspace";
+    const mode = args.match.search.mode === "request" ? "request" : "new";
     return {
       meta: [
         {
