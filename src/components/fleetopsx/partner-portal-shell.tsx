@@ -1,4 +1,5 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
+import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
 import { ArrowLeft, Bell, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { authService, notificationService, tenantService } from "@/lib/fleetopsx/services";
@@ -141,14 +142,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             <span className="text-[20px] font-semibold tracking-[0.4px] text-white">Partner Portal</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/workspace/customer-portal/notifications" className="relative grid size-8 place-items-center rounded-md bg-[#344256] text-white" aria-label="Notifications">
+            <NotificationPopover triggerClassName="relative grid size-8 place-items-center rounded-md bg-[#344256] text-white">
               <Bell className="size-4" />
-              {unread > 0 && (
-                <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-[#ED351D] text-[10px] font-bold text-white">
-                  {unread > 99 ? "99+" : unread}
-                </span>
-              )}
-            </Link>
+            </NotificationPopover>
             <button
               type="button"
               onClick={() => setShowLogout((v) => !v)}
@@ -178,14 +174,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
                 Track your transport requests and their current statuses
               </p>
             </div>
-            <Link to="/workspace/customer-portal/notifications" className="relative grid size-10 place-items-center rounded-full border border-[#E2E5E9] bg-white text-[#5C6470]" aria-label="Notifications">
+            <NotificationPopover triggerClassName="relative grid size-10 place-items-center rounded-full border border-[#E2E5E9] bg-white text-[#5C6470]">
               <Bell className="size-5" />
-              {unread > 0 && (
-                <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border-2 border-white bg-[#ED351D] text-[10px] font-bold text-white">
-                  {unread > 99 ? "99+" : unread}
-                </span>
-              )}
-            </Link>
+            </NotificationPopover>
           </div>
         </header>
 

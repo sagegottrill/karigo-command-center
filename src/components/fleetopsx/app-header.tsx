@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
 import { globalSearch, authService, notificationService } from "@/lib/fleetopsx/services";
 import type { SearchHit } from "@/lib/fleetopsx/services";
 import { NAV } from "./app-sidebar";
@@ -313,17 +314,9 @@ export function AppHeader({
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <Link
-          to="/workspace/app/notifications"
-          className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]"
-        >
+        <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
           <Bell className="h-4 w-4" strokeWidth={1.75} />
-          {unread > 0 && (
-            <span className="num absolute top-1 right-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[#ed351d] px-1 text-[9px] font-bold text-white">
-              {unread}
-            </span>
-          )}
-        </Link>
+        </NotificationPopover>
 
         <Link
           to="/workspace/app/notifications"
