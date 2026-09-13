@@ -124,7 +124,7 @@ function HrStaffDirectory() {
               className="flex h-8 items-center gap-1.5 px-[7px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
             >
               <Upload className="size-[18px]" strokeWidth={1.75} />
-              Import CVS
+              Import CSV
             </button>
             <button
               type="button"

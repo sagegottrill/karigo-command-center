@@ -3,8 +3,8 @@ import { useState, useRef } from "react";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-/** Functional Import CVS — parses CSV locally and passes rows to the provided onImport handler. */
-export function ImportCvsUnavailableModal({
+/** Functional Import CSV — parses CSV locally and passes rows to the provided onImport handler. */
+export function ImportCSVUnavailableModal({
   open,
   onClose,
   onImport,
@@ -104,9 +104,9 @@ export function ImportCvsUnavailableModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="import-cvs-title"
+        aria-labelledby="import-CSV-title"
       >
-        <h3 id="import-cvs-title" className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">
+        <h3 id="import-CSV-title" className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">
           Import {entityLabel} via CSV
         </h3>
         <div className="my-4 h-px w-full bg-[#F1F2F4]" />

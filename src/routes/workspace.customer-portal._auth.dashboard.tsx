@@ -205,7 +205,7 @@ function PartnerPortalDashboard() {
   const sortOptions = [
     { key: "id" as const, label: "ID No." },
     { key: "date" as const, label: "Date" },
-    { key: "consignee" as const, label: "Cosignee" },
+    { key: "consignee" as const, label: "Consignee" },
     { key: "product" as const, label: "Product" },
     { key: "truck" as const, label: "Truck Type" },
     { key: "status" as const, label: "Status" },
@@ -420,7 +420,7 @@ function PartnerPortalDashboard() {
                     <tr className="border-b border-[#E2E5E9] text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">ID No.</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Date</th>
-                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Cosignee</th>
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Consignee</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Product</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Truck Type</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Destination</th>

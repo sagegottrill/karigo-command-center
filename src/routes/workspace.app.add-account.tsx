@@ -121,13 +121,13 @@ function AdminAddAccount() {
                     });
                   }}
                 >
-                  <Download className="size-3.5" /> Import CVS
+                  <Download className="size-3.5" /> Import CSV
                 </button>
               </div>
             )}
           </div>
 
-          {/* Figma: Import CVS only — 123×32, no Export */}
+          {/* Figma: Import CSV only — 123×32, no Export */}
           <button
             type="button"
             onClick={() =>
@@ -138,7 +138,7 @@ function AdminAddAccount() {
             className="hidden h-8 w-[123px] items-center gap-[5px] rounded px-[7px] py-[5px] md:flex"
           >
             <Download className="size-[18px] text-[#1B2432]" strokeWidth={1.5} />
-            <span className="text-[14px] font-medium leading-5 tracking-[0.4px] text-[#1B2432]">Import CVS</span>
+            <span className="text-[14px] font-medium leading-5 tracking-[0.4px] text-[#1B2432]">Import CSV</span>
           </button>
         </div>
 

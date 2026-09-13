@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
-import { ImportCvsUnavailableModal } from "@/components/fleetopsx/import-cvs-unavailable";
+import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
   component: AddPartner,
@@ -137,7 +137,7 @@ function AddPartner() {
           className="hidden lg:flex items-center gap-[8px] px-[16px] py-[8px] text-[#141a1f] hover:bg-gray-200/50 rounded-md transition-colors font-[500] text-[14px]"
         >
           <Download className="w-[18px] h-[18px]" />
-          Import CVS
+          Import CSV
         </button>
       </div>
 
@@ -315,7 +315,7 @@ function AddPartner() {
           </div>
         </PortalOverlay>
       )}
-      <ImportCvsUnavailableModal
+      <ImportCSVUnavailableModal
         open={showImportModal}
         onClose={() => setShowImportModal(false)}
         entityLabel="partners"
