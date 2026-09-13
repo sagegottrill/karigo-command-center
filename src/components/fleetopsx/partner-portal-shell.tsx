@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
+import { ArrowLeft, Bell, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { authService, tenantService } from "@/lib/fleetopsx/services";
+import { authService, notificationService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { hardLogout } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const [companyName, setCompanyName] = useState("Partner");
   const [userEmail, setUserEmail] = useState("");
   const [userInitials, setUserInitials] = useState("PT");
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -35,6 +36,19 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         })
         .catch(() => undefined);
     }
+
+    let cancelled = false;
+    void notificationService
+      .getUnreadCount()
+      .then((count) => {
+        if (!cancelled) setUnread(count);
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(0);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogout = () => {
@@ -126,13 +140,23 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             )}
             <span className="text-[20px] font-semibold tracking-[0.4px] text-white">Partner Portal</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowLogout((v) => !v)}
-            className="grid size-8 place-items-center rounded-md bg-[#ED351D] text-[14px] text-white"
-          >
-            {displayInitials}
-          </button>
+          <div className="flex items-center gap-4">
+            <button type="button" className="relative grid size-8 place-items-center rounded-md bg-[#344256] text-white" aria-label="Notifications">
+              <Bell className="size-4" />
+              {unread > 0 && (
+                <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-[#ED351D] text-[10px] font-bold text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLogout((v) => !v)}
+              className="grid size-8 place-items-center rounded-md bg-[#ED351D] text-[14px] text-white"
+            >
+              {displayInitials}
+            </button>
+          </div>
         </header>
         {showLogout && (
           <div className="border-b border-[#E2E5E9] bg-white px-4 py-2 lg:hidden">
@@ -147,10 +171,22 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         )}
 
         <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] lg:flex">
-          <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
-          <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            Track your transport requests and their current statuses
-          </p>
+          <div className="flex w-full items-center justify-between">
+            <div>
+              <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
+              <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                Track your transport requests and their current statuses
+              </p>
+            </div>
+            <button type="button" className="relative grid size-10 place-items-center rounded-full border border-[#E2E5E9] bg-white text-[#5C6470]" aria-label="Notifications">
+              <Bell className="size-5" />
+              {unread > 0 && (
+                <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border-2 border-white bg-[#ED351D] text-[10px] font-bold text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </button>
+          </div>
         </header>
 
         <div className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</div>
