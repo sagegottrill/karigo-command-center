@@ -14,12 +14,18 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
-import { adminService } from "@/lib/fleetopsx/services";
+import { adminService, authService } from "@/lib/fleetopsx/services";
 import { isPartnerUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!authService.getRoles().includes("Platform Admin")) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminManagePartner,
 });
 

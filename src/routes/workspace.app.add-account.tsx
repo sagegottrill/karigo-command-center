@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Check, Download, MoreVertical, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +7,12 @@ import { ADMIN_DEPARTMENTS, departmentToRoleKey } from "@/lib/fleetopsx/admin-de
 import { adminService, authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/add-account")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!authService.getRoles().includes("Platform Admin")) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminAddAccount,
 });
 

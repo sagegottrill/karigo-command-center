@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
@@ -7,6 +7,12 @@ import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!authService.getRoles().includes("Platform Admin")) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AddPartner,
 });
 

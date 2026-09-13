@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   ChevronLeft,
@@ -14,12 +14,18 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
 import { humanCode } from "@/lib/fleetopsx/display-ids";
-import { adminService } from "@/lib/fleetopsx/services";
+import { adminService, authService } from "@/lib/fleetopsx/services";
 import { displayStaffDepartment, isManageableStaffUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!authService.getRoles().includes("Platform Admin")) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminManageAccount,
 });
 
