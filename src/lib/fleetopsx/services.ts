@@ -3,7 +3,7 @@ import type {
   ProcurementRequest, Trip, TimelineStep, TruckHead, TruckTail, Company, PlatformTenant, User
 } from "./types";
 import { getTenantSlug } from "./hostname";
-import { fetchApi } from "./apiClient";
+import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
 import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead } from "./live-api";
 
 export const tenantService = {
@@ -54,7 +54,8 @@ export const authService = {
   login: async (username: string, password?: string) => {
     const res = await fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     if (res.token) {
-      localStorage.setItem("fleetopsx_token", res.token);
+      setToken(res.token);
+      setStoredUser(res.user);
       localStorage.setItem("fleetopsx_user_id", res.user.id);
       localStorage.setItem("fleetopsx_roles", JSON.stringify(res.user.roles));
       if (res.user.name) {
@@ -65,10 +66,12 @@ export const authService = {
   },
   setRoles: (roles: string[]) => {
     localStorage.setItem("fleetopsx_roles", JSON.stringify(roles));
+    const u = getStoredUser<any>();
+    if (u) setStoredUser({ ...u, roles });
   },
   completeFirstTimeLogin: (userId: string) => fetchApi(`/auth/users/${userId}/complete-setup`, { method: 'POST' }).catch(() => {}),
   logout: () => {
-    localStorage.removeItem("fleetopsx_token");
+    clearSession();
     localStorage.removeItem("fleetopsx_user_id");
     localStorage.removeItem("fleetopsx_roles");
     localStorage.removeItem("fleetopsx_user_name");
