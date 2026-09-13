@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   ChevronLeft,
@@ -20,12 +20,6 @@ import type { User } from "@/lib/fleetopsx/types";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    if (!authService.getRoles().includes("Platform Admin")) {
-      throw redirect({ to: "/workspace/app/unauthorized" });
-    }
-  },
   component: AdminManageAccount,
 });
 
@@ -46,6 +40,7 @@ function displayUsername(user: User) {
 }
 
 function AdminManageAccount() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -61,12 +56,16 @@ function AdminManageAccount() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!authService.getRoles().includes("Platform Admin")) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+      return;
+    }
     void adminService
       .users()
       .then(setUsers)
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load staff"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   Check,
@@ -20,12 +20,6 @@ import type { User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    if (!authService.getRoles().includes("Platform Admin")) {
-      throw redirect({ to: "/workspace/app/unauthorized" });
-    }
-  },
   component: AdminManagePartner,
 });
 
@@ -47,6 +41,7 @@ const ORDER_OPTIONS: { key: SortDir; label: string }[] = [
 ];
 
 function AdminManagePartner() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -65,11 +60,15 @@ function AdminManagePartner() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!authService.getRoles().includes("Platform Admin")) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+      return;
+    }
     void adminService
       .users()
       .then(setUsers)
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

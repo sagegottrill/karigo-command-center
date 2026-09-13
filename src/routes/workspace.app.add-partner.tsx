@@ -1,24 +1,24 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    if (!authService.getRoles().includes("Platform Admin")) {
-      throw redirect({ to: "/workspace/app/unauthorized" });
-    }
-  },
   component: AddPartner,
 });
 
 function AddPartner() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (!authService.getRoles().includes("Platform Admin")) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+    }
+  }, [navigate]);
   
   const [companyName, setCompanyName] = useState("");
   const [firstName, setFirstName] = useState("");
