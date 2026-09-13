@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { adminService, fleetService } from "@/lib/fleetopsx/services";
+import { adminService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -71,15 +71,49 @@ function SectionTitle({ children }: { children: string }) {
 export function CentralDashboard({ data }: { data: OverviewData }) {
   const [tails, setTails] = useState<TruckTail[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  // Cards stay live: poll the same APIs the initial load used (30s).
+  const [live, setLive] = useState<OverviewData>(data);
 
   useEffect(() => {
-    void adminService.users().then(setUsers);
-    void fleetService.listTails().then(setTails);
+    let cancelled = false;
+    const refresh = () => {
+      void dashboardService
+        .getOverview()
+        .then((o) => {
+          if (cancelled) return;
+          setLive((prev) => ({
+            ...prev,
+            trips: o.trips ?? prev.trips,
+            trucks: o.trucks ?? prev.trucks,
+            drivers: o.drivers ?? prev.drivers,
+            expenses: o.expenses ?? prev.expenses,
+          }));
+        })
+        .catch(() => {});
+      void fleetService
+        .listTails()
+        .then((t) => {
+          if (!cancelled) setTails(t);
+        })
+        .catch(() => {});
+      void adminService
+        .users()
+        .then((u) => {
+          if (!cancelled) setUsers(u);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    const id = window.setInterval(refresh, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
 
   const stats = useMemo(() => {
-    const trips = data.trips ?? [];
-    const heads = data.trucks ?? [];
+    const trips = live.trips ?? [];
+    const heads = live.trucks ?? [];
     const partnerTrips = trips.filter(isPartnerTrip);
     const pending = partnerTrips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval");
     const inTransit = partnerTrips.filter(
@@ -148,7 +182,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [data.trips, data.trucks, tails, users]);
+  }, [live.trips, live.trucks, tails, users]);
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-5 md:p-[30px] md:pb-[30px]">

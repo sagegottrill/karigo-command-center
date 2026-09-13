@@ -28,7 +28,9 @@ function AdminAddAccount() {
   const navigate = useNavigate();
   
   useEffect(() => {
-    if (!authService.getRoles().includes("Platform Admin")) {
+    // Transport Manager is the highest admin role — always allowed on the admin track
+    const roles = authService.getRoles();
+    if (!(roles.includes("Platform Admin") || roles.includes("Transport Manager"))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
     }
   }, [navigate]);
