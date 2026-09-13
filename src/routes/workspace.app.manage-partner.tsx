@@ -325,7 +325,7 @@ function AdminManagePartner() {
               body={
                 query
                   ? "Try a different name, company, or username."
-                  : "Partner companies you create will list here from the live API."
+                  : "Partner companies you add will appear here."
               }
               action={
                 !query ? (

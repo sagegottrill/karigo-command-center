@@ -22,6 +22,7 @@ import {
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
+import { getActiveRole } from "@/lib/fleetopsx/active-role";
 import { installSessionGuards } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 
@@ -49,21 +50,25 @@ export const Route = createFileRoute("/workspace/app")({
       throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
 
+    // Landing redirect respects the department currently selected (multi-role users).
+    const active = getActiveRole(roles);
+    const scoped = active ? [active] : roles;
+
     const path = location.pathname;
     if (
-      shouldUseFleetOpsShell(roles) &&
+      shouldUseFleetOpsShell(scoped) &&
       (path === "/workspace/app" || path === "/workspace/app/")
     ) {
       throw redirect({ to: "/workspace/app/dispatch" });
     }
     if (
-      shouldUseGateSecurityShell(roles) &&
+      shouldUseGateSecurityShell(scoped) &&
       (path === "/workspace/app" || path === "/workspace/app/")
     ) {
       throw redirect({ to: "/workspace/app/gate" });
     }
     if (
-      shouldUseTrackingOpsShell(roles) &&
+      shouldUseTrackingOpsShell(scoped) &&
       (path === "/workspace/app" || path === "/workspace/app/")
     ) {
       throw redirect({ to: "/workspace/app/active-dispatch" });
@@ -80,13 +85,26 @@ function AppShell() {
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [shellReady, setShellReady] = useState(false);
 
+  const [activeRole, setActiveRoleState] = useState<string>("");
+
   useEffect(() => {
     setCollapsed(window.innerWidth < 768);
-    const roles = authService.getRoles();
-    setUseFoShell(shouldUseFleetOpsShell(roles));
-    setUseGateShell(shouldUseGateSecurityShell(roles));
-    setUseTrackingShell(shouldUseTrackingOpsShell(roles));
-    setShellReady(true);
+    const applyShell = () => {
+      const roles = authService.getRoles();
+      // Department switch: evaluate shell predicates against the active role only.
+      const active = getActiveRole(roles);
+      const scoped = active && roles.length > 1 ? [active] : roles;
+      setUseFoShell(shouldUseFleetOpsShell(scoped));
+      setUseGateShell(shouldUseGateSecurityShell(scoped));
+      setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
+      setActiveRoleState(active);
+      setShellReady(true);
+    };
+    applyShell();
+
+    // Role switch (header dropdown) re-evaluates which department shell to render.
+    window.addEventListener("fleetopsx:role-switched", applyShell);
+    return () => window.removeEventListener("fleetopsx:role-switched", applyShell);
   }, []);
 
   useEffect(() => {
@@ -127,8 +145,10 @@ function AppShell() {
       ) : (
         <TransportAdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       )}
+      {/* keyed remount: a role switch re-picks sidebar + header chrome */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
+          key={activeRole}
           onToggleSidebar={() => setCollapsed((c) => !c)}
           forceFleetOps={shellReady ? useFoShell : false}
           forceTrackingOps={shellReady ? useTrackingShell : false}

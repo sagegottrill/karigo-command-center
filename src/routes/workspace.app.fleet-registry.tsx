@@ -434,8 +434,8 @@ function FleetRegistryPage() {
                 query || statusFilter !== "All"
                   ? "Try a different search or status filter."
                   : tab === "head"
-                    ? "Heads from the live trucks API will list here."
-                    : "Body/tail codes from the Petroline roster list here when available."
+                    ? "Truck heads will appear here once they are added to the fleet."
+                    : "Truck bodies and tails will appear here once they are added to the fleet."
               }
             />
           )}

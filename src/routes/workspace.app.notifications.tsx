@@ -184,7 +184,7 @@ function NotificationsPage() {
         {rows.length === 0 && (
           <FigmaEmptyState
             title={cat === "All" ? "No notifications for your department" : `No ${cat.toLowerCase()} notifications`}
-            body="Alerts for your role will list here from live operations."
+            body="Operational alerts for your department will appear here."
           />
         )}
       </div>

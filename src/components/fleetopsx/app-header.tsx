@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
+  Check,
   ChevronDown,
   LogOut,
   MessageSquare,
@@ -29,6 +30,7 @@ import {
 import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
 import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import type { SearchHit } from "@/lib/fleetopsx/services";
+import { getActiveRole, setActiveRole } from "@/lib/fleetopsx/active-role";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
@@ -85,9 +87,12 @@ export function AppHeader({
     setMounted(true);
   }, []);
   const currentUser = mounted ? authService.getCurrentUser() : null;
-  const roleNames = mounted ? authService.getRoles() : [];
+  const assignedRoles: string[] = mounted ? authService.getRoles() : [];
+  const activeRole = mounted ? getActiveRole(assignedRoles) : "";
+  // Header + chrome reflect the department currently selected among assigned roles.
+  const roleNames = activeRole ? assignedRoles.filter((r) => r === activeRole) : assignedRoles;
   const roleName = roleNames.join(", ");
-  const role = ROLES.find((r) => r.name === roleName) ?? ROLES[0]!;
+  const role = ROLES.find((r) => r.key === roleName || r.name === roleName) ?? ROLES[0]!;
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -118,6 +123,13 @@ export function AppHeader({
       ? pathname === "/workspace/app" || pathname === "/workspace/app/"
       : pathname.startsWith(n.to),
   );
+
+  /** Department switch among the roles this user was assigned — re-renders role-scoped chrome. */
+  const switchDepartment = (r: string) => {
+    setActiveRole(r);
+    toast.success(`Switched to ${r} view`);
+    window.dispatchEvent(new Event("fleetopsx:role-switched"));
+  };
   const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
 
   useEffect(() => {
@@ -349,6 +361,24 @@ export function AppHeader({
                 <span className="num shrink-0 text-[10px] text-[#8e95a1]">{w.id}</span>
               </DropdownMenuItem>
             ))}
+            {assignedRoles.length > 1 && (
+              <>
+                <DropdownMenuSeparator className="my-1.5 bg-[#e2e5e9]" />
+                <DropdownMenuLabel className="px-2.5 py-2 text-[11px] font-semibold tracking-[0.04em] text-[#8e95a1] uppercase">
+                  Switch Department
+                </DropdownMenuLabel>
+                {assignedRoles.map((r) => (
+                  <DropdownMenuItem
+                    key={r}
+                    onClick={() => switchDepartment(r)}
+                    className="flex items-center justify-between gap-2 rounded-[8px] px-2.5 py-2 text-[13px] hover:bg-[#f6f7f9]"
+                  >
+                    <span className="truncate font-[500] text-[#141a1f]">{r}</span>
+                    {r === activeRole && <Check className="h-3.5 w-3.5 shrink-0 text-[#ed351d]" />}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator className="my-1.5 bg-[#e2e5e9]" />
             <DropdownMenuItem asChild className="rounded-[8px] px-2.5 py-2 text-[13px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]">
               <Link to="/workspace/app/admin">

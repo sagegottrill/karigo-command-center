@@ -46,30 +46,26 @@ async function refresh() {
       .then((n) => ["unread", n] as const)
       .catch(() => ["unread", 0] as const);
 
-    // 2. Pending partner requests — internal roles only (partner users can't list trips)
-    const requestsP = isPartner
-      ? Promise.resolve(["requests", 0] as const)
-      : tripService
-          .list()
-          .then((trips) => ["requests", trips.filter((t) => t.status === "Requested").length] as const)
-          .catch(() => ["requests", 0] as const);
+    // 2 + 3. Trip-derived badges — internal roles only (partner users can't list trips).
+    //         One shared /trips call feeds both counters.
+    const tripsP = isPartner
+      ? Promise.resolve([])
+      : tripService.list().catch(() => []);
+    const requestsP = tripsP.then(
+      (trips) => ["requests", trips.filter((t) => t.status === "Requested").length] as const,
+    );
+    const dispatchP = tripsP.then(
+      (trips) =>
+        [
+          "dispatch",
+          trips.filter((t) => t.status === ("Approved" as string) || t.status === "Awaiting Approval").length,
+        ] as const,
+    );
 
-    // 3. Fleet dispatch queue — TM-approved / awaiting-FO-assignment trips
-    const dispatchP = isPartner
-      ? Promise.resolve(["dispatch", 0] as const)
-      : tripService
-          .list()
-          .then(
-            (trips) =>
-              [
-                "dispatch",
-                trips.filter((t) => t.status === ("Approved" as string) || t.status === "Awaiting Approval").length,
-              ] as const,
-          )
-          .catch(() => ["dispatch", 0] as const);
-
-    // 4. Password reset requests — user-management roles only (/users is TM/PA/HR-gated)
-    const passwordP = isPartner
+    // 4. Password reset requests — server gates GET /api/users to Platform Admin
+    //    and HR. Any other role gets a 403 here, so only call it for those roles.
+    const canListUsers = roles.includes("Platform Admin") || roles.includes("HR");
+    const passwordP = isPartner || !canListUsers
       ? Promise.resolve(["password", 0] as const)
       : adminService
           .users()

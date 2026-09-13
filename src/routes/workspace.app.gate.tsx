@@ -342,7 +342,7 @@ function SecurityLogPage() {
         {filtered.length === 0 && (
           <FigmaEmptyState
             title="No dispatch movements yet"
-            body="Active and completed dispatches will list here for departure and return logging."
+            body="Departures and returns will appear here for gate logging."
           />
         )}
 

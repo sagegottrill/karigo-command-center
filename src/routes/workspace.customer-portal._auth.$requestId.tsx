@@ -400,7 +400,7 @@ function PartnerRequestDetailsPage() {
         </div>
       ) : !trip ? (
         <div className="p-8">
-          <FigmaEmptyState title="Request not found" body="This ticket is missing or was removed from the live API." />
+          <FigmaEmptyState title="Request not found" body="We couldn't find this request. It may have been removed or the link is incorrect." />
           <Link
             to="/workspace/customer-portal/dashboard"
             className="mt-4 inline-flex text-[14px] font-medium text-[#ED351D]"

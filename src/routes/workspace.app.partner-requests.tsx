@@ -202,7 +202,7 @@ function AdminPartnerRequests() {
               body={
                 query
                   ? "Try a different request ID, partner, or destination."
-                  : "Delivery requests partners submit will list here from the live API."
+                  : "Requests submitted by partner companies will appear here."
               }
             />
           )}
@@ -392,7 +392,7 @@ function AdminPartnerRequests() {
               body={
                 query
                   ? "Try a different request ID, partner, or destination."
-                  : "Delivery requests partners submit will list here from the live API."
+                  : "Requests submitted by partner companies will appear here."
               }
             />
           )}

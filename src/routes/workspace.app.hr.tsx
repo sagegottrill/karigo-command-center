@@ -224,7 +224,7 @@ function HrStaffDirectory() {
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
               title={query ? "No matching staff" : "No staff records yet"}
-              body={query ? "Try a different name, staff ID, or phone number." : "Drivers from the live API will list here."}
+              body={query ? "Try a different name, staff ID, or phone number." : "Staff and driver records will appear here."}
             />
           )}
 

@@ -13,6 +13,7 @@ const users = [
   { email: "accounts@petroline.ng", name: "Petroline Accounts", role: "Accounts", password: PASSWORD },
   { email: "engineering@petroline.ng", name: "Petroline Engineering", role: "Engineering", password: PASSWORD },
   { email: "gate@petroline.ng", name: "Petroline Security", role: "Security", password: PASSWORD },
+  { email: "tracking@petroline.ng", name: "Petroline Tracking Ops", role: "Tracking", password: PASSWORD },
   // Partner Company Portal — username local-part `mdanjuma` also works after API login patch
   {
     email: "mdanjuma@sabasteel.com",

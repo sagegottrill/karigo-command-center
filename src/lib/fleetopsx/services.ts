@@ -6,6 +6,7 @@ import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
 import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList } from "./live-api";
 import { displayRequestId } from "./request-id";
+import { setActiveRole } from "./active-role";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
@@ -89,6 +90,7 @@ export const authService = {
     localStorage.removeItem("fleetopsx_user_id");
     localStorage.removeItem("fleetopsx_roles");
     localStorage.removeItem("fleetopsx_user_name");
+    setActiveRole(null);
   },
   isAuthenticated: () => {
     if (typeof window === "undefined") return false;

@@ -287,7 +287,7 @@ function DispatchPage() {
           {pendingOrders.length === 0 && (
             <FigmaEmptyState
               title="No trips in the dispatch queue"
-              body="Requests waiting for truck and driver assignment will list here from the live API."
+              body="Requests waiting for truck and driver assignment will appear here."
             />
           )}
         </div>
@@ -330,7 +330,7 @@ function DispatchPage() {
           {pendingOrders.length === 0 && (
             <FigmaEmptyState
               title="No trips in the dispatch queue"
-              body="Requests waiting for truck and driver assignment will list here from the live API."
+              body="Requests waiting for truck and driver assignment will appear here."
             />
           )}
         </div>

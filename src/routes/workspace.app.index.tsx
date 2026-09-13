@@ -12,6 +12,7 @@ import {
 } from "@/components/fleetopsx/role-dashboards";
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, dashboardService } from "@/lib/fleetopsx/services";
+import { getActiveRole } from "@/lib/fleetopsx/active-role";
 import type {
   AlertItem,
   Driver,
@@ -94,15 +95,17 @@ function Dashboard() {
     );
   }
 
-  const roles = authService.getRoles();
-  if (roles.includes("Transport Manager")) return <CentralDashboard data={data} />;
-  if (roles.includes("Fleet Operations")) return <FleetManagerDashboard {...data} />;
-  if (roles.includes("Diesel")) return <FuelManagerDashboard {...data} />;
-  if (roles.includes("Accounts")) return <AccountantDashboard {...data} />;
-  if (roles.includes("Security")) return <GateDashboard {...data} />;
-  if (roles.includes("HR")) return <HRDashboard {...data} />;
-  if (roles.includes("Engineering")) return <EngineerDashboard {...data} />;
-  if (roles.includes("Parts & Store")) return <ProcurementDashboard {...data} />;
+  // Department switch (header dropdown) — among the roles assigned to this user.
+  const active = getActiveRole(authService.getRoles());
+  const has = (r: string) => active === r;
+  if (has("Transport Manager") || has("Platform Admin")) return <CentralDashboard data={data} />;
+  if (has("Fleet Operations")) return <FleetManagerDashboard {...data} />;
+  if (has("Diesel")) return <FuelManagerDashboard {...data} />;
+  if (has("Accounts")) return <AccountantDashboard {...data} />;
+  if (has("Security")) return <GateDashboard {...data} />;
+  if (has("HR")) return <HRDashboard {...data} />;
+  if (has("Engineering")) return <EngineerDashboard {...data} />;
+  if (has("Parts & Store")) return <ProcurementDashboard {...data} />;
 
   return <CentralDashboard data={data} />;
 }

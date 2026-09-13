@@ -118,7 +118,7 @@ function AdminPasswordRequest() {
           {!loading && requests.length === 0 && (
             <FigmaEmptyState
               title="No password requests yet"
-              body="Staff who require a password reset will list here from the live accounts API."
+              body="Password reset requests from staff will appear here."
             />
           )}
 

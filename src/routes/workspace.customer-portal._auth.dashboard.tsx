@@ -362,7 +362,7 @@ function PartnerPortalDashboard() {
           <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-6">
             <FigmaEmptyState
               title={searchQuery ? "No matching requests" : "No transport requests yet"}
-              body="Submit a new request — live trips from the API will list here."
+              body="Submit a new transport request and follow its progress here."
             />
           </div>
         ) : (

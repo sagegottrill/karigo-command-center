@@ -466,7 +466,7 @@ function DispatchHistoryPage() {
             body={
               searchQuery
                 ? "Try a different dispatch ID, company, or destination."
-                : "Completed and in-progress dispatches from the live API will list here."
+                : "Completed and in-progress dispatches will appear here."
             }
           />
         )}

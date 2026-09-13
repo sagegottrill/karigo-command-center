@@ -10,6 +10,7 @@ const PORTAL_SEED_EMAILS = new Set(
     "accounts@petroline.ng",
     "engineering@petroline.ng",
     "gate@petroline.ng",
+    "tracking@petroline.ng",
   ].map((e) => e.toLowerCase()),
 );
 
@@ -21,6 +22,7 @@ const PORTAL_SEED_USERNAMES = new Set([
   "accounts",
   "engineering",
   "gate",
+  "tracking",
 ]);
 
 function localPart(emailOrUsername: string) {

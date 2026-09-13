@@ -257,7 +257,7 @@ function ActiveDispatchPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <FigmaEmptyState title="No active dispatches" body="Active trips will appear here when available from the live API." />
+          <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -353,7 +353,7 @@ function ActiveDispatchPage() {
       {/* Mobile cards */}
       <div className="flex flex-col gap-2.5 md:hidden">
         {filtered.length === 0 ? (
-          <FigmaEmptyState title="No active dispatches" body="Active trips will appear here when available from the live API." />
+          <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           pageRows.map((trip) => {
             const delay = getTrackingDelayStatus(trip);

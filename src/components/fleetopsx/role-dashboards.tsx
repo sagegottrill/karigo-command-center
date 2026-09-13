@@ -161,7 +161,7 @@ export function FuelManagerDashboard({ expenses }: DashboardProps) {
       <div className={card}>
         <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Pending requisitions</h3>
         {pendingFuel.length === 0 ? (
-          <p className="text-[14px] text-[#5C6470]">No pending fuel expenses from the live API.</p>
+          <p className="text-[14px] text-[#5C6470]">No pending fuel requisitions.</p>
         ) : (
           pendingFuel.map((f) => (
             <div key={f.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
@@ -204,7 +204,7 @@ export function GateDashboard({ gateEntries }: DashboardProps) {
       <div className={card}>
         <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Recent log</h3>
         {todayLog.length === 0 ? (
-          <p className="text-[14px] text-[#5C6470]">No gate entries from the live API.</p>
+          <p className="text-[14px] text-[#5C6470]">No gate entries yet.</p>
         ) : (
           todayLog.map((g) => (
             <div key={g.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
@@ -238,8 +238,8 @@ export function HRDashboard({ alerts, drivers }: DashboardProps) {
         </div>
         <p className="text-[14px] text-[#5C6470]">
           {drivers.length === 0
-            ? "No drivers returned from the live API yet."
-            : `${drivers.length} drivers loaded — manage them on HR & Personnel.`}
+            ? "No staff records yet."
+            : `${drivers.length} drivers on record — manage them on HR & Personnel.`}
         </p>
       </div>
     </div>
@@ -269,7 +269,7 @@ export function ProcurementDashboard({ procurement }: DashboardProps) {
       <div className={card}>
         <h3 className="mb-4 text-[16px] font-medium text-[#1B2432]">Requests queue</h3>
         {pendingRequests.length === 0 ? (
-          <p className="text-[14px] text-[#5C6470]">No procurement requests from the live API.</p>
+          <p className="text-[14px] text-[#5C6470]">No procurement requests.</p>
         ) : (
           pendingRequests.map((p) => (
             <div key={p.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">

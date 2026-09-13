@@ -227,7 +227,7 @@ function MainLandingPage() {
               Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Platform
             </h2>
             <p className="text-white/50 text-sm max-w-[300px] leading-relaxed">
-              We craft high-impact digital experiences through strategic design, seamless coding, and creative thinking.
+              Fleet operations software that keeps trucks moving — from transport requests and dispatch to live tracking and secure records.
             </p>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
@@ -283,10 +283,10 @@ function TenantLandingPage() {
           </h1>
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10">
-            <div className="flex gap-10 text-white/50 text-sm font-medium uppercase tracking-widest">
-              <span>+ Portal</span>
-              <span>+ Secure</span>
-              <span>+ Logistics</span>
+            <div className="flex flex-wrap gap-10 text-white/50 text-sm font-medium uppercase tracking-widest">
+              <span>Truck Requests</span>
+              <span>+ Real-Time Tracking</span>
+              <span>+ Secure Access</span>
             </div>
             <div className="max-w-[400px]">
               <p className="text-[20px] md:text-[24px] font-light leading-relaxed mb-8 text-white/80">
@@ -415,7 +415,7 @@ function TenantLandingPage() {
               Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Platform
             </h2>
             <p className="text-white/50 text-sm max-w-[300px] leading-relaxed">
-              We craft high-impact digital experiences through strategic design, seamless coding, and creative thinking.
+              Fleet operations software that keeps trucks moving — from transport requests and dispatch to live tracking and secure records.
             </p>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
