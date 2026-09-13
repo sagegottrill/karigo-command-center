@@ -29,10 +29,22 @@ export const companyService = {
 export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
   listTails: (): Promise<TruckTail[]> => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any) as TruckTail[]).catch(() => [] as TruckTail[]),
-  createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
-  createTail: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }),
-  updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-  updateTailStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+    notificationService.create({ title: 'New Asset Added', body: `Truck ${input.registration} has been added to the fleet.`, category: 'Operations' });
+    return res;
+  }),
+  createTail: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+    notificationService.create({ title: 'New Asset Added', body: `Tail ${input.registration} has been added to the fleet.`, category: 'Operations' });
+    return res;
+  }),
+  updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    notificationService.create({ title: 'Asset Status Changed', body: `Truck ${id.substring(0,6)} status changed to ${status}.`, category: 'Operations' });
+    return res;
+  }),
+  updateTailStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    notificationService.create({ title: 'Asset Status Changed', body: `Tail ${id.substring(0,6)} status changed to ${status}.`, category: 'Operations' });
+    return res;
+  }),
   updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
   updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
@@ -115,16 +127,37 @@ export const authService = {
 export const tripService = {
   list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch(() => []),
   get: (id: string) => fetchApi(`/trips/${id}`).then(mapTrip),
-  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(mapTrip),
+  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(res => {
+    const trip = mapTrip(res);
+    notificationService.create({ title: 'New Dispatch Request', body: `Customer requested a new dispatch for ${trip.cargo}.`, category: 'Operations' });
+    return trip;
+  }),
   update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
   updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
-  assignResource: (id: string, updates: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapTrip),
-  setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapTrip),
+  assignResource: (id: string, updates: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(res => {
+    const trip = mapTrip(res);
+    notificationService.create({ title: 'Resource Assigned', body: `Resources assigned to dispatch ${trip.id.substring(0,6)}.`, category: 'Operations' });
+    return trip;
+  }),
+  setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    const trip = mapTrip(res);
+    notificationService.create({ title: 'Dispatch Status Updated', body: `Dispatch ${trip.id.substring(0,6)} is now ${status}.`, category: 'Operations' });
+    return trip;
+  }),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
   summary: () => fetchApi('/dashboard/overview'),
-  initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }),
-  approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }),
-  updateStatus: (id: string) => fetchApi(`/trips/${id}/status/next`, { method: 'POST' }),
+  initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Dispatch Initially Approved', body: `Dispatch ${id.substring(0,6)} is awaiting final dispatch.`, category: 'Approvals' });
+    return res;
+  }),
+  approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Dispatch Approved', body: `Dispatch ${id.substring(0,6)} has been approved.`, category: 'Operations' });
+    return res;
+  }),
+  updateStatus: (id: string) => fetchApi(`/trips/${id}/status/next`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Dispatch Progress', body: `Dispatch ${id.substring(0,6)} progressed to next stage.`, category: 'Operations' });
+    return res;
+  }),
   timeline: (trip: Trip): TimelineStep[] => {
     const order = ["Dispatch Created", "Driver Assigned", "Truck Departed", "Pickup Completed", "En Route", "Offloading", "Returning", "Trip Completed"];
     const idx: Record<string, number> = { Scheduled: 1, Loaded: 3, "En Route": 4, Stopped: 4, Delayed: 4, Offloading: 5, Returning: 6, Completed: 7 };
@@ -143,28 +176,47 @@ export const orderService = {
 
 export const fuelService = {
   list: () => fetchApi('/fuel'),
-  approve: (id: string) => fetchApi(`/fuel/${id}/approve`, { method: 'POST' }),
-  reject: (id: string) => fetchApi(`/fuel/${id}/reject`, { method: 'POST' }),
+  approve: (id: string) => fetchApi(`/fuel/${id}/approve`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Fuel Requisition Approved', body: `Requisition ${id.substring(0,6)} has been approved.`, category: 'Approvals' });
+    return res;
+  }),
+  reject: (id: string) => fetchApi(`/fuel/${id}/reject`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Fuel Requisition Rejected', body: `Requisition ${id.substring(0,6)} was rejected.`, category: 'Operations' });
+    return res;
+  }),
 };
 
 export const engineeringService = {
   listWorkOrders: () => fetchApi('/engineering/work-orders').then((res: any[]) => res.map(mapWorkOrder)),
-  createDefect: (input: any) => fetchApi('/engineering/work-orders', { method: 'POST', body: JSON.stringify(input) }).then(mapWorkOrder),
+  createDefect: (input: any) => fetchApi('/engineering/work-orders', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+    const wo = mapWorkOrder(res);
+    notificationService.create({ title: 'New Work Order', body: `Defect reported for truck ${input.truckReg}.`, category: 'Engineering' });
+    return wo;
+  }),
   advance: (id: string) => fetchApi(`/engineering/work-orders/${id}/advance`, { method: 'POST' }).then(mapWorkOrder),
   logRepair: (truckReg: string, defect: string, category: string, amount: number) => 
-    fetchApi('/engineering/repair', { method: 'POST', body: JSON.stringify({ truckReg, defect, category, amount }) })
+    fetchApi('/engineering/repair', { method: 'POST', body: JSON.stringify({ truckReg, defect, category, amount }) }).then(res => {
+      notificationService.create({ title: 'Repair Logged', body: `Repair logged for ${truckReg} (${defect}).`, category: 'Engineering' });
+      return res;
+    })
 };
 
 export const inventoryService = {
   list: () => fetchApi('/inventory'),
   requisitions: () => fetchApi('/inventory/requisitions'),
-  release: (itemId: string, qty: number, reqId?: string) => fetchApi(`/inventory/${itemId}/release`, { method: 'POST', body: JSON.stringify({ qty, reqId }) }),
+  release: (itemId: string, qty: number, reqId?: string) => fetchApi(`/inventory/${itemId}/release`, { method: 'POST', body: JSON.stringify({ qty, reqId }) }).then(res => {
+    notificationService.create({ title: 'Parts Released', body: `${qty} units released from inventory.`, category: 'Engineering' });
+    return res;
+  }),
   updateReorderLevel: (itemId: string, level: number) => fetchApi(`/inventory/${itemId}/reorder`, { method: 'PATCH', body: JSON.stringify({ level }) })
 };
 
 export const procurementService = {
   list: () => fetchApi('/procurement'),
-  markProcured: (id: string) => fetchApi(`/procurement/${id}/procure`, { method: 'POST' })
+  markProcured: (id: string) => fetchApi(`/procurement/${id}/procure`, { method: 'POST' }).then(res => {
+    notificationService.create({ title: 'Items Procured', body: `Procurement request ${id.substring(0,6)} fulfilled.`, category: 'Compliance' });
+    return res;
+  })
 };
 
 export const complianceService = {
@@ -197,7 +249,9 @@ export const notificationService = {
   list: () => fetchApi('/notifications'),
   getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
   markAllRead: () => fetchApi('/notifications/mark-all-read', { method: 'POST' }),
-  toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }) // Simplify toggle to mark read
+  toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }), // Simplify toggle to mark read
+  create: (payload: { title: string; body: string; category: string; severity?: string }) => 
+    fetchApi('/notifications', { method: 'POST', body: JSON.stringify({ ...payload, severity: payload.severity || 'info' }) }).catch(() => {})
 };
 
 export const auditService = { list: () => fetchApi('/audit') };
