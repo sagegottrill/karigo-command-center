@@ -57,6 +57,7 @@ import { Route as WorkspaceAppTripsIndexRouteImport } from './routes/workspace.a
 import { Route as WorkspaceAppTripsTripIdRouteImport } from './routes/workspace.app.trips.$tripId'
 import { Route as WorkspaceCustomerPortalAuthRequestIdRouteImport } from './routes/workspace.customer-portal._auth.$requestId'
 import { Route as WorkspaceCustomerPortalAuthDashboardRouteImport } from './routes/workspace.customer-portal._auth.dashboard'
+import { Route as WorkspaceCustomerPortalAuthNotificationsRouteImport } from './routes/workspace.customer-portal._auth.notifications'
 import { Route as WorkspaceCustomerPortalAuthRequestRouteImport } from './routes/workspace.customer-portal._auth.request'
 
 const IndexRoute = IndexRouteImport.update({
@@ -318,6 +319,12 @@ const WorkspaceCustomerPortalAuthDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
   } as any)
+const WorkspaceCustomerPortalAuthNotificationsRoute =
+  WorkspaceCustomerPortalAuthNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
+  } as any)
 const WorkspaceCustomerPortalAuthRequestRoute =
   WorkspaceCustomerPortalAuthRequestRouteImport.update({
     id: '/request',
@@ -370,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
   '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
@@ -417,6 +425,7 @@ export interface FileRoutesByTo {
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchIndexRoute
   '/workspace/app/drivers': typeof WorkspaceAppDriversIndexRoute
@@ -469,6 +478,7 @@ export interface FileRoutesById {
   '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/_auth/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/_auth/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/_auth/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
   '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch/'
     | '/workspace/app/drivers/'
@@ -568,6 +579,7 @@ export interface FileRouteTypes {
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch'
     | '/workspace/app/drivers'
@@ -619,6 +631,7 @@ export interface FileRouteTypes {
     | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/_auth/$requestId'
     | '/workspace/customer-portal/_auth/dashboard'
+    | '/workspace/customer-portal/_auth/notifications'
     | '/workspace/customer-portal/_auth/request'
     | '/workspace/app/active-dispatch/'
     | '/workspace/app/drivers/'
@@ -970,6 +983,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceCustomerPortalAuthDashboardRouteImport
       parentRoute: typeof WorkspaceCustomerPortalAuthRoute
     }
+    '/workspace/customer-portal/_auth/notifications': {
+      id: '/workspace/customer-portal/_auth/notifications'
+      path: '/notifications'
+      fullPath: '/workspace/customer-portal/notifications'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthNotificationsRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalAuthRoute
+    }
     '/workspace/customer-portal/_auth/request': {
       id: '/workspace/customer-portal/_auth/request'
       path: '/request'
@@ -1074,6 +1094,7 @@ const WorkspaceAppRouteWithChildren = WorkspaceAppRoute._addFileChildren(
 interface WorkspaceCustomerPortalAuthRouteChildren {
   WorkspaceCustomerPortalAuthRequestIdRoute: typeof WorkspaceCustomerPortalAuthRequestIdRoute
   WorkspaceCustomerPortalAuthDashboardRoute: typeof WorkspaceCustomerPortalAuthDashboardRoute
+  WorkspaceCustomerPortalAuthNotificationsRoute: typeof WorkspaceCustomerPortalAuthNotificationsRoute
   WorkspaceCustomerPortalAuthRequestRoute: typeof WorkspaceCustomerPortalAuthRequestRoute
 }
 
@@ -1083,6 +1104,8 @@ const WorkspaceCustomerPortalAuthRouteChildren: WorkspaceCustomerPortalAuthRoute
       WorkspaceCustomerPortalAuthRequestIdRoute,
     WorkspaceCustomerPortalAuthDashboardRoute:
       WorkspaceCustomerPortalAuthDashboardRoute,
+    WorkspaceCustomerPortalAuthNotificationsRoute:
+      WorkspaceCustomerPortalAuthNotificationsRoute,
     WorkspaceCustomerPortalAuthRequestRoute:
       WorkspaceCustomerPortalAuthRequestRoute,
   }
@@ -1140,13 +1163,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
