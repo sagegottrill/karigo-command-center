@@ -244,136 +244,163 @@ function MainLandingPage() {
 
 function TenantLandingPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
-  const displayName = tenantName || "FLEETOPSX";
+  const displayName = tenantName || "Petroline Transport Ltd";
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   return (
-    <div className="min-h-screen bg-[#f1f2f4] flex flex-col items-center overflow-x-hidden w-full font-['Inter',sans-serif]">
+    <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-[#ed351d]/20 overflow-x-hidden">
       
-      {/* HEADER — 1440x100 desktop / 390x61 mobile, bg=#1b2432 */}
-      <div className="w-full bg-[#1b2432] border-b border-[#e2e5e9] flex justify-center">
-        <header className="w-full max-w-[1440px] md:h-[100px] h-[61px] flex flex-row items-center md:py-[12px] md:px-[32px] py-[5px] px-[19px] gap-[10px]">
+      {/* HEADER - Black */}
+      <div className="w-full bg-[#000000] border-b border-white/10 flex justify-center">
+        <header className="w-full max-w-[1440px] h-[80px] flex items-center justify-between px-[20px] md:px-[60px]">
           <div className="flex flex-row items-center gap-[16px]">
-             <img src={logoSrc} alt={tenantName || "Petroline Transport Ltd"} className="h-[40px] md:h-[60px] object-contain" />
+             <img src={logoSrc} alt={displayName} className="h-[40px] md:h-[50px] object-contain" />
+          </div>
+          <div className="flex items-center gap-4">
+            <Link 
+              to="/workspace/account-type" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold transition-colors"
+            >
+              Access Portal
+            </Link>
           </div>
         </header>
       </div>
 
-      {/* MAIN CONTENT — gap 32px desktop / 18px mobile */}
-      <main className="w-full flex flex-col md:gap-[32px] gap-[18px] md:mt-0 mt-0 items-center md:pb-0 pb-0">
-        
-        {/* HERO — full-bleed edge-to-edge (not inset/centered card) */}
-        <section 
-          className="relative flex h-[560px] w-full flex-col items-center justify-center overflow-hidden bg-[#000000] bg-cover bg-center bg-no-repeat p-5 text-center md:h-[800px] md:gap-[30px] md:px-[209px] md:py-[102px] gap-5"
-          style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/figma/landing-hero.jpg')" }}
-        >
-          <h1 className="md:text-[90px] text-[36px] md:font-[500] font-[700] md:leading-[90px] leading-[40px] text-[#ffffff] md:w-[1160px] w-[329px] md:h-[180px] h-[120px] flex items-center justify-center font-['Space_Grotesk',sans-serif]">
-            Manage your fleet operation with confidence
+      {/* HERO SECTION - Black */}
+      <section className="bg-[#000000] text-white pt-[60px] pb-[100px] md:pt-[120px] md:pb-[160px] px-[20px] md:px-[60px] flex justify-center rounded-b-[40px]">
+        <div className="w-full max-w-[1440px] flex flex-col">
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-6">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            Enterprise Fleet Portal
+          </div>
+          <h1 className="text-[50px] md:text-[90px] font-bold leading-[1.05] tracking-tight max-w-[1000px] font-space-grotesk mb-10">
+            Manage your fleet operation with confidence.
           </h1>
-          <p className="md:text-[24px] text-[14px] md:font-[600] font-[500] md:leading-[32px] leading-[17.5px] text-[#ffffff] md:w-[668px] w-[293px] md:h-[96px] h-[70px] mx-auto">
-            Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
-          </p>
-          <Link to="/workspace/account-type" className="mt-auto md:mt-0">
-            <button className="bg-[#ed351d] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] md:w-[149px] md:h-[40px] w-[134px] h-[36px] flex items-center justify-center hover:bg-[#d62e19] transition-colors">
-              <span className="md:text-[16px] text-[14px] font-[500] md:leading-[24px] leading-[20px] text-[#ffffff]">Access Portal</span>
-            </button>
-          </Link>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end w-full gap-10">
+            <div className="flex gap-10 text-white/50 text-sm font-medium uppercase tracking-widest">
+              <span>+ Portal</span>
+              <span>+ Secure</span>
+              <span>+ Logistics</span>
+            </div>
+            <div className="max-w-[400px]">
+              <p className="text-[20px] md:text-[24px] font-light leading-relaxed mb-8">
+                Streamline your logistics. Request trucks, track shipments in real time, and manage all your delivery paperwork from one secure dashboard.
+              </p>
+              <div className="flex gap-4">
+                <Link 
+                  to="/workspace/account-type" 
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#ed351d] hover:bg-[#d62e19] text-white h-[48px] px-8 text-base transition-colors"
+                >
+                  Access Portal ↗
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CAPABILITIES SECTION - White */}
+      <section className="bg-white pt-[60px] pb-[80px] px-[20px] md:px-[60px] flex justify-center border-b border-gray-100">
+        <div className="w-full max-w-[1440px]">
+          
+          <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-8 mt-[40px]">
+            <div className="w-2 h-2 bg-[#ed351d]" />
+            PORTAL CAPABILITIES
+          </div>
+          <div className="flex flex-col lg:flex-row justify-between items-end gap-10 mb-[60px]">
+            <h2 className="text-[40px] md:text-[60px] font-medium leading-[1.1] tracking-tight max-w-[900px]">
+              Everything you need to <span className="text-gray-400">manage fleet operations.</span>
+            </h2>
+            <Link to="/workspace/account-type" className="text-sm font-bold uppercase tracking-widest border-b border-black pb-1 hover:text-[#ed351d] hover:border-[#ed351d] transition-colors whitespace-nowrap">
+              → Access Portal
+            </Link>
+          </div>
+
+          {/* Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-[120px]">
+            <div className="bg-[#1b2432] rounded-[20px] overflow-hidden relative text-white p-10 min-h-[300px] flex flex-col justify-end group transition-transform hover:-translate-y-1">
+              <div className="absolute top-[20px] right-[20px] opacity-10 group-hover:opacity-20 transition-opacity">
+                <Pin className="w-20 h-20 rotate-45" />
+              </div>
+              <div className="relative z-10 flex flex-col gap-4">
+                <h3 className="text-[30px] font-bold">Submit a Request</h3>
+                <p className="text-[18px] font-light text-white/80">
+                  Create new load bookings, specify cargo details, and receive instant dispatch confirmations.
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-[#1b2432] rounded-[20px] overflow-hidden relative text-white p-10 min-h-[300px] flex flex-col justify-end group transition-transform hover:-translate-y-1">
+              <div className="absolute top-[20px] right-[20px] opacity-10 group-hover:opacity-20 transition-opacity">
+                <Pin className="w-20 h-20 rotate-45" />
+              </div>
+              <div className="relative z-10 flex flex-col gap-4">
+                <h3 className="text-[30px] font-bold">Track Active Loads</h3>
+                <p className="text-[18px] font-light text-white/80">
+                  View live freight movements, track vehicle status, and check accurate arrival times.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#1b2432] rounded-[20px] overflow-hidden relative text-white p-10 min-h-[300px] flex flex-col justify-end group transition-transform hover:-translate-y-1">
+              <div className="absolute top-[20px] right-[20px] opacity-10 group-hover:opacity-20 transition-opacity">
+                <Pin className="w-20 h-20 rotate-45" />
+              </div>
+              <div className="relative z-10 flex flex-col gap-4">
+                <h3 className="text-[30px] font-bold">Access Records</h3>
+                <p className="text-[18px] font-light text-white/80">
+                  Review past delivery logs, download compliance documents, and audit completed freight operations.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
+      {/* SECURE SECTION - Original Design Preserved */}
+      <div className="w-full bg-[#ffffff] flex justify-center overflow-hidden border-b border-black/5 pb-[60px]">
+        <section className="relative flex flex-col md:flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-start md:items-center">
+          
+          {/* Top-Left stroke ellipses */}
+          <div className="absolute md:top-[-140px] top-[0px] md:left-[-200px] left-[-200px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-30 pointer-events-none" />
+          <div className="absolute md:top-[-190px] top-[-30px] md:left-[-150px] left-[-180px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
+          
+          {/* Bottom-Right solid red ellipse */}
+          <div className="absolute md:bottom-[-200px] bottom-[-100px] md:right-[-100px] right-[-50px] md:w-[960px] w-[331px] md:h-[545px] h-[221px] rounded-[100%] bg-[#ed351d] pointer-events-none" />
+          
+          {/* Bottom-Right stroke ellipses */}
+          <div className="absolute md:bottom-[-180px] bottom-[-80px] md:right-[-80px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40 pointer-events-none" />
+          <div className="absolute md:bottom-[-160px] bottom-[-60px] md:right-[-60px] right-[-20px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
+
+          {/* White ellipses over red */}
+          <div className="absolute md:right-[0px] right-[-100px] md:bottom-[-100px] bottom-[-100px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-white/20 pointer-events-none" />
+          <div className="absolute md:right-[20px] right-[-80px] md:bottom-[-80px] bottom-[-80px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/40 pointer-events-none" />
+          <div className="absolute md:right-[40px] right-[-60px] md:bottom-[-60px] bottom-[-60px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/60 pointer-events-none" />
+
+          {/* Text Content */}
+          <h2 className="md:text-[62px] text-[30px] font-bold md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-full max-w-[280px] shrink-0 font-space-grotesk text-left relative z-10 tracking-tight">
+            Secure and efficient fleet operation services
+          </h2>
+          
+          {/* Tablet mockup */}
+          <div className="absolute md:right-[45px] md:-bottom-[45px] right-[-20px] -bottom-[20px] md:w-[700px] w-[350px] flex items-end justify-center z-20">
+             <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-auto object-contain drop-shadow-2xl" />
+          </div>
+          
         </section>
-
-        {/* PORTAL CAPABILITIES — 1440x628 desktop / auto mobile */}
-        <div className="w-full border-t border-[#344256] flex justify-center">
-          <section className="w-full max-w-[1440px] md:h-[628px] h-auto flex flex-col md:items-start items-center md:pt-[100px] md:pb-[100px] md:px-[85px] pt-[75px] pb-[75px] px-[0px] gap-[30px]">
-            <div className="bg-[#1b2432] rounded-[4px] pt-[5.61px] pb-[6.39px] px-[12px] md:w-[186px] w-[159px] h-[40px] flex items-center justify-center">
-              <span className="md:text-[14px] text-[12px] md:font-[700] font-[400] md:leading-[20px] leading-[16.5px] text-[#ffffff] whitespace-nowrap">PORTAL CAPABILITIES</span>
-            </div>
-            <h2 className="md:text-[36px] text-[24px] md:font-[500] font-[400] md:leading-[40px] leading-[32px] text-[#5c6470] md:w-[1270px] w-full max-w-[348px] md:max-w-none md:text-left text-center px-[20px] md:px-0">
-              Everything you need to manage fleet operations.
-            </h2>
-            {/* Cards — 1270x286 desktop, itemSpacing=40 */}
-            <div className="flex flex-row md:gap-[40px] gap-[20px] md:w-[1270px] w-full h-auto overflow-x-auto snap-x snap-mandatory px-[20px] md:px-0 pb-4 scrollbar-hide">
-              {/* Card 1 */}
-              <div className="flex flex-col flex-none md:flex-1 w-[320px] md:w-[396px] md:h-[286px] h-auto min-h-[200px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-end snap-start">
-                <div className="absolute top-[10px] right-[10px] opacity-20">
-                  <Pin className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] rotate-45" />
-                </div>
-                <div className="flex flex-col gap-[9px] md:w-[345px] w-full z-10">
-                  <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Submit a Request</h3>
-                  <p className="md:text-[20px] text-[14px] font-[300] md:leading-[32px] leading-[24px] text-[#ffffff]">
-                    Create new load bookings, specify cargo details, and receive instant dispatch confirmations.
-                  </p>
-                </div>
-              </div>
-              {/* Card 2 */}
-              <div className="flex flex-col flex-none md:flex-1 w-[320px] md:w-[396px] md:h-[286px] h-auto min-h-[200px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-end snap-start">
-                <div className="absolute top-[10px] right-[10px] opacity-20">
-                  <Pin className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] rotate-45" />
-                </div>
-                <div className="flex flex-col gap-[9px] md:w-[345px] w-full z-10">
-                  <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Track Active Loads</h3>
-                  <p className="md:text-[20px] text-[14px] font-[300] md:leading-[32px] leading-[24px] text-[#ffffff]">
-                    View live freight movements, track vehicle status, and check accurate arrival times.
-                  </p>
-                </div>
-              </div>
-              {/* Card 3 */}
-              <div className="flex flex-col flex-none md:flex-1 w-[320px] md:w-[396px] md:h-[286px] h-auto min-h-[200px] bg-[#1b2432] rounded-[10px] relative overflow-hidden text-white md:p-[40px] p-[24px] justify-end snap-start">
-                <div className="absolute top-[10px] right-[10px] opacity-20">
-                  <Pin className="md:w-[100px] w-[75px] md:h-[100px] h-[75px] rotate-45" />
-                </div>
-                <div className="flex flex-col gap-[9px] md:w-[345px] w-full z-10">
-                  <h3 className="md:text-[30px] text-[20px] font-[600] md:leading-[36px] leading-[28px] text-[#ffffff]">Access Records</h3>
-                  <p className="md:text-[20px] text-[14px] font-[300] md:leading-[32px] leading-[24px] text-[#ffffff]">
-                    Review past delivery logs, download compliance documents, and audit completed freight operations.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* SECURE SECTION — 1440x500 desktop, bg=white */}
-        <div className="w-full bg-[#ffffff] flex justify-center overflow-hidden border-b border-black/5">
-          <section className="relative flex flex-col md:flex-row md:pt-[100px] md:pb-[100px] md:px-[100px] pt-[40px] pb-[40px] px-[20px] gap-[20px] w-full max-w-[1440px] md:h-[500px] h-[400px] items-start md:items-center">
-            
-            {/* Top-Left stroke ellipses */}
-            <div className="absolute md:top-[-140px] top-[0px] md:left-[-200px] left-[-200px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-30 pointer-events-none" />
-            <div className="absolute md:top-[-190px] top-[-30px] md:left-[-150px] left-[-180px] md:w-[960px] w-[360px] md:h-[545px] h-[193px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
-            
-            {/* Bottom-Right solid red ellipse */}
-            <div className="absolute md:bottom-[-200px] bottom-[-100px] md:right-[-100px] right-[-50px] md:w-[960px] w-[331px] md:h-[545px] h-[221px] rounded-[100%] bg-[#ed351d] pointer-events-none" />
-            
-            {/* Bottom-Right stroke ellipses */}
-            <div className="absolute md:bottom-[-180px] bottom-[-80px] md:right-[-80px] right-[-40px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-40 pointer-events-none" />
-            <div className="absolute md:bottom-[-160px] bottom-[-60px] md:right-[-60px] right-[-20px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-[#ed351d] opacity-20 pointer-events-none" />
-
-            {/* White ellipses over red */}
-            <div className="absolute md:right-[0px] right-[-100px] md:bottom-[-100px] bottom-[-100px] md:w-[960px] w-[408px] md:h-[545px] h-[231px] rounded-[100%] border-[1px] border-white/20 pointer-events-none" />
-            <div className="absolute md:right-[20px] right-[-80px] md:bottom-[-80px] bottom-[-80px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/40 pointer-events-none" />
-            <div className="absolute md:right-[40px] right-[-60px] md:bottom-[-60px] bottom-[-60px] md:w-[960px] w-[407px] md:h-[545px] h-[230px] rounded-[100%] border-[1px] border-white/60 pointer-events-none" />
-
-            {/* Text Content */}
-            <h2 className="md:text-[62px] text-[30px] font-[700] md:leading-[72px] leading-[34px] text-[#1b2432] md:w-[597px] w-[216px] shrink-0 font-['Space_Grotesk',sans-serif] text-left relative z-10">
-              Secure and efficient fleet operation services
-            </h2>
-            
-            {/* Tablet mockup */}
-            <div className="absolute md:right-[45px] md:-bottom-[45px] right-[-20px] -bottom-[20px] md:w-[700px] w-[350px] flex items-end justify-center z-20">
-               <img src="/Galaxy Tab S8 Ultra-Mockup.png" alt="Platform Preview" className="w-full h-auto object-contain drop-shadow-2xl" />
-            </div>
-            
-          </section>
-        </div>
-
-      </main>
-
-      {/* FOOTER — 1440x100 desktop / 390x70 mobile, bg=#1b2432 */}
-      <div className="w-full bg-[#1b2432] flex justify-center">
-        <footer className="w-full max-w-[1440px] md:h-[100px] h-[70px] flex items-center md:justify-start justify-center md:px-[38px] px-4">
-          <p className="md:text-[12px] text-[11.41px] font-[400] md:leading-[16px] leading-[13.81px] text-[#ffffff] uppercase tracking-[0.4px]">
-            POWERED BY FLEETOPSX | COPYRIGHT {new Date().getFullYear()}
-          </p>
-        </footer>
       </div>
+
+      {/* FOOTER - Black */}
+      <section className="bg-[#0b0f14] text-white pt-[100px] pb-[40px] px-[20px] md:px-[60px] flex justify-center">
+        <div className="w-full max-w-[1440px] flex flex-col">
+          <div className="flex flex-col justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
+            <span className="uppercase tracking-widest font-semibold mb-4">POWERED BY FLEETOPSX</span>
+            <span>© {new Date().getFullYear()} {displayName}. All rights reserved.</span>
+          </div>
+        </div>
+      </section>
 
     </div>
   );
