@@ -68,7 +68,7 @@ function LogLocationPage() {
         }
         setTrip(next);
         setDelayStatus(getTrackingDelayStatus(next));
-        setCheckpoints(listCheckpoints(next.id));
+        setCheckpoints(await listCheckpoints(next.id));
         if (next.driverId) {
           const d = await driverService.get(next.driverId);
           if (!cancelled) setDriver(d);
@@ -124,7 +124,7 @@ function LogLocationPage() {
     }
     setSaving(true);
     try {
-      const row = addCheckpoint({ tripId: trip.id, location: location.trim(), leg });
+      const row = await addCheckpoint({ tripId: trip.id, location: location.trim(), leg });
       setCheckpoints((prev) => [row, ...prev]);
       setLocation("");
       toast.success("Location checkpoint saved");

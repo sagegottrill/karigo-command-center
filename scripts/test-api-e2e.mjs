@@ -94,7 +94,18 @@ async function runE2ETest() {
     });
     console.log(`✅ Dispatch initially approved by Transport Manager`);
 
-    // Assign truck, tail, driver, and costs
+    const unauthorizedPatchRes = await fetchApi(`/trips/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${partnerToken}` },
+      body: JSON.stringify({ status: "Approved" })
+    }).catch(err => err);
+    if (unauthorizedPatchRes instanceof Error && unauthorizedPatchRes.message.includes('403')) {
+      console.log(`✅ [SECURITY] Partner prevented from patching trip (403 Forbidden)`);
+    } else {
+      throw new Error(`[SECURITY FAIL] Partner was able to patch trip!`);
+    }
+
+    // Assign truck, tail, driver, and costs (as Admin)
     const assignmentPayload = {
       truckReg: "TRK-001 / TAIL-99",
       tailType: "Flat",

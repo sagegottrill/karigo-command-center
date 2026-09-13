@@ -46,41 +46,21 @@ export type LocationCheckpoint = {
   at: string;
 };
 
+import { fetchApi } from "./services";
+
 const CHECKPOINT_KEY = "fleetopsx_tracking_checkpoints";
 
-function readCheckpoints(): LocationCheckpoint[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(CHECKPOINT_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as LocationCheckpoint[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+export async function listCheckpoints(tripId: string): Promise<LocationCheckpoint[]> {
+  return fetchApi(`/tracking/${tripId}`).catch(() => []);
 }
 
-function writeCheckpoints(rows: LocationCheckpoint[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(rows));
-}
-
-export function listCheckpoints(tripId: string): LocationCheckpoint[] {
-  return readCheckpoints().filter((c) => c.tripId === tripId);
-}
-
-export function addCheckpoint(input: {
+export async function addCheckpoint(input: {
   tripId: string;
   location: string;
   leg: LocationCheckpoint["leg"];
-}): LocationCheckpoint {
-  const row: LocationCheckpoint = {
-    id: `LOC-${Date.now()}`,
-    tripId: input.tripId,
-    location: input.location.trim(),
-    leg: input.leg,
-    at: new Date().toISOString(),
-  };
-  writeCheckpoints([row, ...readCheckpoints()]);
-  return row;
+}): Promise<LocationCheckpoint> {
+  return fetchApi('/tracking', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
 }
