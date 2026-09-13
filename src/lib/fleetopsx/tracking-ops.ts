@@ -46,7 +46,7 @@ export type LocationCheckpoint = {
   at: string;
 };
 
-import { fetchApi } from "./services";
+import { fetchApi } from "./apiClient";
 
 const CHECKPOINT_KEY = "fleetopsx_tracking_checkpoints";
 
