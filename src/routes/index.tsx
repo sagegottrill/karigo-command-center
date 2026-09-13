@@ -408,14 +408,14 @@ function TenantLandingPage() {
         <div className="w-full max-w-[1440px] flex flex-col">
           <div className="flex items-center gap-2 text-[#ed351d] text-sm font-bold tracking-widest uppercase mb-12">
             <div className="w-2 h-2 bg-[#ed351d]" />
-            Services
+            What we do
           </div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-[100px]">
             <h2 className="text-[40px] md:text-[70px] font-medium leading-none flex items-center gap-4">
-              Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Platform
+              Our <div className="w-[60px] h-[60px] bg-[#ed351d] rounded-lg rotate-12 flex items-center justify-center shadow-lg"><Truck className="w-8 h-8 text-white -rotate-12" /></div> Services
             </h2>
             <p className="text-white/50 text-sm max-w-[300px] leading-relaxed">
-              Fleet operations software that keeps trucks moving — from transport requests and dispatch to live tracking and secure records.
+              {displayName} hauls your cargo across Nigeria — request a truck, follow it live on the map, and keep every delivery record secure in one portal.
             </p>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
