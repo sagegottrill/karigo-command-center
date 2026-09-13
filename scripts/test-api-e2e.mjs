@@ -140,7 +140,28 @@ async function runE2ETest() {
     console.log(`✅ Trip status updated to 'En Route' (Departed)`);
 
 
-    // Step 5
+    console.log(`\n--- STEP 5: FLEET OPS LOGS TRACKING CHECKPOINT ---`);
+    const trackRes = await fetchApi('/tracking', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        tripId: orderId,
+        location: "Kasoa Toll Booth",
+        leg: "Outgoing"
+      })
+    });
+    console.log(`✅ Tracking location logged: ${trackRes.location} (ID: ${trackRes.id})`);
+
+    const getTrackRes = await fetchApi(`/tracking/${orderId}`, {
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    });
+    if (getTrackRes.length > 0 && getTrackRes[0].location === "Kasoa Toll Booth") {
+      console.log(`✅ Customer successfully fetched live tracking location`);
+    } else {
+      throw new Error("Tracking checkpoint not found in history!");
+    }
+
+    console.log("\n--- STEP 6: GATE SECURITY LOGS RETURN (COMPLETED) ---");
     await fetchApi(`/trips/${orderId}`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${adminToken}` },
