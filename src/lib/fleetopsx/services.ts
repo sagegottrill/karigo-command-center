@@ -4,7 +4,7 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, asList } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList } from "./live-api";
 import { displayRequestId } from "./request-id";
 
 export const tenantService = {
@@ -27,36 +27,31 @@ export const companyService = {
   create: (input: Omit<Company, "id" | "status">) => fetchApi('/companies', { method: 'POST', body: JSON.stringify(input) }),
 };
 
-import { TRUCK_TAILS } from "./mock-data";
-
 export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
-  listTails: (): Promise<TruckTail[]> => fetchApi('/trucks').then((res: any[]) => {
-    const apiTails = res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any) as TruckTail[];
-    return apiTails.length > 0 ? apiTails : TRUCK_TAILS;
-  }).catch(() => TRUCK_TAILS),
+  listTails: (): Promise<TruckTail[]> => fetchApi('/tails').then((res: any[]) => asList(res).map(mapTail)),
   createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
     notificationService.create({ title: 'New Asset Added', body: `Truck ${input.registration} has been added to the fleet.`, category: 'Operations' });
     return res;
   }),
-  createTail: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
-    notificationService.create({ title: 'New Asset Added', body: `Tail ${input.registration} has been added to the fleet.`, category: 'Operations' });
+  createTail: (input: any) => fetchApi('/tails', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+    notificationService.create({ title: 'New Asset Added', body: `Tail ${input.number} has been added to the fleet.`, category: 'Operations' });
     return res;
   }),
   updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
     notificationService.create({ title: 'Asset Status Changed', body: `Truck ${id.substring(0,6)} status changed to ${status}.`, category: 'Operations' });
     return res;
   }),
-  updateTailStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
-    notificationService.create({ title: 'Asset Status Changed', body: `Tail ${id.substring(0,6)} status changed to ${status}.`, category: 'Operations' });
+  updateTailStatus: (id: string, status: string) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    notificationService.create({ title: 'Asset Status Changed', body: `Tail status changed to ${status}.`, category: 'Operations' });
     return res;
   }),
   updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
-  updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
-  deleteTail: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
+  updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+  deleteTail: (id: string) => fetchApi(`/tails/${id}`, { method: 'DELETE' }),
   getHead: (id: string) => fetchApi(`/trucks/${id}`),
-  getTail: (id: string) => fetchApi(`/trucks/${id}`),
+  getTail: (id: string) => fetchApi(`/tails/${id}`),
   summary: () => fetchApi('/dashboard/overview'),
 };
 
@@ -140,7 +135,6 @@ export const tripService = {
     const payload = { ...updates } as any;
     delete payload.headId;
     delete payload.tailId;
-    delete payload.tailNumber;
     delete payload.driverId;
     delete payload.totalCosts;
     delete payload.eta;

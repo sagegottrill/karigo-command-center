@@ -20,6 +20,7 @@ import type {
   Trip,
   TripStatus,
   TruckHead,
+  TruckTail,
   User,
   WorkOrder,
   WorkOrderStatus,
@@ -71,6 +72,27 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
   };
   if (cabCode) mapped.capNumber = cabCode;
   return enrichTruckHead(mapped);
+}
+
+/** Tail rows from the live /tails API → UI TruckTail shape. */
+export function mapTail(t: Record<string, unknown>): TruckTail {
+  const statusRaw = String(t["status"] ?? "Available");
+  const status: TruckTail["status"] =
+    statusRaw === "Active" || statusRaw === "Available"
+      ? "Available"
+      : statusRaw === "Assigned" || statusRaw === "In Transit" || statusRaw === "Maintenance" || statusRaw === "Out of Service"
+        ? statusRaw
+        : "Available";
+  return {
+    id: String(t["id"] ?? ""),
+    number: String(t["number"] ?? t["id"] ?? ""),
+    registration: String(t["registration"] ?? t["number"] ?? ""),
+    type: String(t["type"] ?? "Trailer"),
+    status,
+    location: String(t["location"] ?? "Depot"),
+    lat: Number(t["lat"] ?? 6.5244),
+    lng: Number(t["lng"] ?? 3.3792),
+  };
 }
 
 export function mapDriver(d: Record<string, unknown>): Driver {

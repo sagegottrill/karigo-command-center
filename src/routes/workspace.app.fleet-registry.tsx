@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -83,6 +83,11 @@ function FleetRegistryPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [addOpen, setAddOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newId, setNewId] = useState("");
+  const [newReg, setNewReg] = useState("");
+  const [newType, setNewType] = useState("");
 
   useEffect(() => {
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -97,6 +102,51 @@ function FleetRegistryPage() {
       })
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  const refresh = () => {
+    void Promise.all([fleetService.listHeads(), fleetService.listTails()])
+      .then(([h, t]) => {
+        setHeads(h);
+        setTails(t);
+      })
+      .catch(() => toast.error("Could not refresh fleet list"));
+  };
+
+  const handleAddAsset = async () => {
+    if (!newId.trim() || (tab === "head" && !newReg.trim())) {
+      toast.error(tab === "head" ? "Cap number and registration are required" : "Tail number is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (tab === "head") {
+        await fleetService.createHead({ cabId: newId.trim(), registration: newReg.trim(), category: newType.trim() || undefined, status: "Available" });
+      } else {
+        await fleetService.createTail({ number: newId.trim(), type: newType.trim() || "Trailer", status: "Available" });
+      }
+      toast.success(tab === "head" ? "Truck head added" : "Tail added");
+      setAddOpen(false);
+      setNewId("");
+      setNewReg("");
+      setNewType("");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save asset");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (item: TruckHead | TruckTail, status: TruckStatus) => {
+    try {
+      if (tab === "head") await fleetService.updateHeadStatus(item.id, status);
+      else await fleetService.updateTailStatus(item.id, status);
+      toast.success(`Status updated to ${status}`);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update status");
+    }
+  };
 
   const listing = tab === "head" ? heads : tails;
 
@@ -286,6 +336,14 @@ function FleetRegistryPage() {
               <button type="button" className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
                 <SlidersHorizontal className="size-4" strokeWidth={1.75} />
               </button>
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#141a1f]"
+              >
+                <Plus className="size-4" strokeWidth={2} />
+                Add {tab === "head" ? "Head" : "Tail"}
+              </button>
             </div>
           </div>
 
@@ -349,14 +407,18 @@ function FleetRegistryPage() {
                     {head ? head.make : tail?.type}
                   </span>
                   <span>
-                    <span
+                    <select
+                      value={item.status}
+                      onChange={(e) => void handleStatusChange(item, e.target.value as TruckStatus)}
                       className={cn(
-                        "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
+                        "inline-flex h-[22px] cursor-pointer items-center rounded border-0 px-2.5 text-[10px] font-medium outline-none",
                         statusPillClass(item.status),
                       )}
                     >
-                      {item.status}
-                    </span>
+                      {(["Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as TruckStatus[]).map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </span>
                   <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{item.location}</span>
                 </div>
@@ -417,6 +479,45 @@ function FleetRegistryPage() {
             </div>
           )}
         </div>
+
+        {addOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAddOpen(false)}>
+            <div className="w-full max-w-[420px] rounded-[10px] bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-[18px] font-semibold text-[#1B2432]">Add Truck {tab === "head" ? "Head" : "Tail"}</h3>
+                <button type="button" onClick={() => setAddOpen(false)} className="grid size-7 place-items-center rounded hover:bg-[#F1F2F4]" aria-label="Close">
+                  <X className="size-4 text-[#5C6470]" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium text-[#141A1F]">
+                    {tab === "head" ? "Cap Number" : "Tail Number"} <span className="text-[#ED351D]">*</span>
+                  </span>
+                  <input value={newId} onChange={(e) => setNewId(e.target.value)} placeholder={tab === "head" ? "eg: P001" : "eg: B001"} className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#1B2432]" />
+                </label>
+                {tab === "head" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[13px] font-medium text-[#141A1F]">
+                      Registration (Plate Number) <span className="text-[#ED351D]">*</span>
+                    </span>
+                    <input value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="eg: EPE 903 FS" className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#1B2432]" />
+                  </label>
+                )}
+                <label className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium text-[#141A1F]">{tab === "head" ? "Truck Brand" : "Type"}</span>
+                  <input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder={tab === "head" ? "eg: DAF" : "eg: Flatbed Trailer"} className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#1B2432]" />
+                </label>
+                <div className="mt-2 flex items-center justify-end gap-4">
+                  <button type="button" onClick={() => setAddOpen(false)} className="text-[14px] font-medium text-[#ED351D]">Cancel</button>
+                  <button type="button" disabled={saving} onClick={() => void handleAddAsset()} className="rounded bg-[#ED351D] hover:bg-[#d62e19] px-4 py-2 text-[14px] font-medium text-white disabled:opacity-60">
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
