@@ -4,6 +4,7 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi } from "./apiClient";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder } from "./live-api";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
@@ -42,10 +43,10 @@ export const fleetService = {
 };
 
 export const driverService = {
-  list: () => fetchApi('/drivers'),
-  get: (id: string) => fetchApi(`/drivers/${id}`),
-  create: (input: any) => fetchApi('/drivers', { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: string, updates: Partial<Driver>) => fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+  list: () => fetchApi('/drivers').then((res: any[]) => res.map(mapDriver)),
+  get: (id: string) => fetchApi(`/drivers/${id}`).then(mapDriver),
+  create: (input: any) => fetchApi('/drivers', { method: 'POST', body: JSON.stringify(input) }).then(mapDriver),
+  update: (id: string, updates: Partial<Driver>) => fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
   delete: (id: string) => fetchApi(`/drivers/${id}`, { method: 'DELETE' }),
 };
 
@@ -106,11 +107,11 @@ export const authService = {
 };
 
 export const tripService = {
-  list: () => fetchApi('/trips'),
-  get: (id: string) => fetchApi(`/trips/${id}`),
-  create: (input: any) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-  updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)),
+  get: (id: string) => fetchApi(`/trips/${id}`).then(mapTrip),
+  create: (input: any) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(input) }).then(mapTrip),
+  update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
+  updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
   initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }),
   approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }),
@@ -139,9 +140,9 @@ export const fuelService = {
 };
 
 export const engineeringService = {
-  listWorkOrders: () => fetchApi('/engineering/work-orders'),
-  createDefect: (input: any) => fetchApi('/engineering/work-orders', { method: 'POST', body: JSON.stringify(input) }),
-  advance: (id: string) => fetchApi(`/engineering/work-orders/${id}/advance`, { method: 'POST' }),
+  listWorkOrders: () => fetchApi('/engineering/work-orders').then((res: any[]) => res.map(mapWorkOrder)),
+  createDefect: (input: any) => fetchApi('/engineering/work-orders', { method: 'POST', body: JSON.stringify(input) }).then(mapWorkOrder),
+  advance: (id: string) => fetchApi(`/engineering/work-orders/${id}/advance`, { method: 'POST' }).then(mapWorkOrder),
   logRepair: (truckReg: string, defect: string, category: string, amount: number) => 
     fetchApi('/engineering/repair', { method: 'POST', body: JSON.stringify({ truckReg, defect, category, amount }) })
 };
@@ -168,9 +169,9 @@ export const depreciationService = {
 };
 
 export const accountService = {
-  list: () => fetchApi('/accounts/expenses'),
-  get: (id: string) => fetchApi(`/accounts/expenses/${id}`),
-  setStatus: (id: string, status: ExpenseStatus) => fetchApi(`/accounts/expenses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+  list: () => fetchApi('/accounts/expenses').then((res: any[]) => res.map(mapExpense)),
+  get: (id: string) => fetchApi(`/accounts/expenses/${id}`).then(mapExpense),
+  setStatus: (id: string, status: ExpenseStatus) => fetchApi(`/accounts/expenses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapExpense)
 };
 
 export const gateService = {
@@ -210,7 +211,12 @@ export const dashboardService = {
   activity: () => fetchApi('/dashboard/activity'),
   alerts: () => fetchApi('/dashboard/alerts'),
   charts: () => fetchApi('/dashboard/charts'),
-  getOverview: () => fetchApi('/dashboard/overview').catch(() => ({})),
+  getOverview: () => fetchApi('/dashboard/overview').then((res: any) => ({
+    ...res,
+    trips: res.trips?.map(mapTrip) || [],
+    drivers: res.drivers?.map(mapDriver) || [],
+    expenses: res.expenses?.map(mapExpense) || []
+  })).catch(() => ({})),
 };
 
 export interface SearchHit {
