@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -9,13 +9,6 @@ import type { TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/fleet-registry")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
-    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
-      throw redirect({ to: "/workspace/app/unauthorized" });
-    }
-  },
   component: FleetRegistryPage,
 });
 
@@ -82,6 +75,7 @@ function StatCard({
 }
 
 function FleetRegistryPage() {
+  const navigate = useNavigate();
   const [heads, setHeads] = useState<TruckHead[]>([]);
   const [tails, setTails] = useState<TruckTail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,13 +85,18 @@ function FleetRegistryPage() {
   const [page, setPage] = useState(0);
 
   useEffect(() => {
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+      return;
+    }
     void Promise.all([fleetService.listHeads(), fleetService.listTails()])
-      .then(([nextHeads, nextTails]) => {
-        setHeads(nextHeads);
-        setTails(nextTails);
+      .then(([h, t]) => {
+        setHeads(h);
+        setTails(t);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   const listing = tab === "head" ? heads : tails;
 

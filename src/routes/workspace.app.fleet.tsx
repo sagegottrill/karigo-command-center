@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,13 +14,6 @@ import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
-    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
-      throw redirect({ to: "/workspace/app/unauthorized" });
-    }
-  },
   component: FleetDispatchRequests,
 });
 
@@ -67,6 +60,11 @@ function FleetDispatchRequests() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+      return;
+    }
     void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads()])
       .then(([nextTrips, nextDrivers, nextHeads]) => {
         setTrips(nextTrips);
@@ -74,7 +72,7 @@ function FleetDispatchRequests() {
         setHeads(nextHeads);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
