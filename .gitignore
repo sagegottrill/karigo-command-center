@@ -41,3 +41,4 @@ AGENT_SECRETS.local.md
 *SECRETS.local.md
 *.local.md
 !AGENT_SECRETS.example.md
+ssh_run.mjs
