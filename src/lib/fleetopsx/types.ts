@@ -144,6 +144,7 @@ export interface Driver {
 export type TripStatus =
   | "Requested"
   | "Awaiting Approval"
+  | "Approved" // backend intermediate state after TM initial approval
   | "Approved for Dispatch"
   | "Scheduled"
   | "En Route"
@@ -311,6 +312,8 @@ export interface Notification {
   time: string;
   read: boolean;
   severity: "info" | "warning" | "critical" | "success";
+  /** Backend audience targeting: null/absent = broadcast, otherwise comma-separated roles. */
+  audience?: string | null;
 }
 
 export interface Message {

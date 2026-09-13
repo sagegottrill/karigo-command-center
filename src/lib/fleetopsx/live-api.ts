@@ -558,6 +558,7 @@ export function mapNotification(n: Record<string, unknown>): Notification {
     time: String(n.time ?? "Just now"),
     read: Boolean(n.read),
     severity: (n.severity as Notification["severity"]) || "info",
+    audience: (n.audience as string | null | undefined) ?? null,
   };
 }
 

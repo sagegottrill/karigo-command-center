@@ -19,6 +19,7 @@ function toPartnerStatus(status: TripStatus): PartnerUiStatus {
     case "Requested":
       return "Pending";
     case "Awaiting Approval":
+    case "Approved":
     case "Approved for Dispatch":
     case "Scheduled":
       return "Approved";

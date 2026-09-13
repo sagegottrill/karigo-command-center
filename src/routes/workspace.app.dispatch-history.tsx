@@ -44,6 +44,7 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
       return "In Transit";
     case "Requested":
     case "Awaiting Approval":
+    case "Approved":
     case "Approved for Dispatch":
     case "Scheduled":
       return "Pending";

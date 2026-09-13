@@ -13,16 +13,17 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
-import { getToken } from "@/lib/fleetopsx/apiClient";
 import { Route as RootRoute } from "../../routes/__root";
+import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
 type AdminNavItem = {
   label: string;
   to: string;
   icon: typeof LayoutDashboard;
-  dot?: boolean;
+  /** Which live badge count drives the orange dot (only rendered when > 0). */
+  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests";
 };
 
 type AdminNavGroup = {
@@ -40,7 +41,7 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "New Account", to: "/workspace/app/add-partner", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-partner", icon: Users },
-      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CircleHelp, dot: true },
+      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CircleHelp, liveDot: "partnerRequests" },
     ],
   },
   {
@@ -48,13 +49,13 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "New Account", to: "/workspace/app/add-account", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-account", icon: Users },
-      { label: "Password Request", to: "/workspace/app/password-request", icon: CircleHelp },
+      { label: "Password Request", to: "/workspace/app/password-request", icon: CircleHelp, liveDot: "passwordRequests" },
     ],
   },
   {
     label: "DEPARTMENTS",
     items: [
-      { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, dot: true },
+      { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, liveDot: "fleetDispatch" },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
     ],
   },
@@ -76,6 +77,16 @@ export function TransportAdminSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const badges = useLiveBadges();
+
+  const liveDotCount = (dot?: AdminNavItem["liveDot"]) =>
+    dot === "partnerRequests"
+      ? badges.partnerRequestsPending
+      : dot === "fleetDispatch"
+        ? badges.fleetDispatchPending
+        : dot === "passwordRequests"
+          ? badges.passwordRequestsPending
+          : 0;
 
   useEffect(() => {
     setMounted(true);
@@ -132,6 +143,7 @@ export function TransportAdminSidebar({
                 {group.items.map((item) => {
                   const active = isPathActive(pathname, item.to);
                   const Icon = item.icon;
+                  const dotCount = liveDotCount(item.liveDot);
                   return (
                     <Link
                       key={`${group.label}-${item.label}-${item.to}`}
@@ -143,16 +155,25 @@ export function TransportAdminSidebar({
                         active ? "bg-[#ED351D]" : "hover:bg-white/5",
                       )}
                     >
-                      <Icon
-                        className={cn("size-4 shrink-0", active ? "text-white" : "text-white")}
-                        strokeWidth={1.5}
-                      />
+                      <span className="relative shrink-0">
+                        <Icon
+                          className={cn("size-4 shrink-0", active ? "text-white" : "text-white")}
+                          strokeWidth={1.5}
+                        />
+                        {collapsed && dotCount > 0 && (
+                          <span className="absolute -right-1.5 -top-1 size-2 rounded-[10px] bg-[#ED351D] ring-2 ring-[#1B2432]" />
+                        )}
+                      </span>
                       {!collapsed && (
                         <>
                           <span className="flex-1 truncate text-[14px] font-normal leading-5 tracking-[0.4px] text-white">
                             {item.label}
                           </span>
-                          {item.dot && <span className="size-2.5 shrink-0 rounded-[10px] bg-[#ED351D]" />}
+                          {dotCount > 0 && (
+                            <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-[10px] bg-[#ED351D] px-1 text-[12px] font-medium leading-none tracking-[0.4px] text-white tabular-nums">
+                              {dotCount > 9 ? "9+" : dotCount}
+                            </span>
+                          )}
                         </>
                       )}
                     </Link>
@@ -241,33 +262,15 @@ function isMobileNavActive(pathname: string, item: (typeof ADMIN_MOBILE_NAV)[num
 
 export function TransportAdminMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!getToken()) {
-      setUnread(0);
-      return;
-    }
-    void notificationService
-      .getUnreadCount()
-      .then((count) => {
-        if (!cancelled) setUnread(count);
-      })
-      .catch(() => {
-        if (!cancelled) setUnread(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+  const badges = useLiveBadges();
+  const unread = badges.unreadNotifications;
+  const showBadge = unread > 0;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-2 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
       {ADMIN_MOBILE_NAV.map((item) => {
         const active = isMobileNavActive(pathname, item);
         const Icon = item.icon;
-        const showBadge = item.to.includes("notifications") && unread > 0;
         return (
           <Link
             key={item.to}

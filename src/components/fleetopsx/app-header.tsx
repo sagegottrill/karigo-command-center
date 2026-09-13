@@ -27,11 +27,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
-import { globalSearch, authService, notificationService } from "@/lib/fleetopsx/services";
+import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import type { SearchHit } from "@/lib/fleetopsx/services";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
+import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
 function isAdminPortalPath(pathname: string) {
   return pathname === "/workspace/app" || pathname.startsWith("/workspace/app/");
@@ -108,24 +109,9 @@ export function AppHeader({
     };
   }, [query]);
   const groups = [...new Set(hits.map((h) => h.group))];
-  const [unread, setUnread] = useState(0);
   const adminPortal = isAdminPortalPath(pathname);
-
-  useEffect(() => {
-    if (adminPortal) return; // Figma Admin/FO chrome: badges live in FO sidebar / mobile nav
-    let cancelled = false;
-    void notificationService
-      .getUnreadCount()
-      .then((count) => {
-        if (!cancelled) setUnread(count);
-      })
-      .catch(() => {
-        if (!cancelled) setUnread(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname, adminPortal]);
+  // Live unread badge — shared poller (30s + on route change); server scopes by role.
+  const unread = useLiveBadges().unreadNotifications;
 
   const active = NAV.find((n) =>
     n.to === "/workspace/app"

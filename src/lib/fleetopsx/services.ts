@@ -134,11 +134,7 @@ export const authService = {
 export const tripService = {
   list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch(() => []),
   get: (id: string) => fetchApi(`/trips/${id}`).then(mapTrip),
-  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(res => {
-    const trip = mapTrip(res);
-    notificationService.create({ title: 'New Dispatch Request', body: `Customer requested a new dispatch for ${trip.cargo}.`, category: 'Operations' });
-    return trip;
-  }),
+  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(mapTrip),
   update: (id: string, updates: Partial<Trip>) => {
     // Sanitize payload for Prisma API which throws 500 on unknown fields
     const payload = { ...updates } as any;
@@ -150,33 +146,18 @@ export const tripService = {
     delete payload.eta;
     delete payload.progress;
     
-    return fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(res => {
-      const trip = mapTrip(res);
-      notificationService.create({ title: 'Trip Updated', body: `Details updated for dispatch ${trip.id.substring(0,6)}.`, category: 'Operations' });
-      return trip;
-    });
+    // NOTE: lifecycle notifications (request/assign/depart/return) are generated
+    // server-side with role targeting — do not duplicate them client-side.
+    return fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip);
   },
   updateTrip: (id: string, payload: Partial<Trip>) => tripService.update(id, payload),
   assignResource: (id: string, updates: Partial<Trip>) => tripService.update(id, updates),
-  setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
-    const trip = mapTrip(res);
-    notificationService.create({ title: 'Dispatch Status Updated', body: `Dispatch ${trip.id.substring(0,6)} is now ${status}.`, category: 'Operations' });
-    return trip;
-  }),
+  setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapTrip),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
   summary: () => fetchApi('/dashboard/overview'),
-  initialApprove: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }).then(res => {
-    notificationService.create({ title: 'Dispatch Initially Approved', body: `Dispatch ${id.substring(0,6)} is awaiting final dispatch.`, category: 'Approvals' });
-    return res;
-  }),
-  approveDispatch: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Scheduled' }) }).then(res => {
-    notificationService.create({ title: 'Dispatch Approved', body: `Dispatch ${id.substring(0,6)} has been approved.`, category: 'Operations' });
-    return res;
-  }),
-  updateStatus: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'En Route' }) }).then(res => {
-    notificationService.create({ title: 'Dispatch Progress', body: `Dispatch ${id.substring(0,6)} progressed to next stage.`, category: 'Operations' });
-    return res;
-  }),
+  initialApprove: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }),
+  approveDispatch: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Scheduled' }) }),
+  updateStatus: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'En Route' }) }),
   timeline: (trip: Trip): TimelineStep[] => {
     const order = ["Dispatch Created", "Driver Assigned", "Truck Departed", "Pickup Completed", "En Route", "Offloading", "Returning", "Trip Completed"];
     const idx: Record<string, number> = { Scheduled: 1, Loaded: 3, "En Route": 4, Stopped: 4, Delayed: 4, Offloading: 5, Returning: 6, Completed: 7 };

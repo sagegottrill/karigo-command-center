@@ -28,6 +28,7 @@ export function NotificationPopover({
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
+    if (!open) return; // refresh count each time the popover opens
     let cancelled = false;
     void notificationService
       .getUnreadCount()

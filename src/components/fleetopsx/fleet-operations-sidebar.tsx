@@ -1,11 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, ClipboardList, History, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
-import { getToken } from "@/lib/fleetopsx/apiClient";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
+import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
 type FoNavItem = {
   label: string;
@@ -36,30 +36,11 @@ export function FleetOperationsSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [unread, setUnread] = useState(0);
+  const unread = useLiveBadges().unreadNotifications;
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!getToken()) {
-      setUnread(0);
-      return;
-    }
-    void notificationService
-      .getUnreadCount()
-      .then((count) => {
-        if (!cancelled) setUnread(count);
-      })
-      .catch(() => {
-        if (!cancelled) setUnread(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
 
   const currentUser = authService.getCurrentUser();
   const userName = mounted && currentUser?.name ? currentUser.name : "";
@@ -190,26 +171,7 @@ export function shouldUseFleetOpsShell(roles: string[]) {
 /** Figma FO mobile bottom tab bar (390 frames) */
 export function FleetOperationsMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!getToken()) {
-      setUnread(0);
-      return;
-    }
-    void notificationService
-      .getUnreadCount()
-      .then((count) => {
-        if (!cancelled) setUnread(count);
-      })
-      .catch(() => {
-        if (!cancelled) setUnread(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+  const unread = useLiveBadges().unreadNotifications;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] md:hidden">
