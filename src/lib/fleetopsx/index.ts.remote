@@ -441,14 +441,14 @@ app.get('/api/login-reports', authenticate, async (_req, res) => {
 // --- DASHBOARD ---
 app.get('/api/dashboard/overview', authenticate, async (_req, res) => {
   const [trips, trucks, drivers, expensesAgg, gateEntries, workOrders, inventory, procurement, alerts] = await Promise.all([
-    prisma.trip.count(),
-    prisma.truck.count(),
-    prisma.driver.count(),
-    prisma.expense.aggregate({ _sum: { amount: true } }),
-    prisma.gateEntry.count(),
-    prisma.workOrder.count(),
-    prisma.inventoryItem.count(),
-    prisma.procurementRequest.count(),
+    prisma.trip.findMany(),
+    prisma.truck.findMany(),
+    prisma.driver.findMany(),
+    prisma.expense.findMany(),
+    prisma.gateEntry.findMany(),
+    prisma.workOrder.findMany(),
+    prisma.inventoryItem.findMany(),
+    prisma.procurementRequest.findMany(),
     prisma.notification.findMany({ where: { read: false }, orderBy: { createdAt: 'desc' }, take: 5 })
   ]);
   
@@ -456,7 +456,7 @@ app.get('/api/dashboard/overview', authenticate, async (_req, res) => {
     trips,
     trucks,
     drivers,
-    expenses: expensesAgg._sum.amount || 0,
+    expenses: expensesAgg,
     gateEntries,
     workOrders,
     inventory,
