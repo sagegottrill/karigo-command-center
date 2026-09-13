@@ -138,13 +138,25 @@ export const tripService = {
     notificationService.create({ title: 'New Dispatch Request', body: `Customer requested a new dispatch for ${trip.cargo}.`, category: 'Operations' });
     return trip;
   }),
-  update: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
-  updateTrip: (id: string, payload: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(mapTrip),
-  assignResource: (id: string, updates: Partial<Trip>) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(res => {
-    const trip = mapTrip(res);
-    notificationService.create({ title: 'Resource Assigned', body: `Resources assigned to dispatch ${trip.id.substring(0,6)}.`, category: 'Operations' });
-    return trip;
-  }),
+  update: (id: string, updates: Partial<Trip>) => {
+    // Sanitize payload for Prisma API which throws 500 on unknown fields
+    const payload = { ...updates } as any;
+    delete payload.headId;
+    delete payload.tailId;
+    delete payload.tailNumber;
+    delete payload.driverId;
+    delete payload.totalCosts;
+    delete payload.eta;
+    delete payload.progress;
+    
+    return fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(res => {
+      const trip = mapTrip(res);
+      notificationService.create({ title: 'Trip Updated', body: `Details updated for dispatch ${trip.id.substring(0,6)}.`, category: 'Operations' });
+      return trip;
+    });
+  },
+  updateTrip: (id: string, payload: Partial<Trip>) => tripService.update(id, payload),
+  assignResource: (id: string, updates: Partial<Trip>) => tripService.update(id, updates),
   setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
     const trip = mapTrip(res);
     notificationService.create({ title: 'Dispatch Status Updated', body: `Dispatch ${trip.id.substring(0,6)} is now ${status}.`, category: 'Operations' });
@@ -152,15 +164,15 @@ export const tripService = {
   }),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
   summary: () => fetchApi('/dashboard/overview'),
-  initialApprove: (id: string) => fetchApi(`/trips/${id}/approve`, { method: 'POST' }).then(res => {
+  initialApprove: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }).then(res => {
     notificationService.create({ title: 'Dispatch Initially Approved', body: `Dispatch ${id.substring(0,6)} is awaiting final dispatch.`, category: 'Approvals' });
     return res;
   }),
-  approveDispatch: (id: string) => fetchApi(`/trips/${id}/dispatch`, { method: 'POST' }).then(res => {
+  approveDispatch: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Scheduled' }) }).then(res => {
     notificationService.create({ title: 'Dispatch Approved', body: `Dispatch ${id.substring(0,6)} has been approved.`, category: 'Operations' });
     return res;
   }),
-  updateStatus: (id: string) => fetchApi(`/trips/${id}/status/next`, { method: 'POST' }).then(res => {
+  updateStatus: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'En Route' }) }).then(res => {
     notificationService.create({ title: 'Dispatch Progress', body: `Dispatch ${id.substring(0,6)} progressed to next stage.`, category: 'Operations' });
     return res;
   }),
@@ -177,7 +189,17 @@ export const tripService = {
 };
 
 export const orderService = {
-  submitCustomerOrder: (payload: any) => fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) })
+  submitCustomerOrder: (payload: any) => {
+    const apiPayload = {
+      ...payload,
+      loadingSite: Array.isArray(payload.loadingSite) ? payload.loadingSite.join(', ') : payload.loadingSite,
+      driverName: "Unassigned",
+      truckReg: "Unassigned",
+      status: "Requested"
+    };
+    delete apiPayload.loadingRoutingType;
+    return fetchApi('/trips', { method: 'POST', body: JSON.stringify(apiPayload) });
+  }
 };
 
 export const fuelService = {

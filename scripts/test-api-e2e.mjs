@@ -48,7 +48,7 @@ async function runE2ETest() {
     // Adjust credentials based on your actual test partner account
     const partnerLogin = await fetchApi('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: "partner_user", password: "ChangeMe@2026" })
+      body: JSON.stringify({ username: "mdanjuma@sabasteel.com", password: "Petroline@2026" })
     });
     partnerToken = partnerLogin.token;
     console.log("✅ Partner Login Successful");
@@ -56,7 +56,7 @@ async function runE2ETest() {
     // 2. Login as Transport Manager / Fleet Operations (Admin)
     const adminLogin = await fetchApi('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: "admin", password: "admin_password" })
+      body: JSON.stringify({ username: "manager@petroline.ng", password: "Petroline@2026" })
     });
     adminToken = adminLogin.token;
     console.log("✅ Admin Login Successful");
@@ -67,12 +67,13 @@ async function runE2ETest() {
       customerConsignee: "Test Saba Customer",
       cargo: "Steel Coils",
       tailType: "Flat",
-      loadingRoutingType: "Single",
-      loadingSite: ["Saba Factory"],
+      loadingSite: "Saba Factory",
       pickup: "Saba Factory",
-      dropoff: "Abuja Depot"
+      dropoff: "Abuja Depot",
+      driverName: "Unassigned",
+      truckReg: "Unassigned"
     };
-    const orderRes = await fetchApi('/orders', {
+    const orderRes = await fetchApi('/trips', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${partnerToken}` },
       body: JSON.stringify(orderPayload)
@@ -86,25 +87,28 @@ async function runE2ETest() {
     // Assuming the endpoints match the services.ts configuration:
     
     // First, approve the order (if applicable)
-    await fetchApi(`/trips/${orderId}/approve`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${adminToken}` }
+    await fetchApi(`/trips/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ status: "Approved" })
     });
     console.log(`✅ Dispatch initially approved by Transport Manager`);
 
     // Assign truck, tail, driver, and costs
     const assignmentPayload = {
-      headId: "TRK-001",
-      tailNumber: "TAIL-99",
-      driverId: "DRV-100",
-      tripAllowance: 50000,
-      returnWaybill: 5000,
-      motorBoy: 10000,
-      ticketCost: 2000,
-      extraAllowance: 0,
-      lubricantType: "Diesel",
-      lubricantQty: 200,
-      lubricantCost: 250000,
+      truckReg: "TRK-001 / TAIL-99",
+      tailType: "Flat",
+      driverName: "John Doe",
+      directCosts: {
+        tripAllowance: 50000,
+        returnWaybill: 5000,
+        motorBoy: 10000,
+        ticket: 2000,
+        extraAllowance: 0,
+        lubricantType: "Diesel",
+        lubricantQuantity: 200,
+        lubricantCost: 250000,
+      },
       status: "Scheduled"
     };
 
@@ -125,11 +129,11 @@ async function runE2ETest() {
     console.log(`✅ Trip status updated to 'En Route' (Departed)`);
 
 
-    console.log("\n--- STEP 5: GATE SECURITY LOGS RETURN (COMPLETED) ---");
+    // Step 5
     await fetchApi(`/trips/${orderId}`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${adminToken}` },
-      body: JSON.stringify({ status: "Completed", progress: 100 })
+      body: JSON.stringify({ status: "Completed" })
     });
     console.log(`✅ Trip status updated to 'Completed' (Returned)`);
 
