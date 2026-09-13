@@ -60,6 +60,7 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
     number: cabCode || String(t["cabId"] ?? t["number"] ?? t["id"] ?? ""),
     registration: String(t["registration"] ?? ""),
     make: String(t["category"] ?? t["make"] ?? "Unknown"),
+    type: String(t["body"] ?? t["type"] ?? t["category"] ?? "Trailer"),
     year: Number(t["year"] ?? 2024),
     status,
     location: String(t["destination"] ?? t["location"] ?? "Depot"),
