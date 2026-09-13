@@ -107,18 +107,22 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
               Log Out
             </button>
           )}
-          <div className="flex h-12 items-center gap-2 rounded p-2">
-            <div className="grid size-8 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
+          <button
+            type="button"
+            onClick={() => setShowLogout((v) => !v)}
+            className="flex h-12 w-full items-center gap-2 rounded p-2 hover:bg-white/5"
+          >
+            <div className="grid size-8 shrink-0 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
               {displayInitials}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-[14px] font-medium text-white">{displayCompany}</p>
               <p className="truncate text-[12px] text-[#5C6470]">{displayEmail}</p>
             </div>
-            <button type="button" onClick={() => setShowLogout((v) => !v)} className="p-0.5">
+            <div className="shrink-0 p-0.5">
               <MoreVertical className="size-4 text-white/70" />
-            </button>
-          </div>
+            </div>
+          </button>
         </div>
       </aside>
 

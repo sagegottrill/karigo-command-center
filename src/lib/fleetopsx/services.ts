@@ -88,6 +88,7 @@ export const authService = {
   },
   completeFirstTimeLogin: (userId: string, newPassword?: string) => fetchApi(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ password: newPassword || 'ChangeMe@2026', passwordResetRequired: false }) }).catch(() => {}),
   logout: () => {
+    fetchApi('/auth/logout', { method: 'POST' }).catch(() => {});
     clearSession();
     localStorage.removeItem("fleetopsx_user_id");
     localStorage.removeItem("fleetopsx_roles");

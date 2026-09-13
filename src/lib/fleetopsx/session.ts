@@ -2,6 +2,7 @@
  * Hard session boundaries for production — clear storage and leave history stack.
  */
 import { clearSession, getStoredUser, getToken } from "./apiClient";
+import { authService } from "./services";
 
 const PARTNER_ROLE = "Customer Portals (External)";
 
@@ -30,7 +31,7 @@ export function clearPortalSession() {
 
 /** Clear JWT + profile and replace the document so Back cannot re-enter another role. */
 export function hardLogout(loginPath = "/workspace/login") {
-  clearSession();
+  authService.logout();
   if (typeof window === "undefined") return;
   window.location.replace(loginPath);
 }

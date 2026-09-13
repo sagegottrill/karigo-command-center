@@ -158,22 +158,29 @@ export function TrackingOperationsSidebar({
               {!collapsed && "Log Out"}
             </button>
           )}
-          <div className={cn("flex h-12 items-center gap-2 overflow-hidden rounded p-2", collapsed && "justify-center")}>
+          <button
+            type="button"
+            onClick={() => setShowLogout((v) => !v)}
+            className={cn(
+              "flex h-12 w-full items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
+              collapsed && "justify-center"
+            )}
+          >
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
               <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">{userInitials}</span>
             </div>
             {!collapsed && (
               <>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-white">{userName}</p>
                   <p className="truncate text-[12px] font-normal leading-4 tracking-[0.4px] text-[#5C6470]">{userEmail}</p>
                 </div>
-                <button type="button" onClick={() => setShowLogout((v) => !v)} className="shrink-0 p-0.5">
+                <div className="shrink-0 p-0.5">
                   <MoreVertical className="size-4 text-white/70" />
-                </button>
+                </div>
               </>
             )}
-          </div>
+          </button>
         </div>
       </aside>
     </>
