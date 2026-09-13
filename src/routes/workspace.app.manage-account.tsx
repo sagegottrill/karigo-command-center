@@ -153,7 +153,7 @@ function AdminManageAccount() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Staff Account</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Registry</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage listing of internal staff
             </p>

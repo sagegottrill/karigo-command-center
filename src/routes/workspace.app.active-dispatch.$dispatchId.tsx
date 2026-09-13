@@ -209,6 +209,7 @@ function LogLocationPage() {
 
           <div className="mb-5">
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">Customer Details</p>
+            <DetailRow label="Customer Name" value={trip.customer || trip.customerConsignee || "—"} />
             <DetailRow label="Destination" value={trip.dropoff || ""} />
             <DetailRow label="Loading Site(s)" value={sites.length ? sites.join(", ") : trip.pickup || ""} />
           </div>

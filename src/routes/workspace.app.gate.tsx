@@ -216,7 +216,7 @@ function SecurityLogPage() {
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px] md:hidden">
-        <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">Dispatch Logs</h2>
+        <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">Gate Security Portal</h2>
         <p className="text-[12px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
           Log departure and return timestamp for dispatch and vehicles
         </p>
@@ -224,7 +224,7 @@ function SecurityLogPage() {
 
       <div className="hidden items-start justify-between gap-4 md:flex">
         <div className="flex flex-col gap-[5px]">
-          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Dispatch Logs</h2>
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Gate Security Portal</h2>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
             Log departure and return timestamp for dispatch and vehicles
           </p>
