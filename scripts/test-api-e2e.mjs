@@ -1,0 +1,149 @@
+import fs from 'fs';
+
+const API_URL = process.env.API_URL || "http://2.28.45.216/api";
+
+// Helper for making requests
+async function fetchApi(endpoint, options = {}) {
+  const url = `${API_URL}${endpoint}`;
+  console.log(`\n-> ${options.method || 'GET'} ${url}`);
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  try {
+    const res = await fetch(url, { ...options, headers });
+    const text = await res.text();
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+    return data;
+  } catch (error) {
+    console.error(`[FAIL] ${options.method || 'GET'} ${endpoint}: ${error.message}`);
+    throw error;
+  }
+}
+
+async function runE2ETest() {
+  console.log("=========================================");
+  console.log("  FLEETOPSX - API E2E LIFECYCLE TEST");
+  console.log("=========================================\n");
+
+  let partnerToken = "";
+  let adminToken = "";
+  let orderId = "";
+
+  try {
+    console.log("--- STEP 1: AUTHENTICATION ---");
+    // 1. Login as Sister Company (Partner)
+    // Adjust credentials based on your actual test partner account
+    const partnerLogin = await fetchApi('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: "partner_user", password: "ChangeMe@2026" })
+    });
+    partnerToken = partnerLogin.token;
+    console.log("✅ Partner Login Successful");
+
+    // 2. Login as Transport Manager / Fleet Operations (Admin)
+    const adminLogin = await fetchApi('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: "admin", password: "admin_password" })
+    });
+    adminToken = adminLogin.token;
+    console.log("✅ Admin Login Successful");
+
+
+    console.log("\n--- STEP 2: PARTNER CREATES REQUEST ---");
+    const orderPayload = {
+      customerConsignee: "Test Saba Customer",
+      cargo: "Steel Coils",
+      tailType: "Flat",
+      loadingRoutingType: "Single",
+      loadingSite: ["Saba Factory"],
+      pickup: "Saba Factory",
+      dropoff: "Abuja Depot"
+    };
+    const orderRes = await fetchApi('/orders', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${partnerToken}` },
+      body: JSON.stringify(orderPayload)
+    });
+    orderId = orderRes.id || orderRes._id;
+    console.log(`✅ Order Created Successfully. Order ID: ${orderId}`);
+
+
+    console.log("\n--- STEP 3: FLEET OPS ASSIGNS DISPATCH ---");
+    // Here the Transport manager approves it or Fleet ops assigns it.
+    // Assuming the endpoints match the services.ts configuration:
+    
+    // First, approve the order (if applicable)
+    await fetchApi(`/trips/${orderId}/approve`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    });
+    console.log(`✅ Dispatch initially approved by Transport Manager`);
+
+    // Assign truck, tail, driver, and costs
+    const assignmentPayload = {
+      headId: "TRK-001",
+      tailNumber: "TAIL-99",
+      driverId: "DRV-100",
+      tripAllowance: 50000,
+      returnWaybill: 5000,
+      motorBoy: 10000,
+      ticketCost: 2000,
+      extraAllowance: 0,
+      lubricantType: "Diesel",
+      lubricantQty: 200,
+      lubricantCost: 250000,
+      status: "Scheduled"
+    };
+
+    await fetchApi(`/trips/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify(assignmentPayload)
+    });
+    console.log(`✅ Fleet assigned (Truck Head, Tail, Driver, Costs)`);
+
+
+    console.log("\n--- STEP 4: GATE SECURITY LOGS DEPARTURE (IN TRANSIT) ---");
+    await fetchApi(`/trips/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ status: "En Route" })
+    });
+    console.log(`✅ Trip status updated to 'En Route' (Departed)`);
+
+
+    console.log("\n--- STEP 5: GATE SECURITY LOGS RETURN (COMPLETED) ---");
+    await fetchApi(`/trips/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ status: "Completed", progress: 100 })
+    });
+    console.log(`✅ Trip status updated to 'Completed' (Returned)`);
+
+
+    console.log("\n=========================================");
+    console.log("🎉 ALL E2E LIFECYCLE TESTS PASSED!");
+    console.log("=========================================\n");
+
+  } catch (err) {
+    console.log("\n=========================================");
+    console.log("❌ E2E LIFECYCLE TEST FAILED");
+    console.log("=========================================\n");
+    console.error("If you received 'fetch failed' or 'ERR_CONNECTION_REFUSED', the Hetzner API (2.28.45.216) is currently down or not listening on port 80/443.");
+  }
+}
+
+runE2ETest();
