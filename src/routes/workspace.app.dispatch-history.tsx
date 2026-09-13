@@ -151,7 +151,8 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
           className="flex items-center gap-2 text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
-          Dispatch Details and Timeline
+          <span className="hidden md:inline">Dispatch Details and Timeline</span>
+          <span className="md:hidden">Dispatch Details and Timeline</span>
         </button>
         <button
           type="button"

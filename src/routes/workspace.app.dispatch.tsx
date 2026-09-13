@@ -356,7 +356,7 @@ function DispatchPage() {
   const renderForm = () => (
     <div className="w-full rounded-md bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.04)] border border-[#e2e5e9] overflow-hidden flex-1">
       {/* Form Header */}
-      <div className="bg-[#1B2432] p-6 text-white">
+      <div className="hidden md:block bg-[#1B2432] p-6 text-white">
         <h2 className="text-xl font-bold tracking-tight">Fleet Dispatch</h2>
         <p className="text-xs text-slate-300 font-medium tracking-wider mt-1 uppercase">
           Ticket {selectedOrder ? displayTicket(selectedOrder) : ""}
