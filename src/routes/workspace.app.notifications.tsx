@@ -85,7 +85,7 @@ function NotificationsPage() {
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Notification</h2>
           <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            items that need to be checked out for your department
+            items that need to be checked out categorized
           </p>
         </div>
         <button

@@ -65,6 +65,7 @@ export interface User {
   name: string;
   email: string;
   username?: string;
+  phone?: string;
   roles: RoleKey[];
   roleNames: string[];
   department: string;

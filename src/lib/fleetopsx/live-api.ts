@@ -300,6 +300,7 @@ export function normalizeUser(
     name: user.name,
     email: user.email,
     username: user.username || user.email,
+    phone: user.phone || undefined,
     roles: withOps,
     roleNames: user.roleNames?.length ? user.roleNames : withOps,
     department: user.department || withOps[0] || "Operations",

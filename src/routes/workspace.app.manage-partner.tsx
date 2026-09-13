@@ -31,8 +31,8 @@ type SortDir = "asc" | "desc";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Full Name" },
-  { key: "username", label: "Username" },
   { key: "company", label: "Company" },
+  { key: "username", label: "Staff ID" },
 ];
 
 const ORDER_OPTIONS: { key: SortDir; label: string }[] = [
@@ -433,6 +433,10 @@ function AdminManagePartner() {
                         <span className="flex-1 text-[#344256]">{u.name}</span>
                       </div>
                       <div className="flex gap-2">
+                        <span className="w-20 font-medium text-[#5C6470]">Company:</span>
+                        <span className="flex-1 text-[#344256]">{u.partnerCompanyName || "—"}</span>
+                      </div>
+                      <div className="flex gap-2">
                         <span className="w-20 font-medium text-[#5C6470]">Username:</span>
                         <span className="flex-1 text-[#344256]">{u.username || "—"}</span>
                       </div>
@@ -445,9 +449,9 @@ function AdminManagePartner() {
                 <div className="min-w-[640px] w-full">
                   <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Full Name</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Company Name</span>
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Company</span>
                     <span className="w-5" />
                   </div>
 
@@ -459,10 +463,10 @@ function AdminManagePartner() {
                     >
                       <span className="text-[14px] capitalize text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
                       <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{u.name}</span>
-                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{u.username}</span>
                       <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {u.partnerCompanyName}
                       </span>
+                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{u.username}</span>
                       <div className="relative flex shrink-0 items-center justify-end gap-2">
                         <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
                           <button

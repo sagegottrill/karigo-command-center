@@ -24,17 +24,24 @@ export const Route = createFileRoute("/superadmin/")({
   component: SuperAdminLayout,
 });
 
+/** Figma 496:13911 — Tenant ID column (TNT-…) instead of raw UUIDs. */
+function tntCode(t: Pick<PlatformTenant, "domain" | "name">) {
+  const seed = (t.domain || t.name || "tenant").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6);
+  return `TNT-${seed || "TENANT"}`;
+}
+
 const columns: Column<PlatformTenant>[] = [
   {
+    key: "tenantId",
+    header: "Tenant ID",
+    sortValue: (r) => tntCode(r),
+    cell: (r) => <span className="font-medium tracking-[0.4px]">{tntCode(r)}</span>,
+  },
+  {
     key: "name",
-    header: "Tenant Name",
+    header: "Name",
     sortValue: (r) => r.name,
-    cell: (r) => (
-      <div className="flex flex-col">
-        <span className="font-semibold">{r.name}</span>
-        <span className="text-xs text-muted-foreground">ID: {r.id}</span>
-      </div>
-    ),
+    cell: (r) => <span className="font-semibold">{r.name}</span>,
   },
   {
     key: "domain",

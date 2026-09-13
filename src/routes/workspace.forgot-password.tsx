@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ArrowLeft, KeyRound, UserRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { assertNewPasswordAllowed } from "@/lib/fleetopsx/password-policy";
+import { AuthSocialRow } from "@/components/fleetopsx/auth-social-row";
 import { Route as RootRoute } from "./__root";
 
 type ForgotSearch = {
@@ -185,6 +186,7 @@ function ForgotPasswordPage() {
         </div>
 
         <form className="flex flex-col gap-[32px]" onSubmit={handleSetNewPassword}>
+          <AuthSocialRow />
           <div className="flex flex-col gap-[12px] w-full">
             <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">New Password</label>
             <div className="flex h-[36px] items-center gap-[10px] rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">

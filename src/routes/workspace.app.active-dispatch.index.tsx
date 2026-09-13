@@ -156,6 +156,10 @@ function ActiveDispatchPage() {
         </div>
       </div>
 
+      <p className="hidden text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[#1B2432] md:block">
+        MANUALLY LOG LOCATION CHECKPOINTS
+      </p>
+
       <button
         type="button"
         onClick={exportCsv}

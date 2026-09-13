@@ -47,7 +47,7 @@ export function NotificationPopover({
       setLoading(true);
       void notificationService
         .list()
-        .then((items) => {
+        .then((items: Notification[]) => {
           setNotifications(items);
           setUnread(items.filter((n) => !n.read).length);
         })
@@ -68,7 +68,7 @@ export function NotificationPopover({
 
   const markAsRead = async (id: string) => {
     try {
-      await notificationService.markRead(id);
+      await notificationService.toggleRead(id);
       setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
       setUnread(Math.max(0, unread - 1));
     } catch {
@@ -150,7 +150,7 @@ export function NotificationPopover({
                   <div className="flex w-full items-center justify-between mt-1">
                     <span className="flex items-center gap-1 text-[11px] font-medium text-[#8E95A1]">
                       <Clock className="size-3" />
-                      {new Date(n.at).toLocaleString("en-GB", {
+                      {new Date((n as Notification & { at?: string }).at ?? n.time).toLocaleString("en-GB", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",

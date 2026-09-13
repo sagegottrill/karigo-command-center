@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService, tenantService } from "@/lib/fleetopsx/services";
+import { AuthSocialRow } from "@/components/fleetopsx/auth-social-row";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { clearSession } from "@/lib/fleetopsx/apiClient";
 import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
@@ -153,6 +154,8 @@ function CustomerLogin() {
                 />
               </div>
             </div>
+
+            <AuthSocialRow />
 
             <div className="flex w-full flex-col gap-[12px]">
               <label className="text-[14px] font-[500] leading-[14px] tracking-[0.4px] text-[#141a1f]">
