@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import { useState, useEffect } from "react";
 import { Route as RootRoute } from "../../routes/__root";
 import { ChevronDown } from "lucide-react";
@@ -138,8 +139,7 @@ export function AppSidebar({
   });
 
   const handleLogout = () => {
-    authService.logout();
-    navigate({ to: "/workspace/login" });
+    hardLogout("/workspace/login");
   };
 
   return (

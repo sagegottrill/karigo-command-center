@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 import { Route as RootRoute } from "../../routes/__root";
 
@@ -89,8 +90,7 @@ export function TransportAdminSidebar({
   const displayLogo = logoBroken ? "/figma/petroline-logo.png" : logoSrc;
 
   const handleLogout = () => {
-    authService.logout();
-  };
+    hardLogout("/workspace/login");};
 
   return (
     <>

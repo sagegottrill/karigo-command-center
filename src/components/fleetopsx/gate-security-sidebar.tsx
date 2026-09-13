@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, LockKeyhole, LogOut, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
@@ -72,8 +73,7 @@ export function GateSecuritySidebar({
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   const handleLogout = () => {
-    authService.logout();
-  };
+    hardLogout("/workspace/login");};
 
   return (
     <>

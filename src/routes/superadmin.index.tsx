@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/fleetopsx/status-badge";
 import type { Column } from "@/components/fleetopsx/data-table";
 import { useState, useEffect } from "react";
 import { tenantService, authService, adminService } from "@/lib/fleetopsx/services";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import type { PlatformTenant } from "@/lib/fleetopsx/types";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -208,8 +209,7 @@ function SuperAdminLayout() {
             <button
               type="button"
               onClick={() => {
-                authService.logout();
-                window.location.href = "/superadmin/login";
+                hardLogout("/workspace/login");window.location.href = "/superadmin/login";
               }}
               className="text-[#5C6470]"
               aria-label="Log out"
