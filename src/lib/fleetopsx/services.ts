@@ -26,9 +26,14 @@ export const companyService = {
   create: (input: Omit<Company, "id" | "status">) => fetchApi('/companies', { method: 'POST', body: JSON.stringify(input) }),
 };
 
+import { TRUCK_TAILS } from "./mock-data";
+
 export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
-  listTails: (): Promise<TruckTail[]> => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any) as TruckTail[]).catch(() => [] as TruckTail[]),
+  listTails: (): Promise<TruckTail[]> => fetchApi('/trucks').then((res: any[]) => {
+    const apiTails = res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any) as TruckTail[];
+    return apiTails.length > 0 ? apiTails : TRUCK_TAILS;
+  }).catch(() => TRUCK_TAILS),
   createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
     notificationService.create({ title: 'New Asset Added', body: `Truck ${input.registration} has been added to the fleet.`, category: 'Operations' });
     return res;
