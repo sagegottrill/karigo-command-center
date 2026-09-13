@@ -4,7 +4,7 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead } from "./live-api";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
@@ -27,8 +27,8 @@ export const companyService = {
 };
 
 export const fleetService = {
-  listHeads: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => t.category === 'head' || t.category === 'Truck Head')).catch(() => []),
-  listTails: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => t.category === 'tail' || t.category === 'Trailer' || t.category === 'Tanker')).catch(() => []),
+  listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
+  listTails: () => fetchApi('/trucks').then((res: any[]) => res.filter((t) => String(t.category).toLowerCase().includes('tail')).map(mapTruckHead as any)).catch(() => []),
   createHead: (input: any) => fetchApi('/fleet/heads', { method: 'POST', body: JSON.stringify(input) }),
   createTail: (input: any) => fetchApi('/fleet/tails', { method: 'POST', body: JSON.stringify(input) }),
   updateHeadStatus: (id: string, status: string) => fetchApi(`/fleet/heads/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -57,6 +57,9 @@ export const authService = {
       localStorage.setItem("fleetopsx_token", res.token);
       localStorage.setItem("fleetopsx_user_id", res.user.id);
       localStorage.setItem("fleetopsx_roles", JSON.stringify(res.user.roles));
+      if (res.user.name) {
+        localStorage.setItem("fleetopsx_user_name", res.user.name);
+      }
     }
     return res.user;
   },
@@ -68,6 +71,7 @@ export const authService = {
     localStorage.removeItem("fleetopsx_token");
     localStorage.removeItem("fleetopsx_user_id");
     localStorage.removeItem("fleetopsx_roles");
+    localStorage.removeItem("fleetopsx_user_name");
   },
   isAuthenticated: () => {
     if (typeof window === "undefined") return false;
@@ -77,11 +81,10 @@ export const authService = {
     if (typeof window === "undefined") return null;
     const userId = localStorage.getItem("fleetopsx_user_id");
     if (!userId) return null;
-    // In a real app we'd decode JWT or fetch /me. Assuming we just need to return an object for now:
     return {
       id: userId,
       roles: JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]"),
-      name: "Logged In User"
+      name: localStorage.getItem("fleetopsx_user_name") || "Logged In User"
     } as any;
   },
   getRoles: () => {
@@ -214,6 +217,7 @@ export const dashboardService = {
   getOverview: () => fetchApi('/dashboard/overview').then((res: any) => ({
     ...res,
     trips: res.trips?.map(mapTrip) || [],
+    trucks: res.trucks?.map(mapTruckHead) || [],
     drivers: res.drivers?.map(mapDriver) || [],
     expenses: res.expenses?.map(mapExpense) || []
   })).catch(() => ({})),
