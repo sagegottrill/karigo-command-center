@@ -314,7 +314,7 @@ function PartnerPortalDashboard() {
           </div>
           <Link
             to="/workspace/customer-portal/request"
-            className="flex h-10 w-full shrink-0 items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
+            className="flex h-10 w-full shrink-0 items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white sm:w-[235px]"
           >
             + New Request
           </Link>
@@ -547,7 +547,7 @@ function PartnerPortalDashboard() {
             <button
               type="button"
               onClick={saveSort}
-              className="flex h-8 w-[119px] items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+              className="flex h-8 w-[119px] items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               Save
             </button>
@@ -571,7 +571,7 @@ function PartnerPortalDashboard() {
               <button
                 type="button"
                 onClick={() => void handleDelete()}
-                className="h-10 flex-1 rounded bg-[#ED351D] text-[14px] font-medium text-white"
+                className="h-10 flex-1 rounded bg-[#ED351D] hover:bg-[#d62e19] text-[14px] font-medium text-white"
               >
                 Confirm
               </button>

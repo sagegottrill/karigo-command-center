@@ -290,7 +290,7 @@ function LogLocationPage() {
               type="button"
               disabled={saving}
               onClick={() => void saveLocation()}
-              className="rounded bg-[#ED351D] px-4 py-2 text-[14px] font-medium text-white disabled:opacity-60"
+              className="rounded bg-[#ED351D] hover:bg-[#d62e19] px-4 py-2 text-[14px] font-medium text-white disabled:opacity-60"
             >
               Save Update
             </button>

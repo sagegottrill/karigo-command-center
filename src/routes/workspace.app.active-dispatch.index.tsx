@@ -179,7 +179,7 @@ function ActiveDispatchPage() {
           <button
             type="button"
             onClick={() => setFilterOpen((v) => !v)}
-            className="grid size-9 place-items-center rounded bg-[#ED351D]"
+            className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19]"
           >
             <ListFilter className="size-5 text-white" strokeWidth={1.5} />
           </button>
@@ -223,7 +223,7 @@ function ActiveDispatchPage() {
               <button
                 type="button"
                 onClick={() => setFilterOpen((v) => !v)}
-                className="grid size-9 place-items-center rounded bg-[#ED351D]"
+                className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19]"
               >
                 <ListFilter className="size-5 text-white" strokeWidth={1.5} />
               </button>

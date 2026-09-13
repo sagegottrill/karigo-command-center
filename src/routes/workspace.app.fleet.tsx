@@ -194,7 +194,7 @@ function FleetDispatchRequests() {
           </div>
           <button
             type="button"
-            className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] text-white"
+            className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white"
             aria-label="Filter"
           >
             <SlidersHorizontal className="size-5" strokeWidth={1.75} />
@@ -323,7 +323,7 @@ function FleetDispatchRequests() {
             </div>
             <button
               type="button"
-              className="grid size-9 place-items-center rounded bg-[#ED351D] text-white"
+              className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white"
               aria-label="Filter"
             >
               <SlidersHorizontal className="size-4" strokeWidth={1.75} />

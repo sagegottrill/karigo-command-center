@@ -810,7 +810,7 @@ function PartnerRequestDetailsPage() {
                 type="button"
                 onClick={() => void saveModify()}
                 disabled={saving}
-                className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
+                className="flex h-10 items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save your changes"}
               </button>
@@ -839,7 +839,7 @@ function PartnerRequestDetailsPage() {
               <button
                 type="button"
                 onClick={() => void handleDelete()}
-                className="h-10 flex-1 rounded bg-[#ED351D] text-[14px] font-medium text-white"
+                className="h-10 flex-1 rounded bg-[#ED351D] hover:bg-[#d62e19] text-[14px] font-medium text-white"
               >
                 Confirm
               </button>

@@ -389,7 +389,7 @@ function DispatchHistoryPage() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
               <SlidersHorizontal className="size-4" strokeWidth={1.75} />
             </button>
           </div>

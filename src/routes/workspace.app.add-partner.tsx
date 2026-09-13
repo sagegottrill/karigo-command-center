@@ -149,7 +149,7 @@ function AddPartner() {
 
           {/* Company Name */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company name</label>
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company name <span className="text-[#e3351d]">*</span></label>
             <input 
               type="text" 
               value={companyName}
@@ -161,7 +161,7 @@ function AddPartner() {
 
           {/* First Name */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">First name</label>
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">First name <span className="text-[#e3351d]">*</span></label>
             <input 
               type="text" 
               value={firstName}
@@ -173,7 +173,7 @@ function AddPartner() {
           
           {/* Surname */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Surname</label>
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Surname <span className="text-[#e3351d]">*</span></label>
             <input 
               type="text" 
               value={surname}

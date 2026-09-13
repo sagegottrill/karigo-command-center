@@ -151,7 +151,7 @@ function AdminAddAccount() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">First name</label>
+            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">First name <span className="text-[#ED351D]">*</span></label>
             <input
               type="text"
               value={firstName}
@@ -162,7 +162,7 @@ function AdminAddAccount() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Surname</label>
+            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Surname <span className="text-[#ED351D]">*</span></label>
             <input
               type="text"
               value={surname}
@@ -173,7 +173,7 @@ function AdminAddAccount() {
           </div>
 
           <div ref={deptRef} className="relative flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Assign Department</label>
+            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Assign Department <span className="text-[#ED351D]">*</span></label>
             <button
               type="button"
               onClick={() => setShowDeptDropdown((v) => !v)}
@@ -220,7 +220,7 @@ function AdminAddAccount() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Role</label>
+            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Role <span className="text-[#ED351D]">*</span></label>
             <input
               type="text"
               value={role}
@@ -231,7 +231,7 @@ function AdminAddAccount() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Staff ID</label>
+            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Staff ID <span className="text-[#ED351D]">*</span></label>
             <input
               type="text"
               value={staffId}

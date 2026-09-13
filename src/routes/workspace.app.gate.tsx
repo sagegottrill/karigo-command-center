@@ -232,7 +232,7 @@ function SecurityLogPage() {
         <button
           type="button"
           onClick={() => openLogModal()}
-          className="flex h-9 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+          className="flex h-9 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
         >
           <Plus className="size-4" strokeWidth={2} />
           Log Vehicle
@@ -252,7 +252,7 @@ function SecurityLogPage() {
             className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
           />
         </div>
-        <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+        <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
           <SlidersHorizontal className="size-4" strokeWidth={1.75} />
         </button>
         <button
@@ -388,7 +388,7 @@ function SecurityLogPage() {
       <button
         type="button"
         onClick={() => openLogModal()}
-        className="fixed right-4 bottom-24 flex h-11 items-center gap-2 rounded-full bg-[#ED351D] px-4 text-[14px] font-medium text-white shadow-lg md:hidden"
+        className="fixed right-4 bottom-24 flex h-11 items-center gap-2 rounded-full bg-[#ED351D] hover:bg-[#d62e19] px-4 text-[14px] font-medium text-white shadow-lg md:hidden"
       >
         <Plus className="size-4" />
         Log Vehicle
@@ -459,7 +459,7 @@ function SecurityLogPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void handleLogDeparture()}
-                className="h-11 rounded-lg bg-[#ED351D] px-6 text-[14px] font-bold text-white disabled:opacity-60"
+                className="h-11 rounded-lg bg-[#ED351D] hover:bg-[#d62e19] px-6 text-[14px] font-bold text-white disabled:opacity-60"
               >
                 {saving ? "Logging…" : "Log Departure"}
               </button>

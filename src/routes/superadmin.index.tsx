@@ -190,7 +190,7 @@ function SuperAdminLayout() {
         
         <div className="flex flex-col flex-1 py-5 items-center">
           <div className="flex flex-col gap-1 w-[224px]">
-            <Link to="/superadmin" className="flex flex-row items-center gap-2 h-8 px-2 bg-[#ED351D] rounded">
+            <Link to="/superadmin" className="flex flex-row items-center gap-2 h-8 px-2 bg-[#ED351D] hover:bg-[#d62e19] rounded">
               <Building className="h-4 w-4 text-white" />
               <span className="text-[14px] tracking-[0.4px] text-white">Tenants Directory</span>
             </Link>

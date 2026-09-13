@@ -234,7 +234,7 @@ function AdminManageAccount() {
           </div>
           {deptFilter ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex h-8 items-center gap-3.5 rounded bg-[#ED351D] px-[7px] py-[5px]">
+              <span className="inline-flex h-8 items-center gap-3.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-[7px] py-[5px]">
                 <span className="text-[12px] font-normal tracking-[0.4px] text-white">{deptFilter}</span>
                 <button
                   type="button"
@@ -276,7 +276,7 @@ function AdminManageAccount() {
                 !query && !deptFilter ? (
                   <Link
                     to="/workspace/app/add-account"
-                    className="flex h-10 items-center rounded bg-[#ED351D] px-4 text-[14px] font-medium text-white"
+                    className="flex h-10 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-4 text-[14px] font-medium text-white"
                   >
                     + Add New Staff Account
                   </Link>
@@ -369,7 +369,7 @@ function AdminManageAccount() {
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{u.name}</p>
                   {u.status === "Suspended" ? (
-                    <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                    <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
                       Suspended
                     </span>
                   ) : null}
@@ -485,7 +485,7 @@ function AdminManageAccount() {
                       )}
                     </div>
                     {u.status === "Suspended" && (
-                      <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                      <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
                         Suspended
                       </span>
                     )}
@@ -559,7 +559,7 @@ function AdminManageAccount() {
             <button
               type="button"
               onClick={() => setDetailUser(null)}
-              className="mt-6 flex h-10 w-full items-center justify-center rounded bg-[#ED351D] text-[14px] font-medium text-white"
+              className="mt-6 flex h-10 w-full items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-[14px] font-medium text-white"
             >
               Close
             </button>

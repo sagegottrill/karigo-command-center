@@ -129,7 +129,7 @@ function HrStaffDirectory() {
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+              className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <UserPlus className="size-4" />
               Add Staff
@@ -151,7 +151,7 @@ function HrStaffDirectory() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] text-white" aria-label="Filter">
+            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
               <SlidersHorizontal className="size-4" strokeWidth={1.75} />
             </button>
           </div>
@@ -176,7 +176,7 @@ function HrStaffDirectory() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{driver.name}</p>
                     {driver.status === "Suspended" && (
-                      <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                      <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
                         Suspended
                       </span>
                     )}
@@ -304,7 +304,7 @@ function HrStaffDirectory() {
               <button
                 type="button"
                 onClick={() => void handleAddStaff()}
-                className="flex h-8 items-center rounded bg-[#ED351D] px-3 text-[12px] tracking-[0.4px] text-white"
+                className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
               >
                 Add Staff
               </button>
