@@ -50,8 +50,8 @@ export const driverService = {
 };
 
 export const authService = {
-  login: async (username: string) => {
-    const res = await fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ username }) });
+  login: async (username: string, password?: string) => {
+    const res = await fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     if (res.token) {
       localStorage.setItem("fleetopsx_token", res.token);
       localStorage.setItem("fleetopsx_user_id", res.user.id);
