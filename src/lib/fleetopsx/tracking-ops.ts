@@ -1,5 +1,6 @@
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { ACTIVE_DISPATCH_BUCKETS, hasAssignment, isInBucket, tripBucket } from "./status-buckets";
+import { displayDispatchId } from "./request-id";
 
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
@@ -31,11 +32,8 @@ export const TRACKING_DELAY_COLOR: Record<TrackingDelayStatus, string> = {
   "Significant Delay": "#FF7262",
 };
 
-export function dispatchDisplayId(trip: Trip) {
-  if (/^DIS-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `DIS-${digits.padStart(5, "0")}`;
-}
+/** Canonical dispatch display id — defined once in request-id.ts. */
+export const dispatchDisplayId = displayDispatchId;
 
 export type LocationCheckpoint = {
   id: string;

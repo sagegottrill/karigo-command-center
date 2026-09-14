@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHoriz
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -63,12 +64,6 @@ function StatusPill({ status }: { status: PartnerUiStatus }) {
       {status}
     </span>
   );
-}
-
-function requestId(trip: Trip) {
-  if (/^REQ-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `REQ-${digits.padStart(5, "0")}`;
 }
 
 function ReadOnlyField({ label, value }: { label: string; value?: string }) {

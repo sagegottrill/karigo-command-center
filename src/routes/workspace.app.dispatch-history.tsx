@@ -3,6 +3,7 @@ import { Download, Search, SlidersHorizontal, ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -71,12 +72,6 @@ function StatusPill({ status }: { status: DisplayStatus }) {
       {status}
     </span>
   );
-}
-
-function dispatchId(trip: Trip) {
-  if (/^DIS-/i.test(trip.id)) return trip.id;
-  const digits = trip.id.replace(/\D/g, "").slice(-5) || trip.id.slice(-5);
-  return `DIS-${digits.padStart(5, "0")}`;
 }
 
 function formatHistoryDate(trip: Trip) {

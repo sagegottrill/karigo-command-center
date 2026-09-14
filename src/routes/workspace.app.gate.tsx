@@ -8,7 +8,7 @@ import {
   displayPlateFromTrip,
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
-import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -31,10 +31,6 @@ export const Route = createFileRoute("/workspace/app/gate")({
   }),
   component: SecurityLogPage,
 });
-
-function dispatchId(trip: Trip) {
-  return displayRequestId(trip).replace(/^REQ-/i, "DIS-");
-}
 
 function plateOf(trip: Trip) {
   return displayPlateFromTrip(trip) || humanCode(trip.truckReg) || "—";

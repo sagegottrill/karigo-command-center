@@ -8,7 +8,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
-import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
@@ -67,12 +67,6 @@ function StatusPill({ status }: { status: (typeof STATUS_FILTERS)[number] }) {
       {status}
     </span>
   );
-}
-
-function dispatchId(trip: Trip) {
-  const req = displayRequestId(trip);
-  if (/^DIS-/i.test(trip.id)) return trip.id;
-  return req.replace(/^REQ-/i, "DIS-");
 }
 
 function headLabel(trip: Trip, heads: TruckHead[]) {
