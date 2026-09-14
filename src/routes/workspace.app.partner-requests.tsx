@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { tripService } from "@/lib/fleetopsx/services";
+import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -14,9 +15,54 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
 const PAGE_SIZE = 10;
 
 function isPartnerRequest(trip: Trip) {
-  // Shared bucket "pending" — also catches legacy "Draft" rows so they never
-  // silently vanish from the TM's approval queue.
-  return trip.status === "Requested" || trip.status === "Draft";
+  // EVERY partner request stays visible here across its whole lifecycle —
+  // approving/declining used to make rows vanish because this list only kept
+  // raw `Requested` rows. Now every status shows with a colored pill, and the
+  // status filter finds them.
+  return (
+    Boolean(trip.customer?.trim()) ||
+    Boolean(trip.customerConsignee?.trim()) ||
+    trip.status === "Requested" ||
+    trip.status === "Draft"
+  );
+}
+
+const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
+  "All",
+  "Pending",
+  "Approved",
+  "In transit",
+  "Completed",
+  "Declined",
+];
+
+/** Same palette the partner portal uses for these labels. */
+function statusPillClass(status: PartnerUiStatus) {
+  switch (status) {
+    case "Pending":
+      return "bg-[#FC0] text-white";
+    case "Approved":
+      return "bg-[#34C759] text-white";
+    case "Declined":
+      return "bg-[#ED351D] text-white";
+    case "In transit":
+      return "bg-[#CB30E0] text-white";
+    case "Completed":
+      return "bg-[#007AFF] text-white";
+  }
+}
+
+function StatusPill({ status }: { status: PartnerUiStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-[22px] items-center rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
+        statusPillClass(status),
+      )}
+    >
+      {status}
+    </span>
+  );
 }
 
 function requestId(trip: Trip) {
@@ -53,6 +99,7 @@ function AdminPartnerRequests() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
@@ -75,12 +122,10 @@ function AdminPartnerRequests() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const listing = useMemo(
-    () => trips.filter((t) => isPartnerRequest(t) && t.status === "Requested"),
-    [trips],
-  );
+  const listing = useMemo(() => trips.filter(isPartnerRequest), [trips]);
 
   const filtered = listing.filter((t) => {
+    if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
     const hay = `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${t.tailType ?? ""} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
@@ -92,11 +137,11 @@ function AdminPartnerRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Destination\n";
+    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Destination,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff}`,
+          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -192,13 +237,21 @@ function AdminPartnerRequests() {
               className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-11 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
           </div>
-          <button
-            type="button"
-            className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white"
-            aria-label="Filter"
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as (typeof STATUS_FILTERS)[number]);
+              setPage(0);
+            }}
+            className="h-9 shrink-0 rounded border border-[rgba(92,100,112,0.6)] bg-white px-2 text-[12px] font-medium tracking-[0.4px] text-[#141A1F] outline-none"
+            aria-label="Filter by status"
           >
-            <SlidersHorizontal className="size-5" strokeWidth={1.75} />
-          </button>
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === "All" ? "All Statuses" : s}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-col gap-[11px] md:hidden">
@@ -222,7 +275,9 @@ function AdminPartnerRequests() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{requestId(trip)}</span>
-                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
+                  <div className="flex items-center gap-2">
+                    <StatusPill status={toPartnerUiStatus(trip)} />
+                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -262,6 +317,7 @@ function AdminPartnerRequests() {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
                 <MetaRow label="Partner:" value={partner} accent />
@@ -325,20 +381,21 @@ function AdminPartnerRequests() {
 
           <div className="overflow-x-auto">
             <div className="min-w-[720px] w-full">
-              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(76px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Destination</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                 <span className="w-5" />
               </div>
 
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(76px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                     {requestId(trip)}
@@ -352,6 +409,7 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                  <StatusPill status={toPartnerUiStatus(trip)} />
                   <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0 justify-self-end">
                     <button
                       type="button"

@@ -20,11 +20,51 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 const PAGE_SIZE = 10;
 
 function isDispatchRequest(trip: Trip) {
-  // Process step 04 — FO assigned; TM final approval. Shared bucket "awaiting"
-  // (keeps the assignment guard for legacy rows) — same number the badge shows.
+  // Every dispatched request stays visible across its lifecycle with a status
+  // pill — approving/declining used to make rows vanish with no trace. Raw
+  // partner requests (no assignment yet) still belong to Partner Requests.
+  const hasAssignment = Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg);
+  if (!hasAssignment) return trip.status === "Awaiting Approval";
+  return ["Awaiting Approval", "Approved", "Approved for Dispatch", "Scheduled", "Completed", "Stopped"].includes(
+    trip.status,
+  );
+}
+
+const STATUS_FILTERS: Array<"All" | "Awaiting Approval" | "Approved" | "Scheduled" | "Completed" | "Declined"> = [
+  "All",
+  "Awaiting Approval",
+  "Approved",
+  "Scheduled",
+  "Completed",
+  "Declined",
+];
+
+function fleetStatusOf(trip: Trip): (typeof STATUS_FILTERS)[number] {
+  if (trip.status === "Stopped") return "Declined";
+  if (trip.status === "Approved for Dispatch") return "Approved";
+  return trip.status as (typeof STATUS_FILTERS)[number];
+}
+
+function StatusPill({ status }: { status: (typeof STATUS_FILTERS)[number] }) {
+  const cls =
+    status === "Declined"
+      ? "bg-[#ED351D] text-white"
+      : status === "Approved"
+        ? "bg-[#34C759] text-white"
+        : status === "Completed"
+          ? "bg-[#007AFF] text-white"
+          : status === "Scheduled"
+            ? "bg-[#CB30E0] text-white"
+            : "bg-[#FC0] text-white";
   return (
-    trip.status === "Awaiting Approval" &&
-    Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg)
+    <span
+      className={cn(
+        "inline-flex h-[22px] items-center rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
+        cls,
+      )}
+    >
+      {status}
+    </span>
   );
 }
 
@@ -55,6 +95,7 @@ function FleetDispatchRequests() {
   const [heads, setHeads] = useState<TruckHead[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
@@ -96,6 +137,7 @@ function FleetDispatchRequests() {
   );
 
   const filtered = listing.filter((t) => {
+    if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
     const hay =
       `${dispatchId(t)} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${t.tailType ?? ""} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
@@ -109,11 +151,11 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Phone Number,Destination\n";
+    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Phone Number,Destination,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${driver?.phone || ""},${t.dropoff}`;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${driver?.phone || ""},${t.dropoff},${fleetStatusOf(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -208,13 +250,21 @@ function FleetDispatchRequests() {
               className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-11 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
           </div>
-          <button
-            type="button"
-            className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white"
-            aria-label="Filter"
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as (typeof STATUS_FILTERS)[number]);
+              setPage(0);
+            }}
+            className="h-9 shrink-0 rounded border border-[rgba(92,100,112,0.6)] bg-white px-2 text-[12px] font-medium tracking-[0.4px] text-[#141A1F] outline-none"
+            aria-label="Filter by status"
           >
-            <SlidersHorizontal className="size-5" strokeWidth={1.75} />
-          </button>
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === "All" ? "All Statuses" : s}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Mobile cards */}
@@ -241,7 +291,9 @@ function FleetDispatchRequests() {
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
                     {dispatchId(trip)}
                   </span>
-                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
+                  <div className="flex items-center gap-2">
+                    <StatusPill status={fleetStatusOf(trip)} />
+                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -281,6 +333,7 @@ function FleetDispatchRequests() {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
@@ -360,6 +413,7 @@ function FleetDispatchRequests() {
                   <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
                   <span className="w-[134px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Phone Number</span>
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
+                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
                 <span className="w-[100px] shrink-0" />
               </div>
@@ -382,6 +436,9 @@ function FleetDispatchRequests() {
                       <span className="w-[150px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
                       <span className="w-[134px] shrink-0 truncate text-[14px] text-[#5C6470]">{driver?.phone}</span>
                       <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
+                      <span className="w-[110px] shrink-0">
+                        <StatusPill status={fleetStatusOf(trip)} />
+                      </span>
                     </div>
                     <div ref={menuFor === trip.id ? menuRef : undefined} className="relative flex shrink-0 items-center gap-2">
                       <button
