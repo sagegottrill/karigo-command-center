@@ -23,6 +23,7 @@ import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
 import { getActiveRole } from "@/lib/fleetopsx/active-role";
+import { getActiveRoleHome } from "@/lib/fleetopsx/role-home";
 import { installSessionGuards } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 
@@ -50,28 +51,17 @@ export const Route = createFileRoute("/workspace/app")({
       throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
 
-    // Landing redirect respects the department currently selected (multi-role users).
+    // Landing redirect respects the department currently selected (multi-role users):
+    // the root of /workspace/app always resolves to the active role's own portal home.
     const active = getActiveRole(roles);
     const scoped = active ? [active] : roles;
 
     const path = location.pathname;
-    if (
-      shouldUseFleetOpsShell(scoped) &&
-      (path === "/workspace/app" || path === "/workspace/app/")
-    ) {
-      throw redirect({ to: "/workspace/app/dispatch" });
-    }
-    if (
-      shouldUseGateSecurityShell(scoped) &&
-      (path === "/workspace/app" || path === "/workspace/app/")
-    ) {
-      throw redirect({ to: "/workspace/app/gate" });
-    }
-    if (
-      shouldUseTrackingOpsShell(scoped) &&
-      (path === "/workspace/app" || path === "/workspace/app/")
-    ) {
-      throw redirect({ to: "/workspace/app/active-dispatch" });
+    if (path === "/workspace/app" || path === "/workspace/app/") {
+      const home = getActiveRoleHome(scoped, active);
+      if (home !== "/workspace/app") {
+        throw redirect({ to: home });
+      }
     }
   },
   component: AppShell,

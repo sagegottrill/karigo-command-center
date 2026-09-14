@@ -13,6 +13,7 @@ import {
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, dashboardService } from "@/lib/fleetopsx/services";
 import { getActiveRole } from "@/lib/fleetopsx/active-role";
+import { getActiveRoleHome } from "@/lib/fleetopsx/role-home";
 import type {
   AlertItem,
   Driver,
@@ -68,10 +69,14 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  // Fleet Operations has no bespoke dashboard in Figma — land directly on Fleet Dispatch.
+  // Every role lands on its own portal home (top of its sidebar) — only roles
+  // whose home IS the Central Dashboard render here.
   useEffect(() => {
-    if (getActiveRole(authService.getRoles()) === "Fleet Operations") {
-      navigate({ to: "/workspace/app/dispatch", replace: true });
+    const roles = authService.getRoles();
+    const active = getActiveRole(roles);
+    const home = getActiveRoleHome(roles, active);
+    if (home !== "/workspace/app") {
+      navigate({ to: home, replace: true });
     }
   }, [navigate]);
 

@@ -31,6 +31,7 @@ import { NotificationPopover } from "@/components/fleetopsx/notification-popover
 import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import type { SearchHit } from "@/lib/fleetopsx/services";
 import { getActiveRole, setActiveRole } from "@/lib/fleetopsx/active-role";
+import { getRoleHome } from "@/lib/fleetopsx/role-home";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
@@ -137,6 +138,9 @@ export function AppHeader({
     setActiveRole(r);
     toast.success(`Switched to ${r} view`);
     window.dispatchEvent(new Event("fleetopsx:role-switched"));
+    // Land on the newly-selected department's own portal home (top of its sidebar),
+    // never stranded on the previous department's page.
+    void navigate({ to: getRoleHome(r) });
   };
   const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
 

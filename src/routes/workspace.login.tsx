@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { setActiveRole } from "@/lib/fleetopsx/active-role";
+import { getRoleHome } from "@/lib/fleetopsx/role-home";
 import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
   clearPortalSession,
@@ -78,7 +79,10 @@ function LoginPage() {
         setSelectedRole(roles[0]);
         return;
       }
-      enterAuthenticatedApp("/workspace/app");
+      // Single-role users land directly on their department's portal home.
+      const only = roles[0] ?? "";
+      if (only) setActiveRole(only);
+      enterAuthenticatedApp(getRoleHome(only));
     } catch (err) {
       setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
@@ -88,7 +92,8 @@ function LoginPage() {
   const handleRoleContinue = () => {
     if (!selectedRole) return;
     setActiveRole(selectedRole);
-    enterAuthenticatedApp("/workspace/app");
+    // Enter on the chosen department's own portal home (top of its sidebar).
+    enterAuthenticatedApp(getRoleHome(selectedRole));
   };
 
   if (pendingRoles) {
