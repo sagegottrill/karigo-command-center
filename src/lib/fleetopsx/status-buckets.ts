@@ -24,6 +24,20 @@ export type TripBucket =
   | "declined" // Stopped without a truck — rejected request
   | "stoppedEnRoute"; // Stopped with a truck — significant delay, still active
 
+/**
+ * A trip counts as "assigned" when ANY assignment signal exists. FO writes
+ * truckReg + driverName without headId in live data, so checking headId alone
+ * misclassified assigned trips.
+ */
+export function hasAssignment(t: Pick<Trip, "headId" | "truckReg" | "driverId" | "driverName">): boolean {
+  return Boolean(
+    t.headId ||
+      (t.truckReg && t.truckReg !== "Unassigned" && t.truckReg.trim() !== "") ||
+      t.driverId ||
+      (t.driverName && t.driverName !== "Unassigned" && t.driverName.trim() !== ""),
+  );
+}
+
 const BUCKET_BY_STATUS: Record<string, TripBucket> = {
   Requested: "pending",
   Draft: "pending", // legacy backend default — treat as a fresh request
@@ -39,13 +53,18 @@ const BUCKET_BY_STATUS: Record<string, TripBucket> = {
   Completed: "completed",
 };
 
-export function tripBucket(trip: Pick<Trip, "status" | "headId">): TripBucket {
+export function tripBucket(
+  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
+): TripBucket {
   const status = String(trip.status ?? "").trim();
-  if (status === "Stopped") return trip.headId ? "stoppedEnRoute" : "declined";
+  if (status === "Stopped") return hasAssignment(trip) ? "stoppedEnRoute" : "declined";
   return BUCKET_BY_STATUS[status] ?? "pending"; // unknown statuses stay visible as pending
 }
 
-export function isInBucket(trip: Pick<Trip, "status" | "headId">, buckets: TripBucket[]): boolean {
+export function isInBucket(
+  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
+  buckets: TripBucket[],
+): boolean {
   return buckets.includes(tripBucket(trip));
 }
 
@@ -61,7 +80,9 @@ export const TM_REQUESTS_BUCKETS: TripBucket[] = ["pending"];
 /** A trip that is neither finished nor rejected. */
 export const OPEN_BUCKETS: TripBucket[] = ["pending", "approved", "awaiting", "scheduled", "inTransit", "stoppedEnRoute"];
 
-export function countBuckets(trips: Array<Pick<Trip, "status" | "headId">>): Record<TripBucket, number> {
+export function countBuckets(
+  trips: Array<Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">>,
+): Record<TripBucket, number> {
   const counts = {
     pending: 0,
     approved: 0,
@@ -79,7 +100,7 @@ export function countBuckets(trips: Array<Pick<Trip, "status" | "headId">>): Rec
 /** Partner-portal label for a trip (dashboard + request-detail pages). */
 export type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
 
-export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId">): PartnerUiStatus {
+export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): PartnerUiStatus {
   switch (tripBucket(trip)) {
     case "pending":
       return "Pending";
@@ -100,7 +121,7 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId">): Partne
 /** Dispatch History display label (internal staff view). */
 export type HistoryUiStatus = "In Transit" | "Pending" | "Declined" | "Completed";
 
-export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId">): HistoryUiStatus {
+export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): HistoryUiStatus {
   switch (tripBucket(trip)) {
     case "inTransit":
     case "stoppedEnRoute":

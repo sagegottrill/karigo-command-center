@@ -10,6 +10,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +24,8 @@ function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
   // pill — approving/declining used to make rows vanish with no trace. Raw
   // partner requests (no assignment yet) still belong to Partner Requests.
-  const hasAssignment = Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg);
-  if (!hasAssignment) return trip.status === "Awaiting Approval";
+  const assigned = hasAssignment(trip);
+  if (!assigned) return trip.status === "Awaiting Approval";
   return ["Awaiting Approval", "Approved", "Approved for Dispatch", "Scheduled", "Completed", "Stopped"].includes(
     trip.status,
   );

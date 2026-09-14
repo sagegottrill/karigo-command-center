@@ -1,5 +1,5 @@
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
-import { ACTIVE_DISPATCH_BUCKETS, isInBucket, tripBucket } from "./status-buckets";
+import { ACTIVE_DISPATCH_BUCKETS, hasAssignment, isInBucket, tripBucket } from "./status-buckets";
 
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
@@ -12,10 +12,7 @@ export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant 
  */
 export function isActiveDispatchTrip(trip: Trip) {
   if (isInBucket(trip, ACTIVE_DISPATCH_BUCKETS)) return true;
-  return (
-    tripBucket(trip) === "awaiting" &&
-    Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg)
-  );
+  return tripBucket(trip) === "awaiting" && hasAssignment(trip);
 }
 
 export function getTrackingDelayStatus(trip: Trip): TrackingDelayStatus {
