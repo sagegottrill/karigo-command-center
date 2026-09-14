@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test:e2e": "bash scripts/e2e/run_e2e.sh",
     "format": "prettier --write ."
   },
   "dependencies": {

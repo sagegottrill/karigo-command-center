@@ -42,3 +42,6 @@ AGENT_SECRETS.local.md
 *.local.md
 !AGENT_SECRETS.example.md
 ssh_run.mjs
+
+# Local scratch (agent working files, never commit)
+.tmp_*/
