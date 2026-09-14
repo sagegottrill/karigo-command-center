@@ -27,6 +27,20 @@ const PAGE_SIZE = 10;
 
 type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 
+/** Spec: "Report tells you when a user logged in" — readable last-login label. */
+function formatLastLogin(value?: string | null): string {
+  if (!value || value === "Never" || value === "Just now") return value === "Just now" ? "Just now" : "Never";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function staffIdLabel(user: User) {
   const code = humanCode(user.id, user.username);
   return code ? `ID:${code}` : "ID:—";
@@ -99,11 +113,11 @@ function AdminManageAccount() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "S/N,Name,Department,Staff ID,Username,Status\n";
+    const headers = "S/N,Name,Department,Staff ID,Username,Status,Last Login\n";
     const csv = filtered
       .map(
         (u, i) =>
-          `${i + 1},${u.name},${displayStaffDepartment(u.department)},${staffIdLabel(u)},${displayUsername(u)},${u.status}`,
+          `${i + 1},${u.name},${displayStaffDepartment(u.department)},${staffIdLabel(u)},${displayUsername(u)},${u.status},${formatLastLogin(u.lastActive)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -554,6 +568,7 @@ function AdminManageAccount() {
                   ["Username", displayUsername(detailUser)],
                   ["Email", detailUser.email],
                   ["Status", detailUser.status],
+                  ["Last Login", formatLastLogin(detailUser.lastActive)],
                 ] as const
               ).map(([label, value]) => (
                 <div key={label} className="flex flex-col gap-1">

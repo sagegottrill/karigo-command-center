@@ -159,15 +159,15 @@ function DispatchPage() {
     (Number(extraAllowance) || 0) +
     (Number(lubricantCost) || 0);
 
-  // Auto-fill logic
+  // Auto-fill logic. Fields stay EDITABLE — the spec explicitly allows the
+  // operator to manually type a salary number / driver name for drivers not
+  // yet fully registered. Selecting a roster driver pre-fills; editing stays.
   useEffect(() => {
     if (driver) {
       setDriverName(driver.name);
       setDriverPhone(driver.phone);
-    } else {
-      setDriverName("");
-      setDriverPhone("");
     }
+    // No else-branch wipe: clearing the select keeps typed manual values.
   }, [driver]);
 
   useEffect(() => {
@@ -178,9 +178,34 @@ function DispatchPage() {
     }
   }, [tail]);
 
+  const validateForm = (): string | null => {
+    if (!head) return "Assign a Truck Head (Cap Number).";
+    // Spec: manual override allowed — either a roster driver OR typed name+phone.
+    if (!driver && !(driverName.trim() && driverPhone.trim())) {
+      return "Select a driver by Salary Number, or type Driver Name and Phone manually.";
+    }
+    if (driver && driverName.trim() !== driver.name && !driverName.trim()) {
+      return "Driver Name is required.";
+    }
+    // Spec: all five direct-cost fields are mandatory.
+    for (const [label, v] of [
+      ["Trip Allowance", tripAllowance],
+      ["Return Waybill", returnWaybill],
+      ["Motor Boy", motorBoy],
+      ["Ticket", ticketCost],
+      ["Extra Allowance", extraAllowance],
+    ] as const) {
+      if (!String(v).trim() || Number.isNaN(Number(v))) {
+        return `${label} is a mandatory direct cost.`;
+      }
+    }
+    return null;
+  };
+
   const handleMobileConfirmDispatch = () => {
-    if (!headId || !driverId) {
-      toast.error("Please fill all required fields before reviewing.");
+    const problem = validateForm();
+    if (problem) {
+      toast.error(problem);
       return;
     }
     setMobileView("audit");
@@ -188,21 +213,31 @@ function DispatchPage() {
   };
 
   const handleFinalConfirm = async () => {
-    if (!head || !driver) {
-      toast.error("Validation Error", { description: "Missing Truck Head or Driver information." });
+    const problem = validateForm();
+    if (problem) {
+      toast.error("Validation Error", { description: problem });
       return;
     }
-    
+    if (!head) return; // validateForm guarantees this, TS needs the guard
+
+    // tailType = the BODY TYPE (e.g. "Flatbed Tail"), tailNumber = the code
+    // (e.g. B001). Writing the number into tailType corrupted the Truck Type
+    // shown across every table and detail view downstream.
+    const resolvedTailType = tail?.type || selectedOrder!.tailType || "";
+    const resolvedTailNumber = tail?.number || tailNumber || "";
+
+    const assignedHead = head;
     await tripService.update(selectedOrder!.id, {
-      headId: head.id,
+      headId: assignedHead.id,
       ...(tail?.id ? { tailId: tail.id } : {}),
-      ...(tail?.number || tail?.type || selectedOrder!.tailType
-        ? { tailType: tail?.number || tail?.type || selectedOrder!.tailType }
-        : {}),
-      tailNumber: tail?.number || tailNumber,
-      truckReg: tail ? `${head.registration} / ${tail.number || tail.registration}` : head.registration,
-      driverId: driver.id,
-      driverName: driver.name,
+      ...(resolvedTailType ? { tailType: resolvedTailType } : {}),
+      ...(resolvedTailNumber ? { tailNumber: resolvedTailNumber } : {}),
+      truckReg: tail
+        ? `${assignedHead.registration} / ${tail.number || tail.registration}`
+        : assignedHead.registration,
+      // Manual override: driverId only when a roster driver was selected.
+      ...(driver ? { driverId: driver.id } : {}),
+      driverName: driverName.trim(),
       directCosts: {
         tripAllowance: Number(tripAllowance) || 0,
         returnWaybill: Number(returnWaybill) || 0,
@@ -217,8 +252,8 @@ function DispatchPage() {
       status: "Awaiting Approval",
     });
     
-    toast.success(`Dispatch Configured`, {
-      description: `${displayTicket(selectedOrder!)} assigned to ${displayHeadCap(head) || head.registration}`,
+      toast.success(`Dispatch Configured`, {
+      description: `${displayTicket(selectedOrder!)} assigned to ${displayHeadCap(head) || head.registration} — sent for final TM approval`,
     });
     navigate({ to: "/workspace/app/dispatch-history" });
   };
@@ -226,6 +261,20 @@ function DispatchPage() {
   const handleBackToQueue = () => {
     setSelectedOrder(null);
     setMobileView("form");
+    // Reset entry fields so the next assignment starts clean.
+    setHeadId("");
+    setTailId("");
+    setTailNumber("");
+    setDriverId("");
+    setDriverName("");
+    setDriverPhone("");
+    setTripAllowance("");
+    setReturnWaybill("");
+    setMotorBoy("");
+    setTicketCost("");
+    setExtraAllowance("");
+    setLubricantQty("");
+    setLubricantCost("");
   };
 
   const activeTrips = pendingOrders;
@@ -454,10 +503,10 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-10 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-sm text-sm text-[#5c6470]"
-                placeholder="Auto-populated or manual"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm"
+                placeholder="Auto-filled or manual"
                 value={driverName}
-                readOnly
+                onChange={e => setDriverName(e.target.value)}
               />
             </div>
             <div>
@@ -466,10 +515,10 @@ function DispatchPage() {
               </label>
               <input 
                 type="text" 
-                className="w-full h-10 px-3 bg-[#f4f5f7] border border-[#e2e5e9] rounded-sm text-sm text-[#5c6470]"
-                placeholder="Auto-populated or manual"
+                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm"
+                placeholder="Auto-filled or manual"
                 value={driverPhone}
-                readOnly
+                onChange={e => setDriverPhone(e.target.value)}
               />
             </div>
           </div>
