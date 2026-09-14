@@ -4,7 +4,9 @@ import { authService, notificationService, tripService, adminService } from "@/l
 import { isInBucket, TM_REQUESTS_BUCKETS } from "@/lib/fleetopsx/status-buckets";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 
-const POLL_MS = 30_000;
+// 10s keeps sidebar dots near real-time without hammering the API (all legs
+// share one /trips call, so the cost is two GETs per tick).
+const POLL_MS = 10_000;
 
 export type LiveBadges = {
   unreadNotifications: number;
@@ -109,6 +111,10 @@ function startPolling(pathname: string) {
     pollTimer = window.setInterval(() => void refresh(), POLL_MS);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
+    // Tab becoming visible again (mobile background) refreshes instantly.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void refresh();
+    });
     window.addEventListener("fleetopsx:badges-refresh", onFocus);
   }
 }

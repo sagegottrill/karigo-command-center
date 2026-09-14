@@ -23,7 +23,7 @@ type AdminNavItem = {
   to: string;
   icon: typeof LayoutDashboard;
   /** Which live badge count drives the orange dot (only rendered when > 0). */
-  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests";
+  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread";
 };
 
 type AdminNavGroup = {
@@ -59,6 +59,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
     ],
   },
+  {
+    items: [{ label: "Notification", to: "/workspace/app/notifications", icon: Bell, liveDot: "unread" }],
+  },
 ];
 
 function isPathActive(pathname: string, to: string) {
@@ -86,7 +89,9 @@ export function TransportAdminSidebar({
         ? badges.fleetDispatchPending
         : dot === "passwordRequests"
           ? badges.passwordRequestsPending
-          : 0;
+          : dot === "unread"
+            ? badges.unreadNotifications
+            : 0;
 
   useEffect(() => {
     setMounted(true);

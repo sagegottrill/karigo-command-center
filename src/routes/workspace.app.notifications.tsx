@@ -61,12 +61,41 @@ function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState<CategoryTab>("All");
 
+  // Near real-time: initial load + 10s poll + refresh when the tab regains
+  // focus — new approvals/checkpoint alerts appear without a manual reload.
   useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void notificationService
+        .list()
+        .then((next) => {
+          if (!cancelled) setItems(next);
+        })
+        .catch(() => {});
+    };
     void notificationService
       .list()
-      .then(setItems)
+      .then((next) => {
+        if (!cancelled) setItems(next);
+      })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load notifications"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    const id = window.setInterval(load, 10_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", load);
+    window.addEventListener("fleetopsx:badges-refresh", load);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", load);
+      window.removeEventListener("fleetopsx:badges-refresh", load);
+    };
   }, []);
 
   const rows = items.filter((n) => matchesCategory(n.category, cat));

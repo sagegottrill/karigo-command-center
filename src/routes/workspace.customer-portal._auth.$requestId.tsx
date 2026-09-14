@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { listCheckpoints, type LocationCheckpoint } from "@/lib/fleetopsx/tracking-ops";
 import {
   PARTNER_LOADING_SITE_OPTIONS,
   PARTNER_TRUCK_TYPE_OPTIONS,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
-import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
+import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestId")({
@@ -274,16 +276,24 @@ function PartnerRequestDetailsPage() {
     };
   }, [requestId]);
 
+  // Driver phone: resolve by ID when present, else by NAME from the directory
+  // (FO assignment stores driverName only — the phone always lives on the
+  // driver row, so matching by name recovers it end-to-end).
   useEffect(() => {
     let cancelled = false;
-    if (!trip?.driverId) {
+    const assignedName = trip?.driverName && trip.driverName !== "Unassigned" ? trip.driverName.trim() : "";
+    if (!trip?.driverId && !assignedName) {
       setDriverPhone("");
       return;
     }
     void driverService
-      .get(trip.driverId)
-      .then((d) => {
-        if (!cancelled) setDriverPhone(d?.phone?.trim() || "");
+      .list()
+      .then((drivers: Driver[]) => {
+        if (cancelled) return;
+        const found = trip?.driverId
+          ? drivers.find((d) => d.id === trip.driverId)
+          : drivers.find((d) => d.name.trim().toLowerCase() === assignedName.toLowerCase());
+        setDriverPhone(found?.phone?.trim() || "");
       })
       .catch(() => {
         if (!cancelled) setDriverPhone("");
@@ -291,7 +301,27 @@ function PartnerRequestDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [trip?.driverId]);
+  }, [trip?.driverId, trip?.driverName]);
+
+  // Tracking Ops checkpoints — polled so Tracking's manual logs appear here live.
+  const [checkpoints, setCheckpoints] = useState<LocationCheckpoint[]>([]);
+  useEffect(() => {
+    if (!trip?.id) return;
+    let cancelled = false;
+    const load = () => {
+      void listCheckpoints(trip.id)
+        .then((rows) => {
+          if (!cancelled) setCheckpoints(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [trip?.id]);
 
   const timeline = useMemo(() => (trip ? partnerRequestTimeline(trip) : []), [trip]);
   const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
@@ -300,6 +330,11 @@ function PartnerRequestDetailsPage() {
   const truckHead = truckParts[0] && truckParts[0] !== "TBD" ? truckParts[0] : trip?.headId || "—";
   const truckTail = trip?.tailType || truckParts[1] || "—";
   const serial = trip?.tailNumber || trip?.tailId || "—";
+  const hasAssignment = Boolean(
+    trip && (trip.driverId || (trip.driverName && trip.driverName !== "Unassigned") || trip.truckReg || trip.headId),
+  );
+  // Live map shows as soon as a truck/driver is assigned — not only once moving.
+  const showLiveMap = uiStatus === "In transit" || uiStatus === "Completed" || hasAssignment;
   const canConfirmArrival = trip
     ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
     : false;
@@ -529,19 +564,11 @@ function PartnerRequestDetailsPage() {
               <div
                 className={cn(
                   "relative flex min-h-[280px] flex-1 items-center justify-center sm:min-h-[419px]",
-                  uiStatus === "In transit" || uiStatus === "Completed" ? "bg-[#E8ECF0]" : "bg-white",
+                  showLiveMap ? "bg-[#E8ECF0]" : "bg-white",
                 )}
               >
-                {uiStatus === "In transit" || uiStatus === "Completed" ? (
-                  <>
-                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#d7dde5_0%,#eef1f4_50%,#d5dbe3_100%)]" />
-                    <div className="relative z-[1] flex flex-col items-center gap-1">
-                      <div className="rounded-lg bg-[rgba(15,15,20,0.88)] px-2.5 py-1.5 text-[11px] font-medium text-white">
-                        {trip.dropoff || "Destination"}
-                      </div>
-                      <MapPin className="size-8 text-[#ED351D]" fill="#ED351D" />
-                    </div>
-                  </>
+                {showLiveMap ? (
+                  <PartnerLiveMap trip={trip} checkpoints={checkpoints} />
                 ) : (
                   <div className="relative z-[1] flex w-full max-w-[355px] flex-col items-center justify-center gap-[15px] px-6 text-center">
                     <p className="text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-[#5C6470]">
@@ -597,28 +624,38 @@ function PartnerRequestDetailsPage() {
               <div className="relative flex flex-col gap-5 pb-4">
                 <div className="absolute bottom-6 left-[9px] top-2 w-px bg-[#E2E5E9]" />
                 {timeline.map((step) => {
-                  const active = step.state === "done" || step.state === "current";
+                  const done = step.state === "done";
+                  const current = step.state === "current";
+                  // Green checkmarks for completed steps, red only on decline,
+                  // grey for what's still ahead (matches the approved mockup).
+                  const dotClass =
+                    uiStatus === "Declined" && current
+                      ? "bg-[#ED351D]"
+                      : done || (current && uiStatus !== "Declined")
+                        ? "bg-[#0ACF83]"
+                        : "bg-[#D1D5DB]";
+                  const labelClass =
+                    uiStatus === "Declined" && current
+                      ? "text-[#ED351D]"
+                      : done || (current && uiStatus !== "Declined")
+                        ? "text-[#1B2432]"
+                        : "text-[#5C6470]";
                   const isDestination = step.label === "At Destination";
+                  const latestCheckpoint =
+                    step.label === "In Transit" && checkpoints.length > 0 ? checkpoints[0] : undefined;
                   return (
                     <div key={step.label} className="relative flex items-start gap-[50px]">
                       <div
                         className={cn(
                           "relative z-[1] mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full",
-                          active ? "bg-[#ED351D]" : "bg-[#D1D5DB]",
+                          dotClass,
                         )}
                       >
-                        {active ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
+                        {done || current ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
                         <div className="flex flex-wrap items-center gap-3">
-                          <p
-                            className={cn(
-                              "text-[14px] font-normal tracking-[0.4px]",
-                              active ? "text-[#ED351D]" : "text-[#5C6470]",
-                            )}
-                          >
-                            {step.label}
-                          </p>
+                          <p className={cn("text-[14px] font-normal tracking-[0.4px]", labelClass)}>{step.label}</p>
                           {isDestination && canConfirmArrival ? (
                             <button
                               type="button"
@@ -632,6 +669,14 @@ function PartnerRequestDetailsPage() {
                         </div>
                         {step.at ? (
                           <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{step.at}</p>
+                        ) : null}
+                        {latestCheckpoint ? (
+                          <p className="text-[10px] font-medium text-[#0ACF83]">
+                            Last checkpoint: {latestCheckpoint.location}
+                            {latestCheckpoint.at
+                              ? ` • ${new Date(latestCheckpoint.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                              : ""}
+                          </p>
                         ) : null}
                       </div>
                     </div>

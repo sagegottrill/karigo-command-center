@@ -44,16 +44,29 @@ export function NotificationPopover({
   }, [open]);
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    const load = () => {
       void notificationService
         .list()
         .then((items: Notification[]) => {
-          setNotifications(items);
-          setUnread(items.filter((n) => !n.read).length);
+          if (!cancelled) {
+            setNotifications(items);
+            setUnread(items.filter((n) => !n.read).length);
+          }
         })
-        .finally(() => setLoading(false));
-    }
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+    load();
+    // While open, keep the list fresh (10s) — new alerts appear live.
+    const id = window.setInterval(load, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, [open]);
 
   const markAllRead = async () => {

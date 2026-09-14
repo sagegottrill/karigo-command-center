@@ -175,6 +175,7 @@ function FleetDispatchRequests() {
     try {
       await tripService.approveDispatch(trip.id);
       toast.success(`Dispatch ${dispatchId(trip)} approved.`);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       const fresh = await tripService.list();
       setTrips(fresh);
       if (!fresh.some((t) => t.id === trip.id && t.status !== "Awaiting Approval")) {
@@ -196,9 +197,31 @@ function FleetDispatchRequests() {
     try {
       await tripService.update(trip.id, { status: "Stopped" });
       toast.warning(`Dispatch ${dispatchId(trip)} declined.`);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       void tripService.list().then(setTrips);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to decline dispatch.");
+    }
+  };
+
+  // TM not happy with FO's assignment → back to Approved so FO re-assigns.
+  const handleSendBack = async (trip: Trip) => {
+    setMenuFor(null);
+    setDetail(null);
+    try {
+      await tripService.update(trip.id, { status: "Approved" });
+      toast.success(`Dispatch ${dispatchId(trip)} sent back to Fleet Operations for re-assignment.`);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      void tripService.list().then(setTrips);
+    } catch (err) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(
+        offline
+          ? "You are offline — dispatch NOT sent back. Reconnect and try again."
+          : err instanceof Error
+            ? err.message
+            : "Failed to send dispatch back.",
+      );
     }
   };
 
@@ -408,14 +431,13 @@ function FleetDispatchRequests() {
               <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
                 <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <div className="flex items-center tracking-[0.4px]">
-                  <span className="w-[167px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
-                  <span className="w-[144px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
-                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
-                  <span className="w-[134px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Phone Number</span>
-                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
+                  <span className="w-[180px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
+                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
+                  <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
+                  <span className="w-[170px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
                   <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
-                <span className="w-[100px] shrink-0" />
+                <span className="w-[40px] shrink-0" />
               </div>
 
               {slice.map((trip) => {
@@ -429,18 +451,17 @@ function FleetDispatchRequests() {
                       {dispatchId(trip)}
                     </span>
                     <div className="flex items-center tracking-[0.4px]">
-                      <span className="w-[167px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
+                      <span className="w-[180px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
                         {trip.driverName || driver?.name}
                       </span>
-                      <span className="w-[144px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
-                      <span className="w-[150px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
-                      <span className="w-[134px] shrink-0 truncate text-[14px] text-[#5C6470]">{driver?.phone}</span>
-                      <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
+                      <span className="w-[150px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
+                      <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
+                      <span className="w-[170px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
                       <span className="w-[110px] shrink-0">
                         <StatusPill status={fleetStatusOf(trip)} />
                       </span>
                     </div>
-                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative flex shrink-0 items-center gap-2">
+                    <div className="relative flex shrink-0 items-center gap-2">
                       <button
                         type="button"
                         className="grid size-5 place-items-center text-[#1B2432]"
@@ -450,10 +471,18 @@ function FleetDispatchRequests() {
                         <MoreVertical className="size-5" strokeWidth={1.75} />
                       </button>
                       {menuFor === trip.id && (
-                        <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
+                        // Rendered in a fixed overlay so the table's
+                        // overflow-x-auto container can never clip it.
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                      )}
+                      {menuFor === trip.id && (
+                        <div
+                          ref={menuFor === trip.id ? menuRef : undefined}
+                          className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]"
+                        >
                           <button
                             type="button"
-                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                            className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
                             onClick={() => {
                               setMenuFor(null);
                               setDetail(trip);
@@ -461,20 +490,37 @@ function FleetDispatchRequests() {
                           >
                             View Details
                           </button>
-                          <button
-                            type="button"
-                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                            onClick={() => void handleApprove(trip)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                            onClick={() => void handleDecline(trip)}
-                          >
-                            Decline
-                          </button>
+                          {fleetStatusOf(trip) === "Awaiting Approval" ? (
+                            <button
+                              type="button"
+                              className={cn(
+                                "flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
+                                approvingId === trip.id && "opacity-50",
+                              )}
+                              onClick={() => void handleApprove(trip)}
+                              disabled={approvingId === trip.id}
+                            >
+                              {approvingId === trip.id ? "Approving…" : "Approve"}
+                            </button>
+                          ) : null}
+                          {fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
+                            <button
+                              type="button"
+                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                              onClick={() => void handleSendBack(trip)}
+                            >
+                              Send Back to Fleet Ops
+                            </button>
+                          ) : null}
+                          {fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined" ? (
+                            <button
+                              type="button"
+                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                              onClick={() => void handleDecline(trip)}
+                            >
+                              Decline
+                            </button>
+                          ) : null}
                         </div>
                       )}
                     </div>

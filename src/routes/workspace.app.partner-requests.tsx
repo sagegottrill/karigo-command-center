@@ -162,6 +162,7 @@ function AdminPartnerRequests() {
     try {
       await tripService.initialApprove(trip.id);
       toast.success(`Request ${requestId(trip)} approved.`);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       const fresh = await tripService.list();
       setTrips(fresh);
       if (!fresh.some((t) => t.id === trip.id && t.status !== "Requested")) {
@@ -183,6 +184,7 @@ function AdminPartnerRequests() {
     try {
       await tripService.update(trip.id, { status: "Stopped" });
       toast.warning(`Request ${requestId(trip)} declined.`);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       void tripService.list().then(setTrips);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to decline request.");
@@ -420,10 +422,17 @@ function AdminPartnerRequests() {
                       <MoreVertical className="size-5" strokeWidth={1.75} />
                     </button>
                     {menuFor === trip.id && (
-                      <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]">
+                      // Fixed overlay so the scroll container can never clip the menu.
+                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                    )}
+                    {menuFor === trip.id && (
+                      <div
+                        ref={menuFor === trip.id ? menuRef : undefined}
+                        className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]"
+                      >
                         <button
                           type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
                           onClick={() => {
                             setMenuFor(null);
                             setDetail(trip);
@@ -431,24 +440,28 @@ function AdminPartnerRequests() {
                         >
                           View Details
                         </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
-                            approvingId === trip.id && "opacity-50",
-                          )}
-                          onClick={() => void handleApprove(trip)}
-                          disabled={approvingId === trip.id}
-                        >
-                          {approvingId === trip.id ? "Approving…" : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                          onClick={() => void handleDecline(trip)}
-                        >
-                          Decline
-                        </button>
+                        {toPartnerUiStatus(trip) === "Pending" ? (
+                          <button
+                            type="button"
+                            className={cn(
+                              "flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
+                              approvingId === trip.id && "opacity-50",
+                            )}
+                            onClick={() => void handleApprove(trip)}
+                            disabled={approvingId === trip.id}
+                          >
+                            {approvingId === trip.id ? "Approving…" : "Approve"}
+                          </button>
+                        ) : null}
+                        {toPartnerUiStatus(trip) === "Pending" ? (
+                          <button
+                            type="button"
+                            className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
+                            onClick={() => void handleDecline(trip)}
+                          >
+                            Decline
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>
