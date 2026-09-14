@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { UserRound, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { setActiveRole } from "@/lib/fleetopsx/active-role";
 import { getRoleHome } from "@/lib/fleetopsx/role-home";
@@ -44,6 +44,7 @@ function LoginPage() {
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
   const [pendingRoles, setPendingRoles] = useState<string[] | null>(null);
@@ -236,12 +237,21 @@ function LoginPage() {
               <div className="flex h-[36px] items-center gap-[10px] rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
                 <KeyRound className="h-4 w-4 shrink-0 text-[#5c6470]" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="*********"
                   className="w-full bg-transparent border-none outline-none text-[14px] font-[400] text-[#141a1f] placeholder-[#5c6470] tracking-[0.4px]"
                 />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="shrink-0 text-[#5c6470] hover:text-[#141a1f]"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

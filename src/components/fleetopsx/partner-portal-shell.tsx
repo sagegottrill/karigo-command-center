@@ -27,9 +27,12 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
     setUserEmail(currentUser?.email || "");
     setUserInitials(currentUser?.initials || "PT");
+    // Uploaded partner company logo (persisted at account creation) takes
+    // priority over the tenant logo in the side menu.
+    if (currentUser?.companyLogo) setLogoSrc(currentUser.companyLogo);
 
     const slug = getTenantSlug();
-    if (slug && slug !== "localhost" && slug !== "fleetopsx") {
+    if (slug && slug !== "localhost" && slug !== "fleetopsx" && !currentUser?.companyLogo) {
       void tenantService
         .getBySlug(slug)
         .then((t) => {

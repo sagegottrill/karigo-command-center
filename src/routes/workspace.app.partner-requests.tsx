@@ -54,6 +54,7 @@ function AdminPartnerRequests() {
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,10 +107,27 @@ function AdminPartnerRequests() {
   };
 
   const handleApprove = async (trip: Trip) => {
+    if (approvingId) return;
     setMenuFor(null);
-    await tripService.initialApprove(trip.id);
-    toast.success(`Request ${requestId(trip)} approved.`);
-    void tripService.list().then(setTrips);
+    // Guarded: show pending state, distinct offline message, revert on failure —
+    // a dropped connection must never read as "approved".
+    setApprovingId(trip.id);
+    try {
+      await tripService.initialApprove(trip.id);
+      toast.success(`Request ${requestId(trip)} approved.`);
+      const fresh = await tripService.list();
+      setTrips(fresh);
+      if (!fresh.some((t) => t.id === trip.id && t.status !== "Requested")) {
+        toast.error("Network issue — the approval may not have saved. Check your connection and try again.");
+      }
+    } catch (err) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(offline
+        ? "You are offline — request NOT approved. Reconnect and try again."
+        : `Failed to approve: ${err instanceof Error ? err.message : "network error"}. The request is unchanged.`);
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   const handleDecline = async (trip: Trip) => {
@@ -224,10 +242,14 @@ function AdminPartnerRequests() {
                         </button>
                         <button
                           type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          className={cn(
+                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
+                            approvingId === trip.id && "opacity-50",
+                          )}
                           onClick={() => void handleApprove(trip)}
+                          disabled={approvingId === trip.id}
                         >
-                          Approve
+                          {approvingId === trip.id ? "Approving…" : "Approve"}
                         </button>
                         <button
                           type="button"
@@ -351,10 +373,14 @@ function AdminPartnerRequests() {
                         </button>
                         <button
                           type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          className={cn(
+                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
+                            approvingId === trip.id && "opacity-50",
+                          )}
                           onClick={() => void handleApprove(trip)}
+                          disabled={approvingId === trip.id}
                         >
-                          Approve
+                          {approvingId === trip.id ? "Approving…" : "Approve"}
                         </button>
                         <button
                           type="button"

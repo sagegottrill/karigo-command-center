@@ -82,7 +82,9 @@ function AddPartner() {
           email: `${usernameForLogin}@${emailDomain}`,
           department: "External Partner",
           companyId: tenantCompanyId,
+          // Persisted server-side — drives the sidebar logo + trip customer stamping.
           partnerCompanyName: companyName,
+          companyLogo: logo,
           password: generatedPassword,
         });
         setCreatedUsername(usernameForLogin);
@@ -230,8 +232,9 @@ function AddPartner() {
           <div
             className="relative flex w-full max-w-[540px] flex-col rounded-[10px] bg-white shadow-[0px_20px_60px_rgba(0,0,0,0.15)]"
             onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: "calc(100vh - 48px)" }}
           >
-            <div className="px-6 pt-6 pb-6 lg:px-10 lg:pt-10 lg:pb-8">
+            <div className="overflow-y-auto px-6 pt-6 pb-6 lg:px-10 lg:pt-10 lg:pb-8" style={{ maxHeight: "calc(100vh - 48px)" }}>
               <h3 className="mb-4 text-[20px] font-semibold text-[#141A1F] lg:mb-6 lg:text-[24px]">Confirm Partner Details</h3>
               <div className="mb-4 h-px w-full bg-[#F1F2F4] lg:mb-6" />
 
@@ -356,6 +359,7 @@ function AddPartner() {
                   department: "External Partner",
                   companyId: tenantCompanyId,
                   partnerCompanyName: rowCompany,
+                  companyLogo: row["logo"] || null,
                   password: "ChangeMe123!",
                 });
                 successCount++;

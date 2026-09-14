@@ -57,6 +57,7 @@ function FleetDispatchRequests() {
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -124,10 +125,26 @@ function FleetDispatchRequests() {
   };
 
   const handleApprove = async (trip: Trip) => {
+    if (approvingId) return;
     setMenuFor(null);
-    await tripService.approveDispatch(trip.id);
-    toast.success(`Dispatch ${dispatchId(trip)} approved.`);
-    void tripService.list().then(setTrips);
+    // Guarded: pending state, distinct offline message, revert on failure.
+    setApprovingId(trip.id);
+    try {
+      await tripService.approveDispatch(trip.id);
+      toast.success(`Dispatch ${dispatchId(trip)} approved.`);
+      const fresh = await tripService.list();
+      setTrips(fresh);
+      if (!fresh.some((t) => t.id === trip.id && t.status !== "Awaiting Approval")) {
+        toast.error("Network issue — the approval may not have saved. Check your connection and try again.");
+      }
+    } catch (err) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(offline
+        ? "You are offline — dispatch NOT approved. Reconnect and try again."
+        : `Failed to approve: ${err instanceof Error ? err.message : "network error"}. The dispatch is unchanged.`);
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   const handleDecline = async (trip: Trip) => {
@@ -245,10 +262,14 @@ function FleetDispatchRequests() {
                         </button>
                         <button
                           type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                          className={cn(
+                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
+                            approvingId === trip.id && "opacity-50",
+                          )}
                           onClick={() => void handleApprove(trip)}
+                          disabled={approvingId === trip.id}
                         >
-                          Approve
+                          {approvingId === trip.id ? "Approving…" : "Approve"}
                         </button>
                         <button
                           type="button"

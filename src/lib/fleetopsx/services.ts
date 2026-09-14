@@ -7,6 +7,7 @@ import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "
 import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi } from "./live-api";
 import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
+import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
@@ -102,7 +103,27 @@ export const authService = {
     const u = getStoredUser<any>();
     if (u) setStoredUser({ ...u, roles });
   },
-  completeFirstTimeLogin: (userId: string, newPassword?: string) => fetchApi(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ password: newPassword || 'ChangeMe@2026', passwordResetRequired: false }) }).catch(() => {}),
+  // Self-service password change — backend route PATCH /users/me/password.
+  // MUST throw on failure: swallowing errors here caused the first-login reset
+  // loop (403 swallowed → flag never cleared → reset form again forever).
+  completeFirstTimeLogin: async (userId: string, newPassword?: string) => {
+    const currentPassword = getPendingLoginPassword() || undefined;
+    if (!newPassword) throw new Error("Please enter a new password.");
+    try {
+      await fetchApi(`/users/me/password`, {
+        method: 'PATCH',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update password.";
+      throw new Error(message);
+    } finally {
+      clearPendingLoginPassword();
+    }
+    // Sync the stored profile so the reset flag doesn't linger client-side.
+    const stored = getStoredUser<any>();
+    if (stored) setStoredUser({ ...stored, passwordResetRequired: false });
+  },
   logout: () => {
     fetchApi('/auth/logout', { method: 'POST' }).catch(() => {});
     clearSession();
