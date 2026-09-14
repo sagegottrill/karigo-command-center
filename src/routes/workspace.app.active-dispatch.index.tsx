@@ -71,6 +71,20 @@ function ActiveDispatchPage() {
     return map;
   }, [drivers]);
 
+  // FO assignment stores driver NAME only — resolve phones by name too.
+  const phoneByDriverName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of drivers) map.set(d.name.trim().toLowerCase(), d.phone);
+    return map;
+  }, [drivers]);
+
+  const phoneFor = (trip: Trip) => {
+    const byId = trip.driverId ? phoneByDriverId.get(trip.driverId) : undefined;
+    if (byId) return byId;
+    const name = trip.driverName?.trim().toLowerCase();
+    return (name && phoneByDriverName.get(name)) || "";
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return trips.filter((trip) => {
@@ -84,14 +98,14 @@ function ActiveDispatchPage() {
         trip.headId,
         trip.tailType,
         trip.dropoff,
-        phoneByDriverId.get(trip.driverId ?? "") ?? "",
+        phoneFor(trip),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [trips, search, filter, phoneByDriverId]);
+  }, [trips, search, filter, phoneByDriverId, phoneByDriverName]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -110,13 +124,12 @@ function ActiveDispatchPage() {
     const header = ["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Destination", "Status"];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
-      const phone = (trip.driverId && phoneByDriverId.get(trip.driverId)) || "";
       return [
         dispatchDisplayId(trip),
         trip.driverName ?? "",
         headCell(trip),
         trip.tailType ?? "",
-        phone,
+        phoneFor(trip),
         trip.dropoff ?? "",
         delay,
       ]
@@ -277,14 +290,13 @@ function ActiveDispatchPage() {
                 <tbody>
                   {pageRows.map((trip) => {
                     const delay = getTrackingDelayStatus(trip);
-                    const phone = (trip.driverId && phoneByDriverId.get(trip.driverId)) || "";
                     return (
                       <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
                         <td className="px-3 py-4 font-semibold tracking-[0.4px]">{dispatchDisplayId(trip)}</td>
                         <td className="px-3 py-4">{trip.driverName || ""}</td>
                         <td className="px-3 py-4">{headCell(trip)}</td>
                         <td className="px-3 py-4">{trip.tailType || ""}</td>
-                        <td className="px-3 py-4">{phone}</td>
+                        <td className="px-3 py-4">{phoneFor(trip)}</td>
                         <td className="px-3 py-4">{trip.dropoff || ""}</td>
                         <td className="px-3 py-4">
                           <span
@@ -357,7 +369,6 @@ function ActiveDispatchPage() {
         ) : (
           pageRows.map((trip) => {
             const delay = getTrackingDelayStatus(trip);
-            const phone = (trip.driverId && phoneByDriverId.get(trip.driverId)) || "";
             return (
               <div
                 key={trip.id}
@@ -385,7 +396,7 @@ function ActiveDispatchPage() {
                 <MetaRow label="Driver:" value={trip.driverName || ""} />
                 <MetaRow label="Head No:" value={headCell(trip)} accent />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
-                <MetaRow label="Phone No:" value={phone} />
+                <MetaRow label="Phone No:" value={phoneFor(trip)} />
               </div>
             );
           })
