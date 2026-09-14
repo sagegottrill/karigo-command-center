@@ -112,8 +112,9 @@ function DispatchPage() {
     setHeads(heads);
     setTails(tails);
     setDrivers(nextDrivers);
-    // Queue = new requests + TM-approved (waiting for FO truck/driver assignment) + assigned (awaiting final TM approval)
-    setPendingOrders(trips.filter((t) => t.status === "Requested" || t.status === "Approved" || t.status === "Awaiting Approval"));
+    // Queue = TM-approved only. Requests the TM has not approved yet stay in
+    // the TM's Partner Requests and must NOT appear here for assignment.
+    setPendingOrders(trips.filter((t) => t.status === "Approved"));
   };
 
   useEffect(() => {
@@ -288,7 +289,7 @@ function DispatchPage() {
           {pendingOrders.length === 0 && (
             <FigmaEmptyState
               title="No trips in the dispatch queue"
-              body="Requests waiting for truck and driver assignment will appear here."
+              body="Requests approved by the Transport Manager and waiting for truck and driver assignment will appear here."
             />
           )}
         </div>
@@ -331,7 +332,7 @@ function DispatchPage() {
           {pendingOrders.length === 0 && (
             <FigmaEmptyState
               title="No trips in the dispatch queue"
-              body="Requests waiting for truck and driver assignment will appear here."
+              body="Requests approved by the Transport Manager and waiting for truck and driver assignment will appear here."
             />
           )}
         </div>
