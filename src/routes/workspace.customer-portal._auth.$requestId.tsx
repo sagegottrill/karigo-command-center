@@ -61,8 +61,12 @@ function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
 }
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
+  // Shared semantics — mirrors status-buckets.toPartnerUiStatus so a trip's
+  // label matches its dashboard card everywhere (Stopped-with-truck = In
+  // transit, not Declined; Draft = Pending).
   switch (status) {
     case "Requested":
+    case "Draft":
       return "Pending";
     case "Awaiting Approval":
     case "Approved":

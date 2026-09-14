@@ -143,6 +143,7 @@ export interface Driver {
 
 export type TripStatus =
   | "Requested"
+  | "Draft" // legacy backend default — treated as a fresh request everywhere
   | "Awaiting Approval"
   | "Approved" // backend intermediate state after TM initial approval
   | "Approved for Dispatch"

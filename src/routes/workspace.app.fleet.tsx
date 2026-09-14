@@ -20,7 +20,8 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 const PAGE_SIZE = 10;
 
 function isDispatchRequest(trip: Trip) {
-  // Process step 04 — FO assigned; TM final approval (not initial Partner Request).
+  // Process step 04 — FO assigned; TM final approval. Shared bucket "awaiting"
+  // (keeps the assignment guard for legacy rows) — same number the badge shows.
   return (
     trip.status === "Awaiting Approval" &&
     Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg)

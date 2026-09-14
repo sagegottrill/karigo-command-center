@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { authService, notificationService, tripService, adminService } from "@/lib/fleetopsx/services";
+import { isInBucket, TM_REQUESTS_BUCKETS } from "@/lib/fleetopsx/status-buckets";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 
 const POLL_MS = 30_000;
@@ -51,15 +52,14 @@ async function refresh() {
     const tripsP = isPartner
       ? Promise.resolve([])
       : tripService.list().catch(() => []);
+    // Badge semantics = the queue the dot links to (shared buckets module):
+    //   Partner Requests dot  → TM_REQUESTS_BUCKETS (fresh, unapproved requests)
+    //   Fleet Operation dot   → trips awaiting the TM's FINAL approval on /fleet
     const requestsP = tripsP.then(
-      (trips) => ["requests", trips.filter((t) => t.status === "Requested").length] as const,
+      (trips) => ["requests", trips.filter((t) => isInBucket(t, TM_REQUESTS_BUCKETS)).length] as const,
     );
     const dispatchP = tripsP.then(
-      (trips) =>
-        [
-          "dispatch",
-          trips.filter((t) => t.status === ("Approved" as string) || t.status === "Awaiting Approval").length,
-        ] as const,
+      (trips) => ["dispatch", trips.filter((t) => isInBucket(t, ["awaiting"])).length] as const,
     );
 
     // 4. Password reset requests — server gates GET /api/users to Platform Admin

@@ -4,6 +4,7 @@ import { Check, ListFilter, MoreVertical, Search, X } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { countBuckets } from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Com
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
   switch (status) {
     case "Requested":
+    case "Draft":
       return "Pending";
     case "Awaiting Approval":
     case "Approved":
@@ -150,12 +152,15 @@ function PartnerPortalDashboard() {
     });
   }, [requests, searchQuery, sortKey, sortOrder]);
 
+  // Partner cards via shared buckets — identical semantics to the staff
+  // dashboards (a truck Stopped en route is "In transit", not "Declined").
+  const partnerCounts = countBuckets(requests);
   const totalRequests = requests.length;
-  const inTransit = requests.filter((r) => toPartnerStatus(r.status) === "In transit").length;
-  const pending = requests.filter((r) => toPartnerStatus(r.status) === "Pending").length;
-  const approved = requests.filter((r) => toPartnerStatus(r.status) === "Approved").length;
-  const declined = requests.filter((r) => toPartnerStatus(r.status) === "Declined").length;
-  const completed = requests.filter((r) => toPartnerStatus(r.status) === "Completed").length;
+  const inTransit = partnerCounts.inTransit + partnerCounts.stoppedEnRoute;
+  const pending = partnerCounts.pending;
+  const approved = partnerCounts.approved + partnerCounts.awaiting + partnerCounts.scheduled;
+  const declined = partnerCounts.declined;
+  const completed = partnerCounts.completed;
 
   const handleDelete = async () => {
     if (!deleteModalOpen) return;

@@ -14,7 +14,9 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
 const PAGE_SIZE = 10;
 
 function isPartnerRequest(trip: Trip) {
-  return trip.status === "Requested";
+  // Shared bucket "pending" — also catches legacy "Draft" rows so they never
+  // silently vanish from the TM's approval queue.
+  return trip.status === "Requested" || trip.status === "Draft";
 }
 
 function requestId(trip: Trip) {

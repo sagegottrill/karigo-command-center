@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminService, authService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
+import { ACTIVE_DISPATCH_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -119,27 +120,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const trips = live.trips ?? [];
     const heads = live.trucks ?? [];
     const partnerTrips = trips.filter(isPartnerTrip);
-    const pending = partnerTrips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval");
-    const inTransit = partnerTrips.filter(
-      (t) =>
-        t.status === "En Route" ||
-        t.status === "Loaded" ||
-        t.status === "Offloading" ||
-        t.status === "Returning",
-    );
-    const completed = partnerTrips.filter((t) => t.status === "Completed");
-    const declined = partnerTrips.filter((t) => t.status === "Stopped" && !t.headId).length;
 
-    const active = trips.filter(
-      (t) =>
-        t.status === "Scheduled" ||
-        t.status === "Loaded" ||
-        t.status === "En Route" ||
-        t.status === "Offloading" ||
-        t.status === "Returning" ||
-        t.status === "Delayed" ||
-        (t.status === "Stopped" && Boolean(t.headId)),
-    );
+    // Status semantics come from the shared buckets module so these numbers
+    // match the partner portal, queues and badges exactly.
+    const partnerCounts = countBuckets(partnerTrips);
+    const allCounts = countBuckets(trips);
+
+    const active = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
     const slight = active.filter((t) => t.status === "Delayed");
     const significant = active.filter((t) => t.status === "Stopped");
     const onSchedule = active.filter((t) => t.status !== "Delayed" && t.status !== "Stopped");
@@ -155,10 +142,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     return {
       requests: {
         total: partnerTrips.length,
-        inTransit: inTransit.length,
-        pending: pending.length,
-        declined,
-        completed: completed.length,
+        // Same "In transit" definition the partner dashboard shows: anything
+        // moving, including a truck stopped en route (that's a delay, not a decline).
+        inTransit: partnerCounts.inTransit + partnerCounts.stoppedEnRoute,
+        pending: partnerCounts.pending,
+        declined: partnerCounts.declined,
+        completed: partnerCounts.completed,
       },
       dispatch: {
         total: active.length,
@@ -166,6 +155,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         slight: slight.length,
         significant: significant.length,
       },
+      // Exposed for cross-checking against the live fleet totals.
+      allCounts,
       heads: {
         total: heads.length,
         available: countByStatus(heads, "Available"),

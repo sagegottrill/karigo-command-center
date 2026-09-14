@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { formatNaira } from "@/lib/fleetopsx/services";
+import { ACTIVE_DISPATCH_BUCKETS, FO_QUEUE_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,10 @@ export interface DashboardProps {
 }
 
 export function TransportManagerDashboard({ trips }: DashboardProps) {
-  const awaitingOrders = trips.filter((t) => t.status === "Scheduled" || t.status === "Awaiting Approval");
+  // Same buckets the TM queue pages use — counts match what the lists show.
+  const awaitingOrders = trips.filter(
+    (t) => isInBucket(t, ["awaiting", "scheduled"]),
+  );
   return (
     <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
       <h2 className="text-[24px] font-medium text-[#1B2432]">Transport Manager</h2>
@@ -59,16 +63,11 @@ export function TransportManagerDashboard({ trips }: DashboardProps) {
 }
 
 export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
-  const incoming = trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval");
-  const activeDispatch = trips.filter(
-    (t) =>
-      t.status === "Scheduled" ||
-      t.status === "En Route" ||
-      t.status === "Loaded" ||
-      t.status === "Offloading" ||
-      t.status === "Returning" ||
-      t.status === "Delayed",
-  );
+  // "Incoming dispatch" = only what the TM has released to FO (Approved),
+  // matching the Dispatch Queue filter exactly. Previously this card counted
+  // unapproved Requested trips the queue would never show.
+  const incoming = trips.filter((t) => isInBucket(t, FO_QUEUE_BUCKETS));
+  const activeDispatch = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
   const availableHeads = trucks.filter((t) => t.status === "Available").length;
   const inUseHeads = trucks.filter((t) => t.status === "Assigned" || t.status === "In Transit").length;
   const completed = trips.filter((t) => t.status === "Completed").length;
