@@ -83,8 +83,16 @@ export function AppHeader({
   const [workspace, setWorkspace] = useState(WORKSPACES[0]!);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [mounted, setMounted] = useState(false);
+  // Portal clock is client-only: a server-rendered timestamp (server timezone/locale)
+  // mismatches the browser on hydration and flips Suspense boundaries to client
+  // rendering (React error #419).
+  const [clock, setClock] = useState<{ date: string; time: string } | null>(null);
   useEffect(() => {
     setMounted(true);
+    const tick = () => setClock(formatPortalClock());
+    tick();
+    const timer = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(timer);
   }, []);
   const currentUser = mounted ? authService.getCurrentUser() : null;
   const assignedRoles: string[] = mounted ? authService.getRoles() : [];
@@ -149,7 +157,6 @@ export function AppHeader({
     const trackingOps = !gateSecurity && forceTrackingOps;
     const fleetOps = !gateSecurity && !trackingOps && (forceFleetOps || isFleetOpsPortalPath(pathname));
     const initials = mounted && currentUser?.initials ? currentUser.initials : "";
-    const clock = formatPortalClock();
 
     if (gateSecurity) {
       return (
@@ -158,9 +165,9 @@ export function AppHeader({
             <div className="flex flex-col gap-2">
               <p className="text-[16px] font-semibold text-white">Gate Security Portal</p>
               <div className="flex items-center gap-[5px] text-[12px] tracking-[0.4px] text-white/70">
-                <span>{clock.date}</span>
+                <span>{clock?.date}</span>
                 <span className="size-1.5 rounded-full bg-[#0ACF83]" />
-                <span>{clock.time}</span>
+                <span>{clock?.time}</span>
               </div>
             </div>
             <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
@@ -175,9 +182,9 @@ export function AppHeader({
               </p>
             </div>
             <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock.date}</span>
+              <span>{clock?.date}</span>
               <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock.time}</span>
+              <span>{clock?.time}</span>
             </div>
           </header>
         </>
@@ -191,9 +198,9 @@ export function AppHeader({
             <div className="flex flex-col gap-2">
               <p className="text-[16px] font-semibold text-white">Tracking Operations Portal</p>
               <div className="flex items-center gap-[5px] text-[12px] tracking-[0.4px] text-white/70">
-                <span>{clock.date}</span>
+                <span>{clock?.date}</span>
                 <span className="size-1.5 rounded-full bg-[#0ACF83]" />
-                <span>{clock.time}</span>
+                <span>{clock?.time}</span>
               </div>
             </div>
             <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
@@ -208,9 +215,9 @@ export function AppHeader({
               </p>
             </div>
             <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock.date}</span>
+              <span>{clock?.date}</span>
               <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock.time}</span>
+              <span>{clock?.time}</span>
             </div>
           </header>
         </>
