@@ -68,11 +68,14 @@ function formatTripDate(value: string | undefined) {
 
 function isPartnerTrip(trip: Trip, companyName: string | undefined) {
   // Live API: `customer` = partner company; `customerConsignee` = form consignee.
+  // The server already scopes GET /trips to this partner's company, so any trip
+  // returned IS theirs — never hide rows just because the local profile is stale
+  // (that was blanking the whole dashboard for existing sessions).
   if (trip.customer === "Customer Portal") return true;
-  if (!companyName) return false;
+  if (!companyName) return true;
   const a = companyName.trim().toLowerCase();
   const b = (trip.customer || "").trim().toLowerCase();
-  return Boolean(a && b && (a === b || b.includes(a) || a.includes(b)));
+  return Boolean(!b || a === b || b.includes(a) || a.includes(b));
 }
 
 function PartnerPortalDashboard() {

@@ -140,20 +140,12 @@ export function mapDriver(d: Record<string, unknown>): Driver {
 }
 
 export function mapTrip(t: Record<string, unknown>): Trip {
-  const statusRaw = String(t.status ?? "Scheduled");
-  const known: TripStatus[] = [
-    "Requested",
-    "Awaiting Approval",
-    "Scheduled",
-    "En Route",
-    "Loaded",
-    "Offloading",
-    "Returning",
-    "Delayed",
-    "Completed",
-    "Stopped",
-  ];
-  const status = (known.includes(statusRaw as TripStatus) ? statusRaw : "Scheduled") as TripStatus;
+  // Preserve the live status verbatim — only fall back when missing. Collapsing
+  // unknown statuses (e.g. backend default "Draft") to "Scheduled" hid trips from
+  // every filtered list: they rendered as Scheduled on pages that never show
+  // Scheduled, or disappeared from Requested/Awaiting queues entirely.
+  const statusRaw = t.status != null && String(t.status).trim() !== "" ? String(t.status) : "Requested";
+  const status = statusRaw as TripStatus;
   const loadingSite = t.loadingSite;
   const partnerCompany =
     t.customer != null && String(t.customer).trim() !== ""

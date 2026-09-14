@@ -4,18 +4,24 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi } from "./live-api";
 import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
 
 export const tenantService = {
   list: () => fetchApi('/tenants'),
+  // Backend route is GET /tenants/slug/:slug (a ?slug= query just returns the
+  // whole list and we'd pick the wrong tenant).
   getBySlug: async (slug: string) => {
     try {
-      const res = await fetchApi<any>(`/tenants?slug=${slug}`, { softAuth: true });
-      return Array.isArray(res) ? res[0] : res;
+      return await fetchApi<any>(`/tenants/slug/${slug}`, { softAuth: true });
     } catch {
-      return null;
+      try {
+        const list = await fetchApi<any[]>('/tenants', { softAuth: true });
+        return list.find((t) => t?.tenantSlug === slug || t?.domain === slug) ?? null;
+      } catch {
+        return null;
+      }
     }
   },
   create: (name: string, domain: string, logo?: string) => fetchApi('/tenants', { method: 'POST', body: JSON.stringify({ name, domain, logo }) }),
@@ -51,14 +57,27 @@ export const fleetService = {
   deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
   updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteTail: (id: string) => fetchApi(`/tails/${id}`, { method: 'DELETE' }),
-  getHead: (id: string) => fetchApi(`/trucks/${id}`),
-  getTail: (id: string) => fetchApi(`/tails/${id}`),
+  // No GET /trucks/:id or /tails/:id on the backend — resolve from the lists.
+  getHead: async (id: string) => {
+    const heads = await fleetService.listHeads().catch(() => []);
+    return heads.find((h) => h.id === id);
+  },
+  getTail: async (id: string) => {
+    const tails = await fleetService.listTails().catch(() => []);
+    return tails.find((t) => t.id === id);
+  },
   summary: () => fetchApi('/dashboard/overview'),
 };
 
 export const driverService = {
   list: () => fetchApi('/drivers').then((res: any[]) => res.map(mapDriver)),
-  get: (id: string) => fetchApi(`/drivers/${id}`).then(mapDriver),
+  // No GET /drivers/:id on the backend — resolve from the list.
+  get: async (id: string) => {
+    const drivers = await driverService.list().catch(() => []);
+    const found = drivers.find((d) => d.id === id);
+    if (found) return found;
+    return fetchApi(`/drivers/${id}`).then(mapDriver);
+  },
   create: (input: any) => fetchApi('/drivers', { method: 'POST', body: JSON.stringify(input) }).then(mapDriver),
   update: (id: string, updates: Partial<Driver>) => fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
   delete: (id: string) => fetchApi(`/drivers/${id}`, { method: 'DELETE' }),
@@ -100,10 +119,16 @@ export const authService = {
     if (typeof window === "undefined") return null;
     const userId = localStorage.getItem("fleetopsx_user_id");
     if (!userId) return null;
+    // Prefer the full profile stored at login (partnerCompanyName, email, phone…)
+    // — partner pages match trips against partnerCompanyName from here.
+    const stored = getStoredUser<any>();
+    const roles = stored?.roles ?? JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]");
     return {
-      id: userId,
-      roles: JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]"),
-      name: localStorage.getItem("fleetopsx_user_name") || "Logged In User"
+      ...stored,
+      id: stored?.id || userId,
+      roles,
+      roleNames: stored?.roleNames ?? roles,
+      name: stored?.name || localStorage.getItem("fleetopsx_user_name") || "Logged In User"
     } as any;
   },
   getRoles: () => {
@@ -129,9 +154,26 @@ export const authService = {
 };
 
 export const tripService = {
-  list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch(() => []),
-  get: (id: string) => fetchApi(`/trips/${id}`).then(mapTrip),
-  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(data) }).then(mapTrip),
+  list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch((err) => {
+    // Surface in console so "empty list" bugs are diagnosable — callers still fail soft.
+    console.warn("[tripService.list] failed:", err instanceof Error ? err.message : err);
+    return [] as any[];
+  }),
+  // List-first: GET /trips/:id 404s/hangs behind some proxies (see live-api.ts) —
+  // fall back to scanning the scoped /trips list before giving up.
+  get: async (id: string) => {
+    try {
+      const all = await fetchApi('/trips').then((res: any[]) => res.map(mapTrip));
+      const found = all.find((t) => t.id === id);
+      if (found) return found;
+    } catch {
+      // fall through to direct get
+    }
+    return fetchApi(`/trips/${id}`).then(mapTrip);
+  },
+  // Normalize through tripToApi: defaults status to "Requested" (backend default
+  // "Draft" is invisible in every queue) and maps loadingSite/consignee shapes.
+  create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(tripToApi(data)) }).then(mapTrip),
   update: (id: string, updates: Partial<Trip>) => {
     // Sanitize payload for Prisma API which throws 500 on unknown fields
     const payload = { ...updates } as any;
@@ -182,26 +224,54 @@ export const orderService = {
 
 export const fuelService = {
   list: () => fetchApi('/fuel'),
-  approve: (id: string) => fetchApi(`/fuel/${id}/approve`, { method: 'POST' }).then(res => {
+  // Backend exposes PATCH /fuel/:id only — status transitions go through it
+  // (server auto-creates the expense row on Approved).
+  approve: (id: string) => fetchApi(`/fuel/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }).then(res => {
     notificationService.create({ title: 'Fuel Requisition Approved', body: `Requisition ${id.substring(0,6)} has been approved.`, category: 'Approvals' });
     return res;
   }),
-  reject: (id: string) => fetchApi(`/fuel/${id}/reject`, { method: 'POST' }).then(res => {
+  reject: (id: string) => fetchApi(`/fuel/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Rejected' }) }).then(res => {
     notificationService.create({ title: 'Fuel Requisition Rejected', body: `Requisition ${id.substring(0,6)} was rejected.`, category: 'Operations' });
     return res;
   }),
 };
 
+const WO_NEXT_STATUS: Record<string, string> = {
+  Reported: 'In Progress',
+  'In Progress': 'Repaired',
+  Repaired: 'Repaired',
+};
+
 export const engineeringService = {
-  listWorkOrders: () => fetchApi('/engineering/work-orders').then((res: any[]) => res.map(mapWorkOrder)),
-  createDefect: (input: any) => fetchApi('/engineering/work-orders', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+  // Backend routes are plain /work-orders (no /engineering prefix, no /advance or /repair).
+  listWorkOrders: () => fetchApi('/work-orders').then((res: any[]) => res.map(mapWorkOrder)),
+  createDefect: (input: any) => fetchApi('/work-orders', { method: 'POST', body: JSON.stringify({
+    truckReg: input.truckReg,
+    defect: input.defect,
+    priority: input.priority || 'Medium',
+    status: 'Reported',
+  }) }).then(res => {
     const wo = mapWorkOrder(res);
     notificationService.create({ title: 'New Work Order', body: `Defect reported for truck ${input.truckReg}.`, category: 'Engineering' });
     return wo;
   }),
-  advance: (id: string) => fetchApi(`/engineering/work-orders/${id}/advance`, { method: 'POST' }).then(mapWorkOrder),
-  logRepair: (truckReg: string, defect: string, category: string, amount: number) => 
-    fetchApi('/engineering/repair', { method: 'POST', body: JSON.stringify({ truckReg, defect, category, amount }) }).then(res => {
+  advance: async (id: string) => {
+    const orders = await fetchApi('/work-orders').then((res: any[]) => res.map(mapWorkOrder)).catch(() => []);
+    const current = orders.find((w) => w.id === id);
+    const next = WO_NEXT_STATUS[current?.status ?? 'Reported'] ?? 'In Progress';
+    return fetchApi(`/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status: next }) }).then(mapWorkOrder);
+  },
+  logRepair: (truckReg: string, defect: string, category: string, amount: number) =>
+    // Repairs are recorded as an expense row (server model has no repair ledger).
+    fetchApi('/expenses', { method: 'POST', body: JSON.stringify({
+      requester: 'Engineering',
+      department: 'Engineering / Workshop',
+      type: 'Repairs',
+      category: category || 'Repairs',
+      amount: Number(amount) || 0,
+      description: `Repair — ${truckReg}: ${defect}`,
+      status: 'Approved',
+    }) }).then(res => {
       notificationService.create({ title: 'Repair Logged', body: `Repair logged for ${truckReg} (${defect}).`, category: 'Engineering' });
       return res;
     })
@@ -209,34 +279,45 @@ export const engineeringService = {
 
 export const inventoryService = {
   list: () => fetchApi('/inventory'),
-  requisitions: () => fetchApi('/inventory/requisitions'),
+  // Backend route is /inventory-requisitions (hyphenated).
+  requisitions: () => fetchApi('/inventory-requisitions'),
   release: (itemId: string, qty: number, reqId?: string) => fetchApi(`/inventory/${itemId}/release`, { method: 'POST', body: JSON.stringify({ qty, reqId }) }).then(res => {
     notificationService.create({ title: 'Parts Released', body: `${qty} units released from inventory.`, category: 'Engineering' });
     return res;
   }),
-  updateReorderLevel: (itemId: string, level: number) => fetchApi(`/inventory/${itemId}/reorder`, { method: 'PATCH', body: JSON.stringify({ level }) })
+  // No /reorder sub-route — reorderLevel is a plain field on PATCH /inventory/:id.
+  updateReorderLevel: (itemId: string, level: number) => fetchApi(`/inventory/${itemId}`, { method: 'PATCH', body: JSON.stringify({ reorderLevel: level }) })
 };
 
 export const procurementService = {
   list: () => fetchApi('/procurement'),
-  markProcured: (id: string) => fetchApi(`/procurement/${id}/procure`, { method: 'POST' }).then(res => {
+  // Backend expects PATCH /procurement/:id { status: 'Procured' } (no /procure sub-route).
+  markProcured: (id: string) => fetchApi(`/procurement/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Procured' }) }).then(res => {
     notificationService.create({ title: 'Items Procured', body: `Procurement request ${id.substring(0,6)} fulfilled.`, category: 'Compliance' });
     return res;
   })
 };
 
+// No /compliance endpoints exist server-side yet — fail soft so pages render empty
+// instead of crashing on 404.
 export const complianceService = {
-  getVehicleDocs: () => fetchApi('/compliance/vehicles'),
-  getDriverDocs: () => fetchApi('/compliance/drivers')
+  getVehicleDocs: () => fetchApi('/compliance/vehicles').catch(() => []),
+  getDriverDocs: () => fetchApi('/compliance/drivers').catch(() => [])
 };
 
 export const depreciationService = {
-  getAssetDepreciation: () => fetchApi('/depreciation/assets')
+  getAssetDepreciation: () => fetchApi('/depreciation/assets').catch(() => [])
 };
 
 export const accountService = {
   list: () => fetchApi('/expenses').then((res: any[]) => res.map(mapExpense)),
-  get: (id: string) => fetchApi(`/expenses/${id}`).then(mapExpense),
+  // No GET /expenses/:id on the backend — resolve from the list.
+  get: async (id: string) => {
+    const expenses = await accountService.list().catch(() => []);
+    const found = expenses.find((e) => e.id === id);
+    if (found) return found;
+    return fetchApi(`/expenses/${id}`).then(mapExpense);
+  },
   setStatus: (id: string, status: ExpenseStatus) => fetchApi(`/expenses/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapExpense)
 };
 
