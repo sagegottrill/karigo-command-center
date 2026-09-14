@@ -121,7 +121,7 @@ function ActiveDispatchPage() {
       toast.message("Nothing to export");
       return;
     }
-    const header = ["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Destination", "Status"];
+    const header = ["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Drop-off Location", "Status"];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
       return [
@@ -282,7 +282,7 @@ function ActiveDispatchPage() {
                     <th className="px-3 py-3">Truck Head</th>
                     <th className="px-3 py-3">Tail Type</th>
                     <th className="px-3 py-3">Phone Number</th>
-                    <th className="px-3 py-3">Destination</th>
+                    <th className="px-3 py-3">Drop-off Location</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Action</th>
                   </tr>

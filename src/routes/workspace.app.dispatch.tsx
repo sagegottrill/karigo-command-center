@@ -272,7 +272,7 @@ function DispatchPage() {
                   <span className="flex-1 text-[#344256]">{trip.tailType || "—"}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-24 font-medium text-[#5C6470]">Destination:</span>
+                  <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
                   <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
                 </div>
               </div>
@@ -297,7 +297,7 @@ function DispatchPage() {
         {/* Desktop table */}
         <div className="hidden px-5 py-6 md:block">
           <div className="grid grid-cols-[81px_167px_200px_150px_119px_1fr_auto] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5">
-            {["ID No.", "Date", "Company", "Product", "Truck Type", "Destination"].map((h) => (
+            {["ID No.", "Date", "Company", "Product", "Truck Type", "Drop-off Location"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>

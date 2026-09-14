@@ -111,7 +111,7 @@ export function DispatchDetailsModal({
             <span className="text-[14px] font-bold text-[#1B2432]">Customer Details</span>
             <div className="flex w-full flex-col gap-[15px]">
               <DetailRow label="Customer Name:" value={customerName} />
-              <DetailRow label="Destination:" value={trip.dropoff} />
+              <DetailRow label="Drop-off Location:" value={trip.dropoff} />
               {sites.length > 0
                 ? sites.map((site, i) => (
                     <DetailRow

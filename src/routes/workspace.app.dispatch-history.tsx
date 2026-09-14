@@ -393,7 +393,7 @@ function DispatchHistoryPage() {
         </div>
 
         <div className="hidden grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Dispatch ID", "Date", "Company", "Product", "Truck Type", "Destination", "Status"].map((h) => (
+          {["Dispatch ID", "Date", "Company", "Product", "Truck Type", "Drop-off Location", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -425,7 +425,7 @@ function DispatchHistoryPage() {
                     <span className="flex-1 text-[#344256]">{trip.cargo || "—"}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="w-24 font-medium text-[#5C6470]">Destination:</span>
+                    <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
                     <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
                   </div>
                 </div>

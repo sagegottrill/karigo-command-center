@@ -8,6 +8,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
+import { formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
@@ -146,11 +147,11 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Phone Number,Destination,Status\n";
+    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Drop-off Location,Date Created,Date Dispatched,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${driver?.phone || ""},${t.dropoff},${fleetStatusOf(t)}`;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${t.dropoff},${formatTableDate(t.createdAt)},${formatTableDate(t.dispatchedAt)},${fleetStatusOf(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -358,7 +359,9 @@ function FleetDispatchRequests() {
                 <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
-                <MetaRow label="Destination:" value={trip.dropoff || ""} />
+                <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
+                <MetaRow label="Date Created:" value={formatTableDate(trip.createdAt)} />
+                <MetaRow label="Date Dispatched:" value={formatTableDate(trip.dispatchedAt)} />
               </div>
             );
           })}
@@ -422,15 +425,17 @@ function FleetDispatchRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[980px]">
+            <div className="min-w-[1180px]">
               <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
                 <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <div className="flex items-center tracking-[0.4px]">
-                  <span className="w-[180px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
-                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
-                  <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
-                  <span className="w-[170px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Destination</span>
-                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
+                  <span className="w-[170px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
+                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
+                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
+                  <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Drop-off Location</span>
+                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Created</span>
+                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Dispatched</span>
+                  <span className="w-[100px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
                 <span className="w-[40px] shrink-0" />
               </div>
@@ -446,13 +451,15 @@ function FleetDispatchRequests() {
                       {dispatchId(trip)}
                     </span>
                     <div className="flex items-center tracking-[0.4px]">
-                      <span className="w-[180px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
+                      <span className="w-[170px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
                         {trip.driverName || driver?.name}
                       </span>
-                      <span className="w-[150px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
-                      <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
-                      <span className="w-[170px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                      <span className="w-[110px] shrink-0">
+                      <span className="w-[140px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
+                      <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
+                      <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
+                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatTableDate(trip.createdAt)}</span>
+                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatTableDate(trip.dispatchedAt)}</span>
+                      <span className="w-[100px] shrink-0">
                         <StatusPill status={fleetStatusOf(trip)} />
                       </span>
                     </div>

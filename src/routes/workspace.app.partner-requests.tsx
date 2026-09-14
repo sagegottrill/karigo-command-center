@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHoriz
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
@@ -26,6 +27,11 @@ function isPartnerRequest(trip: Trip) {
     trip.status === "Requested" ||
     trip.status === "Draft"
   );
+}
+
+/** Date Dispatched = the TM's final approval that put the truck on the road. */
+function dispatchedAtOf(t: Trip): string | null {
+  return t.dispatchedAt ?? null;
 }
 
 const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
@@ -132,11 +138,11 @@ function AdminPartnerRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Destination,Status\n";
+    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Drop-off Location,Date Created,Date Dispatched,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toPartnerUiStatus(t)}`,
+          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${formatTableDate(t.createdAt)},${formatTableDate(dispatchedAtOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -321,7 +327,9 @@ function AdminPartnerRequests() {
                 <MetaRow label="Name:" value={trip.customerConsignee || ""} />
                 <MetaRow label="Product:" value={trip.cargo || ""} />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
-                <MetaRow label="Destination:" value={trip.dropoff || ""} />
+                <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
+                <MetaRow label="Date Created:" value={formatTableDate(trip.createdAt)} />
+                <MetaRow label="Date Dispatched:" value={formatTableDate(dispatchedAtOf(trip))} />
               </div>
             );
           })}
@@ -377,14 +385,16 @@ function AdminPartnerRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[720px] w-full">
-              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(76px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+            <div className="min-w-[1060px] w-full">
+              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(92px,0.8fr)_minmax(92px,0.8fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Destination</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Created</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Dispatched</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                 <span className="w-5" />
               </div>
@@ -392,7 +402,7 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(76px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(92px,0.8fr)_minmax(92px,0.8fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                     {requestId(trip)}
@@ -406,6 +416,8 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(trip.createdAt)}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(dispatchedAtOf(trip))}</span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
                   <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0 justify-self-end">
                     <button
@@ -524,7 +536,9 @@ function AdminPartnerRequests() {
             <ReadOnlyField label="Customer Name" value={detail.customerConsignee ?? ""} />
             <ReadOnlyField label="Product" value={detail.cargo} />
             <ReadOnlyField label="Truck Type" value={detail.tailType ?? ""} />
-            <ReadOnlyField label="Destination" value={detail.dropoff} />
+            <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
+            <ReadOnlyField label="Date Created" value={formatTableDate(detail.createdAt)} />
+            <ReadOnlyField label="Date Dispatched" value={formatTableDate(dispatchedAtOf(detail))} />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
                 <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>

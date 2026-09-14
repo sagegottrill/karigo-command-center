@@ -175,6 +175,8 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     driverName: t.driverName ? String(t.driverName) : undefined,
     directCosts: (t.directCosts as Trip["directCosts"]) || undefined,
     status,
+    createdAt: t.createdAt ? String(t.createdAt) : undefined,
+    dispatchedAt: t.dispatchedAt ? String(t.dispatchedAt) : null,
     priority: (t.priority as Trip["priority"]) || "Normal",
     distanceKm: Number(t.distanceKm ?? 0),
     durationLabel: String(t.durationLabel ?? "—"),
