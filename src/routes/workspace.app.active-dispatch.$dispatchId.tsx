@@ -185,25 +185,24 @@ function LogLocationPage() {
               <button
                 type="button"
                 onClick={() => setStatusOpen((v) => !v)}
-                className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] bg-white px-3 text-[13px] font-medium text-[#1B2432] shadow-[0px_1px_4px_rgba(12,12,13,0.08)] hover:border-[#5C6470]/40"
+                className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] bg-white px-3 text-[13px] font-medium shadow-[0px_1px_4px_rgba(12,12,13,0.08)] hover:border-[#5C6470]/40"
+                style={{ color: TRACKING_DELAY_COLOR[delayStatus] }}
               >
                 <span className="size-2.5 rounded-full" style={{ backgroundColor: TRACKING_DELAY_COLOR[delayStatus] }} />
-                Update Status
+                {delayStatus}
                 <ChevronDown className="size-4 text-[#5C6470]" />
               </button>
               {statusOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setStatusOpen(false)} />
-                  <div className="absolute right-0 top-11 z-40 min-w-[190px] rounded-[6px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
+                  <div className="absolute right-0 top-11 z-40 min-w-[190px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
                     {STATUS_OPTIONS.map((opt) => (
                       <button
                         key={opt}
                         type="button"
                         onClick={() => applyStatus(opt)}
-                        className={cn(
-                          "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] font-medium tracking-[0.4px] hover:bg-[#F1F2F4]",
-                          opt === delayStatus ? "text-[#ED351D]" : "text-[#344256]",
-                        )}
+                        className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[14px] font-medium tracking-[0.4px] hover:bg-[#F5F6F8]"
+                        style={{ color: TRACKING_DELAY_COLOR[opt] }}
                       >
                         <span className="size-2.5 rounded-full" style={{ backgroundColor: TRACKING_DELAY_COLOR[opt] }} />
                         {opt}
@@ -216,34 +215,37 @@ function LogLocationPage() {
           </div>
 
           <div className="mt-5">
-            <p className="mb-2.5 text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Customer Details</p>
-            <div className="flex flex-col gap-2">
-              <DetailRow label="Customer Name:" value={trip.customerConsignee || trip.customer || "—"} bold />
-              <DetailRow label="Destination:" value={trip.dropoff || "—"} bold />
-              <DetailRow label="Loading Site(s):" value={sites.length ? sites.join(", ") : trip.pickup || "—"} bold />
+            <div className="rounded-[10px] bg-[#F5F6F8] p-4">
+              <p className="mb-3 text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Customer Details</p>
+              <div className="flex flex-col gap-3">
+                <DetailRow label="Customer Name:" value={trip.customerConsignee || trip.customer || "—"} />
+                <DetailRow label="Destination:" value={trip.dropoff || "—"} />
+                <DetailRow label="Loading Site(s):" value={sites.length ? sites.join(", ") : trip.pickup || "—"} />
+              </div>
             </div>
           </div>
 
-          <div className="mt-5">
-            <p className="mb-2.5 text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">
-              Vehicle & Operator Details
-            </p>
-            <div className="flex flex-col gap-2">
-              <DetailRow label="Truck Head (Cap Number):" value={displayCapFromTrip(trip) || "—"} bold />
-              <DetailRow label="Truck Head Plate Number:" value={displayPlateFromTrip(trip) || "—"} bold />
-              <DetailRow
-                label="Truck Tail assigned:"
-                value={
-                  humanCode(trip.tailNumber, trip.tailType)
-                    ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
-                      ? `${trip.tailType} (${trip.tailNumber})`
-                      : humanCode(trip.tailNumber, trip.tailType)
-                    : "—"
-                }
-                bold
-              />
-              <DetailRow label="Driver Assigned:" value={displayDriverAssigned(driver, trip.driverName) || "—"} bold />
-              <DetailRow label="Driver Contact Phone:" value={driverPhone || "—"} bold />
+          <div className="mt-4">
+            <div className="rounded-[10px] bg-[#F5F6F8] p-4">
+              <p className="mb-3 text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">
+                Vehicle & Operator Details
+              </p>
+              <div className="flex flex-col gap-3">
+                <DetailRow label="Truck Head (Cap Number):" value={displayCapFromTrip(trip) || "—"} />
+                <DetailRow label="Truck Head Plate Number:" value={displayPlateFromTrip(trip) || "—"} />
+                <DetailRow
+                  label="Truck Tail assigned:"
+                  value={
+                    humanCode(trip.tailNumber, trip.tailType)
+                      ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
+                        ? `${trip.tailType} (${trip.tailNumber})`
+                        : humanCode(trip.tailNumber, trip.tailType)
+                      : "—"
+                  }
+                />
+                <DetailRow label="Driver Assigned:" value={displayDriverAssigned(driver, trip.driverName) || "—"} />
+                <DetailRow label="Driver Contact Phone:" value={driverPhone || "—"} />
+              </div>
             </div>
           </div>
 
@@ -358,42 +360,50 @@ function LogLocationPage() {
   );
 }
 
-/** Figma detail row: 13px grey label + 13px semibold dark value on one line. */
-function DetailRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+/** Figma detail row: grey label left, dark semibold value right-aligned. */
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[150px_1fr] gap-x-2 gap-y-0.5 text-[13px] leading-5">
-      <span className="tracking-[0.4px] text-[#5C6470]">{label}</span>
-      <span className={cn("break-words tracking-[0.4px]", bold ? "font-semibold text-[#1B2432]" : "text-[#5C6470]")}>
-        {value}
-      </span>
+    <div className="flex items-start justify-between gap-4 text-[13px] leading-5">
+      <span className="shrink-0 tracking-[0.4px] text-[#5C6470]">{label}</span>
+      <span className="text-right font-semibold tracking-[0.4px] text-[#1B2432]">{value}</span>
     </div>
   );
 }
 
-/** Figma history card: 18px semibold grey title, red 14px location + 10px timestamp. */
+/** Figma history card: 18px grey title over a divider, then a red dot timeline. */
 function HistoryCard({ title, rows }: { title: string; rows: LocationCheckpoint[] }) {
   return (
     <section className="rounded-[10px] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-      <h3 className="mb-3 text-[18px] font-semibold tracking-[0.4px] text-[#5C6470]">{title}</h3>
+      <h3 className="mb-4 border-b border-[#E2E5E9] pb-3 text-[18px] font-semibold tracking-[0.4px] text-[#5C6470]">
+        {title}
+      </h3>
       {rows.length === 0 ? (
         <p className="text-[14px] font-light italic text-[#5C6470]/70">No history logged yet.</p>
       ) : (
-        <ul className="space-y-3">
-          {rows.map((row) => {
+        <ol>
+          {rows.map((row, i) => {
             const d = new Date(row.at);
             const valid = !Number.isNaN(d.getTime());
+            const when = valid
+              ? `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} • ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+              : "";
             return (
-              <li key={row.id} className="flex items-start justify-between gap-3">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">{row.location}</span>
-                <span className="shrink-0 text-right text-[10px] font-medium leading-4 text-[#5C6470]">
-                  {valid
-                    ? `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}\n${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
-                    : ""}
+              <li key={row.id} className="relative flex gap-4 pb-5 last:pb-0">
+                {i < rows.length - 1 ? (
+                  <span className="absolute top-5 bottom-0 left-[7px] w-px bg-[#E2E5E9]" />
+                ) : null}
+                {/* Red ring marker — Figma timeline dot */}
+                <span className="relative z-[1] mt-0.5 grid size-[15px] shrink-0 place-items-center rounded-full border-2 border-[#ED351D] bg-white">
+                  <span className="size-[5px] rounded-full bg-[#ED351D]" />
                 </span>
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">{row.location}</span>
+                  {when ? <span className="text-[10px] font-medium text-[#5C6470]">{when}</span> : null}
+                </div>
               </li>
             );
           })}
-        </ul>
+        </ol>
       )}
     </section>
   );
