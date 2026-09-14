@@ -220,7 +220,7 @@ function AddPartner() {
           </div>
 
           <button type="submit" className="flex items-center justify-center py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors self-end mt-[16px]">
-            <span className="text-[14px] font-[500] text-[#ffffff]">Save Partner</span>
+            <span className="text-[14px] font-[500] text-[#ffffff]">Save Account</span>
           </button>
         </div>
       </form>

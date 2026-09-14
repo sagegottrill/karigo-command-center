@@ -184,6 +184,28 @@ function ReadonlyField({ label, value }: { label: string; value?: string | null 
   );
 }
 
+/** Figma 356:9825 — each detail section ends with a ghost Cancel + solid red Delete Request. */
+function SectionActions({ onDelete }: { onDelete: () => void }) {
+  return (
+    <div className="flex w-full items-center justify-end gap-[30px] border-t border-[#E2E5E9] pt-4">
+      <button
+        type="button"
+        onClick={() => window.history.back()}
+        className="flex h-10 w-[149px] items-center justify-center rounded px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D]"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex h-10 w-[132px] items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+      >
+        Delete Request
+      </button>
+    </div>
+  );
+}
+
 function PartnerRequestDetailsPage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
@@ -489,6 +511,7 @@ function PartnerRequestDetailsPage() {
                     ))}
                   </div>
                 </div>
+                {canDelete ? <SectionActions onDelete={() => setDeleteOpen(true)} /> : null}
               </div>
             </section>
 
@@ -527,6 +550,11 @@ function PartnerRequestDetailsPage() {
                 )}
               </div>
               <div className="h-12 shrink-0 border-t border-[#5C6470]/40 px-5" />
+              {canDelete ? (
+                <div className="flex w-full items-center justify-end gap-[30px] px-5 pb-5">
+                  <SectionActions onDelete={() => setDeleteOpen(true)} />
+                </div>
+              ) : null}
             </section>
 
             {/* Assignment Details */}
@@ -554,6 +582,7 @@ function PartnerRequestDetailsPage() {
                   <ReadonlyField label="Serial Number" value={serial} />
                 </div>
               )}
+              {canDelete ? <SectionActions onDelete={() => setDeleteOpen(true)} /> : null}
             </section>
 
             {/* Request Timeline */}
@@ -605,6 +634,7 @@ function PartnerRequestDetailsPage() {
                   );
                 })}
               </div>
+              {canDelete ? <SectionActions onDelete={() => setDeleteOpen(true)} /> : null}
             </section>
           </div>
         </main>

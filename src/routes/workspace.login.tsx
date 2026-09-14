@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserRound, KeyRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
+import { setActiveRole } from "@/lib/fleetopsx/active-role";
 import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
   clearPortalSession,
@@ -44,6 +45,8 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loginError, setLoginError] = useState(false);
+  const [pendingRoles, setPendingRoles] = useState<string[] | null>(null);
+  const [selectedRole, setSelectedRole] = useState("");
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   useEffect(() => installSessionGuards(), []);
@@ -68,12 +71,99 @@ function LoginPage() {
         return;
       }
       void keepSignedIn;
+      // Multi-role users pick the department to open first (switchable later in the header)
+      const roles = (user.roles ?? []).filter(Boolean);
+      if (roles.length > 1) {
+        setPendingRoles(roles);
+        setSelectedRole(roles[0]);
+        return;
+      }
       enterAuthenticatedApp("/workspace/app");
     } catch (err) {
       setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
     }
   };
+
+  const handleRoleContinue = () => {
+    if (!selectedRole) return;
+    setActiveRole(selectedRole);
+    enterAuthenticatedApp("/workspace/app");
+  };
+
+  if (pendingRoles) {
+    return (
+      <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">
+        <div className="flex flex-col justify-center items-center bg-[#1B2432] lg:bg-[#ffffff] w-full h-screen px-[24px] lg:px-0">
+          <div
+            className="w-full max-w-[500px] border border-[#e2e5e9] rounded-[10px] bg-[#ffffff] flex flex-col pt-[24px] pb-[24px] gap-[24px]"
+            style={{ boxShadow: "0px 4px 16px rgba(12,12,13,0.1), 0px 4px 4px rgba(12,12,13,0.05)" }}
+          >
+            <div className="flex flex-col gap-[14px] w-full px-[24px]">
+              <h1 className="text-[24px] font-[600] leading-[32px] text-[#141a1f] tracking-[0.4px]">Select Role</h1>
+              <p className="text-[14px] font-[400] leading-[20px] text-[#5c6470] tracking-[0.4px]">
+                You are assigned multiple departments. Choose which one to open — you can switch anytime from the header.
+              </p>
+            </div>
+            <div className="flex flex-col gap-[12px] px-[24px]">
+              {pendingRoles.map((role) => {
+                const active = role === selectedRole;
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setSelectedRole(role)}
+                    className={`flex h-[44px] w-full items-center gap-[10px] rounded-[4px] border px-[12px] text-left text-[14px] font-[500] tracking-[0.4px] transition-colors ${
+                      active
+                        ? "border-[#ed351d] bg-[#fdf2f1] text-[#141a1f]"
+                        : "border-[#e2e5e9] bg-white text-[#1b2432] hover:border-[#5c6470]"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${
+                        active ? "border-[#ed351d]" : "border-[#e2e5e9]"
+                      }`}
+                    >
+                      {active ? <span className="h-2 w-2 rounded-full bg-[#ed351d]" /> : null}
+                    </span>
+                    {role}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col gap-[16px] px-[24px]">
+              <button
+                type="button"
+                disabled={!selectedRole}
+                onClick={handleRoleContinue}
+                className={`flex h-[36px] w-full items-center justify-center rounded-[4px] text-[14px] font-[500] leading-[20px] text-white tracking-[0.4px] transition-colors ${
+                  selectedRole ? "bg-[#ed351d] hover:bg-[#d62e19]" : "bg-[rgba(237,53,29,0.4)] cursor-not-allowed"
+                }`}
+              >
+                Continue
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  authService.logout();
+                  setPendingRoles(null);
+                  setUsername("");
+                  setPassword("");
+                }}
+                className="text-center text-[14px] font-[400] text-[#5c6470] hover:underline"
+              >
+                Sign in as a different user
+              </button>
+            </div>
+            <div className="mx-[24px] h-px bg-[#e2e5e9]" />
+            <p className="px-[24px] text-center text-[11.41px] font-[400] uppercase tracking-[0.4px] text-[#5c6470]">
+              POWERED BY FLEETOPSX
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#1B2432] lg:bg-[#ffffff] w-full font-['Inter',sans-serif]">

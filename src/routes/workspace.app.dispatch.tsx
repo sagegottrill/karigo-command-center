@@ -112,7 +112,8 @@ function DispatchPage() {
     setHeads(heads);
     setTails(tails);
     setDrivers(nextDrivers);
-    setPendingOrders(trips.filter((t) => t.status === "Requested" || t.status === "Awaiting Approval"));
+    // Queue = new requests + TM-approved (waiting for FO truck/driver assignment) + assigned (awaiting final TM approval)
+    setPendingOrders(trips.filter((t) => t.status === "Requested" || t.status === "Approved" || t.status === "Awaiting Approval"));
   };
 
   useEffect(() => {
@@ -476,7 +477,7 @@ function DispatchPage() {
         {/* Step 3 — Figma: Direct Cost Estimation + lubricant Quantity/Cost */}
         <div>
           <h3 className="mb-4 border-b border-[#E2E5E9] pb-2 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-            Step 3: Direct Cost Estimation
+            Step 3: Direct Cost Configuration
           </h3>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
             {(

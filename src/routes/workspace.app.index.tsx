@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CentralDashboard } from "@/components/fleetopsx/central-dashboard";
 import {
   AccountantDashboard,
@@ -63,9 +63,17 @@ export const Route = createFileRoute("/workspace/app/")({
 });
 
 function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<OverviewPayload>(EMPTY_OVERVIEW);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  // Fleet Operations has no bespoke dashboard in Figma — land directly on Fleet Dispatch.
+  useEffect(() => {
+    if (getActiveRole(authService.getRoles()) === "Fleet Operations") {
+      navigate({ to: "/workspace/app/dispatch", replace: true });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     setMounted(true);

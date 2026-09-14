@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHoriz
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { adminService, tripService } from "@/lib/fleetopsx/services";
+import { tripService } from "@/lib/fleetopsx/services";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +49,6 @@ function loadingSitesFor(trip: Trip): string[] {
 function AdminPartnerRequests() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [partnerPhones, setPartnerPhones] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -58,16 +57,9 @@ function AdminPartnerRequests() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void Promise.all([tripService.list(), adminService.users().catch(() => [])])
-      .then(([nextTrips, users]) => {
+    void tripService.list()
+      .then((nextTrips) => {
         setTrips(nextTrips);
-        // Live phone lookup by partner company (blank when unknown — never fabricated)
-        const phones: Record<string, string> = {};
-        for (const u of users) {
-          const company = (u.partnerCompanyName || "").trim().toLowerCase();
-          if (company && u.phone && !phones[company]) phones[company] = u.phone;
-        }
-        setPartnerPhones(phones);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -96,17 +88,12 @@ function AdminPartnerRequests() {
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
-  const phoneFor = (t: Trip) => {
-    const company = (t.customer || "").trim().toLowerCase();
-    return (company && partnerPhones[company]) || "";
-  };
-
   const exportCSV = () => {
-    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Phone Number,Destination\n";
+    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Destination\n";
     const csv = filtered
       .map(
         (t) =>
-          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${phoneFor(t)},${t.dropoff}`,
+          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -314,13 +301,12 @@ function AdminPartnerRequests() {
 
           <div className="overflow-x-auto">
             <div className="min-w-[720px] w-full">
-              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Phone Number</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Destination</span>
                 <span className="w-5" />
               </div>
@@ -328,7 +314,7 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                     {requestId(trip)}
@@ -341,7 +327,6 @@ function AdminPartnerRequests() {
                   </span>
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{phoneFor(trip)}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                   <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0 justify-self-end">
                     <button

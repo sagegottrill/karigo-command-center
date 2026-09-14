@@ -112,9 +112,9 @@ function HrStaffDirectory() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">HR & Personnel</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              manage staff records and driver allocations
+              manage staff records and license status
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ function HrStaffDirectory() {
               className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <UserPlus className="size-4" />
-              Add Staff
+              Onboard New Staff
             </button>
           </div>
         </div>
@@ -271,7 +271,7 @@ function HrStaffDirectory() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
           <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <div className="border-b border-[#E2E5E9] py-2">
-              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Add Staff</h3>
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Onboard New Staff</h3>
             </div>
             <label className="flex flex-col gap-1.5">
               <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Name</span>
@@ -306,7 +306,7 @@ function HrStaffDirectory() {
                 onClick={() => void handleAddStaff()}
                 className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
               >
-                Add Staff
+                Onboard New Staff
               </button>
             </div>
           </div>

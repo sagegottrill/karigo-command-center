@@ -268,7 +268,9 @@ export const adminService = {
   roles: () => fetchApi('/admin/roles').catch(() => []), // Local mock if needed
   loginReports: () => fetchApi('/login-reports'),
   createUser: (payload: any) => fetchApi('/users', { method: 'POST', body: JSON.stringify(payload) }),
-  resetPassword: (userId: string) => fetchApi(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ password: 'ChangeMe@2026', passwordResetRequired: true }) }),
+  // Server generates + returns a fresh temp password ({ tempPassword }) when resetPassword flag is set
+  resetPassword: (userId: string) =>
+    fetchApi<{ tempPassword?: string }>(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ resetPassword: true }) }),
   editUser: (id: string, payload: any) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   activateUser: (id: string) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Active' }) }),
   suspendUser: (id: string) => fetchApi(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Suspended' }) }),

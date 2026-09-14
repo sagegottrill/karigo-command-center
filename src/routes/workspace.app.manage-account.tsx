@@ -51,7 +51,7 @@ function AdminManageAccount() {
   const [detailUser, setDetailUser] = useState<User | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [sharedTempPassword, setSharedTempPassword] = useState("");
+  const [sharedCredentials, setSharedCredentials] = useState({ username: "", password: "" });
   const filterRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -119,9 +119,10 @@ function AdminManageAccount() {
     if (!confirmAction) return;
     switch (confirmAction.type) {
       case "password": {
-        const tempPassword = await adminService.resetPassword(confirmAction.userId);
-        const pwd = typeof tempPassword === "string" ? tempPassword : "";
-        setSharedTempPassword(pwd);
+        const res: any = await adminService.resetPassword(confirmAction.userId);
+        const pwd = typeof res?.tempPassword === "string" ? res.tempPassword : "";
+        const user = users.find((u) => u.id === confirmAction.userId);
+        setSharedCredentials({ username: user?.username || user?.email || "", password: pwd });
         toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", { duration: 12_000 });
         setConfirmAction(null);
         setShowShareModal(true);
@@ -152,7 +153,7 @@ function AdminManageAccount() {
     }
   };
 
-  const shareText = `Hello,\n\nYour account password has been reset for the Transport Manager Portal.\nTemporary password: ${sharedTempPassword || "(see your administrator)"}\nLogin at: ${window.location.origin}`;
+  const shareText = `Hello,\n\nYour Transport Manager Portal account is ready.\nUsername: ${sharedCredentials.username || "(see your administrator)"}\nTemporary password: ${sharedCredentials.password || "(see your administrator)"}\nLogin at: ${window.location.origin}`;
 
   return (
     <>

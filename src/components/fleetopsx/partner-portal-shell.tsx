@@ -177,7 +177,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             <div>
               <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Partner Portal</h1>
               <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-                Track your transport requests and their current statuses
+                MANAGE the lifecycle of every account within the company to maintain data integrity.
               </p>
             </div>
             <NotificationPopover triggerClassName="relative grid size-10 place-items-center rounded-full border border-[#E2E5E9] bg-white text-[#5C6470]">
