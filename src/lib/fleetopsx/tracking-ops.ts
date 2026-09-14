@@ -1,16 +1,21 @@
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
-import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "./status-buckets";
+import { ACTIVE_DISPATCH_BUCKETS, isInBucket, tripBucket } from "./status-buckets";
 
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
 /**
  * Active Dispatch board = the shared ACTIVE_DISPATCH_BUCKETS definition
- * (scheduled + everything moving, incl. a truck stopped en route). Previously
- * this raw list also matched a bare `Stopped` with no truck — i.e. DECLINED
- * requests appeared on the tracking board with their rejected cargo.
+ * (scheduled + everything moving, incl. a truck stopped en route) PLUS trips
+ * Fleet Operations has already assigned but the TM hasn't final-approved yet
+ * — a truck is committed at that point, so Tracking must see it. Previously
+ * this raw list also matched a bare `Stopped` with no truck (declined cargo).
  */
 export function isActiveDispatchTrip(trip: Trip) {
-  return isInBucket(trip, ACTIVE_DISPATCH_BUCKETS);
+  if (isInBucket(trip, ACTIVE_DISPATCH_BUCKETS)) return true;
+  return (
+    tripBucket(trip) === "awaiting" &&
+    Boolean(trip.driverId || trip.headId || trip.driverName || trip.truckReg)
+  );
 }
 
 export function getTrackingDelayStatus(trip: Trip): TrackingDelayStatus {
