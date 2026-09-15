@@ -9,7 +9,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
-import { formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -356,7 +356,7 @@ function FleetDispatchRequests() {
                               setEditing(trip);
                             }}
                           >
-                            Edit Assignment
+                            Modify
                           </button>
                         ) : null}
                         <button
@@ -452,7 +452,7 @@ function FleetDispatchRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[1180px]">
+            <div className="min-w-[1260px]">
               <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
                 <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <div className="flex items-center tracking-[0.4px]">
@@ -460,8 +460,8 @@ function FleetDispatchRequests() {
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
                   <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Drop-off Location</span>
-                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Requested</span>
-                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Approved</span>
+                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Requested</span>
+                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Approved</span>
                   <span className="w-[100px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
                 <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Actions</span>
@@ -484,24 +484,13 @@ function FleetDispatchRequests() {
                       <span className="w-[140px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
                       <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
                       <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatDateTimeStamp(trip.createdAt)}</span>
-                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatDateTimeStamp(trip.dispatchedAt)}</span>
+                      <DateCell value={trip.createdAt} />
+                      <DateCell value={trip.dispatchedAt} />
                       <span className="w-[100px] shrink-0">
                         <StatusPill status={fleetStatusOf(trip)} />
                       </span>
                     </div>
                     <div className="relative flex shrink-0 items-center gap-2">
-                      {/* Always-visible Modify action: the TM must be able to correct
-                          FO's inputs without hunting through the overflow menu. */}
-                      {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditing(trip)}
-                          className="flex h-7 items-center rounded bg-[#1B2432] px-2.5 text-[12px] font-medium tracking-[0.4px] text-white hover:bg-[#2A3547]"
-                        >
-                          Modify
-                        </button>
-                      ) : null}
                       <button
                         type="button"
                         className="grid size-5 place-items-center text-[#1B2432]"
@@ -676,6 +665,17 @@ function FleetDispatchRequests() {
         />
       )}
     </>
+  );
+}
+
+/** Two-line date cell: date on top, time under it — never truncated. */
+function DateCell({ value }: { value?: string | null }) {
+  const { date, time } = formatDateLines(value);
+  return (
+    <span className="w-[150px] shrink-0 text-[14px] leading-4 text-[#5C6470]">
+      {date}
+      {time && <span className="block text-[12px] text-[#627084]">{time}</span>}
+    </span>
   );
 }
 

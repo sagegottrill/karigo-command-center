@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHoriz
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -391,8 +391,8 @@ function AdminPartnerRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[1060px] w-full">
-              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(92px,0.8fr)_minmax(92px,0.8fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+            <div className="min-w-[1180px] w-full">
+              <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
@@ -408,7 +408,7 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(92px,0.8fr)_minmax(92px,0.8fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                     {requestId(trip)}
@@ -422,8 +422,22 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatDateTimeStamp(trip.createdAt)}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatDateTimeStamp(dispatchedAtOf(trip))}</span>
+                  <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
+                    {formatDateLines(trip.createdAt).date}
+                    {formatDateLines(trip.createdAt).time && (
+                      <span className="block text-[12px] text-[#627084]">{formatDateLines(trip.createdAt).time}</span>
+                    )}
+                  </span>
+                  <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
+                    {dispatchedAtOf(trip) ? (
+                      <>
+                        {formatDateLines(dispatchedAtOf(trip)).date}
+                        <span className="block text-[12px] text-[#627084]">{formatDateLines(dispatchedAtOf(trip)).time}</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
                   <div className="relative shrink-0 justify-self-end">
                     <button
