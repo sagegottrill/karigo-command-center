@@ -384,7 +384,11 @@ function AdminManageAccount() {
                   </span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
-                  <div className="flex shrink-0 items-center justify-end gap-2">
+                  <div className="flex w-[92px] shrink-0 items-center justify-end gap-2">
+                    {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
+                    <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded px-2 text-[10px] font-medium text-white">
+                      {u.status === "Suspended" ? <span className="bg-[#ED351D] px-2.5 py-0.5 rounded">Suspended</span> : null}
+                    </span>
                     <RowActionMenu
                       open={menuFor === u.id}
                       onOpenChange={(o) => setMenuFor(o ? u.id : null)}
@@ -399,11 +403,6 @@ function AdminManageAccount() {
                         { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
                       ]}
                     />
-                    {u.status === "Suspended" && (
-                      <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
-                        Suspended
-                      </span>
-                    )}
                   </div>
                 </div>
               ))}

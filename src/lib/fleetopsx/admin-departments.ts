@@ -1,7 +1,8 @@
-/** Figma 93:1374 / 42:700 Workplace List labels */
+/** Figma 93:1374 / 42:700 Workplace List labels (+ Tracking Ops department). */
 export const ADMIN_DEPARTMENTS = [
   "Transport Admin",
   "Fleet Operations",
+  "Tracking Operations",
   "Fuel Management",
   "Engineering and Maintenance",
   "Parts and Store",
@@ -21,6 +22,8 @@ export function departmentToRoleKey(department: string): string {
     case "Fleet Operations":
     case "Fuel Management":
       return "Fleet Operations";
+    case "Tracking Operations":
+      return "Tracking";
     case "Engineering and Maintenance":
       return "Engineering";
     case "Parts and Store":

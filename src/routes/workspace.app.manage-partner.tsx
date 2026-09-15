@@ -362,11 +362,12 @@ function AdminManagePartner() {
                       <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">
                         {u.partnerCompanyName || u.name}
                       </p>
-                      {u.status === "Suspended" && (
-                        <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
-                          Suspended
-                        </span>
-                      )}
+                      {/* Fixed-width status slot keeps mobile cards aligned when suspended. */}
+                      <span className="inline-flex h-[18px] min-w-[64px] items-center justify-center">
+                        {u.status === "Suspended" && (
+                          <span className="rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">Suspended</span>
+                        )}
+                      </span>
                     </div>
                     <div className="flex flex-col gap-1.5 text-[12px]">
                       <div className="flex gap-2">
@@ -423,11 +424,12 @@ function AdminManagePartner() {
                             { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
                           ]}
                         />
-                        {u.status === "Suspended" && (
-                          <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
-                            Suspended
-                          </span>
-                        )}
+                        {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
+                        <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded">
+                          {u.status === "Suspended" && (
+                            <span className="bg-[#ED351D] px-2.5 py-0.5 text-[10px] font-medium text-white rounded">Suspended</span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   ))}

@@ -80,6 +80,8 @@ export function displayStaffDepartment(department: string) {
     case "Engineering":
     case "Engineering and Maintenance":
       return "Engineering and Maintenance";
+    case "Tracking":
+      return "Tracking Operations";
     default:
       return department;
   }

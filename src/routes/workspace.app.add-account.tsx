@@ -89,7 +89,8 @@ function AdminAddAccount() {
     }
   };
 
-  const shareText = `Hello ${firstName},\n\nYour account has been created for Transport Manager Portal.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}`;
+  // Share text reflects the department the account was created FOR (not a hardcoded portal).
+  const shareText = `Hello ${firstName},\n\nYour ${department || "Petroline"} account has been created.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/login`; 
 
   const handleShareDone = () => {
     setShowShareModal(false);
