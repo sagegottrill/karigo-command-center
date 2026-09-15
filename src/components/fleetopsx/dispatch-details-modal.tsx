@@ -51,6 +51,7 @@ export function DispatchDetailsModal({
   onClose,
   onApprove,
   onDecline,
+  onEdit,
 }: {
   trip: Trip;
   driver?: Driver | undefined;
@@ -58,6 +59,8 @@ export function DispatchDetailsModal({
   onClose: () => void;
   onApprove: () => void;
   onDecline: () => void;
+  /** TM-only: open the Modify Assignment editor for FO-configured dispatches. */
+  onEdit?: () => void;
 }) {
   const customerName = trip.customerConsignee;
   const partner =
@@ -87,6 +90,10 @@ export function DispatchDetailsModal({
   const hasVehicle = Boolean(capNumber || plate || tailAssigned || driverLabel || driverPhone);
   const hasExpense = Boolean(costs || typeof total === "number");
   const canAct = trip.status === "Requested";
+  // TM can modify what FO configured while the dispatch is still pre-road.
+  const canEdit =
+    Boolean(onEdit) &&
+    (trip.status === "Awaiting Approval" || trip.status === "Approved" || trip.status === "Scheduled");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
@@ -179,24 +186,35 @@ export function DispatchDetailsModal({
           >
             Go Back
           </button>
-          {canAct && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {canEdit && (
               <button
                 type="button"
-                onClick={onDecline}
-                className="flex h-8 items-center rounded bg-[#ED351D] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                onClick={onEdit}
+                className="flex h-8 items-center rounded border border-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-[#1B2432]"
               >
-                Decline Request
+                Edit Assignment
               </button>
-              <button
-                type="button"
-                onClick={onApprove}
-                className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
-              >
-                Approve Request
-              </button>
-            </div>
-          )}
+            )}
+            {canAct && (
+              <>
+                <button
+                  type="button"
+                  onClick={onDecline}
+                  className="flex h-8 items-center rounded bg-[#ED351D] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                >
+                  Decline Request
+                </button>
+                <button
+                  type="button"
+                  onClick={onApprove}
+                  className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                >
+                  Approve Request
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

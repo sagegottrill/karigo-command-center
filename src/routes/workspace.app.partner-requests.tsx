@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { formatTableDate } from "@/lib/fleetopsx/display-dates";
@@ -106,7 +106,6 @@ function AdminPartnerRequests() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void tripService.list()
@@ -121,14 +120,6 @@ function AdminPartnerRequests() {
   useAutoRefresh(() => {
     void tripService.list().then(setTrips).catch(() => {});
   });
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const listing = useMemo(() => trips.filter(isPartnerRequest), [trips]);
 
@@ -287,7 +278,15 @@ function AdminPartnerRequests() {
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{requestId(trip)}</span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={toPartnerUiStatus(trip)} />
-                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
+                    {/* Fixed backdrop (desktop menu already had one): closes on outside
+                        click without stealing taps inside the menu. The old shared-ref
+                        mousedown handler resolved to the desktop section's (hidden)
+                        wrapper on mobile, so every menu action died before its click
+                        fired — Approve/Decline/View Details silently did nothing. */}
+                    <div className="relative">
+                    {menuFor === trip.id && (
+                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                    )}
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -426,7 +425,7 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(trip.createdAt)}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(dispatchedAtOf(trip))}</span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
-                  <div ref={menuFor === trip.id ? menuRef : undefined} className="relative shrink-0 justify-self-end">
+                  <div className="relative shrink-0 justify-self-end">
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -441,7 +440,6 @@ function AdminPartnerRequests() {
                     )}
                     {menuFor === trip.id && (
                       <div
-                        ref={menuFor === trip.id ? menuRef : undefined}
                         className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]"
                       >
                         <button

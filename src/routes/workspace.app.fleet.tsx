@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
+import { TmEditAssignmentModal } from "@/components/fleetopsx/tm-edit-assignment-modal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
   displayCapFromTrip,
@@ -13,7 +14,7 @@ import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetop
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
-import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
+import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/fleet")({
@@ -90,6 +91,8 @@ function FleetDispatchRequests() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [heads, setHeads] = useState<TruckHead[]>([]);
+  const [tails, setTails] = useState<TruckTail[]>([]);
+  const [editing, setEditing] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
@@ -97,7 +100,6 @@ function FleetDispatchRequests() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -105,11 +107,12 @@ function FleetDispatchRequests() {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;
     }
-    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads()])
-      .then(([nextTrips, nextDrivers, nextHeads]) => {
+    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads(), fleetService.listTails()])
+      .then(([nextTrips, nextDrivers, nextHeads, nextTails]) => {
         setTrips(nextTrips);
         setDrivers(nextDrivers);
         setHeads(nextHeads);
+        setTails(nextTails);
       })
       .finally(() => setLoading(false));
   }, [navigate]);
@@ -117,22 +120,15 @@ function FleetDispatchRequests() {
   // Near real-time: 10s poll (+ focus / tab-visible) — trips/drivers/heads stay
   // current without a manual refresh.
   useAutoRefresh(() => {
-    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads()])
-      .then(([nextTrips, nextDrivers, nextHeads]) => {
+    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads(), fleetService.listTails()])
+      .then(([nextTrips, nextDrivers, nextHeads, nextTails]) => {
         setTrips(nextTrips);
         setDrivers(nextDrivers);
         setHeads(nextHeads);
+        setTails(nextTails);
       })
       .catch(() => {});
   });
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const driverById = useMemo(() => {
     const map = new Map<string, Driver>();
@@ -325,7 +321,13 @@ function FleetDispatchRequests() {
                   </span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={fleetStatusOf(trip)} />
-                    <div ref={menuFor === trip.id ? menuRef : undefined} className="relative">
+                    <div className="relative">
+                    {/* Fixed backdrop: same outside-click pattern as the desktop menu.
+                        The old shared-ref mousedown handler resolved to the desktop
+                        section's wrapper here too, killing every mobile menu action. */}
+                    {menuFor === trip.id && (
+                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                    )}
                     <button
                       type="button"
                       className="grid size-5 place-items-center text-[#1B2432]"
@@ -345,6 +347,18 @@ function FleetDispatchRequests() {
                         >
                           View Details
                         </button>
+                        {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
+                          <button
+                            type="button"
+                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setEditing(trip);
+                            }}
+                          >
+                            Edit Assignment
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className={cn(
@@ -492,7 +506,6 @@ function FleetDispatchRequests() {
                       )}
                       {menuFor === trip.id && (
                         <div
-                          ref={menuFor === trip.id ? menuRef : undefined}
                           className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]"
                         >
                           <button
@@ -505,6 +518,18 @@ function FleetDispatchRequests() {
                           >
                             View Details
                           </button>
+                          {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
+                            <button
+                              type="button"
+                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+                              onClick={() => {
+                                setMenuFor(null);
+                                setEditing(trip);
+                              }}
+                            >
+                              Edit Assignment
+                            </button>
+                          ) : null}
                           {fleetStatusOf(trip) === "Awaiting Approval" ? (
                             <button
                               type="button"
@@ -618,6 +643,24 @@ function FleetDispatchRequests() {
           onDecline={() => {
             handleDecline(detail);
             setDetail(null);
+          }}
+          onEdit={() => {
+            setEditing(detail);
+            setDetail(null);
+          }}
+        />
+      )}
+
+      {editing && (
+        <TmEditAssignmentModal
+          trip={editing}
+          heads={heads}
+          tails={tails}
+          drivers={drivers}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            void tripService.list().then(setTrips);
+            window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
           }}
         />
       )}
