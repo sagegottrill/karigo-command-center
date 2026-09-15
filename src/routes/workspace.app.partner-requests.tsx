@@ -371,7 +371,9 @@ function AdminPartnerRequests() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[1180px] w-full">
+            {/* No min-width floor: the fr grid flexes to the viewport, so the
+                page never scrolls sideways on smaller laptops. */}
+            <div className="w-full">
               <div className="grid grid-cols-[minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
