@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal, Upload, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Pencil, Search, SlidersHorizontal, Upload, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -47,10 +47,19 @@ function HrStaffDirectory() {
   const [newStaff, setNewStaff] = useState({
     name: "",
     phone: "",
-    licenseNumber: "",
-    licenseCategory: "Professional",
-    licenseExpiry: "2026-12-31",
+    staffId: "",
   });
+  const [idEdit, setIdEdit] = useState<{ driver: Driver; value: string } | null>(null);
+
+  /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
+  const nextStaffId = () => {
+    let max = 0;
+    for (const d of drivers) {
+      const m = /(\d+)\s*$/.exec((displayDriverSalary(d) || d.employeeId || "").trim());
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `P${String(max + 1).padStart(4, "0")}`;
+  };
 
   const refreshDrivers = async () => {
     const list = await driverService.list();
@@ -78,18 +87,51 @@ function HrStaffDirectory() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const handleAddStaff = async () => {
-    if (!newStaff.name || !newStaff.phone) {
+    const staffId = newStaff.staffId.trim().toUpperCase();
+    if (!newStaff.name.trim() || !newStaff.phone.trim()) {
       toast.error("Name and Phone are required.");
       return;
     }
+    if (!staffId) {
+      toast.error("Driver ID is required (e.g. P0123).");
+      return;
+    }
     try {
-      await driverService.create(newStaff);
+      // The live Driver model is { staffId (unique), name, phone, status } —
+      // send exactly those so Prisma doesn't reject unknown fields.
+      await driverService.create({
+        name: newStaff.name.trim(),
+        phone: newStaff.phone.trim(),
+        staffId,
+        status: "Active",
+      });
       toast.success("Staff added successfully.");
       setIsAddOpen(false);
-      setNewStaff({ name: "", phone: "", licenseNumber: "", licenseCategory: "Professional", licenseExpiry: "2026-12-31" });
+      setNewStaff({ name: "", phone: "", staffId: "" });
       await refreshDrivers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add staff");
+      const msg = err instanceof Error ? err.message : "Failed to add staff";
+      toast.error(/unique/i.test(msg) ? `Driver ID ${staffId} is already assigned to another driver.` : msg);
+    }
+  };
+
+  /** Add or correct the Driver ID (staffId) of an existing driver. */
+  const handleSaveId = async () => {
+    if (!idEdit) return;
+    const staffId = idEdit.value.trim().toUpperCase();
+    if (!staffId) {
+      toast.error("Enter a Driver ID (e.g. P0123).");
+      return;
+    }
+    try {
+      // staffId is the live column behind the driver's ID everywhere.
+      await driverService.update(idEdit.driver.id, { staffId } as never);
+      toast.success(`Driver ID ${staffId} saved for ${idEdit.driver.name}.`);
+      setIdEdit(null);
+      await refreshDrivers();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save Driver ID";
+      toast.error(/unique/i.test(msg) ? "That Driver ID is already assigned to another driver." : msg);
     }
   };
 
@@ -128,7 +170,10 @@ function HrStaffDirectory() {
             </button>
             <button
               type="button"
-              onClick={() => setIsAddOpen(true)}
+              onClick={() => {
+                setNewStaff((s) => ({ ...s, staffId: s.staffId || nextStaffId() }));
+                setIsAddOpen(true);
+              }}
               className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <UserPlus className="size-4" />
@@ -156,7 +201,7 @@ function HrStaffDirectory() {
             </button>
           </div>
 
-          <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_120px] items-center gap-6 border-b border-[#E2E5E9] py-[15px] md:grid">
+          <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
             {["Staff ID", "Name", "Phone", "License", "Assigned Asset", "Status"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
@@ -204,9 +249,16 @@ function HrStaffDirectory() {
                       {driver.status}
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setIdEdit({ driver, value: displayDriverSalary(driver) || "" })}
+                    className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
+                  >
+                    {staffId === "—" ? "Add Driver ID" : "Edit Driver ID"}
+                  </button>
                 </div>
 
-                <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_120px] items-center gap-6 border-b border-[#E2E5E9] py-2.5 md:grid">
+                <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
                   <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone}</span>
@@ -215,6 +267,15 @@ function HrStaffDirectory() {
                   <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
                     {driver.status}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setIdEdit({ driver, value: displayDriverSalary(driver) || "" })}
+                    className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
+                    aria-label={`Set Driver ID for ${driver.name}`}
+                    title={staffId === "—" ? "Add Driver ID" : "Edit Driver ID"}
+                  >
+                    <Pencil className="size-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -282,18 +343,22 @@ function HrStaffDirectory() {
               />
             </label>
             <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                Driver ID <span className="text-[#ED351D]">*</span>
+              </span>
+              <input
+                value={newStaff.staffId}
+                onChange={(e) => setNewStaff({ ...newStaff, staffId: e.target.value })}
+                placeholder="example: P0123"
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+              <span className="text-[11px] text-[#5C6470]">Shown on dispatches, security logs and the driver roster. Pre-filled with the next free ID.</span>
+            </label>
+            <label className="flex flex-col gap-1.5">
               <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Phone</span>
               <input
                 value={newStaff.phone}
                 onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License</span>
-              <input
-                value={newStaff.licenseNumber}
-                onChange={(e) => setNewStaff({ ...newStaff, licenseNumber: e.target.value })}
                 className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
               />
             </label>
@@ -307,6 +372,46 @@ function HrStaffDirectory() {
                 className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
               >
                 Onboard New Staff
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {idEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+            <div className="border-b border-[#E2E5E9] py-2">
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Set Driver ID</h3>
+            </div>
+            <p className="text-[13px] text-[#5C6470]">
+              {idEdit.driver.name} · {idEdit.driver.phone || "no phone"}
+            </p>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                Driver ID <span className="text-[#ED351D]">*</span>
+              </span>
+              <input
+                autoFocus
+                value={idEdit.value}
+                onChange={(e) => setIdEdit({ ...idEdit, value: e.target.value })}
+                placeholder="example: P0123"
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+              <span className="text-[11px] text-[#5C6470]">
+                This ID becomes the driver's identity across dispatch, security log and roster. It must be unique.
+              </span>
+            </label>
+            <div className="flex items-center justify-between pt-1">
+              <button type="button" onClick={() => setIdEdit(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveId()}
+                className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
+              >
+                Save Driver ID
               </button>
             </div>
           </div>
