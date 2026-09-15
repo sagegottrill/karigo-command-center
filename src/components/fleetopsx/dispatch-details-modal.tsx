@@ -6,6 +6,9 @@ import {
   looksLikeUuid,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { toast } from "sonner";
+import { Download, Printer } from "lucide-react";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -42,6 +45,141 @@ function expenseTotal(trip: Trip) {
   const costs = trip.directCosts;
   if (!costs) return undefined;
   return costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance;
+}
+
+/** Every visible modal field as { label, value } — one source for print + CSV. */
+function dispatchFields(trip: Trip, driver: Driver | undefined, head: TruckHead | undefined) {
+  const customerName = trip.customerConsignee;
+  const partner =
+    trip.customer && trip.customer !== "Customer Portal" ? trip.customer.toUpperCase() : undefined;
+  const sitesRaw = trip.loadingSite?.filter(Boolean) ?? [];
+  const sites =
+    sitesRaw.length > 0
+      ? sitesRaw.flatMap((s) => s.split(/[;,]/).map((x) => x.trim()).filter(Boolean))
+      : (trip.pickup ?? "")
+          .split(/[;,]/)
+          .map((x) => x.trim())
+          .filter(Boolean);
+  const capNumber = displayHeadCap(head, trip.headId);
+  const plateRaw = head?.registration || trip.truckReg;
+  const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
+  const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
+    ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
+      ? `${trip.tailType} (${trip.tailNumber})`
+      : humanCode(trip.tailNumber, trip.tailType)
+    : undefined;
+  const driverLabel = displayDriverAssigned(driver, trip.driverName || driver?.name);
+  const costs = trip.directCosts;
+  const total = expenseTotal(trip);
+  const money = (n: number) => formatMoney(n);
+  return {
+    ticket: ticketId(trip),
+    partner,
+    status: trip.status,
+    dateRequested: formatDateTimeStamp(trip.createdAt),
+    dateApproved: formatDateTimeStamp(trip.dispatchedAt),
+    customer: [
+      { label: "Customer Name", value: customerName },
+      { label: "Drop-off Location", value: trip.dropoff },
+      ...sites.map((s, i) => ({
+        label: sites.length === 1 ? "Loading Site" : `Loading Site ${i + 1}`,
+        value: s,
+      })),
+    ] as { label: string; value?: string | undefined }[],
+    vehicle: [
+      { label: "Truck Head (Cap Number)", value: capNumber },
+      { label: "Truck Head Plate Number", value: plate },
+      { label: "Truck Tail assigned", value: tailAssigned },
+      { label: "Driver Assigned", value: driverLabel },
+      { label: "Driver Contact Phone", value: driver?.phone },
+    ] as { label: string; value?: string | undefined }[],
+    expense: costs
+      ? ([
+          { label: "Trip Allowance", value: money(costs.tripAllowance) },
+          { label: "Return Waybill", value: money(costs.returnWaybill) },
+          { label: "Motor Boy Allowance", value: money(costs.motorBoy) },
+          { label: "Transit Road Tickets", value: money(costs.ticket) },
+          { label: "Extra Contingency", value: money(costs.extraAllowance) },
+          { label: "Lubricant", value: costs.lubricantType },
+          ...(typeof total === "number" ? [{ label: "Total Configured Expense", value: money(total) }] : []),
+        ] as { label: string; value?: string | undefined }[])
+      : [],
+  };
+}
+
+/** Download the dispatch details as a spreadsheet-friendly CSV. */
+function exportCsv(fields: ReturnType<typeof dispatchFields>) {
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const rows: string[] = [
+    esc("Petroline Transport Ltd — Dispatch Details"),
+    esc(`Ticket ${fields.ticket}${fields.partner ? ` • ${fields.partner}` : ""}`),
+    esc(`Status: ${fields.status}`),
+    esc(`Date Requested: ${fields.dateRequested}`),
+    esc(`Date Approved: ${fields.dateApproved}`),
+    "",
+    esc("Section"),
+    esc("Field"),
+    esc("Value"),
+  ];
+  for (const [section, items] of [
+    ["Customer Details", fields.customer],
+    ["Vehicle & Operator Details", fields.vehicle],
+    ["Expense Configuration Breakdown", fields.expense],
+  ] as const) {
+    if (items.length === 0) continue;
+    for (const item of items) {
+      if (!item.value) continue;
+      rows.push([esc(section), esc(item.label), esc(item.value)].join(","));
+    }
+  }
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dispatch_${fields.ticket}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("Dispatch details exported.");
+}
+
+/** Open a clean print sheet with just the dispatch details. */
+function printDispatch(fields: ReturnType<typeof dispatchFields>) {
+  const section = (title: string, items: { label: string; value?: string | undefined }[]) =>
+    items.length === 0
+      ? ""
+      : `<h2>${title}</h2><table>${items
+          .filter((i) => i.value)
+          .map((i) => `<tr><td class="l">${i.label}:</td><td>${i.value}</td></tr>`)
+          .join("")}</table>`;
+  const w = window.open("", "_blank", "width=720,height=900");
+  if (!w) {
+    toast.error("Allow pop-ups for this site to print.");
+    return;
+  }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>${fields.ticket} — Dispatch Details</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 32px; color: #1B2432; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .meta { color: #5C6470; font-size: 11px; letter-spacing: .4px; text-transform: uppercase; margin-bottom: 4px; }
+    .stamp { color: #5C6470; font-size: 10px; margin-bottom: 18px; }
+    h2 { font-size: 14px; margin: 20px 0 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 6px 0; font-size: 13px; border-bottom: 1px solid #E2E5E9; }
+    td.l { color: #5C6470; width: 45%; }
+    .total td { font-weight: bold; color: #ED351D; }
+    @media print { body { margin: 12mm; } }
+  </style></head><body>
+    <h1>Dispatch Details</h1>
+    <div class="meta">Ticket ${fields.ticket}${fields.partner ? ` &bull; ${fields.partner}` : ""}</div>
+    <div class="stamp">Status: ${fields.status} &nbsp;|&nbsp; Requested: ${fields.dateRequested} &nbsp;|&nbsp; Approved: ${fields.dateApproved} &nbsp;|&nbsp; Printed: ${formatDateLines(new Date().toISOString()).date} ${formatDateLines(new Date().toISOString()).time}</div>
+    ${section("Customer Details", fields.customer)}
+    ${section("Vehicle & Operator Details", fields.vehicle)}
+    ${section("Expense Configuration Breakdown", fields.expense)}
+    <script>window.onload = function () { window.print(); };</script>
+  </body></html>`);
+  w.document.close();
+  w.focus();
 }
 
 export function DispatchDetailsModal({
@@ -94,6 +232,7 @@ export function DispatchDetailsModal({
   const canEdit =
     Boolean(onEdit) &&
     (trip.status === "Awaiting Approval" || trip.status === "Approved" || trip.status === "Scheduled");
+  const fields = dispatchFields(trip, driver, head);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
@@ -179,14 +318,32 @@ export function DispatchDetailsModal({
         )}
 
         <div className="flex items-center justify-between pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded px-3 py-1.5 text-[14px] font-medium tracking-[0.4px] text-[#5C6470]"
-          >
-            Go Back
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => printDispatch(fields)}
+              className="flex h-8 items-center gap-1.5 rounded border border-[#E2E5E9] px-2.5 text-[12px] tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+            >
+              <Printer className="size-4" strokeWidth={1.75} />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => exportCsv(fields)}
+              className="flex h-8 items-center gap-1.5 rounded border border-[#E2E5E9] px-2.5 text-[12px] tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
+            >
+              <Download className="size-4" strokeWidth={1.75} />
+              Export CSV
+            </button>
+          </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded px-3 py-1.5 text-[14px] font-medium tracking-[0.4px] text-[#5C6470]"
+            >
+              Go Back
+            </button>
             {canEdit && (
               <button
                 type="button"
