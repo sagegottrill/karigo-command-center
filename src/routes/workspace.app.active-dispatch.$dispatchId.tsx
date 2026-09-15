@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronDown, MapPin, MapPinCheck, Phone } from "lucide-react";
+import { Check, ChevronLeft, ChevronDown, MapPin, MapPinCheck, Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -15,9 +15,13 @@ import {
   dispatchDisplayId,
   getTrackingDelayStatus,
   listCheckpoints,
+  loadingSiteProgress,
   normalizeLeg,
+  normalizeSiteKey,
+  stageDots,
   TRACKING_DELAY_COLOR,
   TRACKING_LEGS,
+  tripLoadingSites,
   type LocationCheckpoint,
   type TrackingDelayStatus,
   type TrackingLeg,
@@ -99,18 +103,6 @@ function LogLocationPage() {
     };
   }, [dispatchId, navigate]);
 
-  /** Checkpoints grouped per stage — each stage keeps growing its own sub-dots. */
-  const byStage = useMemo(() => {
-    const groups = new Map<TrackingLeg, LocationCheckpoint[]>();
-    for (const stage of TRACKING_LEGS) groups.set(stage, []);
-    for (const cp of checkpoints) {
-      const list = groups.get(normalizeLeg(cp.leg)) ?? [];
-      list.push(cp);
-      groups.set(normalizeLeg(cp.leg), list);
-    }
-    return groups;
-  }, [checkpoints]);
-
   /**
    * Status dropdown is a TRACKING LABEL, not a trip-status write. Changing it
    * used to PATCH the trip to Delayed/Stopped — which silently re-bucketed the
@@ -161,7 +153,11 @@ function LogLocationPage() {
 
   const company =
     trip.customer && trip.customer !== "Customer Portal" ? trip.customer : trip.customerConsignee || "";
-  const sites = (trip.loadingSite ?? []).filter(Boolean);
+  // A multiple-loading request lists every site the truck must collect, in
+  // order. Tracking logs them one by one, so the site list drives both the log
+  // form (pick which site you are at) and the history (what is still outstanding).
+  const sites = tripLoadingSites(trip);
+  const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
 
   return (
@@ -317,6 +313,48 @@ function LogLocationPage() {
               </div>
             </div>
 
+            {/* Multiple-loading requests: pick the site being collected. Logging
+                per site is what gives the partner a breakdown under Loading. */}
+            {leg === "Loading" && sites.length > 0 ? (
+              <div className="mb-4">
+                <span className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Loading Site <span className="text-[#ED351D]">*</span>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {sites.map((site) => {
+                    const logged = stageDots("Loading", sites, checkpoints).some(
+                      (d) => d.logged && d.label === site,
+                    );
+                    const selected = normalizeSiteKey(location) === normalizeSiteKey(site);
+                    return (
+                      <button
+                        key={site}
+                        type="button"
+                        onClick={() => setLocation(site)}
+                        className={cn(
+                          "flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium tracking-[0.4px] transition-colors",
+                          selected
+                            ? "border-[#ED351D] bg-[#ED351D] text-white"
+                            : logged
+                              ? "border-[#0ACF83]/40 bg-[#0ACF83]/10 text-[#0B7A4E]"
+                              : "border-[#E2E5E9] bg-white text-[#344256] hover:bg-[#F1F2F4]",
+                        )}
+                      >
+                        {logged ? <Check className="size-3.5" strokeWidth={2.5} /> : null}
+                        {site}
+                      </button>
+                    );
+                  })}
+                </div>
+                {siteProgress ? (
+                  <p className="mt-1.5 text-[11px] tracking-[0.4px] text-[#627084]">
+                    {siteProgress.logged} of {siteProgress.total} site
+                    {siteProgress.total === 1 ? "" : "s"} logged
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="mb-6">
               <span className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                 Add Current Location <span className="text-[#ED351D]">*</span>
@@ -326,7 +364,7 @@ function LogLocationPage() {
                 <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="eg: Alpha, Lokoja"
+                    placeholder={leg === "Loading" && sites.length > 0 ? "Pick a loading site above" : "eg: Alpha, Lokoja"}
                   className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
                 />
               </div>
@@ -356,9 +394,10 @@ function LogLocationPage() {
             <HistoryCard
               title="Trip History"
               stages={["Loading", "In Transit", "At Destination", "Offloaded"]}
-              byStage={byStage}
+              sites={sites}
+              checkpoints={checkpoints}
             />
-            <HistoryCard title="Return History" stages={["Return"]} byStage={byStage} />
+            <HistoryCard title="Return History" stages={["Return"]} sites={sites} checkpoints={checkpoints} />
           </div>
         </div>
       </div>
@@ -394,13 +433,19 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function HistoryCard({
   title,
   stages,
-  byStage,
+  sites,
+  checkpoints,
 }: {
   title: string;
   stages: TrackingLeg[];
-  byStage: Map<TrackingLeg, LocationCheckpoint[]>;
+  /** Requested loading sites — the Loading stage lists every one of them. */
+  sites: string[];
+  checkpoints: LocationCheckpoint[];
 }) {
-  const total = stages.reduce((n, s) => n + (byStage.get(s)?.length ?? 0), 0);
+  // Loading shows the request's sites (outstanding ones included); every other
+  // stage shows what was logged against it.
+  const dotsFor = (stage: TrackingLeg) => stageDots(stage, sites, checkpoints);
+  const total = stages.reduce((n, s) => n + dotsFor(s).length, 0);
   return (
     <section className="rounded-[10px] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
       <h3 className="mb-4 border-b border-[#E2E5E9] pb-3 text-[18px] font-semibold tracking-[0.4px] text-[#5C6470]">
@@ -411,11 +456,10 @@ function HistoryCard({
       ) : (
         <div className="flex flex-col gap-5">
           {stages.map((stage) => {
-            const rows = (byStage.get(stage) ?? [])
-              .slice()
-              .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+            const rows = dotsFor(stage);
             if (rows.length === 0) return null;
-            const latest = rows[0];
+            const loggedRows = rows.filter((r) => r.logged);
+            const latest = loggedRows[0];
             return (
               <div key={stage} className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -423,19 +467,28 @@ function HistoryCard({
                     <span className="size-[5px] rounded-full bg-[#ED351D]" />
                   </span>
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">{stage}</span>
-                  <span className="rounded bg-[#F1F2F4] px-1.5 py-0.5 text-[10px] font-semibold text-[#5C6470]">
-                    {rows.length}
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                      loggedRows.length === rows.length
+                        ? "bg-[#F1F2F4] text-[#5C6470]"
+                        : "bg-[#F99E1F]/15 text-[#B26A00]",
+                    )}
+                  >
+                    {loggedRows.length === rows.length
+                      ? rows.length
+                      : `${loggedRows.length}/${rows.length} logged`}
                   </span>
                   {/* Stage timestamp — when this stage was last updated. */}
-                  {latest && !Number.isNaN(new Date(latest.at).getTime()) ? (
+                  {latest && !Number.isNaN(new Date(latest.at ?? "").getTime()) ? (
                     <span className="text-[10px] font-medium text-[#5C6470]">
-                      {new Date(latest.at).toLocaleDateString("en-GB", {
+                      {new Date(latest.at ?? "").toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}{" "}
                       •{" "}
-                      {new Date(latest.at).toLocaleTimeString("en-GB", {
+                      {new Date(latest.at ?? "").toLocaleTimeString("en-GB", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
@@ -445,18 +498,34 @@ function HistoryCard({
                 {/* Sub-dots: one per logged location, newest first. */}
                 <ol className="ml-[7px] flex flex-col gap-3 border-l border-[#E2E5E9] pl-5">
                   {rows.map((row) => {
-                    const d = new Date(row.at);
+                    const d = new Date(row.at ?? "");
                     const valid = !Number.isNaN(d.getTime());
                     const when = valid
                       ? `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} • ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
                       : "";
                     return (
-                      <li key={row.id} className="relative flex flex-col gap-1">
-                        <span className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-[#ED351D]/60" />
-                        <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">
-                          {row.location}
+                      <li key={row.key} className="relative flex flex-col gap-1">
+                        {row.logged ? (
+                          <span className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-[#ED351D]/60" />
+                        ) : (
+                          <span className="absolute -left-[25px] top-1.5 size-2 rounded-full border border-[#C6CAD1] bg-white" />
+                        )}
+                        <span
+                          className={cn(
+                            "text-[14px] font-medium tracking-[0.4px]",
+                            row.logged ? "text-[#ED351D]" : "text-[#8E95A1]",
+                          )}
+                        >
+                          {row.label}
                         </span>
-                        {when ? <span className="text-[10px] font-medium text-[#5C6470]">{when}</span> : null}
+                        {row.logged && when ? (
+                          <span className="text-[10px] font-medium text-[#5C6470]">{when}</span>
+                        ) : null}
+                        {!row.logged ? (
+                          <span className="text-[10px] font-medium text-[#8E95A1]">
+                            Awaiting load — log this site to complete it
+                          </span>
+                        ) : null}
                       </li>
                     );
                   })}

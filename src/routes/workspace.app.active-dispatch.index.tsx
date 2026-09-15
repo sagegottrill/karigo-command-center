@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
@@ -135,7 +136,16 @@ function ActiveDispatchPage() {
       toast.message("Nothing to export");
       return;
     }
-    const header = ["Dispatch ID", "Driver", "Truck Head", "Tail Type", "Phone Number", "Drop-off Location", "Status"];
+    const header = [
+      "Dispatch ID",
+      "Driver",
+      "Truck Head",
+      "Tail Type",
+      "Phone Number",
+      "Loading Site(s)",
+      "Drop-off Location",
+      "Status",
+    ];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
       return [
@@ -144,6 +154,7 @@ function ActiveDispatchPage() {
         headCell(trip),
         trip.tailType ?? "",
         phoneFor(trip),
+        tripLoadingSites(trip).join(" | "),
         trip.dropoff ?? "",
         delay,
       ]
@@ -296,6 +307,7 @@ function ActiveDispatchPage() {
                     <th className="px-3 py-3">Truck Head</th>
                     <th className="px-3 py-3">Tail Type</th>
                     <th className="px-3 py-3">Phone Number</th>
+                    <th className="px-3 py-3">Loading Site(s)</th>
                     <th className="px-3 py-3">Drop-off Location</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Action</th>
@@ -311,6 +323,9 @@ function ActiveDispatchPage() {
                         <td className="px-3 py-4">{headCell(trip)}</td>
                         <td className="px-3 py-4">{trip.tailType || ""}</td>
                         <td className="px-3 py-4">{phoneFor(trip)}</td>
+                        <td className="px-3 py-4" title={tripLoadingSites(trip).join(", ") || undefined}>
+                          {loadingSitesLabel(trip)}
+                        </td>
                         <td className="px-3 py-4">{trip.dropoff || ""}</td>
                         <td className="px-3 py-4">
                           <span
@@ -411,6 +426,7 @@ function ActiveDispatchPage() {
                 <MetaRow label="Head No:" value={headCell(trip)} accent />
                 <MetaRow label="Tail Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
+                <MetaRow label="Loading Site(s):" value={loadingSitesLabel(trip)} />
               </div>
             );
           })
@@ -418,6 +434,17 @@ function ActiveDispatchPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Compact loading-site label for the board: the single site by name, or
+ * "first +N" for a multiple-loading request (the full list lives on the detail).
+ */
+function loadingSitesLabel(trip: Trip): string {
+  const sites = tripLoadingSites(trip);
+  if (sites.length === 0) return "—";
+  const first = sites[0] ?? "—";
+  return sites.length === 1 ? first : `${first} +${sites.length - 1}`;
 }
 
 function MetaRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

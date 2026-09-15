@@ -8,6 +8,8 @@ import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell"
 import {
   listCheckpoints,
   normalizeLeg,
+  stageDots,
+  tripLoadingSites,
   type LocationCheckpoint,
   type TrackingLeg,
 } from "@/lib/fleetopsx/tracking-ops";
@@ -30,29 +32,6 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
 type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
 
 /** Split joined site strings so each site is its own field (Figma 356:9825). */
-function normalizeLoadingSites(trip: Trip | null | undefined): string[] {
-  if (!trip) return [];
-  const raw =
-    trip.loadingSite && trip.loadingSite.length > 0
-      ? trip.loadingSite
-      : trip.pickup
-        ? [trip.pickup]
-        : [];
-  const sites: string[] = [];
-  for (const entry of raw) {
-    const parts = String(entry)
-      .split(/[;,]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const part of parts) {
-      if (!sites.some((s) => s.toLowerCase() === part.toLowerCase())) {
-        sites.push(part);
-      }
-    }
-  }
-  return sites;
-}
-
 function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
   if (sites.length === 0) {
     return [{ id: crypto.randomUUID(), type: "", customValue: "" }];
@@ -365,9 +344,40 @@ function PartnerRequestDetailsPage() {
     };
   }, [trip?.id]);
 
-  const timeline = useMemo(() => (trip ? partnerRequestTimeline(trip) : []), [trip]);
+  // Loading sites the request was raised with — the Loading step breaks down
+  // per site for multiple-loading requests, not just as free-form checkpoints.
+  const loadingSites = useMemo(() => (trip ? tripLoadingSites(trip) : []), [trip]);
+
+  /**
+   * Timeline = what the Tracking team has actually logged, with the trip status
+   * ladder filling in the gaps. A stage with a checkpoint is no longer "ahead of
+   * us", even when the status hasn't advanced yet — that mismatch is why logged
+   * stages used to render as empty circles.
+   */
+  const timeline = useMemo(() => {
+    if (!trip) return [];
+    const base = partnerRequestTimeline(trip);
+    const loggedAt = new Map<TrackingLeg, number>();
+    for (const cp of checkpoints) {
+      const stage = normalizeLeg(cp.leg);
+      const t = new Date(cp.at).getTime();
+      if (!Number.isNaN(t) && t > (loggedAt.get(stage) ?? -Infinity)) loggedAt.set(stage, t);
+    }
+    if (loggedAt.size === 0) return base;
+
+    const settled = trip.status === "Completed";
+    const latest = [...loggedAt.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return base.map((step) => {
+      if (!step.stage) return step;
+      const logged = loggedAt.has(step.stage);
+      if (!logged) return step;
+      if (settled) return { ...step, state: "done" as const };
+      if (step.stage === latest && step.state === "pending") return { ...step, state: "current" as const };
+      if (step.state === "pending") return { ...step, state: "done" as const };
+      return step;
+    });
+  }, [trip, checkpoints]);
   const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
-  const loadingSites = normalizeLoadingSites(trip);
   const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);
   const truckHead = truckParts[0] && truckParts[0] !== "TBD" ? truckParts[0] : trip?.headId || "—";
   const truckTail = trip?.tailType || truckParts[1] || "—";
@@ -393,7 +403,7 @@ function PartnerRequestDetailsPage() {
     setDraftProduct(trip.cargo || "");
     setDraftTruckType(displayRequestedTruckType(trip));
     setDraftDestination(trip.dropoff || "");
-    setDraftSites(sitesToDrafts(normalizeLoadingSites(trip)));
+    setDraftSites(sitesToDrafts(tripLoadingSites(trip)));
     setTruckDropdownOpen(false);
     setSiteDropdownIndex(null);
     setModifyOpen(true);
@@ -692,18 +702,16 @@ function PartnerRequestDetailsPage() {
                           ? "text-[#1B2432]"
                           : "text-[#5C6470]";
                   const isDestination = step.label === "At Destination";
-                  // Tracking Ops locations logged against this step's stage become
-                  // sub-dots — the Tracking team can keep adding to any stage.
-                  const stepCheckpoints = (
-                    step.stage ? checkpoints.filter((cp) => normalizeLeg(cp.leg) === step.stage) : []
-                  )
-                    .slice()
-                    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                  // Sub-dots for this step. Loading breaks down PER REQUESTED SITE
+                  // (a multiple-loading request lists every site, outstanding ones
+                  // included); other stages are the locations Tracking logged.
+                  const dots = step.stage ? stageDots(step.stage, loadingSites, checkpoints) : [];
+                  const loggedDots = dots.filter((d) => d.logged);
+                  const latestDotKey = loggedDots[0]?.key;
+                  const siteTotal = step.stage === "Loading" ? loadingSites.length : 0;
                   // Every step shows a timestamp: lifecycle stamps for the early
                   // steps, the newest logged checkpoint for each tracking stage.
-                  const stepStamp = stepCheckpoints[0]
-                    ? stampLabel(stepCheckpoints[0].at)
-                    : step.at;
+                  const stepStamp = loggedDots[0] ? stampLabel(loggedDots[0].at) : step.at;
                   return (
                     <div key={step.label} className="relative flex items-start gap-[50px]">
                       <div
@@ -733,19 +741,41 @@ function PartnerRequestDetailsPage() {
                         {stepStamp ? (
                           <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{stepStamp}</p>
                         ) : null}
-                        {stepCheckpoints.length > 0 && (
+                        {siteTotal > 0 ? (
+                          <p className="text-[10px] font-medium text-[#5C6470]">
+                            {loggedDots.length} of {siteTotal} site{siteTotal === 1 ? "" : "s"} loaded
+                          </p>
+                        ) : null}
+                        {dots.length > 0 && (
                           <div className="relative mt-1 flex flex-col gap-2 pl-1">
-                            {stepCheckpoints.map((cp, i) => (
-                              <div key={cp.id || i} className="flex items-center gap-2.5">
+                            {dots.map((cp, i) => (
+                              <div key={cp.key || i} className="flex items-center gap-2.5">
+                                {cp.logged ? (
+                                  <span
+                                    className={cn(
+                                      "size-2 shrink-0 rounded-full",
+                                      i === 0 ? "bg-[#0ACF83]" : "bg-[#0ACF83]/45",
+                                    )}
+                                  />
+                                ) : (
+                                  <span
+                                    className="size-2 shrink-0 rounded-full border border-[#C6CAD1] bg-transparent"
+                                    title="Not logged yet"
+                                  />
+                                )}
                                 <span
                                   className={cn(
-                                    "size-2 shrink-0 rounded-full",
-                                    i === 0 ? "bg-[#0ACF83]" : "bg-[#0ACF83]/45",
+                                    "text-[11px] font-medium tracking-[0.4px]",
+                                    cp.logged ? "text-[#344256]" : "text-[#8E95A1]",
                                   )}
-                                />
-                                <span className="text-[11px] font-medium tracking-[0.4px] text-[#344256]">
-                                  {cp.location}
+                                >
+                                  {cp.label}
                                 </span>
+                                {!cp.logged ? (
+                                  <span className="text-[10px] font-medium text-[#8E95A1]">
+                                    awaiting log
+                                  </span>
+                                ) : null}
                                 {cp.at ? (
                                   <span className="text-[10px] text-[rgba(92,100,112,0.6)]">
                                     {new Date(cp.at).toLocaleString("en-GB", {
@@ -756,7 +786,7 @@ function PartnerRequestDetailsPage() {
                                     })}
                                   </span>
                                 ) : null}
-                                {i === 0 ? (
+                                {cp.logged && cp.key === latestDotKey ? (
                                   <span className="rounded bg-[#0ACF83]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.4px] text-[#0ACF83]">
                                     Latest
                                   </span>
