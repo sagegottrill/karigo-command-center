@@ -187,6 +187,10 @@ export interface Trip {
   createdAt?: string;
   /** When the TM gave final approval and the truck was dispatched. */
   dispatchedAt?: string | null;
+  /** TM first approval (partner sees "Seen"). */
+  approvedAt?: string | null;
+  /** Fleet Ops assigning driver/truck. */
+  assignedAt?: string | null;
   priority: "Low" | "Normal" | "High" | "Critical";
   distanceKm: number;
   durationLabel: string;

@@ -411,11 +411,14 @@ function HistoryCard({
       ) : (
         <div className="flex flex-col gap-5">
           {stages.map((stage) => {
-            const rows = byStage.get(stage) ?? [];
+            const rows = (byStage.get(stage) ?? [])
+              .slice()
+              .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
             if (rows.length === 0) return null;
+            const latest = rows[0];
             return (
               <div key={stage} className="flex flex-col gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="grid size-[15px] shrink-0 place-items-center rounded-full border-2 border-[#ED351D] bg-white">
                     <span className="size-[5px] rounded-full bg-[#ED351D]" />
                   </span>
@@ -423,6 +426,21 @@ function HistoryCard({
                   <span className="rounded bg-[#F1F2F4] px-1.5 py-0.5 text-[10px] font-semibold text-[#5C6470]">
                     {rows.length}
                   </span>
+                  {/* Stage timestamp — when this stage was last updated. */}
+                  {latest && !Number.isNaN(new Date(latest.at).getTime()) ? (
+                    <span className="text-[10px] font-medium text-[#5C6470]">
+                      {new Date(latest.at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}{" "}
+                      •{" "}
+                      {new Date(latest.at).toLocaleTimeString("en-GB", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  ) : null}
                 </div>
                 {/* Sub-dots: one per logged location, newest first. */}
                 <ol className="ml-[7px] flex flex-col gap-3 border-l border-[#E2E5E9] pl-5">

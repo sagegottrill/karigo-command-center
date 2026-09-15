@@ -128,26 +128,33 @@ type PartnerTimelineStep = {
   stage?: TrackingLeg;
 };
 
+/** "15 Sept 2026 • 06:15" — every step shows its own date AND time. */
+function stampLabel(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${date} • ${time}`;
+}
+
 /** Partner Request Timeline — Declined stops at Request Declined (not the full dispatch path). */
 function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
-  const when = trip.scheduledDate ? new Date(trip.scheduledDate) : null;
-  const dateLabel =
-    when && !Number.isNaN(when.getTime())
-      ? when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-      : undefined;
-  const timeLabel = trip.startTime && trip.startTime !== "—" && trip.startTime !== "-" ? trip.startTime : undefined;
-  const at = dateLabel ? (timeLabel ? `${dateLabel} • ${timeLabel}` : dateLabel) : undefined;
+  const submittedAt = stampLabel(trip.createdAt) ?? stampLabel(trip.scheduledDate);
+  const seenAt = stampLabel(trip.approvedAt);
+  const assignedAt = stampLabel(trip.assignedAt);
+  const approvedAt = stampLabel(trip.dispatchedAt);
 
   if (trip.status === "Stopped") {
     return [
-      { label: "Request Submitted", state: "done", at },
-      { label: "Request Declined", state: "current", at },
+      { label: "Request Submitted", state: "done", at: submittedAt },
+      { label: "Request Declined", state: "current", at: stampLabel(trip.dispatchedAt) ?? seenAt },
     ];
   }
 
   if (trip.status === "Requested" || trip.status === "Draft") {
     return [
-      { label: "Request Submitted", state: "current", at },
+      { label: "Request Submitted", state: "current", at: submittedAt },
       { label: "Request Seen", state: "pending" },
       { label: "Dispatch Created", state: "pending" },
       { label: "Driver Assigned", state: "pending" },
@@ -190,17 +197,19 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
   const returned = trip.status === "Completed" ? "done" : trip.status === "Returning" ? "current" : "pending";
 
   const steps: PartnerTimelineStep[] = [
-    { label: "Request Submitted", state: "done", at },
+    { label: "Request Submitted", state: "done", at: submittedAt },
     dispatched
-      ? { label: "Request Approved", state: "done", at }
-      : { label: "Request Seen", state: "seen", at },
+      ? { label: "Request Approved", state: "done", at: approvedAt ?? seenAt }
+      : { label: "Request Seen", state: seenAt ? "seen" : "current", at: seenAt },
     {
       label: "Dispatch Created",
       state: hasDriver || dispatched ? "done" : "current",
+      at: hasDriver || dispatched ? (assignedAt ?? approvedAt) : undefined,
     },
     {
       label: "Driver Assigned",
       state: dispatched ? "done" : hasDriver ? "current" : "pending",
+      at: hasDriver ? (assignedAt ?? approvedAt) : undefined,
     },
     { label: "Loading", state: loading, stage: "Loading" },
     { label: "In Transit", state: inTransit, stage: "In Transit" },
@@ -680,9 +689,16 @@ function PartnerRequestDetailsPage() {
                   const isDestination = step.label === "At Destination";
                   // Tracking Ops locations logged against this step's stage become
                   // sub-dots — the Tracking team can keep adding to any stage.
-                  const stepCheckpoints = step.stage
-                    ? checkpoints.filter((cp) => normalizeLeg(cp.leg) === step.stage)
-                    : [];
+                  const stepCheckpoints = (
+                    step.stage ? checkpoints.filter((cp) => normalizeLeg(cp.leg) === step.stage) : []
+                  )
+                    .slice()
+                    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                  // Every step shows a timestamp: lifecycle stamps for the early
+                  // steps, the newest logged checkpoint for each tracking stage.
+                  const stepStamp = stepCheckpoints[0]
+                    ? stampLabel(stepCheckpoints[0].at)
+                    : step.at;
                   return (
                     <div key={step.label} className="relative flex items-start gap-[50px]">
                       <div
@@ -709,8 +725,8 @@ function PartnerRequestDetailsPage() {
                             </button>
                           ) : null}
                         </div>
-                        {step.at ? (
-                          <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{step.at}</p>
+                        {stepStamp ? (
+                          <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{stepStamp}</p>
                         ) : null}
                         {stepCheckpoints.length > 0 && (
                           <div className="relative mt-1 flex flex-col gap-2 pl-1">
