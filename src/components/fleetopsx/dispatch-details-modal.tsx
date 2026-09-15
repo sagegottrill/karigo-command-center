@@ -61,7 +61,9 @@ function dispatchFields(trip: Trip, driver: Driver | undefined, head: TruckHead 
           .map((x) => x.trim())
           .filter(Boolean);
   const capNumber = displayHeadCap(head, trip.headId);
-  const plateRaw = head?.registration || trip.truckReg;
+  // truckReg can be "PLATE / TAIL" (gate departure writes both) — the plate row
+  // must show the CAP/PLATE only, never the tail code.
+  const plateRaw = head?.registration || (trip.truckReg || "").split("/")[0]?.trim() || "";
   const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
   const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
     ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
@@ -212,7 +214,9 @@ export function DispatchDetailsModal({
           .map((x) => x.trim())
           .filter(Boolean);
   const capNumber = displayHeadCap(head, trip.headId);
-  const plateRaw = head?.registration || trip.truckReg;
+  // truckReg can be "PLATE / TAIL" (gate departure writes both) — the plate row
+  // must show the CAP/PLATE only, never the tail code.
+  const plateRaw = head?.registration || (trip.truckReg || "").split("/")[0]?.trim() || "";
   const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
   const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
     ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
