@@ -42,7 +42,6 @@ function AdminAddAccount() {
   const [surname, setSurname] = useState("");
   const [department, setDepartment] = useState("");
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
-  const [role, setRole] = useState("");
   const [staffId, setStaffId] = useState("");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -62,7 +61,7 @@ function AdminAddAccount() {
 
   const handleSaveAccountClick = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !surname || !department || !role || !staffId) {
+    if (!firstName || !surname || !department || !staffId) {
       toast.error("Please fill in all fields.");
       return;
     }
@@ -229,17 +228,7 @@ function AdminAddAccount() {
             )}
           </div>
 
-          <div className="flex w-full flex-col gap-3">
-            <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Role <span className="text-[#ED351D]">*</span></label>
-            <input
-              type="text"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="example: Dispatcher"
-              className={fieldClass}
-            />
-          </div>
-
+          {/* Role is derived from the assigned department — no separate field. */}
           <div className="flex w-full flex-col gap-3">
             <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Staff ID <span className="text-[#ED351D]">*</span></label>
             <input
@@ -291,8 +280,8 @@ function AdminAddAccount() {
                   <div className={readOnlyClass}>{department}</div>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Role</label>
-                  <div className={readOnlyClass}>{role}</div>
+                  <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Portal Access</label>
+                  <div className={readOnlyClass}>{departmentToRoleKey(department)}</div>
                 </div>
               </div>
 
