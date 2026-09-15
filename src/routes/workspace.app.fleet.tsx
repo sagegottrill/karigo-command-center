@@ -414,13 +414,14 @@ function FleetDispatchRequests() {
           <div className="overflow-x-auto">
             <div className="min-w-[1260px]">
               <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
-                <span className="w-[96px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
+                {/* Date Requested leads the row — the TM reads the request date first. */}
+                <span className="w-[150px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
                 <div className="flex items-center tracking-[0.4px]">
+                  <span className="w-[96px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Dispatch ID</span>
                   <span className="w-[170px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
                   <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Drop-off Location</span>
-                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Requested</span>
                   <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Approved</span>
                   <span className="w-[100px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
@@ -434,17 +435,17 @@ function FleetDispatchRequests() {
                     key={trip.id}
                     className="relative flex h-12 items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                   >
-                    <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                      {dispatchId(trip)}
-                    </span>
+                    <DateCell value={trip.createdAt} />
                     <div className="flex items-center tracking-[0.4px]">
+                      <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                        {dispatchId(trip)}
+                      </span>
                       <span className="w-[170px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
                         {trip.driverName || driver?.name}
                       </span>
                       <span className="w-[140px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
                       <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
                       <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                      <DateCell value={trip.createdAt} />
                       <DateCell value={trip.dispatchedAt} />
                       <span className="w-[100px] shrink-0">
                         <StatusPill status={fleetStatusOf(trip)} />

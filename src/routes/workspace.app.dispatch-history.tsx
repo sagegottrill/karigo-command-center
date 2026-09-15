@@ -108,7 +108,7 @@ const TIMELINE_STEPS = [
   { label: "Request Approved", done: true },
   { label: "Dispatch Created", done: true },
   { label: "Driver Assigned", done: true },
-  { label: "Pickup Completed", done: true },
+  { label: "Loading", done: true },
   {
     label: "In Transit",
     done: true,

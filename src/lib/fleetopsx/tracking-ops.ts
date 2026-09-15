@@ -35,11 +35,37 @@ export const TRACKING_DELAY_COLOR: Record<TrackingDelayStatus, string> = {
 /** Canonical dispatch display id — defined once in request-id.ts. */
 export const dispatchDisplayId = displayDispatchId;
 
+/**
+ * Dispatch-trip stages Tracking Ops updates, in physical order. Every stage can
+ * carry any number of locations ("sub-dots"): Loading → In Transit →
+ * At Destination → Offloaded → Return. The partner's timeline shows them under
+ * the matching stage.
+ */
+export type TrackingLeg = "Loading" | "In Transit" | "At Destination" | "Offloaded" | "Return";
+
+export const TRACKING_LEGS: TrackingLeg[] = [
+  "Loading",
+  "In Transit",
+  "At Destination",
+  "Offloaded",
+  "Return",
+];
+
+/** Legacy rows stored "Outgoing"; everything maps onto the stage names above. */
+export function normalizeLeg(leg?: string | null): TrackingLeg {
+  const raw = (leg || "").trim().toLowerCase();
+  if (raw === "return" || raw === "returning") return "Return";
+  if (raw === "loading" || raw === "loaded") return "Loading";
+  if (raw === "at destination" || raw === "destination") return "At Destination";
+  if (raw === "offloaded" || raw === "offloading") return "Offloaded";
+  return "In Transit";
+}
+
 export type LocationCheckpoint = {
   id: string;
   tripId: string;
   location: string;
-  leg: "Outgoing" | "Return";
+  leg: TrackingLeg;
   at: string;
 };
 
@@ -48,7 +74,8 @@ import { fetchApi } from "./apiClient";
 const CHECKPOINT_KEY = "fleetopsx_tracking_checkpoints";
 
 export async function listCheckpoints(tripId: string): Promise<LocationCheckpoint[]> {
-  return fetchApi(`/tracking/${tripId}`).catch(() => []);
+  const rows = await fetchApi<LocationCheckpoint[]>(`/tracking/${tripId}`).catch(() => []);
+  return (Array.isArray(rows) ? rows : []).map((row) => ({ ...row, leg: normalizeLeg(row.leg) }));
 }
 
 export async function addCheckpoint(input: {

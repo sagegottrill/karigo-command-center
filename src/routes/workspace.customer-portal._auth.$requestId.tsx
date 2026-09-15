@@ -5,7 +5,12 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
-import { listCheckpoints, type LocationCheckpoint } from "@/lib/fleetopsx/tracking-ops";
+import {
+  listCheckpoints,
+  normalizeLeg,
+  type LocationCheckpoint,
+  type TrackingLeg,
+} from "@/lib/fleetopsx/tracking-ops";
 import {
   PARTNER_LOADING_SITE_OPTIONS,
   PARTNER_TRUCK_TYPE_OPTIONS,
@@ -21,7 +26,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
   component: PartnerRequestDetailsPage,
 });
 
-type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
 
 /** Split joined site strings so each site is its own field (Figma 356:9825). */
 function normalizeLoadingSites(trip: Trip | null | undefined): string[] {
@@ -63,9 +68,9 @@ function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
 }
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
-  // Shared semantics — mirrors status-buckets.toPartnerUiStatus so a trip's
-  // label matches its dashboard card everywhere (Stopped-with-truck = In
-  // transit, not Declined; Draft = Pending).
+  // Partner semantics — mirrors status-buckets.toPartnerUiStatus, EXCEPT that
+  // the TM's FIRST approval is only "Seen" (orange): the partner sees
+  // "Approved" (green) only after the second/final approval (Scheduled).
   switch (status) {
     case "Requested":
     case "Draft":
@@ -73,6 +78,7 @@ function toPartnerStatus(status: TripStatus): PartnerUiStatus {
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
+      return "Seen";
     case "Scheduled":
       return "Approved";
     case "Stopped":
@@ -96,6 +102,8 @@ function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
       return "bg-[#FC0] text-white";
+    case "Seen":
+      return "bg-[#F99E1F] text-white";
     case "Approved":
       return "bg-[#0ACF83] text-white";
     case "Declined":
@@ -111,7 +119,14 @@ function partnerStatusClass(status: PartnerUiStatus) {
   }
 }
 
-type PartnerTimelineStep = { label: string; state: "done" | "current" | "pending"; at?: string };
+/** "seen" = the TM's first approval: acknowledged (orange), not yet approved. */
+type PartnerTimelineStep = {
+  label: string;
+  state: "done" | "current" | "seen" | "pending";
+  at?: string;
+  /** Tracking stage whose logged locations render as sub-dots under this step. */
+  stage?: TrackingLeg;
+};
 
 /** Partner Request Timeline — Declined stops at Request Declined (not the full dispatch path). */
 function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
@@ -130,53 +145,70 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
     ];
   }
 
-  if (trip.status === "Requested") {
+  if (trip.status === "Requested" || trip.status === "Draft") {
     return [
       { label: "Request Submitted", state: "current", at },
-      { label: "Request Approved", state: "pending" },
+      { label: "Request Seen", state: "pending" },
       { label: "Dispatch Created", state: "pending" },
       { label: "Driver Assigned", state: "pending" },
-      { label: "Pickup Completed", state: "pending" },
-      { label: "In Transit", state: "pending" },
-      { label: "At Destination", state: "pending" },
-      { label: "Offloaded", state: "pending" },
+      { label: "Loading", state: "pending", stage: "Loading" },
+      { label: "In Transit", state: "pending", stage: "In Transit" },
+      { label: "At Destination", state: "pending", stage: "At Destination" },
+      { label: "Offloaded", state: "pending", stage: "Offloaded" },
+      { label: "Returned", state: "pending", stage: "Return" },
     ];
   }
-
-  const order = [
-    "Request Submitted",
-    "Request Approved",
-    "Dispatch Created",
-    "Driver Assigned",
-    "Pickup Completed",
-    "In Transit",
-    "At Destination",
-    "Offloaded",
-  ];
 
   const hasDriver =
     Boolean(trip.driverId) ||
     Boolean(trip.driverName && trip.driverName !== "Unassigned" && trip.driverName.trim() !== "");
 
-  // Don't mark Driver Assigned / later steps done when FO hasn't assigned yet
-  // (status can lag ahead of assignment fields on live data).
-  let current = 1; // Approved (Awaiting Approval / Scheduled+)
-  if (trip.status === "Scheduled" || hasDriver) current = 2; // Dispatch Created
-  if (hasDriver) current = 3; // Driver Assigned
-  if (hasDriver && (trip.status === "Loaded" || trip.status === "En Route" || trip.status === "Delayed")) current = 4;
-  if (hasDriver && (trip.status === "En Route" || trip.status === "Delayed")) current = 5;
-  if (trip.status === "Offloading") current = 6;
-  if (trip.status === "Returning" || trip.status === "Completed") current = 7;
-  if (trip.status === "Completed") current = 7;
+  // Two-step approval: the TM's first approval only marks the request "Seen"
+  // (orange). "Approved" (green) happens after final approval, when the trip
+  // becomes Scheduled and the truck is on the road.
+  const dispatched = [
+    "Scheduled",
+    "Loaded",
+    "En Route",
+    "Delayed",
+    "Offloading",
+    "Returning",
+    "Completed",
+  ].includes(trip.status);
 
-  return order.map((label, i) => {
-    const step: PartnerTimelineStep = {
-      label,
-      state: i < current ? "done" : i === current ? "current" : "pending",
-    };
-    if (i <= current && at) step.at = at;
-    return step;
-  });
+  const loading = trip.status === "Loaded" ? "current" : dispatched ? "done" : "pending";
+  const inTransit =
+    trip.status === "En Route" || trip.status === "Delayed"
+      ? "current"
+      : ["Offloading", "Returning", "Completed"].includes(trip.status)
+        ? "done"
+        : "pending";
+  const atDestination =
+    trip.status === "Offloading" ? "current" : ["Returning", "Completed"].includes(trip.status) ? "done" : "pending";
+  const offloaded =
+    trip.status === "Returning" ? "current" : trip.status === "Completed" ? "done" : "pending";
+  const returned = trip.status === "Completed" ? "done" : trip.status === "Returning" ? "current" : "pending";
+
+  const steps: PartnerTimelineStep[] = [
+    { label: "Request Submitted", state: "done", at },
+    dispatched
+      ? { label: "Request Approved", state: "done", at }
+      : { label: "Request Seen", state: "seen", at },
+    {
+      label: "Dispatch Created",
+      state: hasDriver || dispatched ? "done" : "current",
+    },
+    {
+      label: "Driver Assigned",
+      state: dispatched ? "done" : hasDriver ? "current" : "pending",
+    },
+    { label: "Loading", state: loading, stage: "Loading" },
+    { label: "In Transit", state: inTransit, stage: "In Transit" },
+    { label: "At Destination", state: atDestination, stage: "At Destination" },
+    { label: "Offloaded", state: offloaded, stage: "Offloaded" },
+    { label: "Returned", state: returned, stage: "Return" },
+  ];
+  return steps;
 }
 
 function ReadonlyField({ label, value }: { label: string; value?: string | null }) {
@@ -626,23 +658,31 @@ function PartnerRequestDetailsPage() {
                 {timeline.map((step) => {
                   const done = step.state === "done";
                   const current = step.state === "current";
-                  // Green checkmarks for completed steps, red only on decline,
-                  // grey for what's still ahead (matches the approved mockup).
+                  const seen = step.state === "seen";
+                  // Green = completed / in progress, ORANGE = first approval only
+                  // ("Seen"), red only on decline, grey for what's still ahead.
                   const dotClass =
                     uiStatus === "Declined" && current
                       ? "bg-[#ED351D]"
-                      : done || (current && uiStatus !== "Declined")
-                        ? "bg-[#0ACF83]"
-                        : "bg-[#D1D5DB]";
+                      : seen
+                        ? "bg-[#F99E1F]"
+                        : done || (current && uiStatus !== "Declined")
+                          ? "bg-[#0ACF83]"
+                          : "bg-[#D1D5DB]";
                   const labelClass =
                     uiStatus === "Declined" && current
                       ? "text-[#ED351D]"
-                      : done || (current && uiStatus !== "Declined")
-                        ? "text-[#1B2432]"
-                        : "text-[#5C6470]";
+                      : seen
+                        ? "text-[#F99E1F]"
+                        : done || (current && uiStatus !== "Declined")
+                          ? "text-[#1B2432]"
+                          : "text-[#5C6470]";
                   const isDestination = step.label === "At Destination";
-                  const latestCheckpoint =
-                    step.label === "In Transit" && checkpoints.length > 0 ? checkpoints[0] : undefined;
+                  // Tracking Ops locations logged against this step's stage become
+                  // sub-dots — the Tracking team can keep adding to any stage.
+                  const stepCheckpoints = step.stage
+                    ? checkpoints.filter((cp) => normalizeLeg(cp.leg) === step.stage)
+                    : [];
                   return (
                     <div key={step.label} className="relative flex items-start gap-[50px]">
                       <div
@@ -651,7 +691,9 @@ function PartnerRequestDetailsPage() {
                           dotClass,
                         )}
                       >
-                        {done || current ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
+                        {done || current || seen ? (
+                          <Check className="size-2.5 text-white" strokeWidth={3} />
+                        ) : null}
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
                         <div className="flex flex-wrap items-center gap-3">
@@ -670,14 +712,38 @@ function PartnerRequestDetailsPage() {
                         {step.at ? (
                           <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{step.at}</p>
                         ) : null}
-                        {latestCheckpoint ? (
-                          <p className="text-[10px] font-medium text-[#0ACF83]">
-                            Last checkpoint: {latestCheckpoint.location}
-                            {latestCheckpoint.at
-                              ? ` • ${new Date(latestCheckpoint.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                              : ""}
-                          </p>
-                        ) : null}
+                        {stepCheckpoints.length > 0 && (
+                          <div className="relative mt-1 flex flex-col gap-2 pl-1">
+                            {stepCheckpoints.map((cp, i) => (
+                              <div key={cp.id || i} className="flex items-center gap-2.5">
+                                <span
+                                  className={cn(
+                                    "size-2 shrink-0 rounded-full",
+                                    i === 0 ? "bg-[#0ACF83]" : "bg-[#0ACF83]/45",
+                                  )}
+                                />
+                                <span className="text-[11px] font-medium tracking-[0.4px] text-[#344256]">
+                                  {cp.location}
+                                </span>
+                                {cp.at ? (
+                                  <span className="text-[10px] text-[rgba(92,100,112,0.6)]">
+                                    {new Date(cp.at).toLocaleString("en-GB", {
+                                      day: "numeric",
+                                      month: "short",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                ) : null}
+                                {i === 0 ? (
+                                  <span className="rounded bg-[#0ACF83]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.4px] text-[#0ACF83]">
+                                    Latest
+                                  </span>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

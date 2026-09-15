@@ -15,9 +15,12 @@ import {
   dispatchDisplayId,
   getTrackingDelayStatus,
   listCheckpoints,
+  normalizeLeg,
   TRACKING_DELAY_COLOR,
+  TRACKING_LEGS,
   type LocationCheckpoint,
   type TrackingDelayStatus,
+  type TrackingLeg,
 } from "@/lib/fleetopsx/tracking-ops";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -46,7 +49,7 @@ function LogLocationPage() {
   const [loading, setLoading] = useState(true);
   const [statusOpen, setStatusOpen] = useState(false);
   const [delayStatus, setDelayStatus] = useState<TrackingDelayStatus>("On Schedule");
-  const [leg, setLeg] = useState<"Outgoing" | "Return">("Outgoing");
+  const [leg, setLeg] = useState<TrackingLeg>("Loading");
   const [legOpen, setLegOpen] = useState(false);
   const [location, setLocation] = useState("");
   const [checkpoints, setCheckpoints] = useState<LocationCheckpoint[]>([]);
@@ -96,8 +99,17 @@ function LogLocationPage() {
     };
   }, [dispatchId, navigate]);
 
-  const outgoing = useMemo(() => checkpoints.filter((c) => c.leg === "Outgoing"), [checkpoints]);
-  const returning = useMemo(() => checkpoints.filter((c) => c.leg === "Return"), [checkpoints]);
+  /** Checkpoints grouped per stage — each stage keeps growing its own sub-dots. */
+  const byStage = useMemo(() => {
+    const groups = new Map<TrackingLeg, LocationCheckpoint[]>();
+    for (const stage of TRACKING_LEGS) groups.set(stage, []);
+    for (const cp of checkpoints) {
+      const list = groups.get(normalizeLeg(cp.leg)) ?? [];
+      list.push(cp);
+      groups.set(normalizeLeg(cp.leg), list);
+    }
+    return groups;
+  }, [checkpoints]);
 
   /**
    * Status dropdown is a TRACKING LABEL, not a trip-status write. Changing it
@@ -283,7 +295,7 @@ function LogLocationPage() {
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setLegOpen(false)} />
                     <div className="absolute inset-x-0 top-full z-40 mt-1 rounded-[6px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
-                      {(["Outgoing", "Return"] as const).map((opt) => (
+                      {TRACKING_LEGS.map((opt) => (
                         <button
                           key={opt}
                           type="button"
@@ -339,10 +351,14 @@ function LogLocationPage() {
             </div>
           </section>
 
-          {/* History cards side by side — Figma Frame 9 */}
+          {/* Stage history — every stage carries its own growing sub-dots */}
           <div className="grid gap-5 md:grid-cols-2">
-            <HistoryCard title="Outgoing History" rows={outgoing} />
-            <HistoryCard title="Return History" rows={returning} />
+            <HistoryCard
+              title="Trip History"
+              stages={["Loading", "In Transit", "At Destination", "Offloaded"]}
+              byStage={byStage}
+            />
+            <HistoryCard title="Return History" stages={["Return"]} byStage={byStage} />
           </div>
         </div>
       </div>
@@ -370,40 +386,67 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Figma history card: 18px grey title over a divider, then a red dot timeline. */
-function HistoryCard({ title, rows }: { title: string; rows: LocationCheckpoint[] }) {
+/**
+ * History card grouped by stage: the stage name sits on the red timeline and
+ * every logged location under it is a sub-dot, so the Tracking team can keep
+ * adding locations to any stage and the list just grows.
+ */
+function HistoryCard({
+  title,
+  stages,
+  byStage,
+}: {
+  title: string;
+  stages: TrackingLeg[];
+  byStage: Map<TrackingLeg, LocationCheckpoint[]>;
+}) {
+  const total = stages.reduce((n, s) => n + (byStage.get(s)?.length ?? 0), 0);
   return (
     <section className="rounded-[10px] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
       <h3 className="mb-4 border-b border-[#E2E5E9] pb-3 text-[18px] font-semibold tracking-[0.4px] text-[#5C6470]">
         {title}
       </h3>
-      {rows.length === 0 ? (
+      {total === 0 ? (
         <p className="text-[14px] font-light italic text-[#5C6470]/70">No history logged yet.</p>
       ) : (
-        <ol>
-          {rows.map((row, i) => {
-            const d = new Date(row.at);
-            const valid = !Number.isNaN(d.getTime());
-            const when = valid
-              ? `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} • ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
-              : "";
+        <div className="flex flex-col gap-5">
+          {stages.map((stage) => {
+            const rows = byStage.get(stage) ?? [];
+            if (rows.length === 0) return null;
             return (
-              <li key={row.id} className="relative flex gap-4 pb-5 last:pb-0">
-                {i < rows.length - 1 ? (
-                  <span className="absolute top-5 bottom-0 left-[7px] w-px bg-[#E2E5E9]" />
-                ) : null}
-                {/* Red ring marker — Figma timeline dot */}
-                <span className="relative z-[1] mt-0.5 grid size-[15px] shrink-0 place-items-center rounded-full border-2 border-[#ED351D] bg-white">
-                  <span className="size-[5px] rounded-full bg-[#ED351D]" />
-                </span>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">{row.location}</span>
-                  {when ? <span className="text-[10px] font-medium text-[#5C6470]">{when}</span> : null}
+              <div key={stage} className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-[15px] shrink-0 place-items-center rounded-full border-2 border-[#ED351D] bg-white">
+                    <span className="size-[5px] rounded-full bg-[#ED351D]" />
+                  </span>
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">{stage}</span>
+                  <span className="rounded bg-[#F1F2F4] px-1.5 py-0.5 text-[10px] font-semibold text-[#5C6470]">
+                    {rows.length}
+                  </span>
                 </div>
-              </li>
+                {/* Sub-dots: one per logged location, newest first. */}
+                <ol className="ml-[7px] flex flex-col gap-3 border-l border-[#E2E5E9] pl-5">
+                  {rows.map((row) => {
+                    const d = new Date(row.at);
+                    const valid = !Number.isNaN(d.getTime());
+                    const when = valid
+                      ? `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} • ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+                      : "";
+                    return (
+                      <li key={row.id} className="relative flex flex-col gap-1">
+                        <span className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-[#ED351D]/60" />
+                        <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">
+                          {row.location}
+                        </span>
+                        {when ? <span className="text-[10px] font-medium text-[#5C6470]">{when}</span> : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             );
           })}
-        </ol>
+        </div>
       )}
     </section>
   );

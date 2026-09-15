@@ -15,7 +15,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard
   component: PartnerPortalDashboard,
 });
 
-type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
   switch (status) {
@@ -25,6 +25,9 @@ function toPartnerStatus(status: TripStatus): PartnerUiStatus {
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
+      // TM's FIRST approval = acknowledged only. "Approved" comes after the
+      // second (final) approval, when the trip is Scheduled and on the road.
+      return "Seen";
     case "Scheduled":
       return "Approved";
     case "Stopped":
@@ -48,6 +51,8 @@ function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
       return "bg-[#FC0] text-white";
+    case "Seen":
+      return "bg-[#F99E1F] text-white";
     case "Approved":
       return "bg-[#34C759] text-white";
     case "Declined":
@@ -166,7 +171,10 @@ function PartnerPortalDashboard() {
   const totalRequests = requests.length;
   const inTransit = partnerCounts.inTransit + partnerCounts.stoppedEnRoute;
   const pending = partnerCounts.pending;
-  const approved = partnerCounts.approved + partnerCounts.awaiting + partnerCounts.scheduled;
+  // First approval (acknowledged, awaiting final approval) is "Seen";
+  // "Approved" counts only the TM's second approval (Scheduled/on the road).
+  const seen = partnerCounts.approved + partnerCounts.awaiting;
+  const approved = partnerCounts.scheduled;
   const declined = partnerCounts.declined;
   const completed = partnerCounts.completed;
 
@@ -294,6 +302,7 @@ function PartnerPortalDashboard() {
     { label: "Total Requests", value: totalRequests },
     { label: "In transit", value: inTransit, hint: inTransit > 0 ? "Look out for your delivery" : undefined },
     { label: "Pending", value: pending },
+    { label: "Seen", value: seen },
     { label: "Approved", value: approved },
     { label: "Declined", value: declined },
     { label: "Completed", value: completed },
@@ -303,7 +312,7 @@ function PartnerPortalDashboard() {
     <PartnerPortalShell>
       <main className="box-border flex w-full max-w-none flex-1 flex-col gap-5 p-4 md:gap-[30px] md:p-[30px]">
         {/* Stat cards — responsive grid fills content width from lg (sidebar) up */}
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 lg:gap-[14px]">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 lg:gap-[14px] 2xl:grid-cols-7">
           {statCards.map((card) => (
             <div
               key={card.label}
