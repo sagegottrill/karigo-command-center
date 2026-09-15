@@ -70,7 +70,7 @@ app.delete('/api/users/:id', authenticate, authorize('Transport Manager', 'Platf
 if (src.includes(oldDelete)) {
   src = src.replace(oldDelete, newDelete);
   console.log("applied: soft-delete users");
-} else if (src.includes("status: 'Deleted',")) {
+} else if (src.includes("status: 'Deleted'")) {
   console.log("skip: soft-delete already applied");
 } else {
   must(false, "DELETE /users anchor");

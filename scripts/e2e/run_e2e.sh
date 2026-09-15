@@ -10,20 +10,24 @@
 #   3. Runs e2e_suite.sh (50 checks: auth, lifecycle, user mgmt, RBAC, smoke)
 #   4. Deletes every E2E artifact — DB is left exactly as it was
 set -e
-cd "$(dirname "$0")/.."
+# Repo root: dirname($0) = scripts/e2e, so up TWO levels (one left the scp
+# paths pointing at scripts/e2e/... which does not exist from scripts/).
+cd "$(dirname "$0")/../.."
 
 VPS_HOST="${VPS_HOST:-2.28.45.216}"
 API_DIR="/var/www/fleetopsx-api"
 APP_URL="https://petrolline.fleetopsx.com"
 
 if [ -n "$VPS_PASSWORD" ]; then
-  # Password auth via askpass helper (no password ever lands in argv or files)
+  # Password auth via askpass helper (no password ever lands in argv or files).
+  # SSH_ASKPASS_REQUIRE=force (OpenSSH 8.4+) makes askpass work even with a TTY,
+  # so no setsid is needed — the old setsid wrapper broke on Windows Git Bash.
   askpass="$(mktemp)"
   printf '#!/bin/sh\necho "$VPS_PASSWORD"\n' > "$askpass"
   chmod +x "$askpass"
   export SSH_ASKPASS="$askpass" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 GIT_TERMINAL_PROMPT=0
-  SSH() { setsid ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 "root@$VPS_HOST" "$@"; }
-  SCP() { setsid scp -o StrictHostKeyChecking=no "$@"; }
+  SSH() { ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 "root@$VPS_HOST" "$@"; }
+  SCP() { scp -o StrictHostKeyChecking=no "$@"; }
 else
   SSH() { ssh -o ConnectTimeout=15 "root@$VPS_HOST" "$@"; }
   SCP() { scp "$@"; }
