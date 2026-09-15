@@ -8,6 +8,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import {
   displayCapFromTrip,
   displayPlateFromTrip,
+  displayRequestedTruckType,
 } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -92,6 +93,13 @@ function headLabel(trip: Trip, heads: TruckHead[]) {
   return cap || plate || "";
 }
 
+/** What the partner asked for — the requested/head type. tailType is only a
+    fallback: pre-backfill rows and unassigned requests kept the request in
+    tailType, and this column must not mix requested vs fitted data. */
+function fleetTruckTypeOf(trip: Trip): string {
+  return displayRequestedTruckType(trip) || trip.tailType || "—";
+}
+
 function FleetDispatchRequests() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -152,7 +160,7 @@ function FleetDispatchRequests() {
     if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
     const hay =
-      `${dispatchId(t)} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${t.tailType ?? ""} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
+      `${dispatchId(t)} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${fleetTruckTypeOf(t)} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
 
@@ -167,7 +175,7 @@ function FleetDispatchRequests() {
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${t.dropoff},${formatDateTimeStamp(t.createdAt)},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.createdAt)},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -350,7 +358,7 @@ function FleetDispatchRequests() {
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
                 <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
-                <MetaRow label="Truck Type:" value={trip.tailType || ""} />
+                <MetaRow label="Truck Type:" value={fleetTruckTypeOf(trip)} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
@@ -480,7 +488,7 @@ function FleetDispatchRequests() {
                       {trip.driverName || driver?.name}
                     </span>
                     <span className="truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
-                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{fleetTruckTypeOf(trip)}</span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                     <DateCell value={trip.dispatchedAt} />
                     <span>
