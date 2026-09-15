@@ -346,12 +346,16 @@ function FleetDispatchRequests() {
                         ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                           ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                           : []),
-                        {
-                          label: approvingId === trip.id ? "Approving…" : "Approve",
-                          onSelect: () => void handleApprove(trip),
-                          disabled: approvingId === trip.id,
-                        },
-                        { label: "Decline", onSelect: () => void handleDecline(trip), danger: true },
+                        ...(fleetStatusOf(trip) === "Awaiting Approval"
+                          ? [{
+                              label: approvingId === trip.id ? "Approving…" : "Approve",
+                              onSelect: () => void handleApprove(trip),
+                              disabled: approvingId === trip.id,
+                            }]
+                          : []),
+                        ...(fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined"
+                          ? [{ label: "Decline", onSelect: () => void handleDecline(trip), danger: true }]
+                          : []),
                       ]}
                     />
                   </div>

@@ -45,14 +45,27 @@ export function RowActionMenu({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   /** Phones get a bottom sheet instead of a popover — see component doc. */
   const [sheet, setSheet] = useState(false);
+  /** True when the trigger sits inside a display:none subtree (e.g. the mobile
+   *  card's menu while the desktop table renders). The portal escapes the
+   *  hidden container, so without this guard a second "ghost" menu pops at
+   *  the viewport corner and both menus' outside-click handlers eat clicks. */
+  const [suppressed, setSuppressed] = useState(false);
 
   const visible = items.filter((i) => !i.hidden);
 
   useLayoutEffect(() => {
     if (!open) {
       setPos(null);
+      setSuppressed(false);
       return;
     }
+    const trigger = triggerRef.current;
+    if (!trigger || trigger.offsetParent === null) {
+      // Hidden instance — render nothing at all.
+      setSuppressed(true);
+      return;
+    }
+    setSuppressed(false);
     setSheet(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
     const place = () => {
       const trigger = triggerRef.current;
@@ -130,6 +143,7 @@ export function RowActionMenu({
         <MoreVertical className="size-5" strokeWidth={1.75} />
       </button>
       {open &&
+        !suppressed &&
         createPortal(
           sheet ? (
             <>
