@@ -382,9 +382,9 @@ function PartnerRequestDetailsPage() {
   const canConfirmArrival = trip
     ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
     : false;
-  const canDelete = trip
-    ? ["Requested", "Awaiting Approval", "Stopped"].includes(trip.status)
-    : false;
+  // Withdrawable only while the request is still pending — the server refuses a
+  // partner edit/delete once the TM or Fleet Ops has acted on it.
+  const canDelete = trip ? ["Requested", "Awaiting Approval"].includes(trip.status) : false;
   const canModify = trip ? ["Requested", "Awaiting Approval"].includes(trip.status) : false;
 
   const openModifyModal = () => {

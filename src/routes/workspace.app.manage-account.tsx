@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   ChevronLeft,
@@ -21,6 +21,16 @@ import type { User } from "@/lib/fleetopsx/types";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
+  // Admin track only (matches the in-page check and the API's /users roles) —
+  // another department deep-linking here used to render the table and then 403
+  // on every row action.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminManageAccount,
 });
 

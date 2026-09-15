@@ -1,5 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
+import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -14,6 +15,16 @@ import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/partner-requests")({
+  // Acting on a partner request needs the same roles the API accepts (PATCH
+  // /trips) — without this guard any department could deep-link in and get a
+  // 403 "Insufficient privileges" on Approve / Decline.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminPartnerRequests,
 });
 

@@ -76,6 +76,14 @@ function formatTripDate(value: string | undefined) {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/**
+ * A partner can withdraw only a request nobody has acted on yet — mirrors the
+ * server rule, so the Delete action disappears once the TM has handled it.
+ */
+function isWithdrawable(status: TripStatus | string): boolean {
+  return status === "Requested" || status === "Awaiting Approval";
+}
+
 function isPartnerTrip(trip: Trip, companyName: string | undefined) {
   // Live API: `customer` = partner company; `customerConsignee` = form consignee.
   // The server already scopes GET /trips to this partner's company, so any trip
@@ -428,7 +436,16 @@ function PartnerPortalDashboard() {
                             width={170}
                             items={[
                               { label: "Details", onSelect: () => openDetails(r) },
-                              { label: "Delete", onSelect: () => setDeleteModalOpen(r.id), danger: true },
+                              // Only a still-pending request can be withdrawn.
+                              ...(isWithdrawable(r.status)
+                                ? [
+                                    {
+                                      label: "Delete",
+                                      onSelect: () => setDeleteModalOpen(r.id),
+                                      danger: true,
+                                    },
+                                  ]
+                                : []),
                             ]}
                           />
                         </span>
@@ -519,7 +536,15 @@ function PartnerPortalDashboard() {
                                 width={170}
                                 items={[
                                   { label: "Details", onSelect: () => openDetails(r) },
-                                  { label: "Delete", onSelect: () => setDeleteModalOpen(r.id), danger: true },
+                                  ...(isWithdrawable(r.status)
+                                    ? [
+                                        {
+                                          label: "Delete",
+                                          onSelect: () => setDeleteModalOpen(r.id),
+                                          danger: true,
+                                        },
+                                      ]
+                                    : []),
                                 ]}
                               />
                             </div>

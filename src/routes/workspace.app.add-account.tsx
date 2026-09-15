@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Check, Download, MoreVertical, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +7,15 @@ import { ADMIN_DEPARTMENTS, departmentToRoleKey } from "@/lib/fleetopsx/admin-de
 import { adminService, authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/add-account")({
+  // Admin track only (matches the in-page check and the API's POST /users roles)
+  // — otherwise the form fills in fine and only fails at Save with 403.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AdminAddAccount,
 });
 

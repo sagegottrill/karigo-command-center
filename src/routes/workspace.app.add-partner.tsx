@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
@@ -7,6 +7,15 @@ import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
 export const Route = createFileRoute("/workspace/app/add-partner")({
+  // Partner onboarding creates a /users account — keep it to the roles the API
+  // accepts, instead of failing at Save with a 403.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   component: AddPartner,
 });
 
