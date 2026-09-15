@@ -383,27 +383,46 @@ function PartnerPortalDashboard() {
           </div>
         ) : (
           <>
-            {/* Mobile cards — Figma 294:8644 */}
+            {/* Mobile cards — Figma 294:8644 (with the design's per-card action menu) */}
             <div className="flex flex-col gap-3 lg:hidden">
               {filteredRequests.map((r) => {
                 const uiStatus = toPartnerStatus(r.status);
                 return (
-                  <button
+                  <div
                     key={r.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openDetails(r)}
-                    className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") openDetails(r);
+                    }}
+                    className="cursor-pointer rounded-[10px] border border-[#E2E5E9] bg-white p-4 text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <span className="text-[11px] font-medium text-[#8E95A1]">{formatTripDate(r.scheduledDate)}</span>
-                      <span
-                        className={cn(
-                          "inline-flex h-[22px] items-center rounded px-3 text-[10px] font-medium",
-                          partnerStatusClass(uiStatus),
-                        )}
-                      >
-                        {uiStatus}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span
+                          className={cn(
+                            "inline-flex h-[22px] items-center rounded px-3 text-[10px] font-medium",
+                            partnerStatusClass(uiStatus),
+                          )}
+                        >
+                          {uiStatus}
+                        </span>
+                        {/* Per-card CTA menu (Details / Delete) — same as the design. */}
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <RowActionMenu
+                            open={rowMenuOpen === r.id}
+                            onOpenChange={(o) => setRowMenuOpen(o ? r.id : null)}
+                            label="Request options"
+                            width={170}
+                            items={[
+                              { label: "Details", onSelect: () => openDetails(r) },
+                              { label: "Delete", onSelect: () => setDeleteModalOpen(r.id), danger: true },
+                            ]}
+                          />
+                        </span>
+                      </div>
                     </div>
                     <p className="mb-3 text-[16px] font-semibold text-[#1B2432]">{r.customerConsignee || "—"}</p>
                     <dl className="grid gap-2 text-[13px]">
@@ -424,7 +443,7 @@ function PartnerPortalDashboard() {
                         <dd className="font-medium leading-snug text-[#1B2432]">{r.dropoff || "—"}</dd>
                       </div>
                     </dl>
-                  </button>
+                  </div>
                 );
               })}
             </div>
