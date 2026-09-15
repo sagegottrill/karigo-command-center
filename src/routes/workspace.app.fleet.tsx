@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
@@ -23,6 +23,11 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 });
 
 const PAGE_SIZE = 10;
+
+/** Desktop table columns — fr units so the table flexes to fit 1280–1920px
+    laptops instead of forcing the page sideways (screenshot bug). */
+const FLEET_GRID =
+  "grid grid-cols-[minmax(118px,0.9fr)_minmax(96px,0.7fr)_minmax(0,1fr)_minmax(120px,0.9fr)_minmax(90px,0.7fr)_minmax(0,1fr)_minmax(118px,0.9fr)_minmax(92px,0.7fr)_auto]";
 
 function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
@@ -99,6 +104,7 @@ function FleetDispatchRequests() {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -402,30 +408,61 @@ function FleetDispatchRequests() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button
-              type="button"
-              className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white"
-              aria-label="Filter"
-            >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterOpen((o) => !o)}
+                className={cn(
+                  "grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white",
+                  statusFilter !== "All" && "ring-2 ring-[#1B2432] ring-offset-2",
+                )}
+                aria-label="Filter by status"
+              >
+                <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+              </button>
+              {filterOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
+                  <div className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.15)]">
+                    {STATUS_FILTERS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(s);
+                          setPage(0);
+                          setFilterOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] tracking-[0.4px] text-[#141A1F] hover:bg-[#F1F2F4]",
+                          statusFilter === s && "font-semibold",
+                        )}
+                      >
+                        {s === "All" ? "All Statuses" : s}
+                        {statusFilter === s && <Check className="size-4 text-[#ED351D]" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
+          {/* Responsive grid — the table flexes to the viewport instead of
+              forcing the whole page sideways on smaller laptops. */}
           <div className="overflow-x-auto">
-            <div className="min-w-[1260px]">
-              <div className="flex items-center gap-[30px] border-b border-[#E2E5E9] py-[15px]">
+            <div className="w-full">
+              <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", FLEET_GRID)}>
                 {/* Date Requested leads the row — the TM reads the request date first. */}
-                <span className="w-[150px] shrink-0 text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <div className="flex items-center tracking-[0.4px]">
-                  <span className="w-[96px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Dispatch ID</span>
-                  <span className="w-[170px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Driver</span>
-                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
-                  <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
-                  <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Drop-off Location</span>
-                  <span className="w-[150px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Approved</span>
-                  <span className="w-[100px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
-                </div>
-                <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Actions</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Tail Type</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
+                <span className="justify-self-end text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Actions</span>
               </div>
 
               {slice.map((trip) => {
@@ -433,25 +470,23 @@ function FleetDispatchRequests() {
                 return (
                   <div
                     key={trip.id}
-                    className="relative flex h-12 items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                    className={cn("relative items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0", FLEET_GRID)}
                   >
                     <DateCell value={trip.createdAt} />
-                    <div className="flex items-center tracking-[0.4px]">
-                      <span className="w-[96px] shrink-0 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                        {dispatchId(trip)}
-                      </span>
-                      <span className="w-[170px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">
-                        {trip.driverName || driver?.name}
-                      </span>
-                      <span className="w-[140px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
-                      <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
-                      <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                      <DateCell value={trip.dispatchedAt} />
-                      <span className="w-[100px] shrink-0">
-                        <StatusPill status={fleetStatusOf(trip)} />
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                      {dispatchId(trip)}
+                    </span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {trip.driverName || driver?.name}
+                    </span>
+                    <span className="truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                    <DateCell value={trip.dispatchedAt} />
+                    <span>
+                      <StatusPill status={fleetStatusOf(trip)} />
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2 justify-self-end">
                       <RowActionMenu
                         open={menuFor === trip.id}
                         onOpenChange={(o) => setMenuFor(o ? trip.id : null)}
@@ -585,7 +620,7 @@ function FleetDispatchRequests() {
 function DateCell({ value }: { value?: string | null }) {
   const { date, time } = formatDateLines(value);
   return (
-    <span className="w-[150px] shrink-0 text-[14px] leading-4 text-[#5C6470]">
+    <span className="min-w-0 text-[14px] leading-4 text-[#5C6470]">
       {date}
       {time && <span className="block text-[12px] text-[#627084]">{time}</span>}
     </span>
