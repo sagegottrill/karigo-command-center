@@ -1526,12 +1526,6 @@ export const PETROLINE_DRIVERS: PetrolineDriver[] = [
     "cabId": ""
   },
   {
-    "salaryNumber": "P01001",
-    "name": "Adamu Isah",
-    "phone": "07060804674",
-    "cabId": "P038"
-  },
-  {
     "salaryNumber": "P00979",
     "name": "Usman Adamu",
     "phone": "09024703369",
@@ -1967,24 +1961,6 @@ export const PETROLINE_DRIVERS: PetrolineDriver[] = [
     "salaryNumber": "P00936",
     "name": "Ali Mohammed",
     "phone": "07046511275",
-    "cabId": ""
-  },
-  {
-    "salaryNumber": "P00991",
-    "name": "Jaffar Shaibu",
-    "phone": "08051319087",
-    "cabId": ""
-  },
-  {
-    "salaryNumber": "P01009",
-    "name": "Abdullahi Ibrahim",
-    "phone": "",
-    "cabId": ""
-  },
-  {
-    "salaryNumber": "P00883",
-    "name": "Haruna Isiaka",
-    "phone": "07017887954",
     "cabId": ""
   }
 ];

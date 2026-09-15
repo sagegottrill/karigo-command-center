@@ -6,6 +6,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
+import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -193,11 +194,19 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
 
             <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
               <span className="text-[14px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
-              <DetailRow label="Truck Head (Cap Number):" value={trip.headId} />
-              <DetailRow label="Truck Head Plate Number:" value={trip.truckReg} />
+              {/* truckReg is "PLATE / TAILCODE" — the head rows show the head's own
+                  identifiers only; the tail lives on its own row. */}
+              <DetailRow label="Truck Head (Cap Number):" value={displayCapFromTrip(trip)} />
+              <DetailRow label="Truck Head Plate Number:" value={displayPlateFromTrip(trip)} />
               <DetailRow
                 label="Truck Tail assigned:"
-                value={[trip.tailType, trip.tailNumber].filter(Boolean).join(" ")}
+                value={
+                  trip.tailNumber
+                    ? trip.tailType && trip.tailNumber !== trip.tailType
+                      ? `${trip.tailType} (${trip.tailNumber})`
+                      : trip.tailNumber
+                    : trip.tailType || undefined
+                }
               />
               <DetailRow label="Driver Assigned:" value={trip.driverName} />
               <DetailRow label="Driver Contact Phone:" value={(trip as Trip & { driverPhone?: string }).driverPhone} />

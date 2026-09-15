@@ -35,12 +35,25 @@ const body = sheetRows(cabWb, "Body")
   .filter((r) => /^B\d+/i.test(r.bodyId));
 
 const drivers = [];
+const seenSalary = new Set();
+const seenDriverKey = new Set();
 for (const r of sheetRows(drvWb, "Driver Staff List")) {
   const salary = String(r[1] || "").trim();
   const name = String(r[2] || "").trim();
   const phone = String(r[3] || "").trim();
   const cabId = String(r[4] || "").trim();
   if (!/^P\d+/i.test(salary) || !name) continue;
+  // The sheet reuses one staff number (P01001) for TWO different people — the
+  // number must stay unique or lookups by salary silently pick the wrong man.
+  const salaryKey = salary.toUpperCase();
+  if (seenSalary.has(salaryKey)) {
+    console.warn(`duplicate staff number ${salary} for ${name} — skipped (first row wins)`);
+    continue;
+  }
+  seenSalary.add(salaryKey);
+  const personKey = `${name.toLowerCase()}|${phone.replace(/\D/g, "").slice(-10)}`;
+  if (seenDriverKey.has(personKey)) continue;
+  seenDriverKey.add(personKey);
   drivers.push({
     salaryNumber: salary,
     name,
@@ -54,6 +67,17 @@ for (const r of sheetRows(drvWb, "Spare Drivers")) {
   const name = String(r[1] || "").trim();
   const phone = String(r[2] || "").trim();
   if (!/^P\d+/i.test(salary) || !name) continue;
+  // Spares reuse main-list numbers (P00991, P01009, P00883) — never shadow a
+  // main-list driver in lookups.
+  const salaryKey = salary.toUpperCase();
+  if (seenSalary.has(salaryKey)) {
+    console.warn(`spare driver ${name} reuses main-list number ${salary} — skipped`);
+    continue;
+  }
+  seenSalary.add(salaryKey);
+  const personKey = `${name.toLowerCase()}|${phone.replace(/\D/g, "").slice(-10)}`;
+  if (seenDriverKey.has(personKey)) continue;
+  seenDriverKey.add(personKey);
   drivers.push({ salaryNumber: salary, name, phone, cabId: "" });
 }
 

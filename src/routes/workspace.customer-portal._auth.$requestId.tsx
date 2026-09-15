@@ -20,7 +20,12 @@ import {
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
+import {
+  displayPlateFromTrip,
+  displayRequestedTruckType,
+  humanCode,
+  looksLikeUuid,
+} from "@/lib/fleetopsx/display-ids";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
 import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -379,11 +384,18 @@ function PartnerRequestDetailsPage() {
   }, [trip, checkpoints]);
   const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
   const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);
-  const truckHead = truckParts[0] && truckParts[0] !== "TBD" ? truckParts[0] : trip?.headId || "—";
+  // Head = PLATE only (truckReg is "PLATE / TAILCODE" — never show the tail code
+  // in the head row). Tail = its type, with its code as the serial.
+  const truckHead =
+    truckParts[0] && truckParts[0] !== "TBD" && !looksLikeUuid(truckParts[0])
+      ? truckParts[0]
+      : trip
+        ? displayPlateFromTrip(trip) || "—"
+        : "—";
   const truckTail = trip?.tailType || truckParts[1] || "—";
   /** What the partner asked for — distinct from the tail that was fitted. */
   const requestedTruckType = trip ? displayRequestedTruckType(trip) : "";
-  const serial = trip?.tailNumber || trip?.tailId || "—";
+  const serial = humanCode(trip?.tailNumber) || "—";
   const hasAssignment = Boolean(
     trip && (trip.driverId || (trip.driverName && trip.driverName !== "Unassigned") || trip.truckReg || trip.headId),
   );
