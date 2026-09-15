@@ -14,6 +14,7 @@ import {
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
+import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import { FO_QUEUE_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -156,7 +157,12 @@ function DispatchPage() {
   const [extraAllowance, setExtraAllowance] = useState("");
   const [lubricant, setLubricant] = useState("Diesel");
   const [lubricantQty, setLubricantQty] = useState("");
-  const [lubricantCost, setLubricantCost] = useState("");
+
+  // Fuel pricing: the TM owns the price per litre (HR → Fuel Pricing). FO only
+  // types a quantity — the cost is always qty × TM price, never typed by hand.
+  const { price: fuelPricePerLitre } = useFuelPrices();
+  const lubricantCost =
+    (Number(lubricantQty) || 0) * (fuelPricePerLitre(lubricant as "Diesel" | "Gas") || 0);
 
   // Selection Lookups
   const head = useMemo(() => TRUCK_HEADS.find(h => h.id === headId), [TRUCK_HEADS, headId]);
@@ -212,6 +218,11 @@ function DispatchPage() {
         return `${label} is a mandatory direct cost.`;
       }
     }
+    // Fuel price comes from the TM. If it has not been set yet, FO cannot price
+    // a lubricant — fail loudly instead of silently saving a zero cost.
+    if ((Number(lubricantQty) || 0) > 0 && fuelPricePerLitre(lubricant as "Diesel" | "Gas") <= 0) {
+      return "Fuel price not set yet — ask the Transport Manager to set the Diesel/Gas price (HR → Fuel Pricing).";
+    }
     return null;
   };
 
@@ -259,7 +270,7 @@ function DispatchPage() {
         extraAllowance: Number(extraAllowance) || 0,
         lubricantType: lubricant === "Gas" ? "Gas" : "Diesel",
         ...(lubricantQty.trim() ? { lubricantQuantity: Number(lubricantQty) || 0 } : {}),
-        ...(lubricantCost.trim() ? { lubricantCost: Number(lubricantCost) || 0 } : {}),
+        ...(lubricantCost > 0 ? { lubricantCost } : {}),
       },
       ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
       status: "Awaiting Approval",
@@ -287,7 +298,6 @@ function DispatchPage() {
     setTicketCost("");
     setExtraAllowance("");
     setLubricantQty("");
-    setLubricantCost("");
   };
 
   const activeTrips = pendingOrders;
@@ -602,13 +612,19 @@ function DispatchPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Cost</label>
+                  {/* Auto-calculated: qty × TM-managed price per litre. Read-only by
+                      design — the TM sets the price, FO never types a cost. */}
                   <input
                     type="number"
-                    className="h-9 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
-                    placeholder="Auto-populated or manual"
-                    value={lubricantCost}
-                    onChange={(e) => setLubricantCost(e.target.value)}
+                    readOnly
+                    className="h-9 w-full rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] font-medium text-[#141A1F] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+                    placeholder="Auto: qty × price/L"
+                    value={lubricantCost > 0 ? String(lubricantCost) : ""}
+                    title={`Auto-calculated: ${lubricantQty || 0} L × ₦${fuelPricePerLitre(lubricant as "Diesel" | "Gas")} per litre (set by the Transport Manager)`}
                   />
+                  <p className="mt-1 text-[11px] tracking-[0.4px] text-[#627084]">
+                    Auto: {lubricantQty || 0} L × ₦{fuelPricePerLitre(lubricant as "Diesel" | "Gas") || "—"}/L (TM rate)
+                  </p>
                 </div>
               </div>
             </div>

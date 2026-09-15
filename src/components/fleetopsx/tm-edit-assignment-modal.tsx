@@ -7,6 +7,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
+import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -94,9 +95,13 @@ export function TmEditAssignmentModal({
   const [lubricantQty, setLubricantQty] = useState(
     costs?.lubricantQuantity != null ? String(costs.lubricantQuantity) : "",
   );
-  const [lubricantCost, setLubricantCost] = useState(
-    costs?.lubricantCost != null ? String(costs.lubricantCost) : "",
-  );
+
+  // Fuel pricing: the TM owns the price per litre. Even in this edit modal the
+  // cost is derived (qty × TM price) — never typed, so a price change re-prices
+  // every open assignment consistently.
+  const { price: fuelPricePerLitre } = useFuelPrices();
+  const lubricantCost =
+    (Number(lubricantQty) || 0) * fuelPricePerLitre(lubricant);
 
   const [saving, setSaving] = useState(false);
 
@@ -164,7 +169,7 @@ export function TmEditAssignmentModal({
           extraAllowance: parseAmount(extraAllowance),
           lubricantType: lubricant,
           ...(lubricantQty.trim() ? { lubricantQuantity: parseAmount(lubricantQty) } : {}),
-          ...(lubricantCost.trim() ? { lubricantCost: parseAmount(lubricantCost) } : {}),
+          ...(lubricantCost > 0 ? { lubricantCost } : {}),
         },
         ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
         ...(andApprove ? { status: "Scheduled" as const } : {}),
@@ -380,13 +385,18 @@ export function TmEditAssignmentModal({
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#141A1F]">Lubricant Cost</span>
+              {/* Auto-calculated: qty × TM-managed price per litre. Read-only. */}
               <input
                 type="number"
-                min="0"
-                className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] outline-none focus:border-[#1B2432]"
-                value={lubricantCost}
-                onChange={(e) => setLubricantCost(e.target.value)}
+                readOnly
+                className="h-10 rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] font-medium text-[#141A1F] outline-none"
+                value={lubricantCost > 0 ? String(lubricantCost) : ""}
+                placeholder="Auto: qty × price/L"
+                title={`Auto-calculated: ${lubricantQty || 0} L × ₦${fuelPricePerLitre(lubricant)} per litre (your TM-set rate)`}
               />
+              <span className="text-[11px] tracking-[0.4px] text-[#627084]">
+                Auto: {lubricantQty || 0} L × ₦{fuelPricePerLitre(lubricant) || "—"}/L — update the rate in HR → Fuel Pricing
+              </span>
             </label>
           </div>
           <div className="flex items-center justify-between border-t border-[#E2E5E9] pt-2.5">

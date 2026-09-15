@@ -4,6 +4,7 @@ import {
   Briefcase,
   CircleHelp,
   CirclePlus,
+  Fuel,
   LayoutDashboard,
   List,
   LogOut,
@@ -57,6 +58,7 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, liveDot: "fleetDispatch" },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
+      { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
     ],
   },
   {
@@ -250,7 +252,7 @@ const ADMIN_MOBILE_NAV = [
     label: "Department",
     to: "/workspace/app/fleet",
     icon: List,
-    matchPrefixes: ["/workspace/app/fleet", "/workspace/app/hr"],
+    matchPrefixes: ["/workspace/app/fleet", "/workspace/app/hr", "/workspace/app/fuel-pricing"],
   },
   { label: "Notification", to: "/workspace/app/notifications", icon: Bell, matchPrefixes: ["/workspace/app/notifications"] },
 ] as const;

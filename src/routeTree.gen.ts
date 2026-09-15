@@ -33,6 +33,7 @@ import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/worksp
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
 import { Route as WorkspaceAppFleetRegistryRouteImport } from './routes/workspace.app.fleet-registry'
+import { Route as WorkspaceAppFuelPricingRouteImport } from './routes/workspace.app.fuel-pricing'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
@@ -184,6 +185,11 @@ const WorkspaceAppFleetRegistryRoute =
     path: '/fleet-registry',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppFuelPricingRoute = WorkspaceAppFuelPricingRouteImport.update({
+  id: '/fuel-pricing',
+  path: '/fuel-pricing',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppGateRoute = WorkspaceAppGateRouteImport.update({
   id: '/gate',
   path: '/gate',
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
+  '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -404,6 +411,7 @@ export interface FileRoutesByTo {
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
+  '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -456,6 +464,7 @@ export interface FileRoutesById {
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
+  '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
@@ -510,6 +519,7 @@ export interface FileRouteTypes {
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
+    | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
+    | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -609,6 +620,7 @@ export interface FileRouteTypes {
     | '/workspace/app/engineering'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
+    | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
@@ -813,6 +825,13 @@ declare module '@tanstack/react-router' {
       path: '/fleet-registry'
       fullPath: '/workspace/app/fleet-registry'
       preLoaderRoute: typeof WorkspaceAppFleetRegistryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/fuel-pricing': {
+      id: '/workspace/app/fuel-pricing'
+      path: '/fuel-pricing'
+      fullPath: '/workspace/app/fuel-pricing'
+      preLoaderRoute: typeof WorkspaceAppFuelPricingRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/gate': {
@@ -1032,6 +1051,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
   WorkspaceAppFleetRegistryRoute: typeof WorkspaceAppFleetRegistryRoute
+  WorkspaceAppFuelPricingRoute: typeof WorkspaceAppFuelPricingRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
@@ -1067,6 +1087,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
   WorkspaceAppFleetRegistryRoute: WorkspaceAppFleetRegistryRoute,
+  WorkspaceAppFuelPricingRoute: WorkspaceAppFuelPricingRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,

@@ -9,7 +9,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
-import { formatTableDate } from "@/lib/fleetopsx/display-dates";
+import { formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -156,11 +156,11 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Drop-off Location,Date Created,Date Dispatched,Status\n";
+    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Drop-off Location,Date Requested,Date Approved,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${t.dropoff},${formatTableDate(t.createdAt)},${formatTableDate(t.dispatchedAt)},${fleetStatusOf(t)}`;
+        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${t.tailType || ""},${t.dropoff},${formatDateTimeStamp(t.createdAt)},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -387,8 +387,8 @@ function FleetDispatchRequests() {
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Created:" value={formatTableDate(trip.createdAt)} />
-                <MetaRow label="Date Dispatched:" value={formatTableDate(trip.dispatchedAt)} />
+                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
+                <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
               </div>
             );
           })}
@@ -460,11 +460,11 @@ function FleetDispatchRequests() {
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Truck Head</span>
                   <span className="w-[140px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Tail Type</span>
                   <span className="w-[160px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Drop-off Location</span>
-                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Created</span>
-                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Dispatched</span>
+                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Requested</span>
+                  <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Date Approved</span>
                   <span className="w-[100px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Status</span>
                 </div>
-                <span className="w-[40px] shrink-0" />
+                <span className="w-[110px] shrink-0 text-[16px] font-semibold text-[#1B2432]">Actions</span>
               </div>
 
               {slice.map((trip) => {
@@ -484,13 +484,24 @@ function FleetDispatchRequests() {
                       <span className="w-[140px] shrink-0 truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
                       <span className="w-[140px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.tailType}</span>
                       <span className="w-[160px] shrink-0 truncate capitalize text-[14px] text-[#5C6470]">{trip.dropoff}</span>
-                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatTableDate(trip.createdAt)}</span>
-                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatTableDate(trip.dispatchedAt)}</span>
+                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatDateTimeStamp(trip.createdAt)}</span>
+                      <span className="w-[110px] shrink-0 truncate text-[14px] text-[#5C6470]">{formatDateTimeStamp(trip.dispatchedAt)}</span>
                       <span className="w-[100px] shrink-0">
                         <StatusPill status={fleetStatusOf(trip)} />
                       </span>
                     </div>
                     <div className="relative flex shrink-0 items-center gap-2">
+                      {/* Always-visible Modify action: the TM must be able to correct
+                          FO's inputs without hunting through the overflow menu. */}
+                      {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditing(trip)}
+                          className="flex h-7 items-center rounded bg-[#1B2432] px-2.5 text-[12px] font-medium tracking-[0.4px] text-white hover:bg-[#2A3547]"
+                        >
+                          Modify
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="grid size-5 place-items-center text-[#1B2432]"
@@ -678,3 +689,4 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
     </div>
   );
 }
+

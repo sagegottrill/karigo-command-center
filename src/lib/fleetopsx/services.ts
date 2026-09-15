@@ -9,6 +9,26 @@ import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
 import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
 
+/**
+ * Fuel pricing: the Transport Manager is the single source of truth for the
+ * price per litre. Fleet Operations only ever enters a quantity — the cost is
+ * computed as qty × TM-set price, never typed by hand.
+ */
+export type FuelPrice = {
+  id: string;
+  fuelType: "Diesel" | "Gas";
+  pricePerLitre: number;
+  updatedBy: string;
+  updatedAt: string;
+};
+
+export const fuelPriceService = {
+  list: (): Promise<FuelPrice[]> =>
+    fetchApi<FuelPrice[]>('/fuel-prices').then((res) => asList(res as any) as FuelPrice[]),
+  update: (fuelType: "Diesel" | "Gas", pricePerLitre: number) =>
+    fetchApi<FuelPrice>('/fuel-prices', { method: 'PUT', body: JSON.stringify({ fuelType, pricePerLitre }) }),
+};
+
 export const tenantService = {
   list: () => fetchApi('/tenants'),
   // Backend route is GET /tenants/slug/:slug (a ?slug= query just returns the

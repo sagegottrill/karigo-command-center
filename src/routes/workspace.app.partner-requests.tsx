@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search, SlidersHoriz
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { formatTableDate } from "@/lib/fleetopsx/display-dates";
+import { formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -136,7 +136,7 @@ function AdminPartnerRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Drop-off Location,Date Created,Date Dispatched,Status\n";
+    const headers = "Request ID,Partner,Customer Name,Product,Truck Type,Drop-off Location,Date Requested,Date Approved,Status\n";
     const csv = filtered
       .map(
         (t) =>
@@ -334,8 +334,8 @@ function AdminPartnerRequests() {
                 <MetaRow label="Product:" value={trip.cargo || ""} />
                 <MetaRow label="Truck Type:" value={trip.tailType || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Created:" value={formatTableDate(trip.createdAt)} />
-                <MetaRow label="Date Dispatched:" value={formatTableDate(dispatchedAtOf(trip))} />
+                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
+                <MetaRow label="Date Approved:" value={formatDateTimeStamp(dispatchedAtOf(trip))} />
               </div>
             );
           })}
@@ -399,8 +399,8 @@ function AdminPartnerRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Created</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Dispatched</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                 <span className="w-5" />
               </div>
@@ -422,8 +422,8 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(trip.createdAt)}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatTableDate(dispatchedAtOf(trip))}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatDateTimeStamp(trip.createdAt)}</span>
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{formatDateTimeStamp(dispatchedAtOf(trip))}</span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
                   <div className="relative shrink-0 justify-self-end">
                     <button
@@ -542,8 +542,8 @@ function AdminPartnerRequests() {
             <ReadOnlyField label="Product" value={detail.cargo} />
             <ReadOnlyField label="Truck Type" value={detail.tailType ?? ""} />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
-            <ReadOnlyField label="Date Created" value={formatTableDate(detail.createdAt)} />
-            <ReadOnlyField label="Date Dispatched" value={formatTableDate(dispatchedAtOf(detail))} />
+            <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
+            <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(dispatchedAtOf(detail))} />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
                 <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>
