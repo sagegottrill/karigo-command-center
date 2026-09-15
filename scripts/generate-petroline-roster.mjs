@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
+// Drivers now come from Fortune File - Driver.xlsx via generate-driver-roster.mjs
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -34,57 +35,11 @@ const body = sheetRows(cabWb, "Body")
   }))
   .filter((r) => /^B\d+/i.test(r.bodyId));
 
-const drivers = [];
-const seenSalary = new Set();
-const seenDriverKey = new Set();
-for (const r of sheetRows(drvWb, "Driver Staff List")) {
-  const salary = String(r[1] || "").trim();
-  const name = String(r[2] || "").trim();
-  const phone = String(r[3] || "").trim();
-  const cabId = String(r[4] || "").trim();
-  if (!/^P\d+/i.test(salary) || !name) continue;
-  // The sheet reuses one staff number (P01001) for TWO different people — the
-  // number must stay unique or lookups by salary silently pick the wrong man.
-  const salaryKey = salary.toUpperCase();
-  if (seenSalary.has(salaryKey)) {
-    console.warn(`duplicate staff number ${salary} for ${name} — skipped (first row wins)`);
-    continue;
-  }
-  seenSalary.add(salaryKey);
-  const personKey = `${name.toLowerCase()}|${phone.replace(/\D/g, "").slice(-10)}`;
-  if (seenDriverKey.has(personKey)) continue;
-  seenDriverKey.add(personKey);
-  drivers.push({
-    salaryNumber: salary,
-    name,
-    phone,
-    cabId: /^P\d+/i.test(cabId) ? cabId : "",
-  });
-}
-
-for (const r of sheetRows(drvWb, "Spare Drivers")) {
-  const salary = String(r[0] || "").trim();
-  const name = String(r[1] || "").trim();
-  const phone = String(r[2] || "").trim();
-  if (!/^P\d+/i.test(salary) || !name) continue;
-  // Spares reuse main-list numbers (P00991, P01009, P00883) — never shadow a
-  // main-list driver in lookups.
-  const salaryKey = salary.toUpperCase();
-  if (seenSalary.has(salaryKey)) {
-    console.warn(`spare driver ${name} reuses main-list number ${salary} — skipped`);
-    continue;
-  }
-  seenSalary.add(salaryKey);
-  const personKey = `${name.toLowerCase()}|${phone.replace(/\D/g, "").slice(-10)}`;
-  if (seenDriverKey.has(personKey)) continue;
-  seenDriverKey.add(personKey);
-  drivers.push({ salaryNumber: salary, name, phone, cabId: "" });
-}
-
 const outPath = path.join(root, "src/lib/fleetopsx/petroline-roster.ts");
 const out = `/**
- * Petroline Transport Ltd fleet roster — single source of truth for Cap (CAB),
- * Body (tails), and driver salary numbers. Generated from Fortune File + Driver Staff List.
+ * Petroline Transport Ltd fleet roster — single source of truth for Cap (CAB)
+ * and Body (tails). Generated from Fortune File (1).xlsx.
+ * Drivers come from "Fortune File - Driver.xlsx" via generate-driver-roster.mjs.
  * Do not show raw API UUIDs in UI; enrich live records via these codes.
  */
 export type PetrolineCab = {
@@ -101,19 +56,10 @@ export type PetrolineBody = {
   destination: string;
 };
 
-export type PetrolineDriver = {
-  salaryNumber: string;
-  name: string;
-  phone: string;
-  cabId: string;
-};
-
 export const PETROLINE_CABS: PetrolineCab[] = ${JSON.stringify(cab, null, 2)};
 
 export const PETROLINE_BODIES: PetrolineBody[] = ${JSON.stringify(body, null, 2)};
-
-export const PETROLINE_DRIVERS: PetrolineDriver[] = ${JSON.stringify(drivers, null, 2)};
 `;
 
 fs.writeFileSync(outPath, out);
-console.log("wrote", outPath, "cab", cab.length, "body", body.length, "drivers", drivers.length);
+console.log("wrote", outPath, "cab", cab.length, "body", body.length);

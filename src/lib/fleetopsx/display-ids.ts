@@ -4,11 +4,10 @@
 import {
   PETROLINE_BODIES,
   PETROLINE_CABS,
-  PETROLINE_DRIVERS,
   type PetrolineBody,
   type PetrolineCab,
-  type PetrolineDriver,
 } from "./petroline-roster";
+import { PETROLINE_DRIVERS, type PetrolineDriver } from "./petroline-drivers";
 import type { Driver, TruckHead, TruckTail } from "./types";
 import { displayRequestId } from "./request-id";
 import { PARTNER_TRUCK_TYPE_OPTIONS } from "./partner-request-options";
@@ -236,6 +235,5 @@ export function enrichDriver(driver: Driver): Driver {
   };
   if (salary) next.salaryNumber = salary;
   else if (driver.salaryNumber) next.salaryNumber = driver.salaryNumber;
-  if (roster?.cabId && !driver.assignedTruck) next.assignedTruck = roster.cabId;
   return next;
 }
