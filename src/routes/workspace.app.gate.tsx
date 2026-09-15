@@ -45,22 +45,57 @@ function tailOf(trip: Trip) {
   return humanCode(trip.tailNumber, trip.tailType) || "—";
 }
 
-function departureLabel(trip: Trip) {
+/** Actual gate stamp (date+time) when the truck has departed — null shows the placeholder. */
+function departureStamp(trip: Trip): string | null {
   if (["En Route", "Loaded", "Offloading", "Returning", "Completed"].includes(trip.status)) {
-    return trip.startTime && trip.startTime !== "—" ? trip.startTime : "Departed";
+    if (trip.startTime && trip.startTime !== "—" && trip.startTime !== "-") return trip.startTime;
+    return "Departed";
   }
-  return "Not Departed";
+  return null;
 }
 
-function returnLabel(trip: Trip) {
+/** Actual gate stamp (date+time) when the truck has returned — null shows the placeholder. */
+function returnStamp(trip: Trip): string | null {
   if (trip.status === "Completed" || trip.status === "Returning") {
-    return trip.eta && trip.eta !== "—" ? trip.eta : "Returned";
+    if (trip.eta && trip.eta !== "—" && trip.eta !== "-") return trip.eta;
+    return "Returned";
   }
-  return "Not Returned";
+  return null;
 }
 
-function isPendingStamp(label: string) {
-  return label === "Not Departed" || label === "Not Returned";
+/** Parse any stored stamp (ISO or "15 Sept 2026, 08:51") into two lines; null when unparseable. */
+function parseStamp(value: string): { date: string; time: string } | null {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
+/** Departure/Return cell: real date with time underneath, green; italic placeholder when pending. */
+function StampCell({ value, fallback }: { value: string | null; fallback: string }) {
+  if (!value) {
+    return <span className="text-[13px] italic tracking-[0.4px] text-[#627084]">{fallback}</span>;
+  }
+  const stamp = parseStamp(value);
+  if (!stamp) {
+    return <span className="text-[13px] font-medium tracking-[0.4px] text-[#34C759]">{value}</span>;
+  }
+  return (
+    <span className="text-[13px] font-medium leading-4 tracking-[0.4px] text-[#34C759]">
+      {stamp.date}
+      <span className="block text-[12px] font-normal text-[#34C759]/80">{stamp.time}</span>
+    </span>
+  );
+}
+
+/** CSV text for a stamp cell. */
+function stampCsv(value: string | null, fallback: string): string {
+  if (!value) return fallback;
+  const stamp = parseStamp(value);
+  return stamp ? `${stamp.date} ${stamp.time}` : value;
 }
 
 function SecurityLogPage() {
@@ -194,7 +229,7 @@ function SecurityLogPage() {
     const body = filtered
       .map(
         (t) =>
-          `${dispatchId(t)},${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${departureLabel(t)},${returnLabel(t)}`,
+          `${dispatchId(t)},${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")}`,
       )
       .join("\n");
     const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
@@ -278,8 +313,8 @@ function SecurityLogPage() {
         </div>
 
         {slice.map((trip) => {
-          const dep = departureLabel(trip);
-          const ret = returnLabel(trip);
+          const dep = departureStamp(trip);
+          const ret = returnStamp(trip);
           return (
             <div
               key={trip.id}
@@ -290,22 +325,8 @@ function SecurityLogPage() {
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{plateOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{tailOf(trip)}</span>
-              <span
-                className={cn(
-                  "text-[13px] tracking-[0.4px]",
-                  isPendingStamp(dep) ? "italic text-[#627084]" : "font-medium text-[#34C759]",
-                )}
-              >
-                {dep}
-              </span>
-              <span
-                className={cn(
-                  "text-[13px] tracking-[0.4px]",
-                  isPendingStamp(ret) ? "italic text-[#627084]" : "font-medium text-[#34C759]",
-                )}
-              >
-                {ret}
-              </span>
+              <StampCell value={dep} fallback="Not Departed" />
+              <StampCell value={ret} fallback="Not Returned" />
               <div className="relative hidden justify-self-end md:block">
                 <button
                   type="button"
