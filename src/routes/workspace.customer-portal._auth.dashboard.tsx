@@ -6,6 +6,7 @@ import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell"
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { countBuckets } from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +106,12 @@ function PartnerPortalDashboard() {
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, []);
+
+  // Near real-time: approval / assignment / tracking progress appears on the
+  // partner dashboard within seconds (10s poll + focus / tab-visible refresh).
+  useAutoRefresh(() => {
+    void refresh().catch(() => {});
+  });
 
   const filteredRequests = useMemo(() => {
     let result = requests;

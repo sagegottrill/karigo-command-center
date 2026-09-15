@@ -6,7 +6,6 @@ import {
   useRouter,
   HeadContent,
   Scripts,
-  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -14,6 +13,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { tenantService } from "@/lib/fleetopsx/services";
 import { getHostnameServerFn } from "@/lib/fleetopsx/hostname";
+import { useNotificationEngine } from "@/lib/fleetopsx/notification-engine";
 
 function NotFoundComponent() {
   return (
@@ -120,11 +120,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       }
     }
 
-    // Guard: On the main domain (no tenant), /workspace/* routes are not allowed.
-    // Redirect to the main landing page to prevent cross-context bleed.
-    if (!tenantSlug && location.pathname.startsWith("/workspace")) {
-      throw redirect({ to: "/" });
-    }
+    // NOTE: /workspace/* is reachable on ANY host (apex domain, preview URLs,
+    // IP). It used to redirect back to the landing page when no tenant
+    // subdomain matched — which silently destroyed live sessions whenever the
+    // portal was opened from a non-subdomain host (looked like "the app logged
+    // me out"). Tenant branding falls back to the platform default instead.
     
     const platformTenant = tenantSlug
       ? await tenantService.getBySlug(tenantSlug)
@@ -158,6 +158,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Real-time notifications: chime + toast pop-up + tab-title badge, one 10s
+  // poll shared app-wide (idle on public/login routes).
+  useNotificationEngine();
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -109,10 +109,20 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       }
     };
     refresh();
-    const id = window.setInterval(refresh, 30_000);
+    // 10s near-real-time cadence (was 30s) + refetch when the tab regains
+    // focus, so cards move without a manual refresh.
+    const id = window.setInterval(refresh, 10_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onFocus = () => refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 

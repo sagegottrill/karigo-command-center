@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   getTrackingDelayStatus,
   isActiveDispatchTrip,
@@ -47,6 +48,14 @@ function LiveTrackingPage() {
       cancelled = true;
     };
   }, []);
+
+  // Near real-time: the tracking map reflects moves within seconds (10s poll).
+  useAutoRefresh(() => {
+    void tripService
+      .list()
+      .then((all) => setTrips(all.filter(isActiveDispatchTrip)))
+      .catch(() => {});
+  });
 
   const stats = useMemo(() => {
     let onSchedule = 0;

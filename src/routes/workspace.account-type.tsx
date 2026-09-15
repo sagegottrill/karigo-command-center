@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { clearPortalSession } from "@/lib/fleetopsx/session";
+import { clearPortalSession, isPartnerSession } from "@/lib/fleetopsx/session";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createFileRoute("/workspace/account-type")({
-  beforeLoad: () => {
-    // Logo / portal switch must never carry Partner ↔ Internal JWT into the other login.
-    if (typeof window !== "undefined") clearPortalSession();
-  },
+  // NOTE: this page is also the sidebar-logo destination for logged-in users.
+  // It used to clearPortalSession() here — clicking the logo instantly logged
+  // the user out. The JWT is only dropped when the user PROCEEDS into the
+  // OTHER portal type (see handleProceed).
   component: AccountTypePage,
 });
 
@@ -16,7 +16,13 @@ function AccountTypePage() {
   const [accountType, setAccountType] = useState<"internal" | "partner">("internal");
 
   const handleProceed = () => {
-    clearPortalSession();
+    // Only drop the JWT when actually crossing the Internal ↔ Partner boundary.
+    // Choosing the portal that matches the current session keeps the user
+    // signed in and returns them to their own home.
+    const samePortal =
+      (accountType === "internal" && !isPartnerSession()) ||
+      (accountType === "partner" && isPartnerSession());
+    if (!samePortal) clearPortalSession();
     // Hard replace so Back cannot restore the previous portal session.
     window.location.replace(
       accountType === "internal" ? "/workspace/login" : "/workspace/customer-portal/login",

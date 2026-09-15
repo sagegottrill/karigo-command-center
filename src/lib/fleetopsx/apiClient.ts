@@ -71,6 +71,8 @@ export function clearSession() {
   localStorage.removeItem(ROLES_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
   clearPendingLoginPassword();
+  // Notification engine + badge pollers listen for this to reset their state.
+  window.dispatchEvent(new Event("fleetopsx:logged-out"));
 }
 
 export class ApiError extends Error {

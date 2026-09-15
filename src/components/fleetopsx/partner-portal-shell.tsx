@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { authService, notificationService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
 import { hardLogout } from "@/lib/fleetopsx/session";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
@@ -54,6 +55,14 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // Bell stays live: 10s poll (+ focus / tab-visible) instead of mount-only.
+  useAutoRefresh(() => {
+    void notificationService
+      .getUnreadCount()
+      .then(setUnread)
+      .catch(() => setUnread(0));
+  });
 
   const handleLogout = () => {
     // Do not use authService.logout() — that hard-replaces to Internal login.

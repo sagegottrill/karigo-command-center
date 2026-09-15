@@ -6,6 +6,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -114,6 +115,12 @@ function AdminPartnerRequests() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Near real-time: new partner requests and status changes appear live
+  // (10s poll + refresh on focus / tab-visible) — no manual reload needed.
+  useAutoRefresh(() => {
+    void tripService.list().then(setTrips).catch(() => {});
+  });
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

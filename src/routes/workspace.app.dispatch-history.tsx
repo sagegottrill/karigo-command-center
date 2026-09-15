@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -307,6 +308,12 @@ function DispatchHistoryPage() {
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load dispatch history"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Near real-time: status changes (departed, returned, completed) appear live
+  // on the history tables (10s poll + focus / tab-visible refresh).
+  useAutoRefresh(() => {
+    void tripService.list().then(setTrips).catch(() => {});
+  });
 
   const filteredTrips = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

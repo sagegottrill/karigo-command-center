@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, notificationService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Notification } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,11 @@ function PartnerNotificationsPage() {
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load notifications"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Near real-time: cargo alerts appear without a manual reload (10s poll).
+  useAutoRefresh(() => {
+    void notificationService.list().then(setItems).catch(() => {});
+  });
 
   const unreadCount = items.filter((n) => !n.read).length;
 

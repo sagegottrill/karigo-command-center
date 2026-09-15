@@ -12,6 +12,7 @@ import {
 } from "@/components/fleetopsx/role-dashboards";
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, dashboardService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { getActiveRole } from "@/lib/fleetopsx/active-role";
 import { getActiveRoleHome } from "@/lib/fleetopsx/role-home";
 import type {
@@ -99,6 +100,28 @@ function Dashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Every role's dashboard stays live: 10s poll (+ focus / tab-visible) so new
+  // trips, fleet moves and approvals appear without a manual refresh.
+  useAutoRefresh(() => {
+    void dashboardService
+      .getOverview()
+      .then((overview) => {
+        setData((prev) => ({
+          ...prev,
+          trips: overview.trips.length ? overview.trips : prev.trips,
+          trucks: overview.trucks,
+          drivers: overview.drivers,
+          expenses: overview.expenses,
+          gateEntries: overview.gateEntries,
+          alerts: overview.alerts as AlertItem[],
+          workOrders: overview.workOrders,
+          inventory: overview.inventory,
+          procurement: overview.procurement,
+        }));
+      })
+      .catch(() => {});
+  });
 
   if (!mounted || loading) {
     return (

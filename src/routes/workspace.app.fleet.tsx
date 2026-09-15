@@ -11,6 +11,7 @@ import {
 import { formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -112,6 +113,18 @@ function FleetDispatchRequests() {
       })
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  // Near real-time: 10s poll (+ focus / tab-visible) — trips/drivers/heads stay
+  // current without a manual refresh.
+  useAutoRefresh(() => {
+    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads()])
+      .then(([nextTrips, nextDrivers, nextHeads]) => {
+        setTrips(nextTrips);
+        setDrivers(nextDrivers);
+        setHeads(nextHeads);
+      })
+      .catch(() => {});
+  });
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

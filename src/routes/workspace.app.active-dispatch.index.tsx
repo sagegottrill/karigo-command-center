@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   dispatchDisplayId,
   getTrackingDelayStatus,
@@ -64,6 +65,19 @@ function ActiveDispatchPage() {
       cancelled = true;
     };
   }, []);
+
+  // Near real-time: board tracks moving trucks — 10s poll (+ focus / visible).
+  useAutoRefresh(() => {
+    void (async () => {
+      try {
+        const [allTrips, allDrivers] = await Promise.all([tripService.list(), driverService.list()]);
+        setTrips(allTrips.filter(isActiveDispatchTrip));
+        setDrivers(allDrivers);
+      } catch {
+        /* keep last good data */
+      }
+    })();
+  });
 
   const phoneByDriverId = useMemo(() => {
     const map = new Map<string, string>();

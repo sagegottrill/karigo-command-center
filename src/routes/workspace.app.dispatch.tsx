@@ -13,6 +13,8 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
+import { FO_QUEUE_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Upload } from "lucide-react";
@@ -112,9 +114,9 @@ function DispatchPage() {
     setHeads(heads);
     setTails(tails);
     setDrivers(nextDrivers);
-    // Queue = TM-approved only. Requests the TM has not approved yet stay in
-    // the TM's Partner Requests and must NOT appear here for assignment.
-    setPendingOrders(trips.filter((t) => t.status === "Approved"));
+    // Queue = TM-approved only (canonical bucket semantics, so the count here
+    // always matches the sidebar dot and the FO dashboard card).
+    setPendingOrders(trips.filter((t) => isInBucket(t, FO_QUEUE_BUCKETS)));
   };
 
   useEffect(() => {
@@ -126,6 +128,17 @@ function DispatchPage() {
   const [selectedOrder, setSelectedOrder] = useState<Trip | null>(null);
   const [mobileView, setMobileView] = useState<"form" | "audit">("form");
   const [viewMode, setViewMode] = useState<"queue" | "tracking">("queue");
+
+  // Near real-time: poll the queue every 10s (+focus/visible) so newly approved
+  // requests appear without a manual refresh. Paused while an assignment form
+  // is open so the operator's in-progress selection is never clobbered.
+  useAutoRefresh(
+    () => {
+      void refreshQueue().catch(() => {});
+    },
+    [selectedOrder],
+    { enabled: !selectedOrder },
+  );
 
   // Form State
   const [headId, setHeadId] = useState("");

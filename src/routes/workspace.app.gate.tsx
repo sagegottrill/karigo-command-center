@@ -10,6 +10,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +113,11 @@ function SecurityLogPage() {
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load security log"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Near real-time: gate sees departures/returns as dispatch status flips.
+  useAutoRefresh(() => {
+    void refresh().catch(() => {});
+  });
 
   const openLogModal = (trip?: Trip) => {
     const t = trip ?? trips.find((x) => x.status === "Scheduled") ?? trips[0];

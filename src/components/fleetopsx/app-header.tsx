@@ -32,6 +32,7 @@ import { globalSearch, authService } from "@/lib/fleetopsx/services";
 import type { SearchHit } from "@/lib/fleetopsx/services";
 import { getActiveRole, setActiveRole } from "@/lib/fleetopsx/active-role";
 import { getRoleHome } from "@/lib/fleetopsx/role-home";
+import { hardLogout } from "@/lib/fleetopsx/session";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
@@ -143,6 +144,9 @@ export function AppHeader({
     void navigate({ to: getRoleHome(r) });
   };
   const detailId = pathname.split("/").filter(Boolean).slice(2).at(-1);
+  // Mobile portal headers show only initials — tapping them now reveals a
+  // Log out bar (every role can sign out on mobile, not just desktop).
+  const [mobileLogoutOpen, setMobileLogoutOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -162,6 +166,19 @@ export function AppHeader({
     const fleetOps = !gateSecurity && !trackingOps && (forceFleetOps || isFleetOpsPortalPath(pathname));
     const initials = mounted && currentUser?.initials ? currentUser.initials : "";
 
+    const mobileLogoutBar = mobileLogoutOpen ? (
+      <div className="sticky top-[60px] z-30 border-b border-[#344256] bg-white px-4 py-2 md:hidden">
+        <button
+          type="button"
+          onClick={() => hardLogout("/workspace/login")}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded border border-[#ED351D] text-[14px] font-medium text-[#ED351D]"
+        >
+          <LogOut className="size-3.5" />
+          Log Out
+        </button>
+      </div>
+    ) : null;
+
     if (gateSecurity) {
       return (
         <>
@@ -174,10 +191,16 @@ export function AppHeader({
                 <span>{clock?.time}</span>
               </div>
             </div>
-            <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+            <button
+              type="button"
+              aria-label="Account menu"
+              onClick={() => setMobileLogoutOpen((v) => !v)}
+              className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white"
+            >
               {initials}
-            </div>
+            </button>
           </header>
+          {mobileLogoutBar}
           <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
             <div className="flex min-w-0 flex-col gap-[5px]">
               <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Gate Security Portal</h1>
@@ -207,10 +230,16 @@ export function AppHeader({
                 <span>{clock?.time}</span>
               </div>
             </div>
-            <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+            <button
+              type="button"
+              aria-label="Account menu"
+              onClick={() => setMobileLogoutOpen((v) => !v)}
+              className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white"
+            >
               {initials}
-            </div>
+            </button>
           </header>
+          {mobileLogoutBar}
           <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
             <div className="flex min-w-0 flex-col gap-[5px]">
               <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Tracking Operations Portal</h1>
@@ -234,10 +263,16 @@ export function AppHeader({
           {/* Figma FO mobile header bar (390) */}
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 md:hidden">
             <p className="text-[16px] font-semibold text-white">Fleet Operations Portal</p>
-            <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+            <button
+              type="button"
+              aria-label="Account menu"
+              onClick={() => setMobileLogoutOpen((v) => !v)}
+              className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white"
+            >
               {initials}
-            </div>
+            </button>
           </header>
+          {mobileLogoutBar}
           {/* Desktop FO portal title */}
           <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
             <div className="flex min-w-0 flex-col gap-[5px]">
@@ -255,10 +290,16 @@ export function AppHeader({
       <>
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 md:hidden">
           <p className="text-[16px] font-semibold text-white">Transport Manager Portal</p>
-          <div className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white">
+          <button
+            type="button"
+            aria-label="Account menu"
+            onClick={() => setMobileLogoutOpen((v) => !v)}
+            className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white"
+          >
             {initials}
-          </div>
+          </button>
         </header>
+        {mobileLogoutBar}
         <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
           <div className="flex min-w-0 flex-col gap-[5px]">
             <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Transport Manager Portal</h1>
@@ -407,8 +448,10 @@ export function AppHeader({
             <DropdownMenuItem
               className="cursor-pointer rounded-[8px] px-2.5 py-2 text-[13px] font-[500] text-[#ed351d] hover:bg-[#f6f7f9]"
               onClick={() => {
-                toast.success("Signed out");
-                authService.logout();
+                // Real logout: server-side revoke + storage wipe + hard redirect.
+                // (Previously only cleared storage — the page kept rendering
+                // and Back/history could re-enter the app.)
+                hardLogout("/workspace/login");
               }}
             >
               <LogOut className="mr-2 h-3.5 w-3.5" />
