@@ -10,6 +10,7 @@ import {
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -321,65 +322,24 @@ function FleetDispatchRequests() {
                   </span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={fleetStatusOf(trip)} />
-                    <div className="relative">
-                    {/* Fixed backdrop: same outside-click pattern as the desktop menu.
-                        The old shared-ref mousedown handler resolved to the desktop
-                        section's wrapper here too, killing every mobile menu action. */}
-                    {menuFor === trip.id && (
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
-                    )}
-                    <button
-                      type="button"
-                      className="grid size-5 place-items-center text-[#1B2432]"
-                      onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
-                    >
-                      <MoreVertical className="size-5" />
-                    </button>
-                    {menuFor === trip.id && (
-                      <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
-                        <button
-                          type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setDetail(trip);
-                          }}
-                        >
-                          View Details
-                        </button>
-                        {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
-                          <button
-                            type="button"
-                            className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setEditing(trip);
-                            }}
-                          >
-                            Modify
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
-                            approvingId === trip.id && "opacity-50",
-                          )}
-                          onClick={() => void handleApprove(trip)}
-                          disabled={approvingId === trip.id}
-                        >
-                          {approvingId === trip.id ? "Approving…" : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                          onClick={() => void handleDecline(trip)}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    )}
-                    </div>
+                    <RowActionMenu
+                      open={menuFor === trip.id}
+                      onOpenChange={(o) => setMenuFor(o ? trip.id : null)}
+                      label="Dispatch options"
+                      width={170}
+                      items={[
+                        { label: "View Details", onSelect: () => setDetail(trip) },
+                        ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                          ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
+                          : []),
+                        {
+                          label: approvingId === trip.id ? "Approving…" : "Approve",
+                          onSelect: () => void handleApprove(trip),
+                          disabled: approvingId === trip.id,
+                        },
+                        { label: "Decline", onSelect: () => void handleDecline(trip), danger: true },
+                      ]}
+                    />
                   </div>
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
@@ -490,79 +450,31 @@ function FleetDispatchRequests() {
                         <StatusPill status={fleetStatusOf(trip)} />
                       </span>
                     </div>
-                    <div className="relative flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        className="grid size-5 place-items-center text-[#1B2432]"
-                        onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
-                        aria-label="Dispatch options"
-                      >
-                        <MoreVertical className="size-5" strokeWidth={1.75} />
-                      </button>
-                      {menuFor === trip.id && (
-                        // Rendered in a fixed overlay so the table's
-                        // overflow-x-auto container can never clip it.
-                        <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
-                      )}
-                      {menuFor === trip.id && (
-                        <div
-                          className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]"
-                        >
-                          <button
-                            type="button"
-                            className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setDetail(trip);
-                            }}
-                          >
-                            View Details
-                          </button>
-                          {fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
-                            <button
-                              type="button"
-                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setEditing(trip);
-                              }}
-                            >
-                              Edit Assignment
-                            </button>
-                          ) : null}
-                          {fleetStatusOf(trip) === "Awaiting Approval" ? (
-                            <button
-                              type="button"
-                              className={cn(
-                                "flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
-                                approvingId === trip.id && "opacity-50",
-                              )}
-                              onClick={() => void handleApprove(trip)}
-                              disabled={approvingId === trip.id}
-                            >
-                              {approvingId === trip.id ? "Approving…" : "Approve"}
-                            </button>
-                          ) : null}
-                          {fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled" ? (
-                            <button
-                              type="button"
-                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                              onClick={() => void handleSendBack(trip)}
-                            >
-                              Send Back to Fleet Ops
-                            </button>
-                          ) : null}
-                          {fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined" ? (
-                            <button
-                              type="button"
-                              className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                              onClick={() => void handleDecline(trip)}
-                            >
-                              Decline
-                            </button>
-                          ) : null}
-                        </div>
-                      )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <RowActionMenu
+                        open={menuFor === trip.id}
+                        onOpenChange={(o) => setMenuFor(o ? trip.id : null)}
+                        label="Dispatch options"
+                        items={[
+                          { label: "View Details", onSelect: () => setDetail(trip) },
+                          ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                            ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
+                            : []),
+                          ...(fleetStatusOf(trip) === "Awaiting Approval"
+                            ? [{
+                                label: approvingId === trip.id ? "Approving…" : "Approve",
+                                onSelect: () => void handleApprove(trip),
+                                disabled: approvingId === trip.id,
+                              }]
+                            : []),
+                          ...(fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                            ? [{ label: "Send Back to Fleet Ops", onSelect: () => void handleSendBack(trip) }]
+                            : []),
+                          ...(fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined"
+                            ? [{ label: "Decline", onSelect: () => void handleDecline(trip), danger: true }]
+                            : []),
+                        ]}
+                      />
                     </div>
                   </div>
                 );

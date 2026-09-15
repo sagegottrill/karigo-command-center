@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ListFilter, MoreVertical, Search, X } from "lucide-react";
+import { Check, ListFilter, Search, X } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { countBuckets } from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
@@ -480,44 +481,16 @@ function PartnerPortalDashboard() {
                               >
                                 {uiStatus}
                               </span>
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  className="p-0.5"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setRowMenuOpen(rowMenuOpen === r.id ? null : r.id);
-                                  }}
-                                >
-                                  <MoreVertical className="size-5 text-[#5C6470]" />
-                                </button>
-                                {rowMenuOpen === r.id && (
-                                  <div className="absolute bottom-full right-0 z-50 mb-1 w-[160px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_24px_rgba(0,0,0,0.08)]">
-                                    <button
-                                      type="button"
-                                      className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setRowMenuOpen(null);
-                                        openDetails(r);
-                                      }}
-                                    >
-                                      Details
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-[#ED351D] hover:bg-red-50"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setRowMenuOpen(null);
-                                        setDeleteModalOpen(r.id);
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                              <RowActionMenu
+                                open={rowMenuOpen === r.id}
+                                onOpenChange={(o) => setRowMenuOpen(o ? r.id : null)}
+                                label="Request options"
+                                width={170}
+                                items={[
+                                  { label: "Details", onSelect: () => openDetails(r) },
+                                  { label: "Delete", onSelect: () => setDeleteModalOpen(r.id), danger: true },
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>

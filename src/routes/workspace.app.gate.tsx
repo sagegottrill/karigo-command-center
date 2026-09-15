@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search, Slider
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import {
   displayCapFromTrip,
   displayPlateFromTrip,
@@ -327,36 +328,17 @@ function SecurityLogPage() {
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{tailOf(trip)}</span>
               <StampCell value={dep} fallback="Not Departed" />
               <StampCell value={ret} fallback="Not Returned" />
-              <div className="relative hidden justify-self-end md:block">
-                <button
-                  type="button"
-                  className="grid place-items-center text-[#1B2432]"
-                  aria-label="Options"
-                  onClick={() => setMenuTripId((id) => (id === trip.id ? null : trip.id))}
-                >
-                  <MoreVertical className="size-5" />
-                </button>
-                {menuTripId === trip.id && (
-                  <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2.5 text-left text-[13px] text-[#1B2432] hover:bg-[#F1F2F4]"
-                      onClick={() => {
-                        setMenuTripId(null);
-                        openLogModal(trip);
-                      }}
-                    >
-                      Log Departure
-                    </button>
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2.5 text-left text-[13px] text-[#1B2432] hover:bg-[#F1F2F4]"
-                      onClick={() => void handleLogReturn(trip)}
-                    >
-                      Log Return
-                    </button>
-                  </div>
-                )}
+              <div className="hidden justify-self-end md:block">
+                <RowActionMenu
+                  open={menuTripId === trip.id}
+                  onOpenChange={(o) => setMenuTripId(o ? trip.id : null)}
+                  label="Gate log options"
+                  width={176}
+                  items={[
+                    { label: "Log Departure", onSelect: () => openLogModal(trip) },
+                    { label: "Log Return", onSelect: () => void handleLogReturn(trip) },
+                  ]}
+                />
               </div>
             </div>
           );

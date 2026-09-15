@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -278,55 +279,21 @@ function AdminPartnerRequests() {
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{requestId(trip)}</span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={toPartnerUiStatus(trip)} />
-                    {/* Fixed backdrop (desktop menu already had one): closes on outside
-                        click without stealing taps inside the menu. The old shared-ref
-                        mousedown handler resolved to the desktop section's (hidden)
-                        wrapper on mobile, so every menu action died before its click
-                        fired — Approve/Decline/View Details silently did nothing. */}
-                    <div className="relative">
-                    {menuFor === trip.id && (
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
-                    )}
-                    <button
-                      type="button"
-                      className="grid size-5 place-items-center text-[#1B2432]"
-                      onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
-                    >
-                      <MoreVertical className="size-5" />
-                    </button>
-                    {menuFor === trip.id && (
-                      <div className="absolute top-full right-0 z-50 mt-1 w-[160px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15)]">
-                        <button
-                          type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setDetail(trip);
-                          }}
-                        >
-                          View Details
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
-                            approvingId === trip.id && "opacity-50",
-                          )}
-                          onClick={() => void handleApprove(trip)}
-                          disabled={approvingId === trip.id}
-                        >
-                          {approvingId === trip.id ? "Approving…" : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          className="flex h-8 w-[137px] items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                          onClick={() => handleDecline(trip)}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    )}
-                    </div>
+                    <RowActionMenu
+                      open={menuFor === trip.id}
+                      onOpenChange={(o) => setMenuFor(o ? trip.id : null)}
+                      label="Request options"
+                      width={170}
+                      items={[
+                        { label: "View Details", onSelect: () => setDetail(trip) },
+                        {
+                          label: approvingId === trip.id ? "Approving…" : "Approve",
+                          onSelect: () => void handleApprove(trip),
+                          disabled: approvingId === trip.id,
+                        },
+                        { label: "Decline", onSelect: () => handleDecline(trip), danger: true },
+                      ]}
+                    />
                   </div>
                 </div>
                 <MetaRow label="Partner:" value={partner} accent />
@@ -439,57 +406,25 @@ function AdminPartnerRequests() {
                     )}
                   </span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
-                  <div className="relative shrink-0 justify-self-end">
-                    <button
-                      type="button"
-                      className="grid size-5 place-items-center text-[#1B2432]"
-                      onClick={() => setMenuFor((id) => (id === trip.id ? null : trip.id))}
-                      aria-label="Request options"
-                    >
-                      <MoreVertical className="size-5" strokeWidth={1.75} />
-                    </button>
-                    {menuFor === trip.id && (
-                      // Fixed overlay so the scroll container can never clip the menu.
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
-                    )}
-                    {menuFor === trip.id && (
-                      <div
-                        className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]"
-                      >
-                        <button
-                          type="button"
-                          className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setDetail(trip);
-                          }}
-                        >
-                          View Details
-                        </button>
-                        {toPartnerUiStatus(trip) === "Pending" ? (
-                          <button
-                            type="button"
-                            className={cn(
-                              "flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]",
-                              approvingId === trip.id && "opacity-50",
-                            )}
-                            onClick={() => void handleApprove(trip)}
-                            disabled={approvingId === trip.id}
-                          >
-                            {approvingId === trip.id ? "Approving…" : "Approve"}
-                          </button>
-                        ) : null}
-                        {toPartnerUiStatus(trip) === "Pending" ? (
-                          <button
-                            type="button"
-                            className="flex h-8 w-full items-center px-3 text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                            onClick={() => void handleDecline(trip)}
-                          >
-                            Decline
-                          </button>
-                        ) : null}
-                      </div>
-                    )}
+                  <div className="shrink-0 justify-self-end">
+                    <RowActionMenu
+                      open={menuFor === trip.id}
+                      onOpenChange={(o) => setMenuFor(o ? trip.id : null)}
+                      label="Request options"
+                      items={[
+                        { label: "View Details", onSelect: () => setDetail(trip) },
+                        ...(toPartnerUiStatus(trip) === "Pending"
+                          ? [
+                              {
+                                label: approvingId === trip.id ? "Approving…" : "Approve",
+                                onSelect: () => void handleApprove(trip),
+                                disabled: approvingId === trip.id,
+                              },
+                              { label: "Decline", onSelect: () => void handleDecline(trip), danger: true },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </div>
                 </div>
               ))}

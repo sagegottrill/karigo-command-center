@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService } from "@/lib/fleetopsx/services";
 import type { User } from "@/lib/fleetopsx/types";
@@ -128,14 +128,20 @@ function AdminPasswordRequest() {
               <div className="flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-medium text-[rgba(92,100,112,0.6)]">{req.date || "—"}</p>
-                  <button
-                    type="button"
-                    className="grid size-5 place-items-center"
-                    aria-label="Request options"
-                    onClick={() => setActiveMenu((id) => (id === req.id ? null : req.id))}
-                  >
-                    <MoreVertical className="size-5 text-[#1B2432]" />
-                  </button>
+                  <RowActionMenu
+                    open={activeMenu === req.id}
+                    onOpenChange={(o) => setActiveMenu(o ? req.id : null)}
+                    label="Request options"
+                    width={160}
+                    items={
+                      req.status === "Pending"
+                        ? [
+                            { label: "Approve", onSelect: () => handleAction(req.id, "Approved") },
+                            { label: "Decline", onSelect: () => handleAction(req.id, "Declined") },
+                          ]
+                        : []
+                    }
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[16px] font-semibold tracking-[0.4px] text-[#303D50]">{req.name}</p>
@@ -174,14 +180,20 @@ function AdminPasswordRequest() {
                   <span className="w-[140px] shrink-0 leading-5">{req.date || "—"}</span>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-3">
-                  <button
-                    type="button"
-                    className="grid size-5 place-items-center"
-                    aria-label="Request options"
-                    onClick={() => setActiveMenu((id) => (id === req.id ? null : req.id))}
-                  >
-                    <MoreVertical className="size-5 text-[#1B2432]" />
-                  </button>
+                  <RowActionMenu
+                    open={activeMenu === req.id}
+                    onOpenChange={(o) => setActiveMenu(o ? req.id : null)}
+                    label="Request options"
+                    width={160}
+                    items={
+                      req.status === "Pending"
+                        ? [
+                            { label: "Approve", onSelect: () => handleAction(req.id, "Approved") },
+                            { label: "Decline", onSelect: () => handleAction(req.id, "Declined") },
+                          ]
+                        : []
+                    }
+                  />
                   <span
                     className={cn(
                       "flex h-[22px] w-[68px] items-center justify-center rounded px-3 text-[10px] font-medium text-white",
@@ -193,29 +205,10 @@ function AdminPasswordRequest() {
                 </div>
               </div>
 
-              {activeMenu === req.id && req.status === "Pending" && (
-                <div className="absolute right-3 top-10 z-40 w-[150px] rounded border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.1)] md:right-5 md:top-14">
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                    onClick={() => handleAction(req.id, "Approved")}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                    onClick={() => handleAction(req.id, "Declined")}
-                  >
-                    Decline
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>
       </div>
-      {activeMenu ? <div className="fixed inset-0 z-30" onClick={() => setActiveMenu(null)} /> : null}
     </>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
 import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService, authService } from "@/lib/fleetopsx/services";
@@ -67,7 +68,6 @@ function AdminManageAccount() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedCredentials, setSharedCredentials] = useState({ username: "", password: "" });
   const filterRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Transport Manager is the highest admin role — always allowed on the admin track
@@ -87,7 +87,6 @@ function AdminManageAccount() {
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Node;
       if (filterRef.current && !filterRef.current.contains(t)) setFilterOpen(false);
-      if (menuRef.current && !menuRef.current.contains(t)) setMenuFor(null);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -320,73 +319,20 @@ function AdminManageAccount() {
                   <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
                     #{currentPage * PAGE_SIZE + i + 1}
                   </span>
-                  <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
-                    <button
-                      type="button"
-                      className="grid size-5 place-items-center text-[#1B2432]"
-                      aria-label="Account options"
-                      onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
-                    >
-                      <MoreVertical className="size-5" />
-                    </button>
-                    {menuFor === u.id && (
-                      <div className="absolute top-6 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                        <button
-                          type="button"
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setDetailUser(u);
-                          }}
-                        >
-                          View details
-                        </button>
-                        <button
-                          type="button"
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setConfirmAction({ type: "password", userId: u.id });
-                          }}
-                        >
-                          Reset password
-                        </button>
-                        {u.status === "Suspended" ? (
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "activate", userId: u.id });
-                            }}
-                          >
-                            Activate
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "suspend", userId: u.id });
-                            }}
-                          >
-                            Suspend
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                          onClick={() => {
-                            setMenuFor(null);
-                            setConfirmAction({ type: "delete", userId: u.id });
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <RowActionMenu
+                    open={menuFor === u.id}
+                    onOpenChange={(o) => setMenuFor(o ? u.id : null)}
+                    label="Account options"
+                    width={176}
+                    items={[
+                      { label: "View details", onSelect: () => setDetailUser(u) },
+                      { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                      u.status === "Suspended"
+                        ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
+                        : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
+                      { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                    ]}
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{u.name}</p>
@@ -438,74 +384,21 @@ function AdminManageAccount() {
                   </span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
-                  <div className="relative flex shrink-0 items-center justify-end gap-2">
-                    <div ref={menuFor === u.id ? menuRef : undefined} className="relative">
-                      <button
-                        type="button"
-                        className="grid size-5 place-items-center text-[#1B2432]"
-                        onClick={() => setMenuFor((id) => (id === u.id ? null : u.id))}
-                        aria-label="Staff options"
-                      >
-                        <MoreVertical className="size-5" strokeWidth={1.75} />
-                      </button>
-                      {menuFor === u.id && (
-                        <div className="absolute top-6 right-0 z-50 w-44 rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setDetailUser(u);
-                            }}
-                          >
-                            View details
-                          </button>
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "password", userId: u.id });
-                            }}
-                          >
-                            Reset password
-                          </button>
-                          {u.status === "Suspended" ? (
-                            <button
-                              type="button"
-                              className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setConfirmAction({ type: "activate", userId: u.id });
-                              }}
-                            >
-                              Activate
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="w-full px-4 py-2 text-left text-[14px] text-[#141A1F] hover:bg-[#F1F2F4]"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setConfirmAction({ type: "suspend", userId: u.id });
-                              }}
-                            >
-                              Suspend
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#ED351D] hover:bg-[#F1F2F4]"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setConfirmAction({ type: "delete", userId: u.id });
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex shrink-0 items-center justify-end gap-2">
+                    <RowActionMenu
+                      open={menuFor === u.id}
+                      onOpenChange={(o) => setMenuFor(o ? u.id : null)}
+                      label="Staff options"
+                      width={176}
+                      items={[
+                        { label: "View details", onSelect: () => setDetailUser(u) },
+                        { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                        u.status === "Suspended"
+                          ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
+                          : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
+                        { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                      ]}
+                    />
                     {u.status === "Suspended" && (
                       <span className="inline-flex h-[22px] shrink-0 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
                         Suspended
