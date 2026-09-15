@@ -112,7 +112,10 @@ export function RowActionMenu({
   }, [open, sheet]);
 
   useEffect(() => {
-    if (!open) return;
+    // Suppressed (hidden) instances must not listen — otherwise their
+    // outside-click handler closes the shared menu the moment any other
+    // instance's panel is pressed.
+    if (!open || suppressed) return;
     const onPointer = (e: PointerEvent) => {
       const t = e.target as Node;
       if (panelRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
@@ -127,7 +130,7 @@ export function RowActionMenu({
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onOpenChange]);
+  }, [open, suppressed, onOpenChange]);
 
   return (
     <>
