@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
+import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -139,6 +141,8 @@ function buildTimeline(status: Trip["status"]) {
 function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
   const timeline = buildTimeline(trip.status);
   const displayStatus = toDisplayStatus(trip.status);
+  // Fleet Ops configures litres, not price — the TM's fuel cost stays hidden.
+  const showTmPricing = canSeeTmPricing(authService.getRoles());
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
@@ -213,7 +217,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                     {typeof trip.directCosts.lubricantQuantity === "number" ? (
                       <DetailRow label="Lubricant Quantity:" value={String(trip.directCosts.lubricantQuantity)} />
                     ) : null}
-                    {typeof trip.directCosts.lubricantCost === "number" ? (
+                    {showTmPricing && typeof trip.directCosts.lubricantCost === "number" ? (
                       <DetailRow label="Lubricant Cost:" value={formatN(trip.directCosts.lubricantCost)} />
                     ) : null}
                   </>
@@ -222,8 +226,17 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                   <>
                     <div className="h-px w-full bg-[#E2E5E9]" />
                     <div className="flex items-center justify-between gap-4 text-[14px] font-bold">
-                      <span className="text-[#1B2432]">Total Configured Expense:</span>
-                      <span className="text-[#ED351D]">{formatN(trip.totalCosts)}</span>
+                      <span className="text-[#1B2432]">
+                        Total Configured Expense{showTmPricing ? ":" : " (excl. fuel):"}
+                      </span>
+                      <span className="text-[#ED351D]">
+                        {formatN(
+                          showTmPricing
+                            ? trip.totalCosts
+                            : // Fleet Ops never sees the TM-priced fuel component.
+                              trip.totalCosts - (trip.directCosts?.lubricantCost ?? 0),
+                        )}
+                      </span>
                     </div>
                   </>
                 )}
@@ -319,13 +332,14 @@ function DispatchHistoryPage() {
     const q = searchQuery.trim().toLowerCase();
     return trips.filter((t) => {
       if (!q) return true;
-      const hay = `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.cargo} ${t.tailType ?? ""} ${t.dropoff} ${t.status}`.toLowerCase();
+      const hay =
+      `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.cargo} ${t.tailType ?? ""} ${displayRequestedTruckType(t)} ${t.dropoff} ${t.status}`.toLowerCase();
       return hay.includes(q);
     });
   }, [trips, searchQuery]);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Date,Company,Product,Truck Type,Destination,Status\n";
+    const headers = "Dispatch ID,Date,Company,Product,Tail Type,Destination,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
@@ -400,7 +414,7 @@ function DispatchHistoryPage() {
         </div>
 
         <div className="hidden grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Dispatch ID", "Date", "Company", "Product", "Truck Type", "Drop-off Location", "Status"].map((h) => (
+          {["Dispatch ID", "Date", "Company", "Product", "Tail Type", "Drop-off Location", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>

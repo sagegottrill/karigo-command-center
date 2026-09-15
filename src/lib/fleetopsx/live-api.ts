@@ -168,6 +168,7 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     dropoff: String(t.dropoff ?? ""),
     headId: t.headId ? String(t.headId) : undefined,
     tailId: t.tailId ? String(t.tailId) : undefined,
+    requestedTruckType: t.requestedTruckType ? String(t.requestedTruckType) : null,
     tailType: t.tailType ? String(t.tailType) : undefined,
     tailNumber: t.tailNumber ? String(t.tailNumber) : undefined,
     truckReg: t.truckReg ? String(t.truckReg) : undefined,
@@ -198,6 +199,7 @@ export function tripToApi(input: Partial<Trip>): Record<string, unknown> {
   return {
     driverName: input.driverName || "Unassigned",
     truckReg: input.truckReg || input.headId || "TBD",
+    requestedTruckType: input.requestedTruckType || input.tailType || null,
     tailType: input.tailType || null,
     pickup: input.pickup || "",
     dropoff: input.dropoff || "",
@@ -218,6 +220,11 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   if (input.driverName !== undefined) out.driverName = input.driverName;
   if (input.truckReg !== undefined || input.headId !== undefined) {
     out.truckReg = input.truckReg || input.headId || "TBD";
+  }
+  // Requested truck type is owned by the requester — the assignment patch below
+  // writes `tailType` and must never clobber what was asked for.
+  if (input.requestedTruckType !== undefined) {
+    out.requestedTruckType = input.requestedTruckType || null;
   }
   if (input.tailType !== undefined) out.tailType = input.tailType || null;
   if (input.pickup !== undefined) out.pickup = input.pickup;

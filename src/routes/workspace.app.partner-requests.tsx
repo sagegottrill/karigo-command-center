@@ -6,6 +6,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
+import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
@@ -126,7 +127,8 @@ function AdminPartnerRequests() {
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
-    const hay = `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${t.tailType ?? ""} ${t.dropoff}`.toLowerCase();
+    const hay =
+      `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${displayRequestedTruckType(t)} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
 
@@ -141,7 +143,7 @@ function AdminPartnerRequests() {
     const csv = filtered
       .map(
         (t) =>
-          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${formatTableDate(t.createdAt)},${formatTableDate(dispatchedAtOf(t))},${toPartnerUiStatus(t)}`,
+          `${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${t.dropoff},${formatTableDate(t.createdAt)},${formatTableDate(dispatchedAtOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -299,7 +301,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Partner:" value={partner} accent />
                 <MetaRow label="Name:" value={trip.customerConsignee || ""} />
                 <MetaRow label="Product:" value={trip.cargo || ""} />
-                <MetaRow label="Truck Type:" value={trip.tailType || ""} />
+                <MetaRow label="Truck Type:" value={displayRequestedTruckType(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(dispatchedAtOf(trip))} />
@@ -387,7 +389,9 @@ function AdminPartnerRequests() {
                     {trip.customerConsignee}
                   </span>
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
-                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {displayRequestedTruckType(trip) || "—"}
+                  </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {formatDateLines(trip.createdAt).date}
@@ -489,7 +493,7 @@ function AdminPartnerRequests() {
             </div>
             <ReadOnlyField label="Customer Name" value={detail.customerConsignee ?? ""} />
             <ReadOnlyField label="Product" value={detail.cargo} />
-            <ReadOnlyField label="Truck Type" value={detail.tailType ?? ""} />
+            <ReadOnlyField label="Truck Type" value={displayRequestedTruckType(detail)} />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
             <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
             <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(dispatchedAtOf(detail))} />

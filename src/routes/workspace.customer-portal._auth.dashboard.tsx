@@ -4,6 +4,7 @@ import { Check, ListFilter, Search, X } from "lucide-react";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
+import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { countBuckets } from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
@@ -151,7 +152,7 @@ function PartnerPortalDashboard() {
           cmp = (a.cargo || "").localeCompare(b.cargo || "");
           break;
         case "truck":
-          cmp = (a.tailType || "").localeCompare(b.tailType || "");
+          cmp = displayRequestedTruckType(a).localeCompare(displayRequestedTruckType(b));
           break;
         case "status":
           cmp = statusA.localeCompare(statusB);
@@ -445,7 +446,9 @@ function PartnerPortalDashboard() {
                       </div>
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Truck Type</dt>
-                        <dd className="font-medium text-[#1B2432]">{r.tailType || "—"}</dd>
+                        <dd className="font-medium text-[#1B2432]">
+                          {displayRequestedTruckType(r) || "—"}
+                        </dd>
                       </div>
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Destination</dt>
@@ -494,7 +497,7 @@ function PartnerPortalDashboard() {
                             {r.cargo || "—"}
                           </td>
                           <td className="max-w-[140px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                            {r.tailType || "—"}
+                            {displayRequestedTruckType(r) || "—"}
                           </td>
                           <td className="max-w-[200px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                             {r.dropoff || "—"}

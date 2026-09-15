@@ -11,6 +11,7 @@ import {
 } from "./petroline-roster";
 import type { Driver, TruckHead, TruckTail } from "./types";
 import { displayRequestId } from "./request-id";
+import { PARTNER_TRUCK_TYPE_OPTIONS } from "./partner-request-options";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -160,6 +161,24 @@ export function displayTailOption(tail: TruckTail): string {
   const plate = humanCode(tail.registration);
   if (code && plate && plate !== code) return `${code} (${plate})`;
   return code || plate || "Unknown tail";
+}
+
+/**
+ * The truck type a transport REQUEST was made for — distinct from `tailType`,
+ * which is the tail Fleet Ops actually assigned ("Flatbed Tail").
+ *
+ * Rows created before `requestedTruckType` existed stored the request in
+ * `tailType`; those still match a request option, so accept them as fallback and
+ * return "" once the assignment overwrote the value.
+ */
+export function displayRequestedTruckType(trip: {
+  requestedTruckType?: string | null;
+  tailType?: string | null;
+}): string {
+  const requested = (trip.requestedTruckType || "").trim();
+  if (requested) return requested;
+  const legacy = (trip.tailType || "").trim();
+  return (PARTNER_TRUCK_TYPE_OPTIONS as readonly string[]).includes(legacy) ? legacy : "";
 }
 
 export function displayTicket(tripOrId: { id: string } | string): string {

@@ -22,6 +22,22 @@ export function getActiveRole(roles: string[]): string {
   return roles[0] ?? "";
 }
 
+/**
+ * Roles allowed to see pricing the Transport Manager controls (the fuel-rate
+ * card: Diesel/Gas price per litre, lubricant cost and the grand total built
+ * from them). Fleet Operations enters LITRES only — it never sees the rate or
+ * the money the TM applied to it.
+ */
+const TM_PRICING_ROLES = ["Transport Manager", "Platform Admin", "Accounts", "Accountant"];
+
+/**
+ * True when at least one of the user's roles may see TM-managed pricing.
+ * Callers that render fuel-rate-derived money MUST branch on this.
+ */
+export function canSeeTmPricing(roles: string[]): boolean {
+  return roles.some((r) => TM_PRICING_ROLES.includes(r));
+}
+
 /** Persist the department switch; pass null to clear the override. */
 export function setActiveRole(role: string | null) {
   if (typeof window === "undefined") return;

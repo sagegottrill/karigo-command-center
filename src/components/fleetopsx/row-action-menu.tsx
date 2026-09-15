@@ -20,6 +20,10 @@ export type RowMenuItem = {
  * open and flips above the row when there isn't room below (bottom rows no
  * longer require scrolling); clamps horizontally to the viewport. Closes on
  * outside pointer-down, Escape, resize and scroll.
+ *
+ * On phones the same items render as a bottom action sheet — anchored to the
+ * screen edge, full width, with a dimmed backdrop and scroll lock — so an
+ * action is never clipped, off-screen or stuck behind the browser chrome.
  */
 export function RowActionMenu({
   items,
@@ -39,6 +43,8 @@ export function RowActionMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  /** Phones get a bottom sheet instead of a popover — see component doc. */
+  const [sheet, setSheet] = useState(false);
 
   const visible = items.filter((i) => !i.hidden);
 
@@ -47,6 +53,7 @@ export function RowActionMenu({
       setPos(null);
       return;
     }
+    setSheet(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
     const place = () => {
       const trigger = triggerRef.current;
       if (!trigger) return;
@@ -79,6 +86,17 @@ export function RowActionMenu({
       window.removeEventListener("scroll", close, true);
     };
   }, [open, align, width, onOpenChange]);
+
+  // A bottom sheet owns the screen while it is open — freeze the page behind it
+  // so the list cannot scroll out from under the sheet.
+  useEffect(() => {
+    if (!open || !sheet) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open, sheet]);
 
   useEffect(() => {
     if (!open) return;
@@ -113,38 +131,78 @@ export function RowActionMenu({
       </button>
       {open &&
         createPortal(
-          <div
-            ref={panelRef}
-            role="menu"
-            style={{
-              position: "fixed",
-              top: pos?.top ?? -9999,
-              left: pos?.left ?? -9999,
-              width,
-              visibility: pos ? "visible" : "hidden",
-            }}
-            className="z-[100] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]"
-          >
-            {visible.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                className={cn(
-                  "flex h-9 w-full items-center px-3 text-left text-[14px] font-medium tracking-[0.4px] hover:bg-[#F1F2F4]",
-                  item.danger ? "text-[#ED351D]" : "text-[#344256]",
-                  item.disabled && "cursor-not-allowed opacity-50",
-                )}
-                onClick={() => {
-                  onOpenChange(false);
-                  item.onSelect();
-                }}
+          sheet ? (
+            <>
+              <div className="fixed inset-0 z-[99] bg-[#141A1F]/40" aria-hidden />
+              <div
+                ref={panelRef}
+                role="menu"
+                aria-label={label}
+                className="fixed inset-x-0 bottom-0 z-[100] flex flex-col rounded-t-[16px] border-t border-[#E2E5E9] bg-white pb-[max(12px,env(safe-area-inset-bottom))] pt-2 shadow-[0px_-6px_20px_rgba(12,12,13,0.2)]"
               >
-                {item.label}
-              </button>
-            ))}
-          </div>,
+                <span
+                  className="mx-auto mb-1 block h-1 w-10 shrink-0 rounded-full bg-[#E2E5E9]"
+                  aria-hidden
+                />
+                <p className="px-5 pb-2 pt-1 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                  {label}
+                </p>
+                {visible.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    disabled={item.disabled}
+                    className={cn(
+                      "flex h-12 w-full items-center px-5 text-left text-[16px] font-medium tracking-[0.4px] active:bg-[#F1F2F4]",
+                      item.danger ? "text-[#ED351D]" : "text-[#344256]",
+                      item.disabled && "cursor-not-allowed opacity-50",
+                    )}
+                    onClick={() => {
+                      onOpenChange(false);
+                      item.onSelect();
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div
+              ref={panelRef}
+              role="menu"
+              aria-label={label}
+              style={{
+                position: "fixed",
+                top: pos?.top ?? -9999,
+                left: pos?.left ?? -9999,
+                width,
+                visibility: pos ? "visible" : "hidden",
+              }}
+              className="z-[100] rounded-[6px] bg-white py-2.5 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)]"
+            >
+              {visible.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  className={cn(
+                    "flex h-9 w-full items-center px-3 text-left text-[14px] font-medium tracking-[0.4px] hover:bg-[#F1F2F4]",
+                    item.danger ? "text-[#ED351D]" : "text-[#344256]",
+                    item.disabled && "cursor-not-allowed opacity-50",
+                  )}
+                  onClick={() => {
+                    onOpenChange(false);
+                    item.onSelect();
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ),
           document.body,
         )}
     </>

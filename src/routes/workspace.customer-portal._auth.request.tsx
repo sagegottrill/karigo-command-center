@@ -69,6 +69,8 @@ function PartnerNewRequest() {
       await orderService.submitCustomerOrder({
         customerConsignee: customerConsignee.trim(),
         cargo: product.trim(),
+        // The requested truck type, kept apart from the tail Fleet Ops assigns.
+        requestedTruckType: truckType,
         tailType: truckType,
         loadingRoutingType: routingType,
         loadingSite: finalSites,

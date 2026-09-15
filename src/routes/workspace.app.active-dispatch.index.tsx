@@ -409,7 +409,7 @@ function ActiveDispatchPage() {
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || ""} />
                 <MetaRow label="Head No:" value={headCell(trip)} accent />
-                <MetaRow label="Truck Type:" value={trip.tailType || ""} />
+                <MetaRow label="Tail Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
               </div>
             );

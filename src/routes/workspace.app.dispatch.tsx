@@ -8,6 +8,7 @@ import {
   displayDriverOption,
   displayHeadCap,
   displayHeadOption,
+  displayRequestedTruckType,
   displayTailOption,
   displayTicket,
 } from "@/lib/fleetopsx/display-ids";
@@ -178,6 +179,11 @@ function DispatchPage() {
     (Number(extraAllowance) || 0) +
     (Number(lubricantCost) || 0);
 
+  // Fleet Ops never sees the TM's fuel-rate card: no lubricant cost line, and the
+  // audited total covers only the allowances Fleet Ops itself entered. The full
+  // total including lubricant is still persisted in `totalCosts` for the TM/Accounts.
+  const foVisibleTotal = totalExpense - (Number(lubricantCost) || 0);
+
   // Auto-fill logic. Fields stay EDITABLE — the spec explicitly allows the
   // operator to manually type a salary number / driver name for drivers not
   // yet fully registered. Selecting a roster driver pre-fills; editing stays.
@@ -247,7 +253,9 @@ function DispatchPage() {
     // tailType = the BODY TYPE (e.g. "Flatbed Tail"), tailNumber = the code
     // (e.g. B001). Writing the number into tailType corrupted the Truck Type
     // shown across every table and detail view downstream.
-    const resolvedTailType = tail?.type || selectedOrder!.tailType || "";
+    // Never fall back to the REQUEST's truck type ("Full Sided") — requestedTruckType
+    // owns that value; tailType must only ever describe the tail being fitted.
+    const resolvedTailType = tail?.type || "";
     const resolvedTailNumber = tail?.number || tailNumber || "";
 
     const assignedHead = head;
@@ -341,7 +349,7 @@ function DispatchPage() {
                 </div>
                 <div className="flex gap-2">
                   <span className="w-24 font-medium text-[#5C6470]">Truck Type:</span>
-                  <span className="flex-1 text-[#344256]">{trip.tailType || "—"}</span>
+                  <span className="flex-1 text-[#344256]">{displayRequestedTruckType(trip) || "—"}</span>
                 </div>
                 <div className="flex gap-2">
                   <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
@@ -387,7 +395,9 @@ function DispatchPage() {
               <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
               <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
               <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                {displayRequestedTruckType(trip) || "—"}
+              </span>
               <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
               <div className="flex items-center">
                 <button
@@ -612,22 +622,11 @@ function DispatchPage() {
                     onChange={(e) => setLubricantQty(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Cost</label>
-                  {/* Auto-calculated: qty × TM-managed price per litre. Read-only by
-                      design — the TM sets the price, FO never types a cost. */}
-                  <input
-                    type="number"
-                    readOnly
-                    className="h-9 w-full rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] font-medium text-[#141A1F] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
-                    placeholder="Auto: qty × price/L"
-                    value={lubricantCost > 0 ? String(lubricantCost) : ""}
-                    title={`Auto-calculated: ${lubricantQty || 0} L × ₦${fuelPricePerLitre(lubricant as "Diesel" | "Gas")} per litre (set by the Transport Manager)`}
-                  />
-                  <p className="mt-1 text-[11px] tracking-[0.4px] text-[#627084]">
-                    Auto: {lubricantQty || 0} L × ₦{fuelPricePerLitre(lubricant as "Diesel" | "Gas") || "—"}/L (TM rate)
-                  </p>
-                </div>
+                {/* Cost is priced by the Transport Manager's rate card — Fleet Ops
+                    enters the litres only and never sees the TM's rate or total. */}
+                <p className="text-[11px] tracking-[0.4px] text-[#627084]">
+                  Cost is applied automatically by the Transport Manager&apos;s rate card.
+                </p>
               </div>
             </div>
           </div>
@@ -728,16 +727,10 @@ function DispatchPage() {
               <span className="text-[#5c6470]">Extra Allowance:</span>
               <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(Number(extraAllowance)) : "-"}</span>
             </div>
-            {lubricantCost ? (
-              <div className="flex justify-between items-center text-[13px]">
-                <span className="text-[#5c6470]">Lubricant Cost:</span>
-                <span className="font-semibold text-[#141a1f]">{formatN(Number(lubricantCost))}</span>
-              </div>
-            ) : null}
             <div className="border-t border-[#e2e5e9] my-2"></div>
             <div className="flex justify-between items-center">
               <span className="text-[14px] font-bold text-[#141a1f]">Total Configured Expense:</span>
-              <span className="font-bold text-[15px] text-[#f04438]">{totalExpense > 0 ? formatN(totalExpense) : "-"}</span>
+              <span className="font-bold text-[15px] text-[#f04438]">{foVisibleTotal > 0 ? formatN(foVisibleTotal) : "-"}</span>
             </div>
           </div>
         </div>

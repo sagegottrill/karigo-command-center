@@ -18,6 +18,7 @@ import {
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { driverService, tripService } from "@/lib/fleetopsx/services";
 import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -370,6 +371,8 @@ function PartnerRequestDetailsPage() {
   const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);
   const truckHead = truckParts[0] && truckParts[0] !== "TBD" ? truckParts[0] : trip?.headId || "—";
   const truckTail = trip?.tailType || truckParts[1] || "—";
+  /** What the partner asked for — distinct from the tail that was fitted. */
+  const requestedTruckType = trip ? displayRequestedTruckType(trip) : "";
   const serial = trip?.tailNumber || trip?.tailId || "—";
   const hasAssignment = Boolean(
     trip && (trip.driverId || (trip.driverName && trip.driverName !== "Unassigned") || trip.truckReg || trip.headId),
@@ -388,7 +391,7 @@ function PartnerRequestDetailsPage() {
     if (!trip) return;
     setDraftCustomer(trip.customerConsignee || "");
     setDraftProduct(trip.cargo || "");
-    setDraftTruckType(trip.tailType || "");
+    setDraftTruckType(displayRequestedTruckType(trip));
     setDraftDestination(trip.dropoff || "");
     setDraftSites(sitesToDrafts(normalizeLoadingSites(trip)));
     setTruckDropdownOpen(false);
@@ -423,7 +426,9 @@ function PartnerRequestDetailsPage() {
       const updated = await tripService.updateTrip(trip.id, {
         customerConsignee: draftCustomer.trim(),
         cargo: draftProduct.trim(),
-        tailType: draftTruckType.trim(),
+        // The REQUEST's truck type — never `tailType`, which belongs to the
+        // tail Fleet Ops assigned (a partner edit must not touch that).
+        requestedTruckType: draftTruckType.trim(),
         dropoff: draftDestination.trim(),
         pickup: sites[0] || trip.pickup,
         loadingSite: sites,
@@ -450,7 +455,7 @@ function PartnerRequestDetailsPage() {
       ["Status", uiStatus],
       ["Customer Name", trip.customerConsignee || ""],
       ["Product", trip.cargo],
-      ["Truck Type", trip.tailType || ""],
+      ["Truck Type", requestedTruckType],
       ["Destination", trip.dropoff],
       ...loadingSites.map((site, i) => [`Loading Site ${i + 1}`, site]),
       ["Driver", trip.driverName || ""],
@@ -572,7 +577,7 @@ function PartnerRequestDetailsPage() {
                 <ReadonlyField label="Customer Name" value={trip.customerConsignee} />
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                   <ReadonlyField label="Product" value={trip.cargo} />
-                  <ReadonlyField label="Truck Type" value={trip.tailType} />
+                  <ReadonlyField label="Truck Type" value={requestedTruckType} />
                 </div>
                 <ReadonlyField label="Destination" value={trip.dropoff} />
                 {/* One label, then each site in its own field (stacked) */}

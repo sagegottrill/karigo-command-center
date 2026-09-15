@@ -7,6 +7,8 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
+import { authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { Download, Printer } from "lucide-react";
 
@@ -40,15 +42,37 @@ function DetailRow({
   );
 }
 
-function expenseTotal(trip: Trip) {
-  if (typeof trip.totalCosts === "number") return trip.totalCosts;
+/**
+ * Sum of the allowances the operator typed themselves (excludes lubricant).
+ * This is the only total Fleet Operations may see — lubricant cost is priced
+ * from the Transport Manager's rate card.
+ */
+function allowanceTotal(trip: Trip) {
   const costs = trip.directCosts;
   if (!costs) return undefined;
   return costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance;
 }
 
+/**
+ * The grand total as it will be recorded (includes TM-priced lubricant) — or,
+ * for Fleet Operations, only the allowances they entered.
+ */
+function expenseTotal(trip: Trip, hideTmPricing = false) {
+  if (hideTmPricing) {
+    const own = allowanceTotal(trip);
+    if (typeof own === "number") return own;
+  }
+  if (typeof trip.totalCosts === "number") return trip.totalCosts;
+  return allowanceTotal(trip);
+}
+
 /** Every visible modal field as { label, value } — one source for print + CSV. */
-function dispatchFields(trip: Trip, driver: Driver | undefined, head: TruckHead | undefined) {
+function dispatchFields(
+  trip: Trip,
+  driver: Driver | undefined,
+  head: TruckHead | undefined,
+  hideTmPricing = false,
+) {
   const customerName = trip.customerConsignee;
   const partner =
     trip.customer && trip.customer !== "Customer Portal" ? trip.customer.toUpperCase() : undefined;
@@ -72,7 +96,7 @@ function dispatchFields(trip: Trip, driver: Driver | undefined, head: TruckHead 
     : undefined;
   const driverLabel = displayDriverAssigned(driver, trip.driverName || driver?.name);
   const costs = trip.directCosts;
-  const total = expenseTotal(trip);
+  const total = expenseTotal(trip, hideTmPricing);
   const money = (n: number) => formatMoney(n);
   return {
     ticket: ticketId(trip),
@@ -103,7 +127,16 @@ function dispatchFields(trip: Trip, driver: Driver | undefined, head: TruckHead 
           { label: "Transit Road Tickets", value: money(costs.ticket) },
           { label: "Extra Contingency", value: money(costs.extraAllowance) },
           { label: "Lubricant", value: costs.lubricantType },
-          ...(typeof total === "number" ? [{ label: "Total Configured Expense", value: money(total) }] : []),
+          ...(typeof total === "number"
+            ? [
+                {
+                  label: hideTmPricing
+                    ? "Total Configured Expense (excl. fuel rate)"
+                    : "Total Configured Expense",
+                  value: money(total),
+                },
+              ]
+            : []),
         ] as { label: string; value?: string | undefined }[])
       : [],
   };
@@ -226,8 +259,10 @@ export function DispatchDetailsModal({
   const driverName = trip.driverName || driver?.name;
   const driverLabel = displayDriverAssigned(driver, driverName);
   const driverPhone = driver?.phone;
+  // Fleet Ops enters litres; the TM prices them. Hide every rate-derived number.
+  const hideTmPricing = !canSeeTmPricing(authService.getRoles());
   const costs = trip.directCosts;
-  const total = expenseTotal(trip);
+  const total = expenseTotal(trip, hideTmPricing);
   const hasCustomer = Boolean(customerName || trip.dropoff || sites.length > 0 || trip.pickup);
   const hasVehicle = Boolean(capNumber || plate || tailAssigned || driverLabel || driverPhone);
   const hasExpense = Boolean(costs || typeof total === "number");
@@ -236,7 +271,7 @@ export function DispatchDetailsModal({
   const canEdit =
     Boolean(onEdit) &&
     (trip.status === "Awaiting Approval" || trip.status === "Approved" || trip.status === "Scheduled");
-  const fields = dispatchFields(trip, driver, head);
+  const fields = dispatchFields(trip, driver, head, hideTmPricing);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
@@ -302,11 +337,18 @@ export function DispatchDetailsModal({
                   <DetailRow label="Lubricant:" value={costs.lubricantType} />
                 </>
               )}
+              {hideTmPricing ? (
+                <p className="text-[11px] tracking-[0.4px] text-[#5C6470]">
+                  Fuel cost is applied on approval by the Transport Manager&apos;s rate card.
+                </p>
+              ) : null}
               {typeof total === "number" && (
                 <>
                   <div className="h-px w-full bg-[#E2E5E9]" />
                   <div className="flex w-full items-start justify-between gap-4 text-[14px] font-bold">
-                    <span className="text-[#1B2432]">Total Configured Expense:</span>
+                    <span className="text-[#1B2432]">
+                      Total Configured Expense{hideTmPricing ? " (excl. fuel)" : ":"}
+                    </span>
                     <span className="text-[#ED351D]">{formatMoney(total)}</span>
                   </div>
                 </>

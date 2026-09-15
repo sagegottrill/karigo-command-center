@@ -167,6 +167,12 @@ export interface Trip {
   dropoff: string;
   headId?: ID;
   tailId?: ID;
+  /**
+   * The truck type the PARTNER asked for at request time (Full Sided, Flat, …).
+   * Never overwritten by the Fleet Ops assignment — see `tailType` for the tail
+   * that was actually fitted.
+   */
+  requestedTruckType?: string | null;
   tailType?: string;
   tailNumber?: string;
   truckReg?: string; // composed string e.g., HeadReg + TailReg or just display
