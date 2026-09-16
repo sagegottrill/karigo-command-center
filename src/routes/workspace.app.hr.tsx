@@ -53,7 +53,13 @@ function HrStaffDirectory() {
     phone: "",
     staffId: "",
   });
-  const [idEdit, setIdEdit] = useState<{ driver: Driver; value: string } | null>(null);
+  const [idEdit, setIdEdit] = useState<{
+    driver: Driver;
+    staffId: string;
+    name: string;
+    phone: string;
+    status: DriverStatus;
+  } | null>(null);
 
   /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
   const nextStaffId = () => {
@@ -120,22 +126,46 @@ function HrStaffDirectory() {
     }
   };
 
-  /** Add or correct the Driver ID (staffId) of an existing driver. */
-  const handleSaveId = async () => {
+  /** Open the pre-filled staff editor for an existing driver. */
+  const openEdit = (driver: Driver) =>
+    setIdEdit({
+      driver,
+      staffId: displayDriverSalary(driver) || driver.employeeId || "",
+      name: driver.name,
+      phone: driver.phone ?? "",
+      status: driver.status,
+    });
+
+  /**
+   * Save corrections to an existing staff record: Driver ID, name, phone and
+   * status. These are exactly the columns the API whitelists on PATCH, so HR can
+   * fix a misspelt name or a wrong phone without deleting and re-onboarding.
+   */
+  const handleSaveEdits = async () => {
     if (!idEdit) return;
-    const staffId = idEdit.value.trim().toUpperCase();
+    const staffId = idEdit.staffId.trim().toUpperCase();
+    const name = idEdit.name.trim();
+    if (!name) {
+      toast.error("Name is required.");
+      return;
+    }
     if (!staffId) {
       toast.error("Enter a Driver ID (e.g. P0123).");
       return;
     }
     try {
-      // staffId is the live column behind the driver's ID everywhere.
-      await driverService.update(idEdit.driver.id, { staffId } as never);
-      toast.success(`Driver ID ${staffId} saved for ${idEdit.driver.name}.`);
+      // Only live Driver columns — the API whitelists exactly these on PATCH.
+      await driverService.update(idEdit.driver.id, {
+        staffId,
+        name,
+        phone: idEdit.phone.trim(),
+        status: idEdit.status,
+      } as never);
+      toast.success(`${name} updated.`);
       setIdEdit(null);
       await refreshDrivers();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save Driver ID";
+      const msg = err instanceof Error ? err.message : "Failed to save staff details";
       toast.error(/unique/i.test(msg) ? "That Driver ID is already assigned to another driver." : msg);
     }
   };
@@ -261,10 +291,10 @@ function HrStaffDirectory() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setIdEdit({ driver, value: displayDriverSalary(driver) || "" })}
+                    onClick={() => openEdit(driver)}
                     className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
                   >
-                    {staffId === "—" ? "Add Driver ID" : "Edit Driver ID"}
+                    {staffId === "—" ? "Add Driver ID" : "Edit Staff Details"}
                   </button>
                 </div>
 
@@ -279,10 +309,10 @@ function HrStaffDirectory() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setIdEdit({ driver, value: displayDriverSalary(driver) || "" })}
+                    onClick={() => openEdit(driver)}
                     className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
-                    aria-label={`Set Driver ID for ${driver.name}`}
-                    title={staffId === "—" ? "Add Driver ID" : "Edit Driver ID"}
+                    aria-label={`Edit staff details for ${driver.name}`}
+                    title={staffId === "—" ? "Add Driver ID" : "Edit staff details"}
                   >
                     <Pencil className="size-4" />
                   </button>
@@ -392,19 +422,16 @@ function HrStaffDirectory() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
           <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <div className="border-b border-[#E2E5E9] py-2">
-              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Set Driver ID</h3>
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Edit Staff Details</h3>
             </div>
-            <p className="text-[13px] text-[#5C6470]">
-              {idEdit.driver.name} · {idEdit.driver.phone || "no phone"}
-            </p>
             <label className="flex flex-col gap-1.5">
               <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
                 Driver ID <span className="text-[#ED351D]">*</span>
               </span>
               <input
                 autoFocus
-                value={idEdit.value}
-                onChange={(e) => setIdEdit({ ...idEdit, value: e.target.value })}
+                value={idEdit.staffId}
+                onChange={(e) => setIdEdit({ ...idEdit, staffId: e.target.value })}
                 placeholder="example: P0123"
                 className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
               />
@@ -412,16 +439,46 @@ function HrStaffDirectory() {
                 This ID becomes the driver's identity across dispatch, security log and roster. It must be unique.
               </span>
             </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Name</span>
+              <input
+                value={idEdit.name}
+                onChange={(e) => setIdEdit({ ...idEdit, name: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Phone</span>
+              <input
+                value={idEdit.phone}
+                onChange={(e) => setIdEdit({ ...idEdit, phone: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Status</span>
+              <select
+                value={idEdit.status}
+                onChange={(e) => setIdEdit({ ...idEdit, status: e.target.value as DriverStatus })}
+                className="h-10 rounded border border-[#1B2432] bg-white px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              >
+                {DRIVER_STATUS_FILTERS.filter((s) => s !== "All").map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={() => setIdEdit(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => void handleSaveId()}
+                onClick={() => void handleSaveEdits()}
                 className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
               >
-                Save Driver ID
+                Save Changes
               </button>
             </div>
           </div>

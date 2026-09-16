@@ -1,9 +1,10 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
+import { Check, ChevronDown, Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { setActiveRole } from "@/lib/fleetopsx/active-role";
+import { ADMIN_DEPARTMENTS, roleForDepartment } from "@/lib/fleetopsx/admin-departments";
 import { getRoleHome } from "@/lib/fleetopsx/role-home";
 import { stashPendingLoginPassword } from "@/lib/fleetopsx/password-policy";
 import {
@@ -49,15 +50,36 @@ function LoginPage() {
   const [loginError, setLoginError] = useState(false);
   const [pendingRoles, setPendingRoles] = useState<string[] | null>(null);
   const [selectedRole, setSelectedRole] = useState("");
+  const [department, setDepartment] = useState("");
+  const [deptOpen, setDeptOpen] = useState(false);
+  const [deptError, setDeptError] = useState("");
+  const deptRef = useRef<HTMLDivElement>(null);
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
   useEffect(() => installSessionGuards(), []);
+
+  // Close the department menu on outside click / Escape.
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!deptRef.current?.contains(e.target as Node)) setDeptOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDeptOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   const canSubmit = Boolean(username && password);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(false);
+    setDeptError("");
     try {
       const user = await authService.login(username, password);
       if (!user) {
@@ -66,6 +88,18 @@ function LoginPage() {
         return;
       }
       authService.setRoles(user.roles ?? []);
+      // The department picked on the form must be one this account actually holds.
+      // Resolve it to a REAL assigned role — never activate a label the user lacks.
+      const assignedRoles = (user.roles ?? []).filter(Boolean);
+      const chosenRole = department ? roleForDepartment(department, assignedRoles) : null;
+      if (department && !chosenRole) {
+        authService.logout();
+        setDeptError(
+          `This account is not assigned to ${department}. Pick the department on your credentials, or leave it blank and we will detect it.`,
+        );
+        toast.error(`Not assigned to ${department}.`);
+        return;
+      }
       toast.success(`Welcome back, ${user?.name}`);
       if (user.passwordResetRequired) {
         stashPendingLoginPassword(password);
@@ -73,6 +107,12 @@ function LoginPage() {
         return;
       }
       void keepSignedIn;
+      // Department chosen → open that portal straight away, no second picker.
+      if (chosenRole) {
+        setActiveRole(chosenRole);
+        enterAuthenticatedApp(getRoleHome(chosenRole));
+        return;
+      }
       // Multi-role users pick the department to open first (switchable later in the header)
       const roles = (user.roles ?? []).filter(Boolean);
       if (roles.length > 1) {
@@ -210,6 +250,61 @@ function LoginPage() {
           </div>
 
           <form className="flex flex-col gap-[24px] px-[24px]" onSubmit={handleLogin}>
+            {/* Department this account signs into — validated against the roles it actually holds. */}
+            <div className="relative flex flex-col gap-[12px] w-full" ref={deptRef}>
+              <div className="flex items-center justify-between">
+                <label className="text-[14px] font-[500] leading-[14px] text-[#141a1f] tracking-[0.4px]">Select Department</label>
+                <span className="text-[11.41px] font-[400] uppercase tracking-[0.4px] text-[#5c6470]">Optional</span>
+              </div>
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={deptOpen}
+                onClick={() => setDeptOpen((o) => !o)}
+                className="flex h-[36px] w-full items-center justify-between rounded-[4px] border border-[#e2e5e9] bg-white px-[12px] text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
+              >
+                <span className={`text-[14px] font-[400] tracking-[0.4px] ${department ? "text-[#141a1f]" : "text-[#5c6470]"}`}>
+                  {department || "Select"}
+                </span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-[#5c6470] transition-transform ${deptOpen ? "rotate-180" : ""}`} />
+              </button>
+              {deptOpen ? (
+                <div
+                  role="listbox"
+                  className="absolute left-0 right-0 top-[68px] z-20 max-h-[260px] overflow-y-auto rounded-[6px] border border-[#e2e5e9] bg-white p-[10px]"
+                  style={{ boxShadow: "0px 4px 8px rgba(0,0,0,0.15), 0px 1px 3px rgba(0,0,0,0.3)" }}
+                >
+                  {ADMIN_DEPARTMENTS.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      role="option"
+                      aria-selected={department === d}
+                      onClick={() => {
+                        setDepartment(d);
+                        setDeptOpen(false);
+                        setDeptError("");
+                      }}
+                      className={`flex h-[36px] w-full items-center justify-between rounded-[4px] px-[14px] text-left text-[14px] font-[500] leading-[20px] tracking-[0.4px] hover:bg-[#f6f7f9] ${
+                        department === d ? "text-[#141a1f]" : "text-[rgba(92,100,112,0.8)]"
+                      }`}
+                    >
+                      {d}
+                      {department === d ? <Check className="h-4 w-4 shrink-0 text-[#ed351d]" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {deptError ? (
+                <p className="text-[12px] font-[400] leading-[16px] text-[#ed351d]">{deptError}</p>
+              ) : (
+                <span className="text-[11px] font-[400] leading-[16px] text-[#5c6470]">
+                  The department issued with your credentials — it opens that portal directly. Leave blank and we detect it for you.
+                </span>
+              )}
+            </div>
+
+
             {loginError && (
               <div className="flex w-full items-center p-[16px] gap-[10px] rounded-[4px] border border-[#ed351d] bg-[#fdf2f1]">
                 <p className="text-[14px] font-[400] leading-[20px] text-[#ed351d]">
