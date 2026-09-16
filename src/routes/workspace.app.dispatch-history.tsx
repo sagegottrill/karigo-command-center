@@ -347,17 +347,17 @@ function DispatchHistoryPage() {
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
       if (!q) return true;
       const hay =
-      `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.cargo} ${t.tailType ?? ""} ${displayRequestedTruckType(t)} ${t.dropoff} ${t.status}`.toLowerCase();
+      `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.customerConsignee ?? ""} ${t.cargo} ${t.tailType ?? ""} ${displayRequestedTruckType(t)} ${t.dropoff} ${t.status}`.toLowerCase();
       return hay.includes(q);
     });
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Date,Company,Product,Head Type,Destination,Status\n";
+    const headers = "Dispatch ID,Date,Company,Customer,Product,Head Type,Destination,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
-          `${dispatchId(t)},${formatHistoryDate(t)},${companyName(t)},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toDisplayStatus(t.status)}`,
+          `${dispatchId(t)},${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toDisplayStatus(t.status)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -431,8 +431,8 @@ function DispatchHistoryPage() {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Dispatch ID", "Date", "Company", "Product", "Head Type", "Drop-off Location", "Status"].map((h) => (
+        <div className="hidden grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
+          {["Dispatch ID", "Date", "Company", "Customer", "Product", "Head Type", "Drop-off Location", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -460,6 +460,10 @@ function DispatchHistoryPage() {
                     <span className="flex-1 text-[#344256]">{formatHistoryDate(trip)}</span>
                   </div>
                   <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Customer:</span>
+                    <span className="flex-1 text-[#344256]">{trip.customerConsignee || "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Product:</span>
                     <span className="flex-1 text-[#344256]">{trip.cargo || "—"}</span>
                   </div>
@@ -481,11 +485,12 @@ function DispatchHistoryPage() {
                 key={trip.id}
                 type="button"
                 onClick={() => setSelectedTrip(trip)}
-                className="grid w-full grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
+                className="grid w-full grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
                 <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee || "—"}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>

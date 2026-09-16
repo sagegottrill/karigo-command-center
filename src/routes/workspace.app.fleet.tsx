@@ -28,7 +28,7 @@ const PAGE_SIZE = 10;
 /** Desktop table columns — fr units so the table flexes to fit 1280–1920px
     laptops instead of forcing the page sideways (screenshot bug). */
 const FLEET_GRID =
-  "grid grid-cols-[minmax(118px,0.9fr)_minmax(96px,0.7fr)_minmax(0,1fr)_minmax(120px,0.9fr)_minmax(90px,0.7fr)_minmax(0,1fr)_minmax(118px,0.9fr)_minmax(92px,0.7fr)_auto]";
+  "grid grid-cols-[minmax(112px,0.8fr)_minmax(94px,0.6fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(86px,0.6fr)_auto]";
 
 function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
@@ -160,7 +160,7 @@ function FleetDispatchRequests() {
     if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
     const hay =
-      `${dispatchId(t)} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${fleetTruckTypeOf(t)} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
+      `${dispatchId(t)} ${t.customerConsignee ?? ""} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${fleetTruckTypeOf(t)} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
 
@@ -171,11 +171,11 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Driver,Truck Head,Head Type,Drop-off Location,Date Requested,Date Approved,Status\n";
+    const headers = "Date Requested,Dispatch ID,Customer,Driver,Truck Head,Head Type,Drop-off Location,Date Approved,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${dispatchId(t)},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.createdAt)},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
+        return `${formatDateTimeStamp(t.createdAt)},${dispatchId(t)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -360,6 +360,7 @@ function FleetDispatchRequests() {
                     />
                   </div>
                 </div>
+                <MetaRow label="Customer:" value={trip.customerConsignee || ""} />
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
                 <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
                 <MetaRow label="Truck Type:" value={fleetTruckTypeOf(trip)} />
@@ -468,6 +469,7 @@ function FleetDispatchRequests() {
                 {/* Date Requested leads the row — the TM reads the request date first. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Head Type</span>
@@ -487,6 +489,9 @@ function FleetDispatchRequests() {
                     <DateCell value={trip.createdAt} />
                     <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                       {dispatchId(trip)}
+                    </span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {trip.customerConsignee || "—"}
                     </span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.driverName || driver?.name}

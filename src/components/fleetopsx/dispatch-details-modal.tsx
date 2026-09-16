@@ -127,6 +127,13 @@ export function dispatchFields(
           { label: "Transit Road Tickets", value: money(costs.ticket) },
           { label: "Extra Contingency", value: money(costs.extraAllowance) },
           { label: "Lubricant", value: costs.lubricantType },
+          // TM printout must show the priced fuel: litres and its cost.
+          ...(typeof costs.lubricantQuantity === "number" && costs.lubricantQuantity > 0
+            ? [{ label: "Lubricant Quantity", value: `${costs.lubricantQuantity} Litres` }]
+            : []),
+          ...(!hideTmPricing && typeof costs.lubricantCost === "number" && costs.lubricantCost > 0
+            ? [{ label: `${costs.lubricantType || "Lubricant"} Cost`, value: money(costs.lubricantCost) }]
+            : []),
           ...(typeof total === "number"
             ? [
                 {
@@ -336,6 +343,12 @@ export function DispatchDetailsModal({
                   <DetailRow label="Transit Road Tickets:" value={formatMoney(costs.ticket)} />
                   <DetailRow label="Extra Contingency:" value={formatMoney(costs.extraAllowance)} />
                   <DetailRow label="Lubricant:" value={costs.lubricantType} />
+                  {typeof costs.lubricantQuantity === "number" && costs.lubricantQuantity > 0 && (
+                    <DetailRow label="Lubricant Quantity:" value={`${costs.lubricantQuantity} Litres`} />
+                  )}
+                  {!hideTmPricing && typeof costs.lubricantCost === "number" && costs.lubricantCost > 0 && (
+                    <DetailRow label={`${costs.lubricantType || "Lubricant"} Cost:`} value={formatMoney(costs.lubricantCost)} />
+                  )}
                 </>
               )}
               {hideTmPricing ? (
