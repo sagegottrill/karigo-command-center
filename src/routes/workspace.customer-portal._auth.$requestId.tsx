@@ -21,6 +21,7 @@ import {
 } from "@/lib/fleetopsx/partner-request-options";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import {
+  displayCapFromTrip,
   displayPlateFromTrip,
   displayRequestedTruckType,
   humanCode,
@@ -392,6 +393,9 @@ function PartnerRequestDetailsPage() {
       : trip
         ? displayPlateFromTrip(trip) || "—"
         : "—";
+  // Cap and plate are one husband-and-wife unit — show them side by side.
+  const capPlate =
+    [trip ? displayCapFromTrip(trip) : "", truckHead].filter(Boolean).join(" · ") || truckHead;
   const truckTail = trip?.tailType || truckParts[1] || "—";
   /** What the partner asked for — distinct from the tail that was fitted. */
   const requestedTruckType = trip ? displayRequestedTruckType(trip) : "";
@@ -481,7 +485,7 @@ function PartnerRequestDetailsPage() {
       ["Destination", trip.dropoff],
       ...loadingSites.map((site, i) => [`Loading Site ${i + 1}`, site]),
       ["Driver", trip.driverName || ""],
-      ["Truck Head", truckHead],
+      ["Truck Head (Cap Number / Plate)", capPlate],
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -676,7 +680,7 @@ function PartnerRequestDetailsPage() {
                     value={trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : "—"}
                   />
                   <ReadonlyField label="Driver Phone Number" value={driverPhone || "—"} />
-                  <ReadonlyField label="Truck Head" value={truckHead} />
+                  <ReadonlyField label="Truck Head (Cap Number / Plate)" value={capPlate} />
                   <ReadonlyField label="Truck Tail (Type)" value={truckTail} />
                   <ReadonlyField label="Serial Number" value={serial} />
                 </div>

@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Check, ChevronLeft, ChevronDown, MapPin, MapPinCheck, Phone } from "lucide-react";
+import { Check, ChevronLeft, ChevronDown, MapPin, MapPinCheck, Phone, Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -27,6 +27,8 @@ import {
   type TrackingLeg,
 } from "@/lib/fleetopsx/tracking-ops";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
+import { dispatchFields, printDispatch } from "@/components/fleetopsx/dispatch-details-modal";
+import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/$dispatchId")({
@@ -159,6 +161,8 @@ function LogLocationPage() {
   const sites = tripLoadingSites(trip);
   const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
+  const hideTmPricing = !canSeeTmPricing(authService.getRoles());
+  const detailFields = dispatchFields(trip, driver ?? undefined, undefined, hideTmPricing);
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
@@ -189,7 +193,18 @@ function LogLocationPage() {
               </p>
             </div>
             {/* Update Status dropdown — Figma 472:15170 style */}
-            <div className="relative">
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => printDispatch(detailFields)}
+                className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] bg-white px-3 text-[13px] font-medium text-[#1B2432] shadow-[0px_1px_4px_rgba(12,12,13,0.08)] hover:border-[#5C6470]/40"
+                aria-label="Print dispatch details"
+                title="Print dispatch details"
+              >
+                <Printer className="size-4" />
+                Print
+              </button>
+              <div className="relative">
               <button
                 type="button"
                 onClick={() => setStatusOpen((v) => !v)}
@@ -220,6 +235,7 @@ function LogLocationPage() {
                 </>
               )}
             </div>
+            </div>
           </div>
 
           <div className="mt-5">
@@ -239,8 +255,7 @@ function LogLocationPage() {
                 Vehicle & Operator Details
               </p>
               <div className="flex flex-col gap-3">
-                <DetailRow label="Truck Head (Cap Number):" value={displayCapFromTrip(trip) || "—"} />
-                <DetailRow label="Truck Head Plate Number:" value={displayPlateFromTrip(trip) || "—"} />
+                <DetailRow label="Truck Head (Cap Number / Plate):" value={detailFields.vehicle[0]?.value || "—"} />
                 <DetailRow
                   label="Truck Tail assigned:"
                   value={

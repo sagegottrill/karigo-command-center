@@ -66,8 +66,7 @@ function expenseTotal(trip: Trip, hideTmPricing = false) {
   return allowanceTotal(trip);
 }
 
-/** Every visible modal field as { label, value } — one source for print + CSV. */
-function dispatchFields(
+export function dispatchFields(
   trip: Trip,
   driver: Driver | undefined,
   head: TruckHead | undefined,
@@ -89,6 +88,8 @@ function dispatchFields(
   // must show the CAP/PLATE only, never the tail code.
   const plateRaw = head?.registration || (trip.truckReg || "").split("/")[0]?.trim() || "";
   const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
+  // Cap and plate are one husband-and-wife unit — always shown side by side.
+  const capPlate = [capNumber, plate].filter(Boolean).join(" · ") || undefined;
   const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
     ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
       ? `${trip.tailType} (${trip.tailNumber})`
@@ -113,8 +114,7 @@ function dispatchFields(
       })),
     ] as { label: string; value?: string | undefined }[],
     vehicle: [
-      { label: "Truck Head (Cap Number)", value: capNumber },
-      { label: "Truck Head Plate Number", value: plate },
+      { label: "Truck Head (Cap Number / Plate)", value: capPlate },
       { label: "Truck Tail assigned", value: tailAssigned },
       { label: "Driver Assigned", value: driverLabel },
       { label: "Driver Contact Phone", value: driver?.phone },
@@ -177,8 +177,8 @@ function exportCsv(fields: ReturnType<typeof dispatchFields>) {
   toast.success("Dispatch details exported.");
 }
 
-/** Open a clean print sheet with just the dispatch details. */
-function printDispatch(fields: ReturnType<typeof dispatchFields>) {
+/** Open a clean print sheet with just the dispatch details. (Shared with the Active Dispatch detail page.) */
+export function printDispatch(fields: ReturnType<typeof dispatchFields>) {
   const section = (title: string, items: { label: string; value?: string | undefined }[]) =>
     items.length === 0
       ? ""
@@ -251,6 +251,8 @@ export function DispatchDetailsModal({
   // must show the CAP/PLATE only, never the tail code.
   const plateRaw = head?.registration || (trip.truckReg || "").split("/")[0]?.trim() || "";
   const plate = plateRaw && !looksLikeUuid(plateRaw) ? plateRaw : head?.registration || undefined;
+  // Cap and plate are one husband-and-wife unit — always shown side by side.
+  const capPlate = [capNumber, plate].filter(Boolean).join(" · ") || undefined;
   const tailAssigned = humanCode(trip.tailNumber, trip.tailType)
     ? trip.tailType && trip.tailNumber && trip.tailType !== trip.tailNumber
       ? `${trip.tailType} (${trip.tailNumber})`
@@ -314,8 +316,7 @@ export function DispatchDetailsModal({
           <div className="flex w-full flex-col gap-6 rounded-[6px] bg-[#F1F2F4] p-2.5">
             <span className="text-[14px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
             <div className="flex w-full flex-col gap-[15px]">
-              <DetailRow label="Truck Head (Cap Number):" value={capNumber} />
-              <DetailRow label="Truck Head Plate Number:" value={plate} />
+              <DetailRow label="Truck Head (Cap Number / Plate):" value={capPlate} />
               <DetailRow label="Truck Tail assigned:" value={tailAssigned} />
               <DetailRow label="Driver Assigned:" value={driverLabel} />
               <DetailRow label="Driver Contact Phone:" value={driverPhone} />
