@@ -8,6 +8,7 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   getTrackingDelayStatus,
   isActiveDispatchTrip,
+  sortLatestFirst,
   TRACKING_DELAY_COLOR,
 } from "@/lib/fleetopsx/tracking-ops";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -38,7 +39,7 @@ function LiveTrackingPage() {
     void tripService
       .list()
       .then((all) => {
-        if (!cancelled) setTrips(all.filter(isActiveDispatchTrip));
+        if (!cancelled) setTrips(all.filter(isActiveDispatchTrip).sort(sortLatestFirst));
       })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load live tracking"))
       .finally(() => {
@@ -53,7 +54,7 @@ function LiveTrackingPage() {
   useAutoRefresh(() => {
     void tripService
       .list()
-      .then((all) => setTrips(all.filter(isActiveDispatchTrip)))
+      .then((all) => setTrips(all.filter(isActiveDispatchTrip).sort(sortLatestFirst)))
       .catch(() => {});
   });
 

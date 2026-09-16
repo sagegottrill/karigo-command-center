@@ -1,19 +1,28 @@
 import type { Trip } from "@/lib/fleetopsx/types";
-import { ACTIVE_DISPATCH_BUCKETS, hasAssignment, isInBucket, tripBucket } from "./status-buckets";
+import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "./status-buckets";
 import { displayDispatchId } from "./request-id";
 
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
 /**
  * Active Dispatch board = the shared ACTIVE_DISPATCH_BUCKETS definition
- * (scheduled + everything moving, incl. a truck stopped en route) PLUS trips
- * Fleet Operations has already assigned but the TM hasn't final-approved yet
- * — a truck is committed at that point, so Tracking must see it. Previously
- * this raw list also matched a bare `Stopped` with no truck (declined cargo).
+ * (scheduled + everything moving, incl. a truck stopped en route).
+ *
+ * Tracking sees a dispatch only AFTER the Transport Manager's final approval
+ * (status Scheduled). Fleet Ops' "Awaiting Approval" submissions go to the TM
+ * alone — showing them here made Tracking receive assignments meant only for
+ * the TM (Fortune, 16 Sept). Declined cargo (bare `Stopped`, no truck) never
+ * appears.
  */
 export function isActiveDispatchTrip(trip: Trip) {
-  if (isInBucket(trip, ACTIVE_DISPATCH_BUCKETS)) return true;
-  return tripBucket(trip) === "awaiting" && hasAssignment(trip);
+  return isInBucket(trip, ACTIVE_DISPATCH_BUCKETS);
+}
+
+/** Latest dispatch first — the board leads with the most recent movement. */
+export function sortLatestFirst(a: Trip, b: Trip): number {
+  const stamp = (t: Trip) =>
+    new Date(t.dispatchedAt || t.assignedAt || t.createdAt || 0).getTime();
+  return stamp(b) - stamp(a);
 }
 
 export function getTrackingDelayStatus(trip: Trip): TrackingDelayStatus {

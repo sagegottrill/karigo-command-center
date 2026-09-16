@@ -11,6 +11,7 @@ import {
   dispatchDisplayId,
   getTrackingDelayStatus,
   isActiveDispatchTrip,
+  sortLatestFirst,
   TRACKING_DELAY_COLOR,
   type TrackingDelayStatus,
 } from "@/lib/fleetopsx/tracking-ops";
@@ -63,7 +64,7 @@ function ActiveDispatchPage() {
       try {
         const [allTrips, allDrivers] = await Promise.all([tripService.list(), driverService.list()]);
         if (cancelled) return;
-        setTrips(allTrips.filter(isActiveDispatchTrip));
+        setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load active dispatches");
@@ -81,7 +82,7 @@ function ActiveDispatchPage() {
     void (async () => {
       try {
         const [allTrips, allDrivers] = await Promise.all([tripService.list(), driverService.list()]);
-        setTrips(allTrips.filter(isActiveDispatchTrip));
+        setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
       } catch {
         /* keep last good data */
