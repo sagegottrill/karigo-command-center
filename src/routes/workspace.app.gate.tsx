@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import {
@@ -45,6 +46,8 @@ function headOf(trip: Trip) {
 function tailOf(trip: Trip) {
   return humanCode(trip.tailNumber, trip.tailType) || "—";
 }
+
+const GATE_STATUS_FILTERS = ["All", "Not Departed", "Departed", "Returned"] as const;
 
 /** Actual gate stamp (date+time) when the truck has departed — null shows the placeholder. */
 function departureStamp(trip: Trip): string | null {
@@ -103,6 +106,7 @@ function SecurityLogPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof GATE_STATUS_FILTERS)[number]>("All");
   const [page, setPage] = useState(0);
   const [logOpen, setLogOpen] = useState(false);
   const [selectedTripId, setSelectedTripId] = useState("");
@@ -210,6 +214,13 @@ function SecurityLogPage() {
   }, [trips]);
 
   const filtered = listing.filter((t) => {
+    if (statusFilter !== "All") {
+      const departed = departureStamp(t) !== null;
+      const returned = returnStamp(t) !== null;
+      if (statusFilter === "Not Departed" && departed) return false;
+      if (statusFilter === "Departed" && (!departed || returned)) return false;
+      if (statusFilter === "Returned" && !returned) return false;
+    }
     const hay =
       `${dispatchId(t)} ${t.driverName ?? ""} ${headOf(t)} ${plateOf(t)} ${tailOf(t)} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
@@ -290,9 +301,14 @@ function SecurityLogPage() {
             className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
           />
         </div>
-        <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-        </button>
+        <FilterButton
+          options={GATE_STATUS_FILTERS}
+          value={statusFilter}
+          onChange={(s) => {
+            setStatusFilter(s);
+            setPage(0);
+          }}
+        />
         <button
           type="button"
           onClick={exportCsv}

@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
@@ -333,9 +334,14 @@ function FleetRegistryPage() {
                   className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
                 />
               </div>
-              <button type="button" className="grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
-                <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-              </button>
+              <FilterButton
+                options={STATUS_FILTERS}
+                value={statusFilter}
+                onChange={(s) => {
+                  setStatusFilter(s);
+                  setPage(0);
+                }}
+              />
               <button
                 type="button"
                 onClick={() => setAddOpen(true)}

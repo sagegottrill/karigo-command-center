@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Download, Search, SlidersHorizontal, ArrowLeft } from "lucide-react";
+import { Download, Search, ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
@@ -31,6 +32,8 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
 });
 
 type DisplayStatus = "In Transit" | "Pending" | "Declined" | "Completed";
+
+const HISTORY_STATUS_FILTERS = ["All", "In Transit", "Pending", "Declined", "Completed"] as const;
 
 const STATUS_STYLES: Record<DisplayStatus, string> = {
   "In Transit": "bg-[#A259FF] text-white",
@@ -322,6 +325,7 @@ function DispatchHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof HISTORY_STATUS_FILTERS)[number]>("All");
 
   useEffect(() => {
     void tripService
@@ -340,12 +344,13 @@ function DispatchHistoryPage() {
   const filteredTrips = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return trips.filter((t) => {
+      if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
       if (!q) return true;
       const hay =
       `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.cargo} ${t.tailType ?? ""} ${displayRequestedTruckType(t)} ${t.dropoff} ${t.status}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [trips, searchQuery]);
+  }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
     const headers = "Dispatch ID,Date,Company,Product,Tail Type,Destination,Status\n";
@@ -416,9 +421,13 @@ function DispatchHistoryPage() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
+            <FilterButton
+              options={HISTORY_STATUS_FILTERS}
+              value={statusFilter}
+              onChange={(s) => {
+                setStatusFilter(s);
+              }}
+            />
           </div>
         </div>
 

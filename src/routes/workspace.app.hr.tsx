@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Pencil, Search, SlidersHorizontal, Upload, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { authService, driverService } from "@/lib/fleetopsx/services";
@@ -20,6 +21,8 @@ export const Route = createFileRoute("/workspace/app/hr")({
 });
 
 const PAGE_SIZE = 10;
+
+const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
 
 function statusPillClass(status: DriverStatus) {
   switch (status) {
@@ -42,6 +45,7 @@ function HrStaffDirectory() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DriverStatus | "All">("All");
   const [page, setPage] = useState(0);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({
@@ -74,11 +78,12 @@ function HrStaffDirectory() {
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
+      if (statusFilter !== "All" && d.status !== statusFilter) return false;
       const salary = displayDriverSalary(d);
       const hay = `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.assignedTruck ?? ""} ${d.status}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
-  }, [drivers, query]);
+  }, [drivers, query, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -196,9 +201,14 @@ function HrStaffDirectory() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <button type="button" className="grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white" aria-label="Filter">
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
+            <FilterButton
+              options={DRIVER_STATUS_FILTERS}
+              value={statusFilter}
+              onChange={(s) => {
+                setStatusFilter(s);
+                setPage(0);
+              }}
+            />
           </div>
 
           <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
