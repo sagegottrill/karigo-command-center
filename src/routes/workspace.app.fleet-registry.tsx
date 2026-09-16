@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Printer, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
 import type { TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
@@ -17,9 +18,22 @@ const PAGE_SIZE = 10;
 const CARD_SHADOW =
   "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]";
 
-const STATUS_FILTERS = ["All", "Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as const;
+const STATUS_FILTERS = ["All", "Available", "Assigned", "Out of Yard", "Maintenance", "Out of Service"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type AssetTab = "head" | "tail";
+
+/**
+ * Asset states in the order the fleet team reads them. "Out of Yard" replaced
+ * the old "In Transit" asset state: it only means the truck has left the yard.
+ * It is internal bookkeeping and is NEVER written to a dispatch/customer state.
+ */
+const ASSET_STATUS_ORDER: TruckStatus[] = [
+  "Available",
+  "Assigned",
+  "Out of Yard",
+  "Maintenance",
+  "Out of Service",
+];
 
 function countByStatus(items: { status: TruckStatus }[], status: TruckStatus) {
   return items.filter((item) => item.status === status).length;
@@ -31,7 +45,7 @@ function statusPillClass(status: TruckStatus) {
       return "bg-[#34C759] text-white";
     case "Assigned":
       return "bg-[#627084] text-white";
-    case "In Transit":
+    case "Out of Yard":
       return "bg-[#EA3A3D] text-white";
     case "Maintenance":
       return "bg-[#F99E1F] text-white";
@@ -46,6 +60,103 @@ function statusPillClass(status: TruckStatus) {
 
 function headLabel(head: TruckHead) {
   return displayHeadCap(head) || head.capNumber || head.number;
+}
+
+/**
+ * Fleet Status Report — the sheet the Fleet Operations manager hands to his
+ * boss: how many trucks are on site, out of the yard, in the workshop and off
+ * the road, plus the list he is looking at. Uses the same standalone printed
+ * sheet approach as the dispatch printout (own window, auto-printed).
+ */
+function printFleetReport({
+  heads,
+  tails,
+  listing,
+  tab,
+  filterLabel,
+  query,
+}: {
+  heads: TruckHead[];
+  tails: TruckTail[];
+  listing: Array<TruckHead | TruckTail>;
+  tab: AssetTab;
+  filterLabel: string;
+  query: string;
+}) {
+  const htmlEsc = (value: string) =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const summaryRows = ASSET_STATUS_ORDER.map((status) => {
+    const heads_ = countByStatus(heads, status);
+    const tails_ = countByStatus(tails, status);
+    return `<tr><td>${status}</td><td class="n">${heads_}</td><td class="n">${tails_}</td><td class="n">${heads_ + tails_}</td></tr>`;
+  }).join("");
+  const detailRows = listing
+    .map((item) => {
+      const head = tab === "head" ? (item as TruckHead) : undefined;
+      const tail = tab === "tail" ? (item as TruckTail) : undefined;
+      return `<tr><td>${htmlEsc(head ? headLabel(head) : tail?.number ?? "")}</td><td>${htmlEsc(
+        item.registration || "—",
+      )}</td><td>${htmlEsc(head ? head.make : tail?.type ?? "")}</td><td>${htmlEsc(
+        item.status,
+      )}</td><td>${htmlEsc(item.location || "—")}</td></tr>`;
+    })
+    .join("");
+  const stamp = formatDateLines(new Date().toISOString());
+  let preparedBy = "";
+  try {
+    preparedBy = localStorage.getItem("fleetopsx_user_name") || "";
+  } catch {
+    /* private mode — omit */
+  }
+  const scopeNote = [
+    tab === "head" ? "Truck Heads" : "Truck Tails",
+    filterLabel === "All" ? "All statuses" : `Status: ${filterLabel}`,
+    query.trim() ? `Search: ${query.trim()}` : "",
+  ]
+    .filter(Boolean)
+    .join("  |  ");
+
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) {
+    toast.error("Allow pop-ups for this site to print.");
+    return;
+  }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>Fleet Status Report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 32px; color: #1B2432; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .meta { color: #5C6470; font-size: 11px; letter-spacing: .4px; text-transform: uppercase; margin-bottom: 4px; }
+    .stamp { color: #5C6470; font-size: 10px; margin-bottom: 18px; line-height: 1.6; }
+    h2 { font-size: 14px; margin: 22px 0 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #5C6470; border-bottom: 1px solid #1B2432; padding: 6px 0; }
+    td { padding: 6px 0; font-size: 13px; border-bottom: 1px solid #E2E5E9; }
+    td.n { text-align: right; width: 90px; font-variant-numeric: tabular-nums; }
+    tr.total td { font-weight: bold; border-top: 1px solid #1B2432; border-bottom: 0; }
+    .sign { margin-top: 40px; font-size: 12px; color: #5C6470; }
+    .sign span { display: inline-block; border-top: 1px solid #5C6470; margin-top: 34px; padding-top: 4px; min-width: 240px; }
+    @media print { body { margin: 12mm; } h2 { page-break-after: avoid; } tr { page-break-inside: avoid; } }
+  </style></head><body>
+    <h1>Fleet Status Report</h1>
+    <div class="meta">Petroline Transport Ltd &bull; Fleet Operations</div>
+    <div class="stamp">Printed: ${stamp.date} ${stamp.time}${preparedBy ? ` &nbsp;|&nbsp; Prepared by: ${htmlEsc(preparedBy)}` : ""}<br/>Showing: ${htmlEsc(scopeNote)}</div>
+    <h2>Summary</h2>
+    <table>
+      <tr><th>Status</th><th class="n">Heads</th><th class="n">Tails</th><th class="n">Total</th></tr>
+      ${summaryRows}
+      <tr class="total"><td>Total</td><td class="n">${heads.length}</td><td class="n">${tails.length}</td><td class="n">${heads.length + tails.length}</td></tr>
+    </table>
+    <h2>${tab === "head" ? "Truck Heads" : "Truck Tails"} (${listing.length})</h2>
+    <table>
+      <tr><th>${tab === "head" ? "Head No" : "Tail No"}</th><th>Registration</th><th>${tab === "head" ? "Brand" : "Type"}</th><th>Status</th><th>Location</th></tr>
+      ${detailRows || `<tr><td colspan="5">No records.</td></tr>`}
+    </table>
+    <div class="sign">Prepared by:<br/><span>${htmlEsc(preparedBy || "")}</span></div>
+    <script>window.onload = function () { window.print(); };</script>
+  </body></html>`);
+  w.document.close();
+  w.focus();
 }
 
 function StatCard({
@@ -186,8 +297,8 @@ function FleetRegistryPage() {
           hint="ready for dispatch"
           hintClass="text-[#34C759]"
         />
-        <StatCard label="Head In Transit" value={countByStatus(heads, "In Transit")} />
-        <StatCard label="Tail In Transit" value={countByStatus(tails, "In Transit")} />
+        <StatCard label="Head Out of Yard" value={countByStatus(heads, "Out of Yard")} />
+        <StatCard label="Tail Out of Yard" value={countByStatus(tails, "Out of Yard")} />
         <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
         <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
         <StatCard
@@ -213,7 +324,7 @@ function FleetRegistryPage() {
             hint="ready to dispatch"
             hintClass="text-[#34C759]"
           />
-          <StatCard label="Head In Transit" value={countByStatus(heads, "In Transit")} />
+          <StatCard label="Head Out of Yard" value={countByStatus(heads, "Out of Yard")} />
           <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
           <StatCard
             label="Head Out of Service"
@@ -230,7 +341,7 @@ function FleetRegistryPage() {
             hint="ready to dispatch"
             hintClass="text-[#34C759]"
           />
-          <StatCard label="Tail In Transit" value={countByStatus(tails, "In Transit")} />
+          <StatCard label="Tail Out of Yard" value={countByStatus(tails, "Out of Yard")} />
           <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
           <StatCard
             label="Tail Out of Service"
@@ -243,23 +354,43 @@ function FleetRegistryPage() {
 
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-          <div className="flex w-full items-center gap-2.5 rounded bg-white p-[5px] shadow-[0px_1px_2px_rgba(12,12,13,0.05)] md:w-auto">
-            {(["head", "tail"] as const).map((next) => (
-              <button
-                key={next}
-                type="button"
-                onClick={() => {
-                  setTab(next);
-                  setPage(0);
-                }}
-                className={cn(
-                  "flex h-8 flex-1 items-center justify-center rounded px-3 text-[14px] font-medium tracking-[0.4px] md:flex-none",
-                  tab === next ? "bg-[#1B2432] text-white" : "text-[#141A1F]",
-                )}
-              >
-                {next === "head" ? "Truck Head" : "Truck Tails"}
-              </button>
-            ))}
+          <div className="flex w-full items-center gap-2.5 md:w-auto">
+            <div className="flex flex-1 items-center gap-2.5 rounded bg-white p-[5px] shadow-[0px_1px_2px_rgba(12,12,13,0.05)] md:flex-none">
+              {(["head", "tail"] as const).map((next) => (
+                <button
+                  key={next}
+                  type="button"
+                  onClick={() => {
+                    setTab(next);
+                    setPage(0);
+                  }}
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center rounded px-3 text-[14px] font-medium tracking-[0.4px] md:flex-none",
+                    tab === next ? "bg-[#1B2432] text-white" : "text-[#141A1F]",
+                  )}
+                >
+                  {next === "head" ? "Truck Head" : "Truck Tails"}
+                </button>
+              ))}
+            </div>
+            {/* Fleet Status Report — counts on site / out of yard / etc. for his boss. */}
+            <button
+              type="button"
+              onClick={() =>
+                printFleetReport({
+                  heads,
+                  tails,
+                  listing: filtered,
+                  tab,
+                  filterLabel: statusFilter,
+                  query,
+                })
+              }
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[13px] font-medium tracking-[0.4px] text-white md:text-[14px]"
+            >
+              <Printer className="size-[18px]" strokeWidth={1.75} />
+              Print
+            </button>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:pb-0">
             {STATUS_FILTERS.map((filter) => (
@@ -383,7 +514,7 @@ function FleetRegistryPage() {
                         statusPillClass(item.status),
                       )}
                     >
-                      {(["Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as TruckStatus[]).map((s) => (
+                      {ASSET_STATUS_ORDER.map((s) => (
                         <option key={s} value={s} className="bg-white text-[#1B2432]">{s}</option>
                       ))}
                     </select>

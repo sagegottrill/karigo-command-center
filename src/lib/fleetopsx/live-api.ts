@@ -44,12 +44,14 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
   const status: TruckHead["status"] =
     statusRaw === "Active" || statusRaw === "Available"
       ? "Available"
-      : statusRaw === "Assigned" ||
-          statusRaw === "In Transit" ||
-          statusRaw === "Maintenance" ||
-          statusRaw === "Out of Service"
-        ? statusRaw
-        : "Out of Service";
+      : statusRaw === "In Transit" // legacy rows written before the rename
+        ? "Out of Yard"
+        : statusRaw === "Assigned" ||
+            statusRaw === "Out of Yard" ||
+            statusRaw === "Maintenance" ||
+            statusRaw === "Out of Service"
+          ? statusRaw
+          : "Out of Service";
 
   const cabCode = humanCode(
     t["cabId"] != null ? String(t["cabId"]) : undefined,
@@ -80,9 +82,11 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
   const status: TruckTail["status"] =
     statusRaw === "Active" || statusRaw === "Available"
       ? "Available"
-      : statusRaw === "Assigned" || statusRaw === "In Transit" || statusRaw === "Maintenance" || statusRaw === "Out of Service"
-        ? statusRaw
-        : "Available";
+      : statusRaw === "In Transit" // legacy rows written before the rename
+        ? "Out of Yard"
+        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance" || statusRaw === "Out of Service"
+          ? statusRaw
+          : "Available";
   return {
     id: String(t["id"] ?? ""),
     number: String(t["number"] ?? t["id"] ?? ""),

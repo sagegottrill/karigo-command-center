@@ -27,6 +27,8 @@ const TONE_MAP: Record<string, Tone> = {
   Online: "success",
   "En Route": "primary",
   "In Transit": "primary",
+  // Fleet asset state (FO bookkeeping) — never a dispatch/customer state.
+  "Out of Yard": "primary",
   Assigned: "primary",
   "On Trip": "primary",
   Loaded: "info",

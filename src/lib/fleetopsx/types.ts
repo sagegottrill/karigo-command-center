@@ -80,7 +80,11 @@ export interface User {
 export type TruckStatus =
   | "Available"
   | "Assigned"
-  | "In Transit"
+  /** Out of the yard — the FO team's own bookkeeping that a truck has left the
+   * yard. Deliberately NOT a customer-facing state: "In Transit" belongs to the
+   * dispatch lifecycle (driver departs / gate logs departure), never to the
+   * fleet asset's own status. Legacy rows may still read "In Transit". */
+  | "Out of Yard"
   | "Maintenance"
   | "Out of Service";
 

@@ -170,14 +170,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       heads: {
         total: heads.length,
         available: countByStatus(heads, "Available"),
-        inTransit: countByStatus(heads, "In Transit") + countByStatus(heads, "Assigned"),
+        inTransit: countByStatus(heads, "Out of Yard") + countByStatus(heads, "Assigned"),
         maintenance: countByStatus(heads, "Maintenance"),
         out: countByStatus(heads, "Out of Service"),
       },
       tails: {
         total: tails.length,
         available: countByStatus(tails, "Available"),
-        inTransit: countByStatus(tails, "In Transit") + countByStatus(tails, "Assigned"),
+        inTransit: countByStatus(tails, "Out of Yard") + countByStatus(tails, "Assigned"),
         maintenance: countByStatus(tails, "Maintenance"),
         out: countByStatus(tails, "Out of Service"),
       },
@@ -257,8 +257,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               : {})}
             className="md:hidden"
           />
-          <StatCard label="Head In Transit" value={stats.heads.inTransit} className="md:min-w-[160px] md:flex-1" />
-          <StatCard label="Tail In Transit" value={stats.tails.inTransit} className="md:hidden" />
+          <StatCard label="Head Out of Yard" value={stats.heads.inTransit} className="md:min-w-[160px] md:flex-1" />
+          <StatCard label="Tail Out of Yard" value={stats.tails.inTransit} className="md:hidden" />
           <StatCard
             label="Head In Maintenance"
             value={stats.heads.maintenance}
@@ -288,7 +288,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               : {})}
             className="md:min-w-[160px] md:flex-1"
           />
-          <StatCard label="Tail In Transit" value={stats.tails.inTransit} className="md:min-w-[160px] md:flex-1" />
+          <StatCard label="Tail Out of Yard" value={stats.tails.inTransit} className="md:min-w-[160px] md:flex-1" />
           <StatCard
             label="Tail In Maintenance"
             value={stats.tails.maintenance}

@@ -69,7 +69,7 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
   const incoming = trips.filter((t) => isInBucket(t, FO_QUEUE_BUCKETS));
   const activeDispatch = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
   const availableHeads = trucks.filter((t) => t.status === "Available").length;
-  const inUseHeads = trucks.filter((t) => t.status === "Assigned" || t.status === "In Transit").length;
+  const inUseHeads = trucks.filter((t) => t.status === "Assigned" || t.status === "Out of Yard").length;
   const completed = trips.filter((t) => t.status === "Completed").length;
 
   return (

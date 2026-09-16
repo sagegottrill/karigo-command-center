@@ -11,7 +11,7 @@ import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
-import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
+import { partnerQueueOrder, toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -135,7 +135,10 @@ function AdminPartnerRequests() {
     void tripService.list().then(setTrips).catch(() => {});
   });
 
-  const listing = useMemo(() => trips.filter(isPartnerRequest), [trips]);
+  // FIFO queue: requests nobody has acted on yet are pinned to the top, oldest
+  // first, so the TM sees at a glance what is still waiting on him. Everything
+  // already actioned drops below them, most recent first.
+  const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;

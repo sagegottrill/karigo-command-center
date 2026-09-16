@@ -97,6 +97,28 @@ export function countBuckets(
   return counts;
 }
 
+/** Sortable timestamp — bad/absent dates sink to the oldest end, never NaN. */
+function sortTime(value: string | null | undefined): number {
+  const t = value ? new Date(value).getTime() : Number.NaN;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+type QueueTrip = Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName" | "createdAt">;
+
+/**
+ * Transport Manager's request queue, FIRST IN FIRST OUT: anything still waiting
+ * on an approval sits on top, oldest first — the request that has waited longest
+ * is the one that gets served first. Requests already actioned sink below it,
+ * most recently actioned first. Applied to the table AND the CSV so what is
+ * exported matches what is on screen.
+ */
+export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
+  const aWaiting = toPartnerUiStatus(a) === "Pending";
+  const bWaiting = toPartnerUiStatus(b) === "Pending";
+  if (aWaiting !== bWaiting) return aWaiting ? -1 : 1;
+  return aWaiting ? sortTime(a.createdAt) - sortTime(b.createdAt) : sortTime(b.createdAt) - sortTime(a.createdAt);
+}
+
 /** Partner-portal label for a trip (dashboard + request-detail pages). */
 export type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
 

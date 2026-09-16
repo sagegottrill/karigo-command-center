@@ -66,12 +66,25 @@ export const fleetService = {
     notificationService.create({ title: 'New Asset Added', body: `Tail ${input.number} has been added to the fleet.`, category: 'Operations' });
     return res;
   }),
+  // Fleet-asset bookkeeping is INTERNAL. The notification is deliberately scoped
+  // to staff roles: a partner must never be told that a truck is "Out of Yard"
+  // (that is not the customer's dispatch state — the dispatch lifecycle is).
   updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
-    notificationService.create({ title: 'Asset Status Changed', body: `Truck ${id.substring(0,6)} status changed to ${status}.`, category: 'Operations' });
+    notificationService.create({
+      title: 'Asset Status Changed',
+      body: `Truck ${id.substring(0,6)} status changed to ${status}.`,
+      category: 'Operations',
+      audience: 'Transport Manager,Fleet Operations,Platform Admin',
+    });
     return res;
   }),
   updateTailStatus: (id: string, status: string) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
-    notificationService.create({ title: 'Asset Status Changed', body: `Tail status changed to ${status}.`, category: 'Operations' });
+    notificationService.create({
+      title: 'Asset Status Changed',
+      body: `Tail status changed to ${status}.`,
+      category: 'Operations',
+      audience: 'Transport Manager,Fleet Operations,Platform Admin',
+    });
     return res;
   }),
   updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
@@ -378,7 +391,10 @@ export const notificationService = {
   getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
   markAllRead: () => fetchApi('/notifications/mark-all-read', { method: 'POST' }),
   toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }), // Simplify toggle to mark read
-  create: (payload: { title: string; body: string; category: string; severity?: string }) => 
+  // `audience` (comma-separated roles / 'Partner:<Company>') scopes who receives
+  // it. Omitted = broadcast to EVERY user, partners included — only use that for
+  // genuinely company-wide news.
+  create: (payload: { title: string; body: string; category: string; severity?: string; audience?: string }) => 
     fetchApi('/notifications', { method: 'POST', body: JSON.stringify({ ...payload, severity: payload.severity || 'info' }) }).catch(() => {})
 };
 
