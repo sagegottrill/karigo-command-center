@@ -399,18 +399,19 @@ function AdminManagePartner() {
 
               <div className="hidden overflow-x-auto md:block">
                 <div className="min-w-[640px] w-full">
-                  <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
+                  <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(96px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Company Name</span>
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                     <span className="w-5" />
                   </div>
 
                   {slice.map((u, i) => (
                     <div
                       key={u.id}
-                      className="relative z-0 grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
+                      className="relative z-0 grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(96px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
                       data-open={menuFor === u.id ? "true" : "false"}
                     >
                       <span className="text-[14px] capitalize text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
@@ -419,7 +420,14 @@ function AdminManagePartner() {
                         {u.partnerCompanyName}
                       </span>
                       <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{u.username}</span>
-                      <div className="relative flex shrink-0 items-center justify-end gap-2">
+                      <span>
+                        {u.status === "Suspended" ? (
+                          <span className="inline-flex h-[22px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">Suspended</span>
+                        ) : (
+                          <span className="inline-flex h-[22px] items-center rounded bg-[#E7F6EC] px-2.5 text-[10px] font-medium text-[#1F7A3D]">Active</span>
+                        )}
+                      </span>
+                      <div className="relative flex shrink-0 items-center justify-end">
                         <RowActionMenu
                           open={menuFor === u.id}
                           onOpenChange={(o) => setMenuFor(o ? u.id : null)}
@@ -434,12 +442,6 @@ function AdminManagePartner() {
                             { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
                           ]}
                         />
-                        {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
-                        <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded">
-                          {u.status === "Suspended" && (
-                            <span className="bg-[#ED351D] px-2.5 py-0.5 text-[10px] font-medium text-white rounded">Suspended</span>
-                          )}
-                        </span>
                       </div>
                     </div>
                   ))}
