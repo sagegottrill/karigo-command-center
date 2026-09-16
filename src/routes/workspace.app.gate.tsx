@@ -401,7 +401,7 @@ function SecurityLogPage() {
 
       {logOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+          <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Log Vehicle</h3>
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">

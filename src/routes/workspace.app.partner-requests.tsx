@@ -499,8 +499,11 @@ function AdminPartnerRequests() {
       </div>
 
       {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="flex w-[406px] max-w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4" onClick={() => setDetail(null)}>
+          <div
+            className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="border-b border-[#E2E5E9] py-2">
               <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Request Details</h3>
             </div>
