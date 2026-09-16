@@ -171,7 +171,7 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Driver,Truck Head,Tail Type,Drop-off Location,Date Requested,Date Approved,Status\n";
+    const headers = "Dispatch ID,Driver,Truck Head,Head Type,Drop-off Location,Date Requested,Date Approved,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
@@ -470,7 +470,7 @@ function FleetDispatchRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Tail Type</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Head Type</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>

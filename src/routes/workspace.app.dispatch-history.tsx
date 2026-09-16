@@ -353,7 +353,7 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Date,Company,Product,Tail Type,Destination,Status\n";
+    const headers = "Dispatch ID,Date,Company,Product,Head Type,Destination,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
@@ -432,7 +432,7 @@ function DispatchHistoryPage() {
         </div>
 
         <div className="hidden grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Dispatch ID", "Date", "Company", "Product", "Tail Type", "Drop-off Location", "Status"].map((h) => (
+          {["Dispatch ID", "Date", "Company", "Product", "Head Type", "Drop-off Location", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
