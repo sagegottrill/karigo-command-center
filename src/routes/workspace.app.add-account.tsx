@@ -49,7 +49,8 @@ function AdminAddAccount() {
 
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
-  const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState<string[]>([]);
+  const department = departments[0] ?? "";
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
   const [staffId, setStaffId] = useState("");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -70,7 +71,7 @@ function AdminAddAccount() {
 
   const handleSaveAccountClick = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !surname || !department || !staffId) {
+    if (!firstName || !surname || departments.length === 0 || !staffId) {
       toast.error("Please fill in all fields.");
       return;
     }
@@ -82,7 +83,7 @@ function AdminAddAccount() {
       await adminService.createUser({
         firstName,
         surname,
-        roles: [departmentToRoleKey(department)],
+        roles: departments.map(departmentToRoleKey),
         username: generatedUsername,
         department,
         staffId,
@@ -98,7 +99,7 @@ function AdminAddAccount() {
   };
 
   // Share text reflects the department the account was created FOR (not a hardcoded portal).
-  const shareText = `Hello ${firstName},\n\nYour ${department || "Petroline"} account has been created.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/login`; 
+  const shareText = `Hello ${firstName},\n\nYour ${departments.join(" & ") || "Petroline"} account has been created.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/login`;
 
   const handleShareDone = () => {
     setShowShareModal(false);
@@ -200,7 +201,7 @@ function AdminAddAccount() {
               <span
                 className={`text-[14px] font-medium leading-5 tracking-[0.4px] ${department ? "text-[#141A1F]" : "text-[#5C6470]"}`}
               >
-                {department || "Select"}
+                {departments.length === 0 ? "Select" : departments.join(", ")}
               </span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M4 6L8 10L12 6" stroke="#5C6470" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -211,14 +212,14 @@ function AdminAddAccount() {
             {showDeptDropdown && (
               <div className="absolute top-[62px] left-0 z-40 w-full overflow-hidden rounded border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
                 {ADMIN_DEPARTMENTS.map((dept) => {
-                  const selected = department === dept;
+                  const selected = departments.includes(dept);
                   return (
                     <button
                       key={dept}
                       type="button"
                       onClick={() => {
-                        setDepartment(dept);
-                        setShowDeptDropdown(false);
+                        // Multi-select: one person can hold two (or more) departments.
+                        setDepartments((prev) => (prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]));
                       }}
                       className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#F1F2F4]"
                     >
@@ -286,11 +287,11 @@ function AdminAddAccount() {
               <div className="flex flex-col gap-5 sm:flex-row sm:gap-5">
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
                   <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Department</label>
-                  <div className={readOnlyClass}>{department}</div>
+                  <div className={readOnlyClass}>{departments.join(", ")}</div>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
                   <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Portal Access</label>
-                  <div className={readOnlyClass}>{departmentToRoleKey(department)}</div>
+                  <div className={readOnlyClass}>{departments.map(departmentToRoleKey).join(", ")}</div>
                 </div>
               </div>
 

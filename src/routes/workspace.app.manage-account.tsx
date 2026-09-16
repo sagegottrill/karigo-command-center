@@ -104,13 +104,17 @@ function AdminManageAccount() {
 
   const listing = users.filter(isManageableStaffUser);
   const filtered = listing.filter((u) => {
-    const dept = displayStaffDepartment(u.department);
-    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${dept} ${staffIdLabel(u)}`.toLowerCase();
+    // Multi-role: show every department the person holds, e.g. "Fleet Operation, HR & Personnel".
+    const depts = Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r))));
+    const dept = depts[0] ?? "";
+    const deptLabel = depts.join(", ");
+    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${deptLabel} ${staffIdLabel(u)}`.toLowerCase();
     const matchesQuery = !query || hay.includes(query.toLowerCase());
     const matchesDept =
       !deptFilter ||
       u.department === deptFilter ||
       displayStaffDepartment(u.department) === deptFilter ||
+      depts.includes(deptFilter) ||
       displayStaffDepartment(deptFilter) === dept;
     return matchesQuery && matchesDept;
   });
@@ -126,7 +130,7 @@ function AdminManageAccount() {
     const csv = filtered
       .map(
         (u, i) =>
-          `${i + 1},${u.name},${displayStaffDepartment(u.department)},${staffIdLabel(u)},${displayUsername(u)},${u.status},${formatLastLogin(u.lastActive)}`,
+          `${i + 1},${u.name},${Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(" ")},${staffIdLabel(u)},${displayUsername(u)},${u.status},${formatLastLogin(u.lastActive)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -354,8 +358,10 @@ function AdminManageAccount() {
                 </div>
                 <div className="flex flex-col gap-[5px] text-[12px]">
                   <div className="flex gap-2">
-                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Department:</span>
-                    <span className="min-w-0 flex-1 text-[#344256]">{displayStaffDepartment(u.department)}</span>
+                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Departments:</span>
+                    <span className="min-w-0 flex-1 text-[#344256]">
+                      {Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
@@ -389,8 +395,8 @@ function AdminManageAccount() {
                 >
                   <span className="text-[14px] text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#1B2432]">{u.name}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
-                    {displayStaffDepartment(u.department)}
+                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]" title={Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}>
+                    {Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}
                   </span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
@@ -465,7 +471,7 @@ function AdminManageAccount() {
               {(
                 [
                   ["Name", detailUser.name],
-                  ["Department", displayStaffDepartment(detailUser.department)],
+                  ["Departments", Array.from(new Set((detailUser.roles?.length ? detailUser.roles : [detailUser.department]).map((r) => displayStaffDepartment(r)))).join(", ")],
                   ["Staff ID", staffIdLabel(detailUser)],
                   ["Username", displayUsername(detailUser)],
                   ["Email", detailUser.email],
