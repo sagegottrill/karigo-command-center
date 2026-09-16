@@ -431,7 +431,7 @@ function DispatchHistoryPage() {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 md:grid">
+        <div className="hidden grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
           {["Dispatch ID", "Date", "Company", "Product", "Tail Type", "Drop-off Location", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
@@ -481,14 +481,14 @@ function DispatchHistoryPage() {
                 key={trip.id}
                 type="button"
                 onClick={() => setSelectedTrip(trip)}
-                className="grid w-full grid-cols-[110px_150px_180px_140px_120px_1fr_120px] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
+                className="grid w-full grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
-                <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                 <StatusPill status={status} />
               </button>
             );

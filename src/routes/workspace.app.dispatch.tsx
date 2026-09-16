@@ -376,30 +376,29 @@ function DispatchPage() {
 
         {/* Desktop table */}
         <div className="hidden px-5 py-6 md:block">
-          <div className="grid grid-cols-[81px_167px_200px_150px_119px_auto_auto_1fr] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5">
+          <div className="grid grid-cols-[minmax(96px,0.8fr)_minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5">
             {["ID No.", "Date", "Company", "Product", "Truck Type", "Drop-off Location"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
             ))}
-            <span className="w-[120px]" />
-            <span />
+            <span className="w-[128px]" />
           </div>
 
           {pendingOrders.map((trip) => (
             <div
               key={trip.id}
-              className="grid grid-cols-[81px_167px_200px_150px_119px_auto_auto_1fr] items-center gap-[30px] border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(96px,0.8fr)_minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
             >
-              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+              <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
+              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
+              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
+              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
+              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                 {displayRequestedTruckType(trip) || "—"}
               </span>
-              <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-              <div className="flex items-center">
+              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+              <div className="flex items-center justify-end">
                 <button
                   type="button"
                   onClick={() => setSelectedOrder(trip)}
@@ -409,7 +408,6 @@ function DispatchPage() {
                   <Upload className="size-4" strokeWidth={1.75} />
                 </button>
               </div>
-              <span />
             </div>
           ))}
 
