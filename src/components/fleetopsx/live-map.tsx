@@ -20,8 +20,10 @@ function project(lat: number, lng: number) {
 const DOT: Record<string, string> = {
   "En Route": "bg-[#1d1d1f]",
   Loaded: "bg-[#64d2ff]",
-  Offloading: "bg-[#64d2ff]",
-  Returning: "bg-[#34c759]",
+  // Returning/Offloading are internal road-states that read as In Transit for
+  // users (the client asked for them not to appear as their own status).
+  Offloading: "bg-[#0071e3]",
+  Returning: "bg-[#0071e3]",
   Delayed: "bg-[#ff9f0a]",
   Stopped: "bg-[#ff3b30]",
   Scheduled: "bg-[#86868b]",
@@ -71,7 +73,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
       })}
 
       <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
-        {["En Route", "Loaded", "Offloading", "Returning", "Delayed", "Stopped"].map((s) => (
+        {["En Route", "Loaded", "Delayed", "Stopped"].map((s) => (
           <span
             key={s}
             className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06]"

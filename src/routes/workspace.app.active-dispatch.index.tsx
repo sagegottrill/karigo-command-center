@@ -1,11 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowBigRight, ChevronLeft, ChevronRight, ListFilter, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
-import { driverService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   dispatchDisplayId,
@@ -25,9 +25,18 @@ function headCell(trip: Trip) {
 }
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/")({
+  // Same audience as the dispatch detail page: TM and Fleet Ops track trucks
+  // here alongside Tracking Ops, Security and Platform Admin.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Tracking", "Platform Admin"];
+    if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
+      throw redirect({ to: "/workspace/app/unauthorized" });
+    }
+  },
   head: () => ({
     meta: [
-      { title: "Active Dispatch | Tracking Ops" },
+      { title: "Active Dispatch | Live Tracking" },
       { name: "description", content: "Monitor active dispatches and manually log location checkpoints." },
     ],
   }),

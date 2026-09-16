@@ -5,14 +5,15 @@ import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 import "leaflet/dist/leaflet.css";
 
-const FOCUS = ["En Route", "Returning", "Loaded", "Delayed"] as const;
+// Legend entries users understand: Returning/Offloading read as In Transit.
+const FOCUS = ["En Route", "Loaded", "Delayed", "Stopped"] as const;
 
 const STATUS_COLOR: Record<string, string> = {
   "En Route": "#0071e3",
-  Returning: "#34c759",
+  Returning: "#0071e3",
   Loaded: "#5ac8fa",
   Delayed: "#ff3b30",
-  Offloading: "#af52de",
+  Offloading: "#0071e3",
   Stopped: "#ff9f0a",
 };
 
@@ -220,10 +221,10 @@ export function CommandCenterMap({
           </span>
           <div>
             <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-foreground">Command Center</h2>
-            <p className="text-[11px] text-muted-foreground">Nigeria · OpenStreetMap</p>
+            <p className="text-[11px] text-muted-foreground">Nigeria ï¿½ OpenStreetMap</p>
           </div>
         </div>
-        <p className="text-[12px] font-semibold text-[#34c759]">Online · PTL-001</p>
+        <p className="text-[12px] font-semibold text-[#34c759]">Online ï¿½ PTL-001</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 px-5">

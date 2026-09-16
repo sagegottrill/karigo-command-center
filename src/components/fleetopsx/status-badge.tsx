@@ -2,6 +2,20 @@ import { cn } from "@/lib/utils";
 
 type Tone = "success" | "info" | "warning" | "critical" | "neutral" | "primary";
 
+/**
+ * Internal road-states the client asked to keep off-screen: a truck coming back
+ * (Returning) or being unloaded (Offloading) still reads as "In Transit" — the
+ * lifecycle detail lives in Trip/Return history, not in the status label.
+ */
+const HIDDEN_STATUS_LABEL: Record<string, string> = {
+  Returning: "In Transit",
+  Offloading: "In Transit",
+};
+
+export function displayStatusLabel(status: string): string {
+  return HIDDEN_STATUS_LABEL[status] ?? status;
+}
+
 const TONE_MAP: Record<string, Tone> = {
   Active: "success",
   Available: "success",
@@ -57,7 +71,7 @@ const TONE_CLASS: Record<Tone, string> = {
 };
 
 export function StatusBadge({
-  status,
+  status: rawStatus,
   tone,
   dot = true,
   className,
@@ -67,6 +81,7 @@ export function StatusBadge({
   dot?: boolean;
   className?: string;
 }) {
+  const status = displayStatusLabel(rawStatus);
   const resolved = tone ?? TONE_MAP[status] ?? "neutral";
   return (
     <span
