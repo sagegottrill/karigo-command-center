@@ -18,6 +18,7 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import { FO_QUEUE_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
+import { SearchableSelect } from "@/components/fleetopsx/searchable-select";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Upload } from "lucide-react";
 
@@ -463,16 +464,15 @@ function DispatchPage() {
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
                 Assign Truck Head <span className="text-[#ED351D]">*</span>
               </label>
-              <select 
-                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
+              <SearchableSelect
                 value={headId}
-                onChange={e => setHeadId(e.target.value)}
-              >
-                <option value="">eg: P002</option>
-                {TRUCK_HEADS.filter(h => h.status === "Available" || h.id === headId).map(h => (
-                  <option key={h.id} value={h.id}>{displayHeadOption(h)}</option>
-                ))}
-              </select>
+                onChange={setHeadId}
+                placeholder="eg: P002"
+                options={TRUCK_HEADS.filter(h => h.status === "Available" || h.id === headId).map(h => ({
+                  value: h.id,
+                  label: displayHeadOption(h),
+                }))}
+              />
             </div>
             <div>
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
@@ -490,16 +490,15 @@ function DispatchPage() {
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
                 Assign Truck Tail <span className="text-[#ED351D]">*</span>
               </label>
-              <select 
-                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
+              <SearchableSelect
                 value={tailId}
-                onChange={e => setTailId(e.target.value)}
-              >
-                <option value="">Select Tail (Body)</option>
-                {TRUCK_TAILS.filter(t => t.status === "Available" || t.id === tailId).map(t => (
-                  <option key={t.id} value={t.id}>{displayTailOption(t)}</option>
-                ))}
-              </select>
+                onChange={setTailId}
+                placeholder="Select Tail (Body)"
+                options={TRUCK_TAILS.filter(t => t.status === "Available" || t.id === tailId).map(t => ({
+                  value: t.id,
+                  label: displayTailOption(t),
+                }))}
+              />
             </div>
             <div>
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
@@ -524,16 +523,16 @@ function DispatchPage() {
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
                 Salary Number <span className="text-[#ED351D]">*</span>
               </label>
-              <select 
-                className="w-full h-10 px-3 bg-white border border-[#e2e5e9] rounded-sm text-sm focus:outline-none focus:border-blue-500"
+              <SearchableSelect
                 value={driverId}
-                onChange={e => setDriverId(e.target.value)}
-              >
-                <option value="">eg: P00851</option>
-                {drivers.filter(d => d.status === "Available" || d.id === driverId).map(d => (
-                  <option key={d.id} value={d.id}>{displayDriverOption(d)}</option>
-                ))}
-              </select>
+                onChange={setDriverId}
+                placeholder="eg: P00851"
+                options={drivers.filter(d => d.status === "Available" || d.id === driverId).map(d => ({
+                  value: d.id,
+                  label: displayDriverOption(d),
+                  hint: d.name,
+                }))}
+              />
             </div>
             <div>
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
