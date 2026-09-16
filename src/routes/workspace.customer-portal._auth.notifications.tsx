@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -40,6 +41,14 @@ function PartnerNotificationsPage() {
   });
 
   const unreadCount = items.filter((n) => !n.read).length;
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageRows = items.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = items.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(items.length, currentPage * PAGE_SIZE + pageRows.length);
 
   if (loading) {
     return (
@@ -105,7 +114,7 @@ function PartnerNotificationsPage() {
           </div>
         </div>
 
-        {items.map((n) => (
+        {pageRows.map((n) => (
           <button
             key={n.id}
             type="button"
@@ -141,6 +150,35 @@ function PartnerNotificationsPage() {
             title="No notifications yet"
             body="Alerts regarding your transport requests will appear here."
           />
+        )}
+
+        {items.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] px-5 py-4">
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {from} - {to}
+            </span>
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {items.length}</span>
+            <div className="ml-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-[18px] text-[#627084]" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= pageCount - 1}
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-[18px] text-[#627084]" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

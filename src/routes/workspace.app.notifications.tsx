@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -33,6 +34,8 @@ export const Route = createFileRoute("/workspace/app/notifications")({
 
 type CategoryTab = ReturnType<typeof tabsForRoles>[number];
 
+const PAGE_SIZE = 10;
+
 function matchesCategory(category: string, tab: CategoryTab) {
   switch (tab) {
     case "All":
@@ -60,6 +63,7 @@ function NotificationsPage() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState<CategoryTab>("All");
+  const [page, setPage] = useState(0);
 
   // Near real-time: initial load + 10s poll + refresh when the tab regains
   // focus — new approvals/checkpoint alerts appear without a manual reload.
@@ -100,6 +104,14 @@ function NotificationsPage() {
 
   const rows = items.filter((n) => matchesCategory(n.category, cat));
   const unreadCount = items.filter((n) => !n.read).length;
+
+  // Paginated like every other table — the center must never be an endless
+  // scroll. Clamping keeps the page valid when the poll adds/removes rows.
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageRows = rows.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const from = rows.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const to = Math.min(rows.length, currentPage * PAGE_SIZE + pageRows.length);
 
   if (loading) {
     return (
@@ -168,7 +180,10 @@ function NotificationsPage() {
               <button
                 key={c}
                 type="button"
-                onClick={() => setCat(c)}
+                onClick={() => {
+                  setCat(c);
+                  setPage(0);
+                }}
                 className={cn(
                   "flex h-6 items-center rounded px-3 text-[12px] tracking-[0.4px] md:h-9 md:text-[14px] md:font-medium",
                   cat === c ? "bg-[#1B2432] text-white" : "bg-[rgba(226,229,233,0.5)] text-[#141A1F]",
@@ -180,7 +195,7 @@ function NotificationsPage() {
           </div>
         </div>
 
-        {rows.map((n) => (
+        {pageRows.map((n) => (
           <button
             key={n.id}
             type="button"
@@ -216,6 +231,35 @@ function NotificationsPage() {
             title={cat === "All" ? "No notifications for your department" : `No ${cat.toLowerCase()} notifications`}
             body="Operational alerts for your department will appear here."
           />
+        )}
+
+        {rows.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] px-5 py-4">
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {from} - {to}
+            </span>
+            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {rows.length}</span>
+            <div className="ml-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-[18px] text-[#627084]" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= pageCount - 1}
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-[18px] text-[#627084]" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
