@@ -593,13 +593,23 @@ function FleetDispatchRequests() {
               ? driverById.get(detail.driverId)
               : drivers.find((d) => d.name === detail.driverName)
           }
-          head={heads.find(
-            (h) =>
-              h.id === detail.headId ||
-              h.number === detail.headId ||
-              h.capNumber === detail.headId ||
-              (detail.truckReg ? h.registration === detail.truckReg : false),
-          )}
+          head={
+            heads.find(
+              (h) =>
+                h.id === detail.headId ||
+                h.number === detail.headId ||
+                h.capNumber === detail.headId ||
+                (detail.truckReg ? h.registration === detail.truckReg : false),
+            ) ??
+            // FO writes truckReg as "PLATE / TAILCODE" without headId — match the
+            // head by the plate part so the Cap number always resolves.
+            (() => {
+              const plate = (detail.truckReg || "").split("/")[0]?.trim().toUpperCase();
+              return plate
+                ? heads.find((h) => h.registration.replace(/\s/g, "").toUpperCase() === plate.replace(/\s/g, ""))
+                : undefined;
+            })()
+          }
           onClose={() => setDetail(null)}
           onApprove={() => {
             void handleApprove(detail);

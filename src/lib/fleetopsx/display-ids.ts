@@ -119,7 +119,13 @@ export function displayHeadCap(head?: TruckHead | null, fallbackId?: string | nu
     findRosterCabById(head?.capNumber) ||
     findRosterCabById(head?.number) ||
     findRosterCabById(fallbackId);
-  return humanCode(head?.capNumber, head?.number, roster?.cabId, fallbackId);
+  // Last resort: derive cap from the plate alone so an unmatched head object
+  // can never blank the Cap column ("where is the Cap?" bug).
+  return (
+    humanCode(head?.capNumber, head?.number, roster?.cabId, fallbackId) ||
+    roster?.cabId ||
+    ""
+  );
 }
 
 /** Dropdown label: `P002 (KSF 72 YF)`. */
@@ -192,7 +198,10 @@ export function displayCapFromTrip(
   if (head) return displayHeadCap(head, trip.headId);
   const plate = (trip.truckReg || "").split("/")[0]?.trim() ?? "";
   const roster = findRosterCabByPlate(plate) || findRosterCabById(trip.headId);
-  return humanCode(roster?.cabId, trip.headId);
+  // The plate→roster lookup is the whole point: truckReg is the only assignment
+  // signal Fleet Ops' historical writes left behind, and it ALWAYS pairs with a
+  // cap code in the roster (NEW CAB ↔ REG.).
+  return humanCode(roster?.cabId, trip.headId) || roster?.cabId || "";
 }
 
 export function displayPlateFromTrip(
