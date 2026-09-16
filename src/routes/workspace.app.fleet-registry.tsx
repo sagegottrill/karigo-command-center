@@ -379,12 +379,12 @@ function FleetRegistryPage() {
                       value={item.status}
                       onChange={(e) => void handleStatusChange(item, e.target.value as TruckStatus)}
                       className={cn(
-                        "inline-flex h-[22px] cursor-pointer items-center rounded border-0 px-2.5 text-[10px] font-medium outline-none",
+                        "inline-flex h-[22px] min-w-[96px] cursor-pointer items-center rounded border-0 px-2.5 pr-6 text-[10px] font-medium outline-none",
                         statusPillClass(item.status),
                       )}
                     >
                       {(["Available", "Assigned", "In Transit", "Maintenance", "Out of Service"] as TruckStatus[]).map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s} className="bg-white text-[#1B2432]">{s}</option>
                       ))}
                     </select>
                   </span>
