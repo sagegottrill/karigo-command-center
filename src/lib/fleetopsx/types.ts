@@ -201,6 +201,11 @@ export interface Trip {
   approvedAt?: string | null;
   /** Fleet Ops assigning driver/truck. */
   assignedAt?: string | null;
+  /**
+   * Why the dispatch was sent back to Fleet Ops (wrong truck, wrong driver,
+   * missing location…). Fleet Ops reads this before re-assigning.
+   */
+  sendBackReason?: string | null;
   priority: "Low" | "Normal" | "High" | "Critical";
   distanceKm: number;
   durationLabel: string;

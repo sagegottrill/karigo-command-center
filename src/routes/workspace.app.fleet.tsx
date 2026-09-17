@@ -115,6 +115,9 @@ function FleetDispatchRequests() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [sendBackTrip, setSendBackTrip] = useState<Trip | null>(null);
+  const [sendBackNote, setSendBackNote] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
 
   useEffect(() => {
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -225,13 +228,29 @@ function FleetDispatchRequests() {
   };
 
   // TM not happy with FO's assignment → back to Approved so FO re-assigns.
-  const handleSendBack = async (trip: Trip) => {
+  // The reason travels with the dispatch: Fleet Ops sees WHAT was wrong, not
+  // just that it came back.
+  const handleSendBack = (trip: Trip) => {
     setMenuFor(null);
     setDetail(null);
+    setSendBackNote("");
+    setSendBackTrip(trip);
+  };
+
+  const confirmSendBack = async () => {
+    if (!sendBackTrip) return;
+    const reason = sendBackNote.trim();
+    if (!reason) {
+      toast.error("Add a reason so Fleet Ops knows what to fix.");
+      return;
+    }
+    setSendingBack(true);
     try {
-      await tripService.update(trip.id, { status: "Approved" });
-      toast.success(`Dispatch ${dispatchId(trip)} sent back to Fleet Operations for re-assignment.`);
+      await tripService.update(sendBackTrip.id, { status: "Approved", sendBackReason: reason });
+      toast.success(`Dispatch ${dispatchId(sendBackTrip)} sent back to Fleet Operations with your reason.`);
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      setSendBackTrip(null);
+      setSendBackNote("");
       void tripService.list().then(setTrips);
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
@@ -242,6 +261,8 @@ function FleetDispatchRequests() {
             ? err.message
             : "Failed to send dispatch back.",
       );
+    } finally {
+      setSendingBack(false);
     }
   };
 
@@ -624,6 +645,46 @@ function FleetDispatchRequests() {
             setDetail(null);
           }}
         />
+      )}
+
+      {sendBackTrip && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-[460px] rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-[16px] font-bold text-[#1B2432]">Send back to Fleet Ops</h3>
+            <p className="mt-1 text-[13px] text-[#5C6470]">
+              Dispatch {dispatchId(sendBackTrip)} returns to Fleet Operations for re-assignment. Tell them what
+              needs fixing — they see this reason on the dispatch.
+            </p>
+            <textarea
+              autoFocus
+              rows={4}
+              value={sendBackNote}
+              onChange={(e) => setSendBackNote(e.target.value)}
+              placeholder="e.g. Wrong tail for a Full Sided request — re-assign with a sided tail."
+              className="mt-3 w-full rounded border border-[#E2E5E9] p-3 text-[13px] text-[#1B2432] outline-none focus:border-[#ED351D]"
+            />
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSendBackTrip(null);
+                  setSendBackNote("");
+                }}
+                className="text-[13px] font-medium text-[#627084] hover:underline"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sendingBack || !sendBackNote.trim()}
+                onClick={() => void confirmSendBack()}
+                className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {sendingBack ? "Sending…" : "Send Back"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {editing && (

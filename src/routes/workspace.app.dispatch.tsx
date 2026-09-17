@@ -283,6 +283,9 @@ function DispatchPage() {
       },
       ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
       status: "Awaiting Approval",
+      // Re-assignment answers the TM's note — clear it so the next reader is
+      // never shown a stale reason.
+      sendBackReason: null,
     });
     
       toast.success(`Dispatch Configured`, {
@@ -361,6 +364,11 @@ function DispatchPage() {
                   <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
                 </div>
               </div>
+              {trip.sendBackReason ? (
+                <p className="rounded bg-[#FDECEA] px-2.5 py-1.5 text-[12px] text-[#7A271A]">
+                  <span className="font-semibold">Sent back:</span> {trip.sendBackReason}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setSelectedOrder(trip)}
@@ -404,7 +412,15 @@ function DispatchPage() {
                 {displayRequestedTruckType(trip) || "—"}
               </span>
               <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-2">
+                {trip.sendBackReason ? (
+                  <span
+                    title={`Sent back by the Transport Manager: ${trip.sendBackReason}`}
+                    className="shrink-0 rounded bg-[#FDECEA] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#B42318]"
+                  >
+                    Sent back
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setSelectedOrder(trip)}
@@ -456,6 +472,16 @@ function DispatchPage() {
 
       <div className="p-5 md:p-6 space-y-6">
         
+        {/* The TM sent this dispatch back — show the reason before anything else. */}
+        {selectedOrder?.sendBackReason ? (
+          <div className="rounded-xl border border-[#F5B5AA] bg-[#FDECEA] p-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.4px] text-[#B42318]">
+              Sent back by the Transport Manager
+            </p>
+            <p className="mt-1 text-[14px] text-[#7A271A]">{selectedOrder.sendBackReason}</p>
+          </div>
+        ) : null}
+
         {/* Everything the partner asked for — Fleet Ops must see EVERY loading
             site (multiple sites = multiple pickups) before choosing a truck. */}
         {selectedOrder && (
