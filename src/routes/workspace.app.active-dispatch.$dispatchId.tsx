@@ -162,6 +162,12 @@ function LogLocationPage() {
   const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
   const hideTmPricing = !canSeeTmPricing(authService.getRoles());
+  // Only the Tracking department logs checkpoints and moves the delay status.
+  // Everyone else (Transport Manager, Fleet Ops, Security) gets the same page as
+  // pure visibility — they watch what Tracking inputs, they never input it.
+  const canLogTracking = authService.getRoles().some((r: unknown) =>
+    ["Tracking", "Platform Admin"].includes(String(r)),
+  );
   const detailFields = dispatchFields(trip, driver ?? undefined, undefined, hideTmPricing);
 
   return (
@@ -177,7 +183,9 @@ function LogLocationPage() {
           <ChevronLeft className="size-6" />
         </button>
         <h2 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[18px]">
-          Access Location History and Log New Locations
+          {canLogTracking
+            ? "Access Location History and Log New Locations"
+            : "Dispatch Visibility and Location History"}
         </h2>
       </div>
 
@@ -205,6 +213,7 @@ function LogLocationPage() {
                 Print
               </button>
               <div className="relative">
+              {canLogTracking ? (
               <button
                 type="button"
                 onClick={() => setStatusOpen((v) => !v)}
@@ -215,7 +224,16 @@ function LogLocationPage() {
                 {delayStatus}
                 <ChevronDown className="size-4 text-[#5C6470]" />
               </button>
-              {statusOpen && (
+              ) : (
+                <span
+                  className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] bg-[#F5F6F8] px-3 text-[13px] font-medium"
+                  style={{ color: TRACKING_DELAY_COLOR[delayStatus] }}
+                >
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: TRACKING_DELAY_COLOR[delayStatus] }} />
+                  {delayStatus}
+                </span>
+              )}
+              {canLogTracking && statusOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setStatusOpen(false)} />
                   <div className="absolute right-0 top-11 z-40 min-w-[190px] rounded-[10px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
@@ -279,7 +297,9 @@ function LogLocationPage() {
         </section>
 
         <div className="flex min-w-0 flex-col gap-5">
-          {/* Log New Location — Figma Frame 96 (657px) */}
+          {/* Log New Location — Figma Frame 96 (657px). Tracking-only: every other
+              role reads the history this form produces. */}
+          {canLogTracking ? (
           <section className="rounded-[10px] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
             <div className="mb-5 flex items-center gap-3 border-b border-[#E2E5E9] pb-4">
               <span className="grid size-6 place-items-center rounded-full bg-[#ED351D]/10">
@@ -403,6 +423,7 @@ function LogLocationPage() {
               </button>
             </div>
           </section>
+          ) : null}
 
           {/* Stage history — every stage carries its own growing sub-dots */}
           <div className="grid gap-5 md:grid-cols-2">

@@ -17,6 +17,9 @@ import { authService, driverService, fleetService, tripService } from "@/lib/fle
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import { FO_QUEUE_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
+// Every loading site on a request, split and de-duplicated — the pricing input
+// Fleet Ops must read before assigning a truck.
+import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { SearchableSelect } from "@/components/fleetopsx/searchable-select";
 import { cn } from "@/lib/utils";
@@ -363,6 +366,10 @@ function DispatchPage() {
                   <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
                   <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
                 </div>
+                <div className="flex gap-2">
+                  <span className="w-24 font-medium text-[#5C6470]">Loading Site(s):</span>
+                  <span className="flex-1 text-[#344256]">{tripLoadingSites(trip).join(" · ") || "—"}</span>
+                </div>
               </div>
               {trip.sendBackReason ? (
                 <p className="rounded bg-[#FDECEA] px-2.5 py-1.5 text-[12px] text-[#7A271A]">
@@ -389,8 +396,8 @@ function DispatchPage() {
 
         {/* Desktop table */}
         <div className="hidden px-5 py-6 md:block">
-          <div className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5">
-            {["ID No.", "Date", "Company", "Customer", "Product", "Truck Type", "Drop-off Location"].map((h) => (
+          <div className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5">
+            {["ID No.", "Date", "Company", "Customer", "Product", "Truck Type", "Drop-off Location", "Loading Site(s)"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
@@ -401,7 +408,7 @@ function DispatchPage() {
           {pendingOrders.map((trip) => (
             <div
               key={trip.id}
-              className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
             >
               <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
               <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
@@ -412,6 +419,12 @@ function DispatchPage() {
                 {displayRequestedTruckType(trip) || "—"}
               </span>
               <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+              <span
+                className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]"
+                title={tripLoadingSites(trip).join(", ") || undefined}
+              >
+                {tripLoadingSites(trip).join(" · ") || "—"}
+              </span>
               <div className="flex items-center justify-end gap-2">
                 {trip.sendBackReason ? (
                   <span
@@ -508,13 +521,11 @@ function DispatchPage() {
               <p className="text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5c6470]">
                 Loading Site(s)
               </p>
-              {(selectedOrder.loadingSite ?? []).filter((s) => s && s.trim()).length > 0 ? (
+              {tripLoadingSites(selectedOrder).length > 0 ? (
                 <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-[13px] font-semibold capitalize text-[#141a1f]">
-                  {(selectedOrder.loadingSite ?? [])
-                    .filter((s) => s && s.trim())
-                    .map((site, i) => (
-                      <li key={`${site}-${i}`}>{site}</li>
-                    ))}
+                  {tripLoadingSites(selectedOrder).map((site, i) => (
+                    <li key={`${site}-${i}`}>{site}</li>
+                  ))}
                 </ol>
               ) : (
                 <p className="mt-1 text-[13px] text-[#141a1f]">—</p>

@@ -30,9 +30,18 @@ export const Route = createFileRoute("/workspace/app/live-tracking")({
   component: LiveTrackingPage,
 });
 
+/** Partner company behind a dispatch — the filter key (never the consignee person). */
+function partnerOf(trip: Trip): string {
+  return trip.customer && trip.customer !== "Customer Portal"
+    ? trip.customer
+    : trip.customerConsignee || "";
+}
+
 function LiveTrackingPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  // "Just show me Saba's trucks" — the whole board (stats + map) follows this.
+  const [partner, setPartner] = useState<string>("All partners");
 
   useEffect(() => {
     let cancelled = false;
@@ -58,11 +67,25 @@ function LiveTrackingPage() {
       .catch(() => {});
   });
 
+  const partners = useMemo(() => {
+    const seen = new Set<string>();
+    for (const trip of trips) {
+      const name = partnerOf(trip);
+      if (name) seen.add(name);
+    }
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [trips]);
+
+  const visibleTrips = useMemo(
+    () => (partner === "All partners" ? trips : trips.filter((t) => partnerOf(t) === partner)),
+    [trips, partner],
+  );
+
   const stats = useMemo(() => {
     let onSchedule = 0;
     let slight = 0;
     let significant = 0;
-    for (const trip of trips) {
+    for (const trip of visibleTrips) {
       const delay = getTrackingDelayStatus(trip);
       switch (delay) {
         case "On Schedule":
@@ -80,8 +103,8 @@ function LiveTrackingPage() {
         }
       }
     }
-    return { total: trips.length, onSchedule, slight, significant };
-  }, [trips]);
+    return { total: visibleTrips.length, onSchedule, slight, significant };
+  }, [visibleTrips]);
 
   if (loading) {
     return (
@@ -123,6 +146,22 @@ function LiveTrackingPage() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-5">
+            {partners.length > 1 ? (
+              <label className="flex items-center gap-2.5">
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">Partner:</span>
+                <select
+                  value={partner}
+                  onChange={(e) => setPartner(e.target.value)}
+                  className="h-9 cursor-pointer rounded border border-[#E2E5E9] bg-white px-3 text-[13px] font-medium text-[#1B2432] outline-none"
+                >
+                  {["All partners", ...partners].map((name) => (
+                    <option key={name} value={name} className="bg-white text-[#1B2432]">
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {(
               [
                 ["On Schedule", TRACKING_DELAY_COLOR["On Schedule"]],
@@ -138,14 +177,18 @@ function LiveTrackingPage() {
           </div>
         </div>
 
-        {trips.length === 0 ? (
+        {visibleTrips.length === 0 ? (
           <FigmaEmptyState
             title="No active dispatches on the map"
-            body="Live trip positions appear here when active dispatches exist."
+            body={
+              partner === "All partners"
+                ? "Live trip positions appear here when active dispatches exist."
+                : `${partner} has no active dispatch on the road right now.`
+            }
           />
         ) : (
           <div className="h-[420px] overflow-hidden rounded-[10px] border border-[#E2E5E9] md:h-[536px]">
-            <DispatchLiveMap trips={trips} />
+            <DispatchLiveMap trips={visibleTrips} />
           </div>
         )}
       </section>
