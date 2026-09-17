@@ -427,6 +427,16 @@ function PartnerPortalDashboard() {
                         >
                           {uiStatus}
                         </span>
+                        {/* The Transport Manager sent this one back — the partner
+                            corrects it and resends instead of re-raising it. */}
+                        {r.partnerNote ? (
+                          <span
+                            title={`Transport Manager: ${r.partnerNote}`}
+                            className="inline-flex h-[22px] items-center rounded bg-[#FDECEA] px-2 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#B42318]"
+                          >
+                            Action
+                          </span>
+                        ) : null}
                         {/* Per-card CTA menu (Details / Delete) — same as the design. */}
                         <span onClick={(e) => e.stopPropagation()}>
                           <RowActionMenu
@@ -529,6 +539,14 @@ function PartnerPortalDashboard() {
                               >
                                 {uiStatus}
                               </span>
+                              {r.partnerNote ? (
+                                <span
+                                  title={`Transport Manager: ${r.partnerNote}`}
+                                  className="inline-flex h-[22px] items-center rounded bg-[#FDECEA] px-2 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#B42318]"
+                                >
+                                  Action
+                                </span>
+                              ) : null}
                               <RowActionMenu
                                 open={rowMenuOpen === r.id}
                                 onOpenChange={(o) => setRowMenuOpen(o ? r.id : null)}

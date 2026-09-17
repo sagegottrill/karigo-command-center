@@ -214,19 +214,6 @@ function FleetDispatchRequests() {
     }
   };
 
-  const handleDecline = async (trip: Trip) => {
-    setMenuFor(null);
-    setDetail(null);
-    try {
-      await tripService.update(trip.id, { status: "Stopped" });
-      toast.warning(`Dispatch ${dispatchId(trip)} declined.`);
-      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
-      void tripService.list().then(setTrips);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to decline dispatch.");
-    }
-  };
-
   // TM not happy with FO's assignment → back to Approved so FO re-assigns.
   // The reason travels with the dispatch: Fleet Ops sees WHAT was wrong, not
   // just that it came back.
@@ -374,8 +361,8 @@ function FleetDispatchRequests() {
                               disabled: approvingId === trip.id,
                             }]
                           : []),
-                        ...(fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined"
-                          ? [{ label: "Decline", onSelect: () => void handleDecline(trip), danger: true }]
+                        ...(fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                          ? [{ label: "Send Back to Fleet Ops", onSelect: () => void handleSendBack(trip) }]
                           : []),
                       ]}
                     />
@@ -544,9 +531,6 @@ function FleetDispatchRequests() {
                           ...(fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                             ? [{ label: "Send Back to Fleet Ops", onSelect: () => void handleSendBack(trip) }]
                             : []),
-                          ...(fleetStatusOf(trip) !== "Completed" && fleetStatusOf(trip) !== "Declined"
-                            ? [{ label: "Decline", onSelect: () => void handleDecline(trip), danger: true }]
-                            : []),
                         ]}
                       />
                     </div>
@@ -636,9 +620,13 @@ function FleetDispatchRequests() {
             void handleApprove(detail);
             setDetail(null);
           }}
+          declineLabel="Send Back to Fleet Ops"
           onDecline={() => {
-            handleDecline(detail);
+            // A dispatch rejected here is an INTERNAL correction: the mistake was
+            // Fleet Ops', so it goes back to them with a reason — the partner's
+            // request is never declined for someone else's error.
             setDetail(null);
+            handleSendBack(detail);
           }}
           onEdit={() => {
             setEditing(detail);

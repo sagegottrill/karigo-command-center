@@ -120,6 +120,10 @@ function AdminPartnerRequests() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [noteTrip, setNoteTrip] = useState<Trip | null>(null);
+  const [noteMode, setNoteMode] = useState<"sendback" | "decline">("sendback");
+  const [note, setNote] = useState("");
+  const [noting, setNoting] = useState(false);
 
   useEffect(() => {
     void tripService.list()
@@ -195,16 +199,54 @@ function AdminPartnerRequests() {
     }
   };
 
-  const handleDecline = async (trip: Trip) => {
+  /**
+   * Two ways to answer a partner request wrongly raised:
+   *  - Send Back  → the request returns to the partner to correct and resend
+   *                 (it is NOT a decline; the partner never re-raises it).
+   *  - Decline    → the request is rejected, with an optional reason.
+   * Both carry a note the partner reads on their portal.
+   */
+  const openNote = (trip: Trip, mode: "sendback" | "decline") => {
     setMenuFor(null);
     setDetail(null);
+    setNote("");
+    setNoteMode(mode);
+    setNoteTrip(trip);
+  };
+
+  const confirmNote = async () => {
+    if (!noteTrip) return;
+    const text = note.trim();
+    if (noteMode === "sendback" && !text) {
+      toast.error("Tell the partner what to correct.");
+      return;
+    }
+    setNoting(true);
     try {
-      await tripService.update(trip.id, { status: "Stopped" });
-      toast.warning(`Request ${requestId(trip)} declined.`);
+      await tripService.update(noteTrip.id, {
+        status: noteMode === "sendback" ? "Requested" : "Stopped",
+        partnerNote: text || null,
+      });
+      toast[noteMode === "sendback" ? "success" : "warning"](
+        noteMode === "sendback"
+          ? `Request ${requestId(noteTrip)} sent back to the partner for correction.`
+          : `Request ${requestId(noteTrip)} declined.`,
+      );
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      setNoteTrip(null);
+      setNote("");
       void tripService.list().then(setTrips);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to decline request.");
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(
+        offline
+          ? "You are offline — nothing was saved. Reconnect and try again."
+          : err instanceof Error
+            ? err.message
+            : "Failed to save.",
+      );
+    } finally {
+      setNoting(false);
     }
   };
 
@@ -308,7 +350,8 @@ function AdminPartnerRequests() {
                           onSelect: () => void handleApprove(trip),
                           disabled: approvingId === trip.id,
                         },
-                        { label: "Decline", onSelect: () => handleDecline(trip), danger: true },
+                        { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
+                        { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
                       ]}
                     />
                   </div>
@@ -447,7 +490,8 @@ function AdminPartnerRequests() {
                                 onSelect: () => void handleApprove(trip),
                                 disabled: approvingId === trip.id,
                               },
-                              { label: "Decline", onSelect: () => void handleDecline(trip), danger: true },
+                              { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
+                              { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
                             ]
                           : []),
                       ]}
@@ -508,6 +552,56 @@ function AdminPartnerRequests() {
         </div>
       </div>
 
+      {noteTrip && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+          onClick={() => setNoteTrip(null)}
+        >
+          <div
+            className="flex w-[420px] max-w-full flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[18px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+              {noteMode === "sendback" ? "Send back to partner" : "Decline request"}
+            </h3>
+            <p className="text-[13px] text-[#5C6470]">
+              {noteMode === "sendback"
+                ? `Request ${requestId(noteTrip)} goes back to the partner to correct. It stays part of the same flow — the partner edits it and resends, nothing is re-raised.`
+                : `Request ${requestId(noteTrip)} will be closed as declined. A reason helps the partner understand what was wrong.`}
+            </p>
+            <textarea
+              autoFocus
+              rows={4}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={
+                noteMode === "sendback"
+                  ? "e.g. Loading site and drop-off do not match — please correct."
+                  : "e.g. Duplicate request — already covered by REQ-XXXXX."
+              }
+              className="w-full rounded border border-[#E2E5E9] p-3 text-[13px] text-[#1B2432] outline-none focus:border-[#ED351D]"
+            />
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setNoteTrip(null)}
+                className="text-[13px] font-medium text-[#627084] hover:underline"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={noting || (noteMode === "sendback" && !note.trim())}
+                onClick={() => void confirmNote()}
+                className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {noting ? "Saving…" : noteMode === "sendback" ? "Send Back" : "Decline"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4" onClick={() => setDetail(null)}>
           <div
@@ -544,8 +638,8 @@ function AdminPartnerRequests() {
                 <button
                   type="button"
                   onClick={() => {
-                    handleDecline(detail);
                     setDetail(null);
+                    openNote(detail, "decline");
                   }}
                   className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[12px] tracking-[0.4px] text-white"
                 >

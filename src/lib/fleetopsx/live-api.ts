@@ -186,6 +186,7 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     approvedAt: t.approvedAt ? String(t.approvedAt) : null,
     assignedAt: t.assignedAt ? String(t.assignedAt) : null,
     sendBackReason: t.sendBackReason ? String(t.sendBackReason) : null,
+    partnerNote: t.partnerNote ? String(t.partnerNote) : null,
     priority: (t.priority as Trip["priority"]) || "Normal",
     distanceKm: Number(t.distanceKm ?? 0),
     durationLabel: String(t.durationLabel ?? "—"),
@@ -247,6 +248,7 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   if (input.status !== undefined) out.status = input.status;
   if (input.directCosts !== undefined) out.directCosts = input.directCosts || null;
   if (input.sendBackReason !== undefined) out.sendBackReason = input.sendBackReason || null;
+  if (input.partnerNote !== undefined) out.partnerNote = input.partnerNote || null;
   return out;
 }
 

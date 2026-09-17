@@ -231,6 +231,7 @@ export function DispatchDetailsModal({
   onClose,
   onApprove,
   onDecline,
+  declineLabel,
   onEdit,
 }: {
   trip: Trip;
@@ -239,6 +240,12 @@ export function DispatchDetailsModal({
   onClose: () => void;
   onApprove: () => void;
   onDecline: () => void;
+  /**
+   * What the red action is called for this role. On the Transport Manager's
+   * dispatch list it is "Send Back to Fleet Ops" — a rejection there is an
+   * internal correction, never a customer-visible decline.
+   */
+  declineLabel?: string;
   /** TM-only: open the Modify Assignment editor for FO-configured dispatches. */
   onEdit?: () => void;
 }) {
@@ -420,7 +427,7 @@ export function DispatchDetailsModal({
                   onClick={onDecline}
                   className="flex h-8 items-center rounded bg-[#ED351D] px-2.5 text-[12px] tracking-[0.4px] text-white"
                 >
-                  Decline Request
+                  {declineLabel ?? "Decline Request"}
                 </button>
                 <button
                   type="button"

@@ -206,6 +206,11 @@ export interface Trip {
    * missing location…). Fleet Ops reads this before re-assigning.
    */
   sendBackReason?: string | null;
+  /**
+   * Transport Manager's note to the PARTNER (send back for correction, or why a
+   * request was declined). The partner reads it instead of re-raising the request.
+   */
+  partnerNote?: string | null;
   priority: "Low" | "Normal" | "High" | "Critical";
   distanceKm: number;
   durationLabel: string;

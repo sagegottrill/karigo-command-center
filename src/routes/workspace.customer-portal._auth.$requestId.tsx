@@ -458,6 +458,9 @@ function PartnerRequestDetailsPage() {
         dropoff: draftDestination.trim(),
         pickup: sites[0] || trip.pickup,
         loadingSite: sites,
+        // The correction answers the Transport Manager's note — clear it so the
+        // "Action" flag does not outlive the fix.
+        partnerNote: null,
       });
       setTrip(updated);
       try {
@@ -584,6 +587,20 @@ function PartnerRequestDetailsPage() {
               ) : null}
             </div>
           </div>
+
+          {/* The Transport Manager returned this request for correction — say so
+              up front, and say why, before the partner reads anything else. */}
+          {trip.partnerNote ? (
+            <div className="w-full rounded-[10px] border border-[#F5B5AA] bg-[#FDECEA] p-4">
+              <p className="text-[12px] font-bold uppercase tracking-[0.4px] text-[#B42318]">
+                Action required — returned by the Transport Manager
+              </p>
+              <p className="mt-1 text-[14px] text-[#7A271A]">{trip.partnerNote}</p>
+              <p className="mt-1 text-[12px] text-[#7A271A]/80">
+                Correct the details below and save — this stays the same request, nothing has to be raised again.
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid w-full min-w-0 gap-5 lg:grid-cols-2 lg:gap-[35px]">
             {/* Request Details — Figma 356:9825 */}
