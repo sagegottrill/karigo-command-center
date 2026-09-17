@@ -456,6 +456,47 @@ function DispatchPage() {
 
       <div className="p-5 md:p-6 space-y-6">
         
+        {/* Everything the partner asked for — Fleet Ops must see EVERY loading
+            site (multiple sites = multiple pickups) before choosing a truck. */}
+        {selectedOrder && (
+          <div className="rounded-xl border border-[#E2E5E9] bg-[#F1F2F4] p-4">
+            <h3 className="mb-3 text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Partner Request Details</h3>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+              {(
+                [
+                  ["Partner", companyName(selectedOrder) || "—"],
+                  ["Customer", selectedOrder.customerConsignee || "—"],
+                  ["Product", selectedOrder.cargo || "—"],
+                  ["Truck Type Requested", displayRequestedTruckType(selectedOrder) || "—"],
+                  ["Drop-off Location", selectedOrder.dropoff || "—"],
+                  ["Loading Routing", selectedOrder.loadingRoutingType || "—"],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-3 text-[13px]">
+                  <span className="text-[#5c6470]">{label}:</span>
+                  <span className="text-right font-semibold capitalize text-[#141a1f]">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-[#E2E5E9] pt-3">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5c6470]">
+                Loading Site(s)
+              </p>
+              {(selectedOrder.loadingSite ?? []).filter((s) => s && s.trim()).length > 0 ? (
+                <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-[13px] font-semibold capitalize text-[#141a1f]">
+                  {(selectedOrder.loadingSite ?? [])
+                    .filter((s) => s && s.trim())
+                    .map((site, i) => (
+                      <li key={`${site}-${i}`}>{site}</li>
+                    ))}
+                </ol>
+              ) : (
+                <p className="mt-1 text-[13px] text-[#141a1f]">—</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Step 1 */}
         <div>
           <h3 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] mb-4 border-b border-[#E2E5E9] pb-2">Step 1: Assign Truck</h3>
