@@ -18,7 +18,15 @@ const PAGE_SIZE = 10;
 const CARD_SHADOW =
   "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]";
 
-const STATUS_FILTERS = ["All", "Available", "Assigned", "Out of Yard", "Maintenance", "Accident"] as const;
+const STATUS_FILTERS = [
+  "All",
+  "Available",
+  "Assigned",
+  "Out of Yard",
+  "Check Up",
+  "Maintenance",
+  "Accident",
+] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type AssetTab = "head" | "tail";
 
@@ -31,6 +39,7 @@ const ASSET_STATUS_ORDER: TruckStatus[] = [
   "Available",
   "Assigned",
   "Out of Yard",
+  "Check Up",
   "Maintenance",
   "Accident",
 ];
@@ -65,6 +74,8 @@ function statusPillClass(status: TruckStatus) {
       return "bg-[#627084] text-white";
     case "Out of Yard":
       return "bg-[#EA3A3D] text-white";
+    case "Check Up":
+      return "bg-[#8B5CF6] text-white";
     case "Maintenance":
       return "bg-[#F99E1F] text-white";
     case "Accident":
@@ -331,6 +342,8 @@ function FleetRegistryPage() {
         <StatCard label="Tail Out of Yard" value={countByStatus(tails, "Out of Yard")} />
         <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
         <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
+        <StatCard label="Head Check Up" value={countByStatus(heads, "Check Up")} />
+        <StatCard label="Tail Check Up" value={countByStatus(tails, "Check Up")} />
         <StatCard
           label="Head Accident"
           value={countByStatus(heads, "Accident")}
@@ -355,6 +368,7 @@ function FleetRegistryPage() {
             hintClass="text-[#34C759]"
           />
           <StatCard label="Head Out of Yard" value={countByStatus(heads, "Out of Yard")} />
+          <StatCard label="Head Check Up" value={countByStatus(heads, "Check Up")} />
           <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
           <StatCard
             label="Head Accident"
@@ -372,6 +386,7 @@ function FleetRegistryPage() {
             hintClass="text-[#34C759]"
           />
           <StatCard label="Tail Out of Yard" value={countByStatus(tails, "Out of Yard")} />
+          <StatCard label="Tail Check Up" value={countByStatus(tails, "Check Up")} />
           <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
           <StatCard
             label="Tail Accident"

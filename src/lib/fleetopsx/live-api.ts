@@ -48,7 +48,11 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
         ? "Out of Yard"
         : statusRaw === "Out of Service" // pre-rename label for a crashed truck
           ? "Accident"
-          : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance" || statusRaw === "Accident"
+          : statusRaw === "Assigned" ||
+              statusRaw === "Out of Yard" ||
+              statusRaw === "Check Up" ||
+              statusRaw === "Maintenance" ||
+              statusRaw === "Accident"
             ? (statusRaw as TruckHead["status"])
             : "Accident";
 
@@ -83,7 +87,7 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
       ? "Available"
       : statusRaw === "In Transit" // legacy rows written before the rename
         ? "Out of Yard"
-        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance"
+        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Check Up" || statusRaw === "Maintenance"
           ? statusRaw
           : statusRaw === "Out of Service" || statusRaw === "Accident"
             ? "Accident"

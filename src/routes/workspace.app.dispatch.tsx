@@ -121,8 +121,14 @@ function DispatchPage() {
     setTails(tails);
     setDrivers(nextDrivers);
     // Queue = TM-approved only (canonical bucket semantics, so the count here
-    // always matches the sidebar dot and the FO dashboard card).
-    setPendingOrders(trips.filter((t) => isInBucket(t, FO_QUEUE_BUCKETS)));
+    // always matches the sidebar dot and the FO dashboard card). A closed request
+    // (declined / withdrawn / finished) is filtered out explicitly: it must never
+    // be assignable again, whatever its bucket says.
+    setPendingOrders(
+      trips.filter(
+        (t) => isInBucket(t, FO_QUEUE_BUCKETS) && t.status !== "Stopped" && t.status !== "Completed",
+      ),
+    );
   };
 
   useEffect(() => {
@@ -250,6 +256,14 @@ function DispatchPage() {
     const problem = validateForm();
     if (problem) {
       toast.error("Validation Error", { description: problem });
+      return;
+    }
+    // The request may have been declined or withdrawn while this form sat open.
+    // Assigning a truck would resurrect a closed request — the exact bug where a
+    // "cancelled" request kept coming back to the queue.
+    if (selectedOrder && ["Stopped", "Completed"].includes(selectedOrder.status)) {
+      toast.error("This request is no longer open — it was declined or withdrawn. Refresh the queue.");
+      navigate({ to: "/workspace/app/dispatch" });
       return;
     }
     if (!head) return; // validateForm guarantees this, TS needs the guard

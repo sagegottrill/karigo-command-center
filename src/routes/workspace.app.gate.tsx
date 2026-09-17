@@ -11,7 +11,8 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { authService, fleetService, notificationService, tripService } from "@/lib/fleetopsx/services";
+import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -135,7 +136,37 @@ function SecurityLogPage() {
         eta: stampNow(),
         progress: 100,
       });
-      toast.success("Return logged");
+
+      // The truck is back in the yard: it goes to CHECK UP, not straight back to
+      // Available. The fleet team inspects it and decides Available or Maintenance
+      // from the Fleet Registry; Engineering is told a truck is waiting.
+      const plate = plateOf(trip).replace(/\s/g, "").toUpperCase();
+      const cap = headOf(trip);
+      let marked = false;
+      try {
+        const heads = await fleetService.listHeads();
+        const head =
+          (trip.headId ? heads.find((h) => h.id === trip.headId) : undefined) ??
+          (plate
+            ? heads.find((h) => h.registration.replace(/\s/g, "").toUpperCase() === plate)
+            : undefined) ??
+          heads.find((h) => cap && cap !== "—" && (displayHeadCap(h) === cap || h.number === cap));
+        if (head) {
+          await fleetService.updateHeadStatus(head.id, "Check Up");
+          marked = true;
+        }
+      } catch {
+        /* the return itself must stand even if the asset row cannot be updated */
+      }
+
+      void notificationService.create({
+        title: "Truck returned — check-up required",
+        body: `${plate || cap || "Truck"} is back in the yard${marked ? " and is now on Check Up" : ""}. Confirm Available or Maintenance.`,
+        category: "Operations",
+        audience: "Engineering,Transport Manager,Fleet Operations,Platform Admin",
+      });
+
+      toast.success(marked ? "Return logged — truck set to Check Up" : "Return logged");
       setMenuTripId(null);
       await refresh();
     } catch (err) {

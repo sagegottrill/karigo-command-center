@@ -171,6 +171,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         total: heads.length,
         available: countByStatus(heads, "Available"),
         inTransit: countByStatus(heads, "Out of Yard") + countByStatus(heads, "Assigned"),
+        checkUp: countByStatus(heads, "Check Up"),
         maintenance: countByStatus(heads, "Maintenance"),
         out: countByStatus(heads, "Accident"),
       },
@@ -178,6 +179,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         total: tails.length,
         available: countByStatus(tails, "Available"),
         inTransit: countByStatus(tails, "Out of Yard") + countByStatus(tails, "Assigned"),
+        checkUp: countByStatus(tails, "Check Up"),
         maintenance: countByStatus(tails, "Maintenance"),
         out: countByStatus(tails, "Accident"),
       },
@@ -260,6 +262,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <StatCard label="Head Out of Yard" value={stats.heads.inTransit} className="md:min-w-[160px] md:flex-1" />
           <StatCard label="Tail Out of Yard" value={stats.tails.inTransit} className="md:hidden" />
           <StatCard
+            label="Head Check Up"
+            value={stats.heads.checkUp}
+            className="md:min-w-[160px] md:flex-1"
+          />
+          <StatCard label="Tail Check Up" value={stats.tails.checkUp} className="md:hidden" />
+          <StatCard
             label="Head In Maintenance"
             value={stats.heads.maintenance}
             className="md:min-w-[160px] md:flex-1"
@@ -289,6 +297,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             className="md:min-w-[160px] md:flex-1"
           />
           <StatCard label="Tail Out of Yard" value={stats.tails.inTransit} className="md:min-w-[160px] md:flex-1" />
+          <StatCard label="Tail Check Up" value={stats.tails.checkUp} className="md:min-w-[160px] md:flex-1" />
           <StatCard
             label="Tail In Maintenance"
             value={stats.tails.maintenance}

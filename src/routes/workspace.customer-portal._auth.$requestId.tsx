@@ -404,7 +404,11 @@ function PartnerRequestDetailsPage() {
     trip && (trip.driverId || (trip.driverName && trip.driverName !== "Unassigned") || trip.truckReg || trip.headId),
   );
   // Live map shows as soon as a truck/driver is assigned — not only once moving.
-  const showLiveMap = uiStatus === "In transit" || uiStatus === "Completed" || hasAssignment;
+  // A dispatch the Transport Manager sent back is being reworked — the rejected
+  // truck/driver must not be presented to the partner as their assignment.
+  const sentBackForCorrection = Boolean(trip?.sendBackReason);
+  const showLiveMap =
+    !sentBackForCorrection && (uiStatus === "In transit" || uiStatus === "Completed" || hasAssignment);
   const canConfirmArrival = trip
     ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
     : false;
@@ -684,11 +688,15 @@ function PartnerRequestDetailsPage() {
               </div>
               {trip.status === "Requested" ||
               trip.status === "Awaiting Approval" ||
+              sentBackForCorrection ||
+              trip.status === "Stopped" ||
               (!trip.driverId && (!trip.driverName || trip.driverName === "Unassigned")) ? (
                 <div className="px-4 py-10 text-center text-[14px] font-normal italic tracking-[0.4px] text-[#5C6470]">
-                  {trip.status === "Requested"
-                    ? "Awaiting Transport Manager approval and assignment."
-                    : "Approved — awaiting fleet assignment of driver and truck."}
+                  {sentBackForCorrection
+                    ? "With Fleet Operations for correction — a new truck and driver will be assigned."
+                    : trip.status === "Requested"
+                      ? "Awaiting Transport Manager approval and assignment."
+                      : "Approved — awaiting fleet assignment of driver and truck."}
                 </div>
               ) : (
                 <div className="flex flex-col gap-5">

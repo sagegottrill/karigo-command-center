@@ -85,6 +85,9 @@ export type TruckStatus =
    * dispatch lifecycle (driver departs / gate logs departure), never to the
    * fleet asset's own status. Legacy rows may still read "In Transit". */
   | "Out of Yard"
+  /** Just back in the yard — waiting on the check-up that decides whether the
+   * truck goes back to Available or into Maintenance. */
+  | "Check Up"
   | "Maintenance"
   | "Accident";
 
