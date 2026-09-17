@@ -8,6 +8,7 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   getTrackingDelayStatus,
   isActiveDispatchTrip,
+  partnerOf,
   sortLatestFirst,
   TRACKING_DELAY_COLOR,
 } from "@/lib/fleetopsx/tracking-ops";
@@ -29,13 +30,6 @@ export const Route = createFileRoute("/workspace/app/live-tracking")({
   }),
   component: LiveTrackingPage,
 });
-
-/** Partner company behind a dispatch — the filter key (never the consignee person). */
-function partnerOf(trip: Trip): string {
-  return trip.customer && trip.customer !== "Customer Portal"
-    ? trip.customer
-    : trip.customerConsignee || "";
-}
 
 function LiveTrackingPage() {
   const [trips, setTrips] = useState<Trip[]>([]);

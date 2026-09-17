@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
+import { partnerOf, tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
@@ -54,6 +54,7 @@ function ActiveDispatchPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [partner, setPartner] = useState<string>("All partners");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("All");
   const [page, setPage] = useState(0);
@@ -110,11 +111,22 @@ function ActiveDispatchPage() {
     return (name && phoneByDriverName.get(name)) || "";
   };
 
+  const partners = useMemo(() => {
+    const seen = new Set<string>();
+    for (const trip of trips) {
+      const name = partnerOf(trip);
+      if (name) seen.add(name);
+    }
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [trips]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return trips.filter((trip) => {
       const delay = getTrackingDelayStatus(trip);
       if (filter !== "All" && delay !== filter) return false;
+      // Partner filter — "show me Saba's trucks" without typing a search.
+      if (partner !== "All partners" && partnerOf(trip) !== partner) return false;
       if (!q) return true;
       const hay = [
         dispatchDisplayId(trip),
@@ -130,7 +142,7 @@ function ActiveDispatchPage() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [trips, search, filter, phoneByDriverId, phoneByDriverName]);
+  }, [trips, search, filter, partner, phoneByDriverId, phoneByDriverName]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -139,7 +151,7 @@ function ActiveDispatchPage() {
 
   useEffect(() => {
     setPage(0);
-  }, [search, filter]);
+  }, [search, filter, partner]);
 
   const exportCsv = () => {
     if (filtered.length === 0) {
@@ -256,6 +268,20 @@ function ActiveDispatchPage() {
             ))}
           </div>
         )}
+        {partners.length > 1 ? (
+          <select
+            value={partner}
+            onChange={(e) => setPartner(e.target.value)}
+            aria-label="Filter by partner"
+            className="h-9 w-full cursor-pointer rounded border border-[rgba(92,100,112,0.6)] bg-white px-3 text-[13px] font-medium text-[#1B2432] outline-none"
+          >
+            {["All partners", ...partners].map((name) => (
+              <option key={name} value={name} className="bg-white text-[#1B2432]">
+                {name}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <StatusLegend mobile />
       </div>
 
@@ -271,6 +297,20 @@ function ActiveDispatchPage() {
                 className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
               />
             </div>
+            {partners.length > 1 ? (
+              <select
+                value={partner}
+                onChange={(e) => setPartner(e.target.value)}
+                aria-label="Filter by partner"
+                className="h-9 cursor-pointer rounded border border-[rgba(92,100,112,0.6)] bg-white px-3 text-[13px] font-medium text-[#1B2432] shadow-[0px_4px_10px_rgba(0,0,0,0.05)] outline-none"
+              >
+                {["All partners", ...partners].map((name) => (
+                  <option key={name} value={name} className="bg-white text-[#1B2432]">
+                    {name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <div className="relative">
               <button
                 type="button"

@@ -94,6 +94,16 @@ export function normalizeSiteKey(value: string | null | undefined): string {
  * legacy single-site fallback. Tracking has to see every one of them, so this is
  * the single place that answers "what is this truck actually collecting?".
  */
+/**
+ * The partner company behind a dispatch — the key every "show me one partner"
+ * filter uses. Never the consignee person: that is the partner's OWN customer.
+ */
+export function partnerOf(trip: Pick<Trip, "customer" | "customerConsignee">): string {
+  return trip.customer && trip.customer !== "Customer Portal"
+    ? trip.customer
+    : trip.customerConsignee || "";
+}
+
 export function tripLoadingSites(trip: Pick<Trip, "loadingSite" | "pickup">): string[] {
   const raw =
     trip.loadingSite && trip.loadingSite.length > 0 ? trip.loadingSite : trip.pickup ? [trip.pickup] : [];
