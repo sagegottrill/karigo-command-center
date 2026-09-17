@@ -87,6 +87,14 @@ export const fleetService = {
     });
     return res;
   }),
+  /**
+   * Where an asset sits ("Port" / "Customer"). Stored in the asset's
+   * `destination` column so the value survives regardless of the roster sheet.
+   */
+  setHeadDestination: (id: string, destination: string) =>
+    fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ destination }) }),
+  setTailDestination: (id: string, destination: string) =>
+    fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ destination }) }),
   updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
   updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),

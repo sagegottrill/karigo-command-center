@@ -60,6 +60,7 @@ const TONE_MAP: Record<string, Tone> = {
   Expired: "critical",
   Suspended: "critical",
   "Out of Stock": "critical",
+  "Accident": "critical",
   "Out of Service": "critical",
 };
 

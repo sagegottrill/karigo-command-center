@@ -172,14 +172,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         available: countByStatus(heads, "Available"),
         inTransit: countByStatus(heads, "Out of Yard") + countByStatus(heads, "Assigned"),
         maintenance: countByStatus(heads, "Maintenance"),
-        out: countByStatus(heads, "Out of Service"),
+        out: countByStatus(heads, "Accident"),
       },
       tails: {
         total: tails.length,
         available: countByStatus(tails, "Available"),
         inTransit: countByStatus(tails, "Out of Yard") + countByStatus(tails, "Assigned"),
         maintenance: countByStatus(tails, "Maintenance"),
-        out: countByStatus(tails, "Out of Service"),
+        out: countByStatus(tails, "Accident"),
       },
       staff: {
         total: staff.length,
@@ -266,13 +266,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           />
           <StatCard label="Tail In Maintenance" value={stats.tails.maintenance} className="md:hidden" />
           <StatCard
-            label="Head Out of Service"
+            label="Head Accident"
             value={stats.heads.out}
             {...(stats.heads.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
             className="md:min-w-[160px] md:flex-1"
           />
           <StatCard
-            label="Tail Out of Service"
+            label="Tail Accident"
             value={stats.tails.out}
             {...(stats.tails.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
             className="md:hidden"
@@ -295,7 +295,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             className="md:min-w-[160px] md:flex-1"
           />
           <StatCard
-            label="Tail Out of Service"
+            label="Tail Accident"
             value={stats.tails.out}
             {...(stats.tails.out > 0 ? { hint: "unavailable", hintClass: "text-[#ED351D]" } : {})}
             className="md:min-w-[160px] md:flex-1"

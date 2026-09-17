@@ -46,12 +46,11 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
       ? "Available"
       : statusRaw === "In Transit" // legacy rows written before the rename
         ? "Out of Yard"
-        : statusRaw === "Assigned" ||
-            statusRaw === "Out of Yard" ||
-            statusRaw === "Maintenance" ||
-            statusRaw === "Out of Service"
-          ? statusRaw
-          : "Out of Service";
+        : statusRaw === "Out of Service" // pre-rename label for a crashed truck
+          ? "Accident"
+          : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance" || statusRaw === "Accident"
+            ? (statusRaw as TruckHead["status"])
+            : "Accident";
 
   const cabCode = humanCode(
     t["cabId"] != null ? String(t["cabId"]) : undefined,
@@ -84,16 +83,18 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
       ? "Available"
       : statusRaw === "In Transit" // legacy rows written before the rename
         ? "Out of Yard"
-        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance" || statusRaw === "Out of Service"
+        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Maintenance"
           ? statusRaw
-          : "Available";
+          : statusRaw === "Out of Service" || statusRaw === "Accident"
+            ? "Accident"
+            : "Available";
   return {
     id: String(t["id"] ?? ""),
     number: String(t["number"] ?? t["id"] ?? ""),
     registration: String(t["registration"] ?? t["number"] ?? ""),
     type: String(t["type"] ?? "Trailer"),
     status,
-    location: String(t["location"] ?? "Depot"),
+    location: String(t["destination"] ?? t["location"] ?? "Depot"),
     lat: Number(t["lat"] ?? 6.5244),
     lng: Number(t["lng"] ?? 3.3792),
   };

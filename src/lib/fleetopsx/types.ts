@@ -86,7 +86,7 @@ export type TruckStatus =
    * fleet asset's own status. Legacy rows may still read "In Transit". */
   | "Out of Yard"
   | "Maintenance"
-  | "Out of Service";
+  | "Accident";
 
 export interface TruckHead {
   id: ID;

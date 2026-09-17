@@ -18,7 +18,7 @@ const PAGE_SIZE = 10;
 const CARD_SHADOW =
   "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]";
 
-const STATUS_FILTERS = ["All", "Available", "Assigned", "Out of Yard", "Maintenance", "Out of Service"] as const;
+const STATUS_FILTERS = ["All", "Available", "Assigned", "Out of Yard", "Maintenance", "Accident"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type AssetTab = "head" | "tail";
 
@@ -32,8 +32,26 @@ const ASSET_STATUS_ORDER: TruckStatus[] = [
   "Assigned",
   "Out of Yard",
   "Maintenance",
-  "Out of Service",
+  "Accident",
 ];
+
+/** Where an asset sits when it is not on a trip. The client's sheet only ever uses
+ * Port or Customer; Depot is the fallback for assets without a sheet location. */
+const LOCATION_ORDER = ["Port", "Customer", "Depot"] as const;
+
+/** Options for a location cell — always includes the row's current value so a
+ * select can never end up with a value that is not in its option list. */
+function locationOptions(current: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const loc of [...LOCATION_ORDER, current, "Depot"]) {
+    if (loc && !seen.has(loc)) {
+      seen.add(loc);
+      out.push(loc);
+    }
+  }
+  return out;
+}
 
 function countByStatus(items: { status: TruckStatus }[], status: TruckStatus) {
   return items.filter((item) => item.status === status).length;
@@ -49,7 +67,7 @@ function statusPillClass(status: TruckStatus) {
       return "bg-[#EA3A3D] text-white";
     case "Maintenance":
       return "bg-[#F99E1F] text-white";
-    case "Out of Service":
+    case "Accident":
       return "bg-[#ED351D] text-white";
     default: {
       const _exhaustive: never = status;
@@ -230,6 +248,18 @@ function FleetRegistryPage() {
     }
   };
 
+  /** TM and Fleet Ops can place an asset (Port / Customer) straight from the table. */
+  const handleLocationChange = async (item: TruckHead | TruckTail, destination: string) => {
+    try {
+      if (tab === "head") await fleetService.setHeadDestination(item.id, destination);
+      else await fleetService.setTailDestination(item.id, destination);
+      toast.success(`Location updated to ${destination}`);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update location");
+    }
+  };
+
   const listing = tab === "head" ? heads : tails;
 
   const filtered = useMemo(() => {
@@ -302,14 +332,14 @@ function FleetRegistryPage() {
         <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
         <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
         <StatCard
-          label="Head Out of Service"
-          value={countByStatus(heads, "Out of Service")}
+          label="Head Accident"
+          value={countByStatus(heads, "Accident")}
           hint="unavailable"
           hintClass="text-[#FF383C]"
         />
         <StatCard
-          label="Tail Out of Service"
-          value={countByStatus(tails, "Out of Service")}
+          label="Tail Accident"
+          value={countByStatus(tails, "Accident")}
           hint="unavailable"
           hintClass="text-[#FF383C]"
         />
@@ -327,8 +357,8 @@ function FleetRegistryPage() {
           <StatCard label="Head Out of Yard" value={countByStatus(heads, "Out of Yard")} />
           <StatCard label="Head In Maintenance" value={countByStatus(heads, "Maintenance")} />
           <StatCard
-            label="Head Out of Service"
-            value={countByStatus(heads, "Out of Service")}
+            label="Head Accident"
+            value={countByStatus(heads, "Accident")}
             hint="unavailable"
             hintClass="text-[#FF383C]"
           />
@@ -344,8 +374,8 @@ function FleetRegistryPage() {
           <StatCard label="Tail Out of Yard" value={countByStatus(tails, "Out of Yard")} />
           <StatCard label="Tail In Maintenance" value={countByStatus(tails, "Maintenance")} />
           <StatCard
-            label="Tail Out of Service"
-            value={countByStatus(tails, "Out of Service")}
+            label="Tail Accident"
+            value={countByStatus(tails, "Accident")}
             hint="unavailable"
             hintClass="text-[#FF383C]"
           />
@@ -483,7 +513,17 @@ function FleetRegistryPage() {
                   <span className="text-[13px] tracking-[0.4px] text-[#5C6470]">
                     {head ? head.make : tail?.type || "Trailer"}
                   </span>
-                  <span className="text-[13px] capitalize tracking-[0.4px] text-[#5C6470]">{item.location}</span>
+                  <select
+                    value={item.location || "Depot"}
+                    onChange={(e) => void handleLocationChange(item, e.target.value)}
+                    className="h-[26px] w-full cursor-pointer rounded border border-[#E2E5E9] bg-white px-2 text-[13px] capitalize tracking-[0.4px] text-[#5C6470] outline-none"
+                  >
+                    {locationOptions(item.location).map((loc) => (
+                      <option key={loc} value={loc} className="bg-white text-[#1B2432]">
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               );
             })}
@@ -519,7 +559,17 @@ function FleetRegistryPage() {
                       ))}
                     </select>
                   </span>
-                  <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{item.location}</span>
+                  <select
+                    value={item.location || "Depot"}
+                    onChange={(e) => void handleLocationChange(item, e.target.value)}
+                    className="inline-flex h-[22px] min-w-[96px] cursor-pointer items-center rounded border border-[#E2E5E9] bg-white px-2 text-[12px] capitalize tracking-[0.4px] text-[#5C6470] outline-none"
+                  >
+                    {locationOptions(item.location).map((loc) => (
+                      <option key={loc} value={loc} className="bg-white text-[#1B2432]">
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               );
             })}
