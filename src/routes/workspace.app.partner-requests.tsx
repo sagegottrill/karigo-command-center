@@ -52,6 +52,7 @@ function isPartnerRequest(trip: Trip) {
 const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
   "All",
   "Pending",
+  "Seen",
   "Approved",
   "In transit",
   "Completed",
@@ -63,6 +64,9 @@ function statusPillClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
       return "bg-[#FC0] text-white";
+    case "Seen":
+      // Same orange the partner portals use for an acknowledged request.
+      return "bg-[#F99E1F] text-white";
     case "Approved":
       return "bg-[#34C759] text-white";
     case "Declined":

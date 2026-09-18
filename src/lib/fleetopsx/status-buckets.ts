@@ -121,8 +121,18 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
   return aWaiting ? sortTime(a.createdAt) - sortTime(b.createdAt) : sortTime(b.createdAt) - sortTime(a.createdAt);
 }
 
-/** Partner-portal label for a trip (dashboard + request-detail pages). */
-export type PartnerUiStatus = "Pending" | "Approved" | "Declined" | "In transit" | "Completed";
+/**
+ * Human-facing request label, shared by the Transport Manager's request table
+ * and the partner portal.
+ *
+ * `Seen` is the TM's FIRST approval: the request has been acknowledged, the
+ * partner can see it was read, but no truck has been dispatched yet. `Approved`
+ * is the FINAL approval, when the dispatch is scheduled and on the road. Both
+ * portals use these same words now — the partner side already said "Seen", the
+ * staff side used to say "Approved" for both, which read as two different facts
+ * about the same request.
+ */
+export type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
 
 export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): PartnerUiStatus {
   switch (tripBucket(trip)) {
@@ -130,6 +140,7 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
       return "Pending";
     case "approved":
     case "awaiting":
+      return "Seen";
     case "scheduled":
       return "Approved";
     case "inTransit":
