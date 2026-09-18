@@ -35,7 +35,10 @@ function isDispatchRequest(trip: Trip) {
   // pill — approving/declining used to make rows vanish with no trace. Raw
   // partner requests (no assignment yet) still belong to Partner Requests.
   const assigned = hasAssignment(trip);
-  if (!assigned) return trip.status === "Awaiting Approval";
+  // A request the TM sent back with nothing assigned yet (the send-back clears
+  // Fleet Ops' work) must STILL be visible here with its reason — otherwise the
+  // row silently vanishes from the TM's own table the moment they correct it.
+  if (!assigned) return trip.status === "Awaiting Approval" || Boolean(trip.sendBackReason);
   return ["Awaiting Approval", "Approved", "Approved for Dispatch", "Scheduled", "Completed", "Stopped"].includes(
     trip.status,
   );
@@ -233,8 +236,26 @@ function FleetDispatchRequests() {
     }
     setSendingBack(true);
     try {
-      await tripService.update(sendBackTrip.id, { status: "Approved", sendBackReason: reason });
-      toast.success(`Dispatch ${dispatchId(sendBackTrip)} sent back to Fleet Operations with your reason.`);
+      // Clear EVERYTHING Fleet Ops configured for this dispatch and hand the
+      // request straight back to their queue. Leaving the old truck/driver/costs
+      // on the record kept the wrong dispatch visible on the TM table, Dispatch
+      // History, Active Dispatch and Tracking until someone re-assigned it — the
+      // client had no way to make a mistaken assignment go away.
+      //   driverName/truckReg are NOT NULL columns, so they empty to "" (which
+      //   reads as unassigned everywhere) rather than null.
+      await tripService.update(sendBackTrip.id, {
+        status: "Approved",
+        driverName: "",
+        truckReg: "",
+        tailType: null,
+        tailNumber: null,
+        directCosts: null,
+        sendBackReason: reason,
+      });
+      toast.success(
+        `Dispatch ${dispatchId(sendBackTrip)} cleared and returned to Fleet Operations.`,
+        { description: "The truck, driver and costs are removed — Fleet Ops re-assigns from the queue." },
+      );
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       setSendBackTrip(null);
       setSendBackNote("");
@@ -638,10 +659,11 @@ function FleetDispatchRequests() {
       {sendBackTrip && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-[460px] rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-[16px] font-bold text-[#1B2432]">Send back to Fleet Ops</h3>
+            <h3 className="text-[16px] font-bold text-[#1B2432]">Clear and send back to Fleet Ops</h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
-              Dispatch {dispatchId(sendBackTrip)} returns to Fleet Operations for re-assignment. Tell them what
-              needs fixing — they see this reason on the dispatch.
+              Dispatch {dispatchId(sendBackTrip)} returns to Fleet Operations for re-assignment. Everything Fleet
+              Ops set on it — truck head, tail, driver and the cost configuration — is cleared, so they start from
+              scratch and can edit. Tell them what needs fixing; they see this reason on the dispatch.
             </p>
             <textarea
               autoFocus
@@ -668,7 +690,7 @@ function FleetDispatchRequests() {
                 onClick={() => void confirmSendBack()}
                 className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
               >
-                {sendingBack ? "Sending…" : "Send Back"}
+                {sendingBack ? "Sending…" : "Clear & Send Back"}
               </button>
             </div>
           </div>

@@ -215,6 +215,23 @@ export const authService = {
   ]
 };
 
+/**
+ * Trip fields a caller may explicitly CLEAR with `null` (as opposed to leaving
+ * alone with `undefined`). Needed whenever one role takes back a configuration
+ * another role wrote — e.g. the TM clearing Fleet Ops' truck/driver/costs when
+ * sending a mistaken dispatch back for re-assignment. `driverName` and
+ * `truckReg` are NOT NULL columns, so those clear to "" instead.
+ */
+export type ClearableTripFields = {
+  tailType?: string | null;
+  tailNumber?: string | null;
+  directCosts?: Trip["directCosts"] | null;
+  dispatchedAt?: string | null;
+  approvedAt?: string | null;
+  partnerNote?: string | null;
+  sendBackReason?: string | null;
+};
+
 export const tripService = {
   list: () => fetchApi('/trips').then((res: any[]) => res.map(mapTrip)).catch((err) => {
     // Surface in console so "empty list" bugs are diagnosable — callers still fail soft.
@@ -236,7 +253,7 @@ export const tripService = {
   // Normalize through tripToApi: defaults status to "Requested" (backend default
   // "Draft" is invisible in every queue) and maps loadingSite/consignee shapes.
   create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(tripToApi(data)) }).then(mapTrip),
-  update: (id: string, updates: Partial<Trip>) => {
+  update: (id: string, updates: Omit<Partial<Trip>, keyof ClearableTripFields> & ClearableTripFields) => {
     // Sanitize payload for Prisma API which throws 500 on unknown fields
     const payload = { ...updates } as any;
     delete payload.headId;
