@@ -103,6 +103,28 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
   );
 }
 
+/**
+ * Which request actions still make sense in this state — ONE rule, used by the
+ * row menu, the mobile card menu and the details modal so the three can never
+ * offer different things again.
+ *
+ *  - Mark as Seen  → only while the request is Pending. It is the FIRST
+ *    approval; on a request already dispatched it would pull the trip back to
+ *    Approved and quietly un-dispatch a truck that may be on the road.
+ *  - Send Back     → only while Pending, for the same reason: a dispatch the TM
+ *    wants reworked is corrected through Fleet Operation, not by returning the
+ *    partner's request underneath a live assignment.
+ *  - Decline       → anything that has not already ended. A request declined
+ *    after assignment still reads as Declined everywhere (never "In transit").
+ */
+function requestActions(status: PartnerUiStatus) {
+  return {
+    canMarkSeen: status === "Pending",
+    canSendBack: status === "Pending",
+    canDecline: status !== "Declined" && status !== "Completed",
+  };
+}
+
 function loadingSitesFor(trip: Trip): string[] {
   const fromArray = (trip.loadingSite ?? [])
     .flatMap((s) => String(s).split(/[;,]/))
@@ -188,6 +210,14 @@ function AdminPartnerRequests() {
    */
   const handleMarkSeen = async (trip: Trip) => {
     if (approvingId) return;
+    // Guard the ENDPOINT, not just the button: "Mark as Seen" is the first
+    // approval and must never be applied to a request that has already moved on
+    // (it would set the trip back to Approved and un-dispatch a live truck).
+    if (toPartnerUiStatus(trip) !== "Pending") {
+      setMenuFor(null);
+      toast.error("This request has already been actioned — it can no longer be marked as Seen.");
+      return;
+    }
     setMenuFor(null);
     // Guarded: show pending state, distinct offline message, revert on failure —
     // a dropped connection must never read as "seen".
@@ -233,6 +263,13 @@ function AdminPartnerRequests() {
     const text = note.trim();
     if (noteMode === "sendback" && !text) {
       toast.error("Tell the partner what to correct.");
+      return;
+    }
+    // Same guard as the menu: returning a request underneath a live assignment
+    // would leave a truck dispatched to a request the partner is editing.
+    if (noteMode === "sendback" && toPartnerUiStatus(noteTrip) !== "Pending") {
+      setNoteTrip(null);
+      toast.error("This request has already been actioned — send it back through Fleet Operation instead.");
       return;
     }
     setNoting(true);
@@ -359,16 +396,20 @@ function AdminPartnerRequests() {
                       width={170}
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
-                        ...(toPartnerUiStatus(trip) === "Pending"
+                        ...(requestActions(toPartnerUiStatus(trip)).canMarkSeen
                           ? [
                               {
                                 label: approvingId === trip.id ? "Marking…" : "Mark as Seen",
                                 onSelect: () => void handleMarkSeen(trip),
                                 disabled: approvingId === trip.id,
                               },
-                              { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
-                              { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
                             ]
+                          : []),
+                        ...(requestActions(toPartnerUiStatus(trip)).canSendBack
+                          ? [{ label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") }]
+                          : []),
+                        ...(requestActions(toPartnerUiStatus(trip)).canDecline
+                          ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
                           : []),
                       ]}
                     />
@@ -503,16 +544,20 @@ function AdminPartnerRequests() {
                       label="Request options"
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
-                        ...(toPartnerUiStatus(trip) === "Pending"
+                        ...(requestActions(toPartnerUiStatus(trip)).canMarkSeen
                           ? [
                               {
                                 label: approvingId === trip.id ? "Marking…" : "Mark as Seen",
                                 onSelect: () => void handleMarkSeen(trip),
                                 disabled: approvingId === trip.id,
                               },
-                              { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
-                              { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
                             ]
+                          : []),
+                        ...(requestActions(toPartnerUiStatus(trip)).canSendBack
+                          ? [{ label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") }]
+                          : []),
+                        ...(requestActions(toPartnerUiStatus(trip)).canDecline
+                          ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
                           : []),
                       ]}
                     />
@@ -655,26 +700,30 @@ function AdminPartnerRequests() {
                 Go Back
               </button>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetail(null);
-                    openNote(detail, "decline");
-                  }}
-                  className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[12px] tracking-[0.4px] text-white"
-                >
-                  Decline Request
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleMarkSeen(detail);
-                    setDetail(null);
-                  }}
-                  className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
-                >
-                  Mark as Seen
-                </button>
+                {requestActions(toPartnerUiStatus(detail)).canDecline && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetail(null);
+                      openNote(detail, "decline");
+                    }}
+                    className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                  >
+                    Decline Request
+                  </button>
+                )}
+                {requestActions(toPartnerUiStatus(detail)).canMarkSeen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleMarkSeen(detail);
+                      setDetail(null);
+                    }}
+                    className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
+                  >
+                    Mark as Seen
+                  </button>
+                )}
               </div>
             </div>
           </div>
