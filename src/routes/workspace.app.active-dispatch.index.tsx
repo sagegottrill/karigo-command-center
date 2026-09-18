@@ -6,6 +6,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { partnerOf, tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { canLogTracking } from "@/lib/fleetopsx/active-role";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   dispatchDisplayId,
@@ -103,6 +104,15 @@ function ActiveDispatchPage() {
     for (const d of drivers) map.set(d.name.trim().toLowerCase(), d.phone);
     return map;
   }, [drivers]);
+
+  // The page is shared: Tracking logs checkpoints here, everyone else (TM, Fleet
+  // Ops, Security) only reads them — so the same button must not promise a
+  // logging action to a viewer.
+  const locationActionLabel = canLogTracking(authService.getRoles()) ? "Log Location" : "View Location";
+  // Same split in the page's own words: a viewer is not told they log checkpoints.
+  const pageBlurb = canLogTracking(authService.getRoles())
+    ? "Monitor active dispatches and manually log location checkpoints"
+    : "Track every active dispatch and its location history";
 
   const phoneFor = (trip: Trip) => {
     const byId = trip.driverId ? phoneByDriverId.get(trip.driverId) : undefined;
@@ -204,14 +214,14 @@ function ActiveDispatchPage() {
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-1 md:hidden">
         <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#141A1F]">Active Dispatch</h2>
-        <p className="text-[12px] text-[#5C6470]">Monitor active dispatches and manually log location checkpoints</p>
+        <p className="text-[12px] text-[#5C6470]">{pageBlurb}</p>
       </div>
 
       <div className="hidden items-center justify-between md:flex">
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Active Dispatch</h2>
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            Monitor active dispatches and manually log location checkpoints
+            {pageBlurb}
           </p>
         </div>
       </div>
@@ -395,7 +405,7 @@ function ActiveDispatchPage() {
                             }
                             className="inline-flex items-center gap-[5px] rounded bg-[#1B2432] px-2.5 py-1.5 text-[12px] font-medium text-white"
                           >
-                            Log Location
+                            {locationActionLabel}
                             <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
                           </button>
                         </td>
@@ -468,7 +478,7 @@ function ActiveDispatchPage() {
                     params={{ dispatchId: trip.id }}
                     className="inline-flex items-center gap-[5px] rounded bg-[#1B2432] px-2.5 py-1 text-[10px] font-medium text-white"
                   >
-                    Log Location
+                    {locationActionLabel}
                     <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
                   </Link>
                 </div>

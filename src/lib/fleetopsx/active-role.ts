@@ -38,6 +38,21 @@ export function canSeeTmPricing(roles: string[]): boolean {
   return roles.some((r) => TM_PRICING_ROLES.includes(r));
 }
 
+/**
+ * Roles allowed to LOG tracking checkpoints.
+ *
+ * Locating a truck is the Tracking department's job: they enter the checkpoint
+ * history and move the delay status. Every other role (Transport Manager, Fleet
+ * Ops, Security) opens the same page as pure visibility — they watch what
+ * Tracking inputs, they never input it. Callers that label or gate a tracking
+ * action MUST branch on this, so a viewer is never offered a logger's action.
+ */
+const TRACKING_LOG_ROLES = ["Tracking", "Platform Admin"];
+
+export function canLogTracking(roles: string[]): boolean {
+  return roles.some((r) => TRACKING_LOG_ROLES.includes(String(r)));
+}
+
 /** Persist the department switch; pass null to clear the override. */
 export function setActiveRole(role: string | null) {
   if (typeof window === "undefined") return;

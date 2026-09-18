@@ -10,6 +10,7 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { canLogTracking as canLogTrackingRole } from "@/lib/fleetopsx/active-role";
 import {
   addCheckpoint,
   dispatchDisplayId,
@@ -165,9 +166,11 @@ function LogLocationPage() {
   // Only the Tracking department logs checkpoints and moves the delay status.
   // Everyone else (Transport Manager, Fleet Ops, Security) gets the same page as
   // pure visibility — they watch what Tracking inputs, they never input it.
-  const canLogTracking = authService.getRoles().some((r: unknown) =>
-    ["Tracking", "Platform Admin"].includes(String(r)),
-  );
+  const canLogTracking = canLogTrackingRole(authService.getRoles());
+  // The tab title follows the same rule — a viewer's page is not "Log Location".
+  useEffect(() => {
+    document.title = canLogTracking ? "Log Location | Tracking Ops" : "Track Location | Dispatch";
+  }, [canLogTracking]);
   const detailFields = dispatchFields(trip, driver ?? undefined, undefined, hideTmPricing);
 
   return (
@@ -185,7 +188,7 @@ function LogLocationPage() {
         <h2 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[18px]">
           {canLogTracking
             ? "Access Location History and Log New Locations"
-            : "Dispatch Visibility and Location History"}
+            : "Track Location and History"}
         </h2>
       </div>
 
