@@ -180,26 +180,34 @@ function AdminPartnerRequests() {
     toast.success("Exported CSV successfully.");
   };
 
-  const handleApprove = async (trip: Trip) => {
+  /**
+   * The FIRST approval — the TM acknowledging a request. This is NOT the final
+   * approval: the partner reads it as "Seen" (orange) and "Approved" (green)
+   * only arrives once Fleet Ops has a truck and the dispatch is scheduled. The
+   * button is labelled for what it produces so the two steps can't be confused.
+   */
+  const handleMarkSeen = async (trip: Trip) => {
     if (approvingId) return;
     setMenuFor(null);
     // Guarded: show pending state, distinct offline message, revert on failure —
-    // a dropped connection must never read as "approved".
+    // a dropped connection must never read as "seen".
     setApprovingId(trip.id);
     try {
       await tripService.initialApprove(trip.id);
-      toast.success(`Request ${requestId(trip)} approved.`);
+      toast.success(`Request ${requestId(trip)} marked as Seen.`, {
+        description: "The partner now sees this request as Seen.",
+      });
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       const fresh = await tripService.list();
       setTrips(fresh);
       if (!fresh.some((t) => t.id === trip.id && t.status !== "Requested")) {
-        toast.error("Network issue — the approval may not have saved. Check your connection and try again.");
+        toast.error("Network issue — the request may not have been marked as Seen. Check your connection and try again.");
       }
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       toast.error(offline
-        ? "You are offline — request NOT approved. Reconnect and try again."
-        : `Failed to approve: ${err instanceof Error ? err.message : "network error"}. The request is unchanged.`);
+        ? "You are offline — request NOT marked as Seen. Reconnect and try again."
+        : `Failed to mark as Seen: ${err instanceof Error ? err.message : "network error"}. The request is unchanged.`);
     } finally {
       setApprovingId(null);
     }
@@ -354,8 +362,8 @@ function AdminPartnerRequests() {
                         ...(toPartnerUiStatus(trip) === "Pending"
                           ? [
                               {
-                                label: approvingId === trip.id ? "Approving…" : "Approve",
-                                onSelect: () => void handleApprove(trip),
+                                label: approvingId === trip.id ? "Marking…" : "Mark as Seen",
+                                onSelect: () => void handleMarkSeen(trip),
                                 disabled: approvingId === trip.id,
                               },
                               { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
@@ -498,8 +506,8 @@ function AdminPartnerRequests() {
                         ...(toPartnerUiStatus(trip) === "Pending"
                           ? [
                               {
-                                label: approvingId === trip.id ? "Approving…" : "Approve",
-                                onSelect: () => void handleApprove(trip),
+                                label: approvingId === trip.id ? "Marking…" : "Mark as Seen",
+                                onSelect: () => void handleMarkSeen(trip),
                                 disabled: approvingId === trip.id,
                               },
                               { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
@@ -660,12 +668,12 @@ function AdminPartnerRequests() {
                 <button
                   type="button"
                   onClick={() => {
-                    void handleApprove(detail);
+                    void handleMarkSeen(detail);
                     setDetail(null);
                   }}
                   className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
                 >
-                  Approve Request
+                  Mark as Seen
                 </button>
               </div>
             </div>
