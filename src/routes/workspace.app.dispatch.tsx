@@ -166,6 +166,8 @@ function DispatchPage() {
   const [motorBoy, setMotorBoy] = useState("");
   const [ticketCost, setTicketCost] = useState("");
   const [extraAllowance, setExtraAllowance] = useState("");
+  // Bonus is discretionary: empty means zero, and it never blocks a dispatch.
+  const [bonus, setBonus] = useState("");
   const [lubricant, setLubricant] = useState("Diesel");
   const [lubricantQty, setLubricantQty] = useState("");
 
@@ -187,6 +189,7 @@ function DispatchPage() {
     (Number(motorBoy) || 0) +
     (Number(ticketCost) || 0) +
     (Number(extraAllowance) || 0) +
+    (Number(bonus) || 0) +
     (Number(lubricantCost) || 0);
 
   // Fleet Ops never sees the TM's fuel-rate card: no lubricant cost line, and the
@@ -294,6 +297,7 @@ function DispatchPage() {
         motorBoy: Number(motorBoy) || 0,
         ticket: Number(ticketCost) || 0,
         extraAllowance: Number(extraAllowance) || 0,
+        bonus: Number(bonus) || 0,
         lubricantType: lubricant === "Gas" ? "Gas" : "Diesel",
         ...(lubricantQty.trim() ? { lubricantQuantity: Number(lubricantQty) || 0 } : {}),
         ...(lubricantCost > 0 ? { lubricantCost } : {}),
@@ -326,6 +330,7 @@ function DispatchPage() {
     setMotorBoy("");
     setTicketCost("");
     setExtraAllowance("");
+    setBonus("");
     setLubricantQty("");
   };
 
@@ -681,6 +686,22 @@ function DispatchPage() {
                 />
               </div>
             ))}
+            {/* Bonus sits beside Extra Allowance. It is optional — a dispatcher
+                may leave it blank (reads as zero) and it still counts into the
+                configured total when filled. */}
+            <div>
+              <label className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                Bonus <span className="text-[#627084]">(optional)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm"
+                placeholder="e.g. 5000"
+                value={bonus}
+                onChange={(e) => setBonus(e.target.value)}
+              />
+            </div>
             <div className="md:col-span-3">
               <label className="mb-2 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                 Lubricant <span className="text-[#ED351D]">*</span>
@@ -820,6 +841,10 @@ function DispatchPage() {
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Extra Allowance:</span>
               <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(Number(extraAllowance)) : "-"}</span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Bonus:</span>
+              <span className="font-semibold text-[#141a1f]">{bonus ? formatN(Number(bonus)) : "-"}</span>
             </div>
             <div className="border-t border-[#e2e5e9] my-2"></div>
             <div className="flex justify-between items-center">

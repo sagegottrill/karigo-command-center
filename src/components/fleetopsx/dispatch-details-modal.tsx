@@ -50,7 +50,14 @@ function DetailRow({
 function allowanceTotal(trip: Trip) {
   const costs = trip.directCosts;
   if (!costs) return undefined;
-  return costs.tripAllowance + costs.returnWaybill + costs.motorBoy + costs.ticket + costs.extraAllowance;
+  return (
+    costs.tripAllowance +
+    costs.returnWaybill +
+    costs.motorBoy +
+    costs.ticket +
+    costs.extraAllowance +
+    (costs.bonus ?? 0)
+  );
 }
 
 /**
@@ -63,7 +70,12 @@ function expenseTotal(trip: Trip, hideTmPricing = false) {
     if (typeof own === "number") return own;
   }
   if (typeof trip.totalCosts === "number") return trip.totalCosts;
-  return allowanceTotal(trip);
+  // The API has no total column, so this total is derived from the rows shown
+  // right above it. It must therefore INCLUDE the priced fuel — otherwise the
+  // TM's document reads a total smaller than its own line items.
+  const own = allowanceTotal(trip);
+  if (typeof own !== "number") return undefined;
+  return own + (trip.directCosts?.lubricantCost ?? 0);
 }
 
 export function dispatchFields(
@@ -126,6 +138,7 @@ export function dispatchFields(
           { label: "Motor Boy Allowance", value: money(costs.motorBoy) },
           { label: "Transit Road Tickets", value: money(costs.ticket) },
           { label: "Extra Contingency", value: money(costs.extraAllowance) },
+          { label: "Bonus", value: money(costs.bonus ?? 0) },
           { label: "Lubricant", value: costs.lubricantType },
           // TM printout must show the priced fuel: litres and its cost.
           ...(typeof costs.lubricantQuantity === "number" && costs.lubricantQuantity > 0
@@ -349,6 +362,7 @@ export function DispatchDetailsModal({
                   <DetailRow label="Motor Boy Allowance:" value={formatMoney(costs.motorBoy)} />
                   <DetailRow label="Transit Road Tickets:" value={formatMoney(costs.ticket)} />
                   <DetailRow label="Extra Contingency:" value={formatMoney(costs.extraAllowance)} />
+                  <DetailRow label="Bonus:" value={formatMoney(costs.bonus ?? 0)} />
                   <DetailRow label="Lubricant:" value={costs.lubricantType} />
                   {typeof costs.lubricantQuantity === "number" && costs.lubricantQuantity > 0 && (
                     <DetailRow label="Lubricant Quantity:" value={`${costs.lubricantQuantity} Litres`} />

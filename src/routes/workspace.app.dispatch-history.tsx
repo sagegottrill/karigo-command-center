@@ -225,6 +225,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                     <DetailRow label="Motor Boy Allowance:" value={formatN(trip.directCosts.motorBoy)} />
                     <DetailRow label="Transit Road Tickets:" value={formatN(trip.directCosts.ticket)} />
                     <DetailRow label="Extra Contingency:" value={formatN(trip.directCosts.extraAllowance)} />
+                    <DetailRow label="Bonus:" value={formatN(trip.directCosts.bonus ?? 0)} />
                     <DetailRow label="Lubricant:" value={trip.directCosts.lubricantType} />
                     {typeof trip.directCosts.lubricantQuantity === "number" ? (
                       <DetailRow label="Lubricant Quantity:" value={String(trip.directCosts.lubricantQuantity)} />

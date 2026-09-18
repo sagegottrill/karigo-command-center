@@ -91,6 +91,8 @@ export function TmEditAssignmentModal({
   const [extraAllowance, setExtraAllowance] = useState(
     costs?.extraAllowance != null ? String(costs.extraAllowance) : "",
   );
+  // Bonus is optional: blank reads as zero and never blocks a save.
+  const [bonus, setBonus] = useState(costs?.bonus != null ? String(costs.bonus) : "");
   const [lubricant, setLubricant] = useState<"Diesel" | "Gas">(costs?.lubricantType ?? "Diesel");
   const [lubricantQty, setLubricantQty] = useState(
     costs?.lubricantQuantity != null ? String(costs.lubricantQuantity) : "",
@@ -111,6 +113,7 @@ export function TmEditAssignmentModal({
     (Number(motorBoy) || 0) +
     (Number(ticketCost) || 0) +
     (Number(extraAllowance) || 0) +
+    (Number(bonus) || 0) +
     (Number(lubricantCost) || 0);
 
   const validate = (): string | null => {
@@ -167,6 +170,7 @@ export function TmEditAssignmentModal({
           motorBoy: parseAmount(motorBoy),
           ticket: parseAmount(ticketCost),
           extraAllowance: parseAmount(extraAllowance),
+          bonus: parseAmount(bonus),
           lubricantType: lubricant,
           ...(lubricantQty.trim() ? { lubricantQuantity: parseAmount(lubricantQty) } : {}),
           ...(lubricantCost > 0 ? { lubricantCost } : {}),
@@ -362,6 +366,19 @@ export function TmEditAssignmentModal({
                 />
               </label>
             ))}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium text-[#141A1F]">
+                Bonus <span className="text-[#627084]">(optional)</span>
+              </span>
+              <input
+                type="number"
+                min="0"
+                className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] outline-none focus:border-[#1B2432]"
+                placeholder="e.g. 5000"
+                value={bonus}
+                onChange={(e) => setBonus(e.target.value)}
+              />
+            </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#141A1F]">Lubricant</span>
               <select

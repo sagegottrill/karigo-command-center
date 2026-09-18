@@ -191,6 +191,12 @@ export interface Trip {
     motorBoy: number;
     ticket: number;
     extraAllowance: number;
+    /**
+     * Discretionary bonus paid on top of the allowances. Optional in the type
+     * because dispatches configured before the field existed carry no value —
+     * always read it as `bonus ?? 0`.
+     */
+    bonus?: number;
     lubricantType: "Diesel" | "Gas";
     lubricantQuantity?: number;
     lubricantCost?: number;
