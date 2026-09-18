@@ -76,7 +76,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
   head: (args: any) => {
     const ctx = args.routeContext || args.context;
     const title = ctx?.tenantName ? `${ctx.tenantName} | Workspace` : "Workspace";
-    const iconUrl = ctx?.tenantLogo ? ctx.tenantLogo : "/fleetopsx.svg";
+    const tenantIcon: string | null = ctx?.tenantLogo || null;
+    const tenantIconIsSvg = Boolean(tenantIcon && tenantIcon.toLowerCase().endsWith(".svg"));
 
     return {
       meta: [
@@ -94,8 +95,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
       links: [
         { rel: "stylesheet", href: appCss },
         { rel: "manifest", href: "/manifest.json" },
-        { rel: "icon", href: iconUrl, type: "image/svg+xml" },
-        { rel: "apple-touch-icon", href: "/workspace/apple-touch-icon.png" },
+        // Browser-tab mark. The platform default is the Petroline EMBLEM, not the
+        // old /fleetopsx.svg: that SVG drew white text on transparency, so every
+        // light browser theme rendered it as an invisible squiggle in the tab.
+        ...(tenantIcon
+          ? [
+              {
+                rel: "icon",
+                href: tenantIcon,
+                type: tenantIconIsSvg ? "image/svg+xml" : "image/png",
+              },
+            ]
+          : [
+              { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+              { rel: "icon", href: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+            ]),
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       ],
     };
   },
