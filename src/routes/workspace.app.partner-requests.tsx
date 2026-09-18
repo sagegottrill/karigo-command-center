@@ -150,8 +150,10 @@ function AdminPartnerRequests() {
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
+    // The status word is searchable too, so typing "seen" (or "pending") finds
+    // those requests straight from the search box, not only via the filter.
     const hay =
-      `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${displayRequestedTruckType(t)} ${t.dropoff}`.toLowerCase();
+      `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${displayRequestedTruckType(t)} ${t.dropoff} ${toPartnerUiStatus(t)}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
 
