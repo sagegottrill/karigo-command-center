@@ -137,9 +137,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const allCounts = countBuckets(trips);
 
     const active = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
-    const slight = active.filter((t) => t.status === "Delayed");
-    const significant = active.filter((t) => t.status === "Stopped");
-    const onSchedule = active.filter((t) => t.status !== "Delayed" && t.status !== "Stopped");
+    // Delay grading mirrors the Tracking board (tracking-ops): a Delayed trip on
+    // a High/Critical job is significant, any other Delayed trip is slight.
+    // `Stopped` is a DECLINE here, not a delay — those trips are not in `active`.
+    const isSignificant = (t: (typeof active)[number]) =>
+      t.status === "Delayed" && (t.priority === "Critical" || t.priority === "High");
+    const slight = active.filter((t) => t.status === "Delayed" && !isSignificant(t));
+    const significant = active.filter(isSignificant);
+    const onSchedule = active.filter((t) => t.status !== "Delayed");
 
     const staff = users.filter(
       (u) =>
@@ -154,7 +159,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         total: partnerTrips.length,
         // Same "In transit" definition the partner dashboard shows: anything
         // moving, including a truck stopped en route (that's a delay, not a decline).
-        inTransit: partnerCounts.inTransit + partnerCounts.stoppedEnRoute,
+        inTransit: partnerCounts.inTransit,
         pending: partnerCounts.pending,
         declined: partnerCounts.declined,
         completed: partnerCounts.completed,

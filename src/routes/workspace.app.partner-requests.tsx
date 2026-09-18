@@ -11,7 +11,12 @@ import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
-import { partnerQueueOrder, toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
+import {
+  approvedStampOf,
+  partnerQueueOrder,
+  toPartnerUiStatus,
+  type PartnerUiStatus,
+} from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -42,11 +47,6 @@ function isPartnerRequest(trip: Trip) {
     trip.status === "Requested" ||
     trip.status === "Draft"
   );
-}
-
-/** Date Dispatched = the TM's final approval that put the truck on the road. */
-function dispatchedAtOf(t: Trip): string | null {
-  return t.dispatchedAt ?? null;
 }
 
 const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
@@ -162,7 +162,7 @@ function AdminPartnerRequests() {
     const csv = filtered
       .map(
         (t) =>
-          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${t.dropoff},${formatTableDate(dispatchedAtOf(t))},${toPartnerUiStatus(t)}`,
+          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -345,13 +345,17 @@ function AdminPartnerRequests() {
                       width={170}
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
-                        {
-                          label: approvingId === trip.id ? "Approving…" : "Approve",
-                          onSelect: () => void handleApprove(trip),
-                          disabled: approvingId === trip.id,
-                        },
-                        { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
-                        { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
+                        ...(toPartnerUiStatus(trip) === "Pending"
+                          ? [
+                              {
+                                label: approvingId === trip.id ? "Approving…" : "Approve",
+                                onSelect: () => void handleApprove(trip),
+                                disabled: approvingId === trip.id,
+                              },
+                              { label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") },
+                              { label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true },
+                            ]
+                          : []),
                       ]}
                     />
                   </div>
@@ -362,7 +366,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Truck Type:" value={displayRequestedTruckType(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
-                <MetaRow label="Date Approved:" value={formatDateTimeStamp(dispatchedAtOf(trip))} />
+                <MetaRow label="Date Approved:" value={formatDateTimeStamp(approvedStampOf(trip))} />
               </div>
             );
           })}
@@ -466,10 +470,12 @@ function AdminPartnerRequests() {
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
-                    {dispatchedAtOf(trip) ? (
+                    {approvedStampOf(trip) ? (
                       <>
-                        {formatDateLines(dispatchedAtOf(trip)).date}
-                        <span className="block text-[12px] text-[#627084]">{formatDateLines(dispatchedAtOf(trip)).time}</span>
+                        {formatDateLines(approvedStampOf(trip)).date}
+                        <span className="block text-[12px] text-[#627084]">
+                          {formatDateLines(approvedStampOf(trip)).time}
+                        </span>
                       </>
                     ) : (
                       "—"
@@ -616,7 +622,7 @@ function AdminPartnerRequests() {
             <ReadOnlyField label="Truck Type" value={displayRequestedTruckType(detail)} />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
             <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
-            <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(dispatchedAtOf(detail))} />
+            <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(approvedStampOf(detail))} />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
                 <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>

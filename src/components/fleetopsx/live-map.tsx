@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Layers, Maximize2, Navigation } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
+import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import { StatusBadge } from "./status-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,13 +26,14 @@ const DOT: Record<string, string> = {
   Offloading: "bg-[#0071e3]",
   Returning: "bg-[#0071e3]",
   Delayed: "bg-[#ff9f0a]",
-  Stopped: "bg-[#ff3b30]",
   Scheduled: "bg-[#86868b]",
   Completed: "bg-[#86868b]",
 };
 
 export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
-  const active = trips.filter((t) => t.status !== "Completed").slice(0, 26);
+  // Declined (`Stopped`) requests are not vehicles on the road — the shared
+  // active-dispatch definition keeps them off the map.
+  const active = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS)).slice(0, 26);
   const [selected, setSelected] = useState<Trip | null>(active[0] ?? null);
 
   return (
@@ -73,7 +75,7 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
       })}
 
       <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
-        {["En Route", "Loaded", "Delayed", "Stopped"].map((s) => (
+        {["En Route", "Loaded", "Delayed"].map((s) => (
           <span
             key={s}
             className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06]"

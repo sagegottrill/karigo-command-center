@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Crosshair, Minus, MoreVertical, Plus } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
+import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import { cn } from "@/lib/utils";
 import "leaflet/dist/leaflet.css";
 
 // Legend entries users understand: Returning/Offloading read as In Transit.
-const FOCUS = ["En Route", "Loaded", "Delayed", "Stopped"] as const;
+// `Stopped` is a DECLINE, not a vehicle on the road, so it is not a map state.
+const FOCUS = ["En Route", "Loaded", "Delayed"] as const;
 
 const STATUS_COLOR: Record<string, string> = {
   "En Route": "#0071e3",
@@ -14,7 +16,6 @@ const STATUS_COLOR: Record<string, string> = {
   Loaded: "#5ac8fa",
   Delayed: "#ff3b30",
   Offloading: "#0071e3",
-  Stopped: "#ff9f0a",
 };
 
 const CITY_COORDS: Record<string, [number, number]> = {
@@ -77,9 +78,9 @@ export function CommandCenterMap({
 }) {
   const live = useMemo(
     () =>
-      trips.filter((t) =>
-        ["En Route", "Returning", "Loaded", "Delayed", "Offloading", "Stopped"].includes(t.status),
-      ),
+      // Shared active-dispatch definition: declined (`Stopped`) requests are
+      // never drawn as live vehicles.
+      trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS)),
     [trips],
   );
 

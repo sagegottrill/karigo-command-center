@@ -178,7 +178,7 @@ function PartnerPortalDashboard() {
   // dashboards (a truck Stopped en route is "In transit", not "Declined").
   const partnerCounts = countBuckets(requests);
   const totalRequests = requests.length;
-  const inTransit = partnerCounts.inTransit + partnerCounts.stoppedEnRoute;
+  const inTransit = partnerCounts.inTransit;
   const pending = partnerCounts.pending;
   // First approval (acknowledged, awaiting final approval) is "Seen";
   // "Approved" counts only the TM's second approval (Scheduled/on the road).

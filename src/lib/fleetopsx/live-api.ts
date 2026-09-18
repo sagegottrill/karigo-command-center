@@ -189,6 +189,7 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     dispatchedAt: t.dispatchedAt ? String(t.dispatchedAt) : null,
     approvedAt: t.approvedAt ? String(t.approvedAt) : null,
     assignedAt: t.assignedAt ? String(t.assignedAt) : null,
+    updatedAt: t.updatedAt ? String(t.updatedAt) : null,
     sendBackReason: t.sendBackReason ? String(t.sendBackReason) : null,
     partnerNote: t.partnerNote ? String(t.partnerNote) : null,
     priority: (t.priority as Trip["priority"]) || "Normal",

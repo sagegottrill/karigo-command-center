@@ -132,9 +132,15 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
   const approvedAt = stampLabel(trip.dispatchedAt);
 
   if (trip.status === "Stopped") {
+    // The decline stamp is the decline moment (last write). Falling back to the
+    // dispatch/seen stamps advertised an approval date on a declined request.
     return [
       { label: "Request Submitted", state: "done", at: submittedAt },
-      { label: "Request Declined", state: "current", at: stampLabel(trip.dispatchedAt) ?? seenAt },
+      {
+        label: "Request Declined",
+        state: "current",
+        at: stampLabel(trip.updatedAt) ?? stampLabel(trip.dispatchedAt) ?? seenAt,
+      },
     ];
   }
 

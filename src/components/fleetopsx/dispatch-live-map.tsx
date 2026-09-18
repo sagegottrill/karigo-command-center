@@ -12,7 +12,6 @@ const STATUS_COLOR: Record<string, string> = {
 // Map status from trips to our 3 states for demo purposes
 function getDelayStatus(status: string) {
   if (status === "Delayed") return "Significant Delay";
-  if (status === "Stopped") return "Slight delay";
   return "On Schedule"; // En Route, Loaded, Returning etc
 }
 

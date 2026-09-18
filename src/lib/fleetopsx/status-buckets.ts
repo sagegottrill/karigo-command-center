@@ -11,8 +11,12 @@ import type { Trip } from "./types";
  * Live pipeline (backend `Trip.status`):
  *   Requested → Approved → Awaiting Approval → Scheduled
  *     → Loaded / En Route / Offloading / Returning / Delayed → Completed
- *   Stopped = Declined when no truck is assigned (rejected request),
- *            significant delay when a truck IS assigned (stopped en route).
+ *   Stopped = DECLINED. It is the decline state end to end: the backend fires
+ *   its notification as "Request Declined", the partner portal renders
+ *   "Request Declined", and the TM's Partner Requests action sets it. A truck
+ *   that merely halts mid-route is `Delayed` — so a declined request must never
+ *   be counted or drawn as a moving vehicle, even if a truck had been assigned
+ *   to it before the decline.
  */
 export type TripBucket =
   | "pending" // Requested (also legacy Draft) — awaiting TM decision
@@ -21,8 +25,7 @@ export type TripBucket =
   | "scheduled" // Scheduled — on the dispatch board, not yet moving
   | "inTransit" // Loaded / En Route / Offloading / Returning / Delayed
   | "completed" // Completed
-  | "declined" // Stopped without a truck — rejected request
-  | "stoppedEnRoute"; // Stopped with a truck — significant delay, still active
+  | "declined"; // Stopped — rejected/cancelled request, assigned truck or not
 
 /**
  * A trip counts as "assigned" when ANY assignment signal exists. FO writes
@@ -57,7 +60,7 @@ export function tripBucket(
   trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
 ): TripBucket {
   const status = String(trip.status ?? "").trim();
-  if (status === "Stopped") return hasAssignment(trip) ? "stoppedEnRoute" : "declined";
+  if (status === "Stopped") return "declined";
   return BUCKET_BY_STATUS[status] ?? "pending"; // unknown statuses stay visible as pending
 }
 
@@ -69,7 +72,7 @@ export function isInBucket(
 }
 
 /** Everything currently moving or dispatched (Active Dispatch board). */
-export const ACTIVE_DISPATCH_BUCKETS: TripBucket[] = ["scheduled", "inTransit", "stoppedEnRoute"];
+export const ACTIVE_DISPATCH_BUCKETS: TripBucket[] = ["scheduled", "inTransit"];
 
 /** Queue Fleet Operations works from — only TM-approved requests. */
 export const FO_QUEUE_BUCKETS: TripBucket[] = ["approved"];
@@ -78,7 +81,7 @@ export const FO_QUEUE_BUCKETS: TripBucket[] = ["approved"];
 export const TM_REQUESTS_BUCKETS: TripBucket[] = ["pending"];
 
 /** A trip that is neither finished nor rejected. */
-export const OPEN_BUCKETS: TripBucket[] = ["pending", "approved", "awaiting", "scheduled", "inTransit", "stoppedEnRoute"];
+export const OPEN_BUCKETS: TripBucket[] = ["pending", "approved", "awaiting", "scheduled", "inTransit"];
 
 export function countBuckets(
   trips: Array<Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">>,
@@ -91,7 +94,6 @@ export function countBuckets(
     inTransit: 0,
     completed: 0,
     declined: 0,
-    stoppedEnRoute: 0,
   } satisfies Record<TripBucket, number>;
   for (const trip of trips) counts[tripBucket(trip)] += 1;
   return counts;
@@ -131,7 +133,6 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
     case "scheduled":
       return "Approved";
     case "inTransit":
-    case "stoppedEnRoute":
       return "In transit";
     case "completed":
       return "Completed";
@@ -140,13 +141,32 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
   }
 }
 
+/**
+ * The stamp the "Date Approved" column / field is allowed to show.
+ *
+ * A request that was declined must NOT keep showing a date under a heading
+ * that reads Approved — the client hit exactly that after declining a request
+ * that had already been assigned a truck, so the row advertised an approval
+ * that never applied. Pending requests are not approved either. Everything
+ * still renders "—" until there is a real approval to point at.
+ */
+export function approvedStampOf(
+  trip: Pick<
+    Trip,
+    "status" | "headId" | "truckReg" | "driverId" | "driverName" | "dispatchedAt"
+  >,
+): string | null {
+  const bucket = tripBucket(trip);
+  if (bucket === "declined" || bucket === "pending") return null;
+  return trip.dispatchedAt ?? null;
+}
+
 /** Dispatch History display label (internal staff view). */
 export type HistoryUiStatus = "In Transit" | "Pending" | "Declined" | "Completed";
 
 export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): HistoryUiStatus {
   switch (tripBucket(trip)) {
     case "inTransit":
-    case "stoppedEnRoute":
       return "In Transit";
     case "pending":
     case "approved":

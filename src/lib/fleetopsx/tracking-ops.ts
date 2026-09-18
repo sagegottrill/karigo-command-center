@@ -6,13 +6,14 @@ export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant 
 
 /**
  * Active Dispatch board = the shared ACTIVE_DISPATCH_BUCKETS definition
- * (scheduled + everything moving, incl. a truck stopped en route).
+ * (scheduled + everything moving). A DECLINED request (`Stopped`) is never on
+ * this board, even when a truck had already been assigned to it before the
+ * decline — it is not cargo in motion.
  *
  * Tracking sees a dispatch only AFTER the Transport Manager's final approval
  * (status Scheduled). Fleet Ops' "Awaiting Approval" submissions go to the TM
  * alone — showing them here made Tracking receive assignments meant only for
- * the TM (Fortune, 16 Sept). Declined cargo (bare `Stopped`, no truck) never
- * appears.
+ * the TM (Fortune, 16 Sept).
  */
 export function isActiveDispatchTrip(trip: Trip) {
   return isInBucket(trip, ACTIVE_DISPATCH_BUCKETS);
@@ -29,7 +30,7 @@ export function getTrackingDelayStatus(trip: Trip): TrackingDelayStatus {
   if (trip.status === "Delayed" && (trip.priority === "Critical" || trip.priority === "High")) {
     return "Significant Delay";
   }
-  if (trip.status === "Delayed" || trip.status === "Stopped") {
+  if (trip.status === "Delayed") {
     return "Slight delay";
   }
   return "On Schedule";

@@ -205,6 +205,12 @@ export interface Trip {
   /** Fleet Ops assigning driver/truck. */
   assignedAt?: string | null;
   /**
+   * Last write to the record. For a declined request this is the decline
+   * moment, which is the only truthful stamp for "Request Declined" on the
+   * partner's timeline.
+   */
+  updatedAt?: string | null;
+  /**
    * Why the dispatch was sent back to Fleet Ops (wrong truck, wrong driver,
    * missing location…). Fleet Ops reads this before re-assigning.
    */
