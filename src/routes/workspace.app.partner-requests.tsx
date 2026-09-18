@@ -63,7 +63,8 @@ const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
 function statusPillClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
-      return "bg-[#FC0] text-white";
+      // Amber needs dark text — white on #FC0 was barely legible.
+      return "bg-[#FC0] text-[#1B2432]";
     case "Seen":
       // Same orange the partner portals use for an acknowledged request.
       return "bg-[#F99E1F] text-white";

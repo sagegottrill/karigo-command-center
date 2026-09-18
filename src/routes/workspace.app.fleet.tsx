@@ -28,7 +28,9 @@ const PAGE_SIZE = 10;
 /** Desktop table columns — fr units so the table flexes to fit 1280–1920px
     laptops instead of forcing the page sideways (screenshot bug). */
 const FLEET_GRID =
-  "grid grid-cols-[minmax(112px,0.8fr)_minmax(94px,0.6fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(86px,0.6fr)_auto]";
+  // The Status column has to hold "Awaiting Approval" on ONE line — 86px wrapped
+  // it into a two-line pill that read as a rendering glitch.
+  "grid grid-cols-[minmax(112px,0.8fr)_minmax(94px,0.6fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(146px,0.8fr)_auto]";
 
 function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
@@ -59,6 +61,17 @@ function fleetStatusOf(trip: Trip): (typeof STATUS_FILTERS)[number] {
   return trip.status as (typeof STATUS_FILTERS)[number];
 }
 
+/** Plain-language meaning of each dispatch status, shown on hover. */
+const STATUS_HINT: Record<(typeof STATUS_FILTERS)[number], string> = {
+  "Awaiting Approval":
+    "Fleet Ops has configured this dispatch — approve it to put the truck on the road.",
+  Approved: "Approved and waiting on Fleet Ops to schedule the truck.",
+  Scheduled: "Approved and scheduled — the truck is on the dispatch board.",
+  Completed: "Delivered — the dispatch is closed.",
+  Declined: "Rejected by the Transport Manager.",
+  All: "",
+};
+
 function StatusPill({ status }: { status: (typeof STATUS_FILTERS)[number] }) {
   const cls =
     status === "Declined"
@@ -69,11 +82,14 @@ function StatusPill({ status }: { status: (typeof STATUS_FILTERS)[number] }) {
           ? "bg-[#007AFF] text-white"
           : status === "Scheduled"
             ? "bg-[#CB30E0] text-white"
-            : "bg-[#FC0] text-white";
+            : // Amber needs dark text: white on #FC0 was barely legible.
+              "bg-[#FC0] text-[#1B2432]";
   return (
     <span
+      title={STATUS_HINT[status] || status}
       className={cn(
-        "inline-flex h-[22px] items-center rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
+        // nowrap: a two-line pill inside a 22px-high chip read as a broken cell.
+        "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
         cls,
       )}
     >
@@ -177,7 +193,7 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Date Requested,Dispatch ID,Customer,Driver,Truck Head,Head Type,Drop-off Location,Date Approved,Status\n";
+    const headers = "Date Requested,Dispatch ID,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Status\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
@@ -501,7 +517,9 @@ function FleetDispatchRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Head Type</span>
+                {/* This column shows the truck type the request was raised for —
+                    labelling it "Head Type" made operators read it as the cab. */}
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>

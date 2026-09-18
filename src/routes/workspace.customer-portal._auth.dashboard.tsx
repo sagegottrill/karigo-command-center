@@ -51,7 +51,8 @@ function toPartnerStatus(status: TripStatus): PartnerUiStatus {
 function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
-      return "bg-[#FC0] text-white";
+      // Amber needs dark text — white on #FC0 was barely legible.
+      return "bg-[#FC0] text-[#1B2432]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
     case "Approved":
