@@ -262,6 +262,11 @@ export const tripService = {
     delete payload.totalCosts;
     delete payload.eta;
     delete payload.progress;
+    // The app models loading sites as a list, but Trip.loadingSite is a STRING
+    // column. Sending the raw array made the API reject the whole write, so a
+    // partner correcting a multi-site request failed with no way to succeed.
+    // Normalise here so every caller (partner correction, TM edit) is safe.
+    if (Array.isArray(payload.loadingSite)) payload.loadingSite = payload.loadingSite.join(", ");
     
     // NOTE: lifecycle notifications (request/assign/depart/return) are generated
     // server-side with role targeting — do not duplicate them client-side.

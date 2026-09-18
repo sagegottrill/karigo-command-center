@@ -141,7 +141,13 @@ export function RowActionMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         className="grid size-5 shrink-0 place-items-center text-[#1B2432]"
-        onClick={() => onOpenChange(!open)}
+        onClick={(e) => {
+          // Rows are clickable on several pages (a table <tr> or card that opens
+          // the details). Without this the click opened the menu AND bubbled into
+          // the row, which navigated away — so on desktop the 3-dots looked dead.
+          e.stopPropagation();
+          onOpenChange(!open);
+        }}
       >
         <MoreVertical className="size-5" strokeWidth={1.75} />
       </button>

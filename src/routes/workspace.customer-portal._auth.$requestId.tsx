@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, MapPin, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -32,6 +32,15 @@ import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestId")({
+  /**
+   * `?edit=1` opens the request straight in the Modify form. The dashboard's
+   * "Correct & Resend" action uses it, so a partner who was sent back for
+   * correction lands on the editable form instead of reading a read-only page
+   * and having to notice the Modify button.
+   */
+  validateSearch: (search: Record<string, unknown>) => ({
+    edit: search.edit === "1" ? "1" : undefined,
+  }),
   component: PartnerRequestDetailsPage,
 });
 
@@ -440,6 +449,18 @@ function PartnerRequestDetailsPage() {
     setTruckDropdownOpen(false);
     setSiteDropdownIndex(null);
   };
+
+  // Landed here from "Correct & Resend" — open the editable form immediately,
+  // but only once, and only while the request is genuinely still editable.
+  const autoEditDone = useRef(false);
+  const search = Route.useSearch();
+  useEffect(() => {
+    if (autoEditDone.current || search.edit !== "1" || !trip) return;
+    if (!["Requested", "Awaiting Approval"].includes(trip.status)) return;
+    autoEditDone.current = true;
+    openModifyModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.edit, trip]);
 
   const saveModify = async () => {
     if (!trip) return;

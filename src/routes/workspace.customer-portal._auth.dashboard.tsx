@@ -194,14 +194,25 @@ function PartnerPortalDashboard() {
     await refresh();
   };
 
-  const openDetails = (trip: Trip) => {
+  const openDetails = (trip: Trip, edit = false) => {
     try {
       sessionStorage.setItem(`fleetopsx_partner_trip_${trip.id}`, JSON.stringify(trip));
     } catch {
       /* ignore quota */
     }
-    navigate({ to: "/workspace/customer-portal/$requestId", params: { requestId: trip.id } });
+    navigate({
+      to: "/workspace/customer-portal/$requestId",
+      params: { requestId: trip.id },
+      search: { edit: edit ? "1" : undefined },
+    });
   };
+
+  /**
+   * A request the partner may still change: it has not been acted on by anyone
+   * yet, OR the Transport Manager sent it back for correction (which returns it
+   * to Requested with a note). Mirrors the server's own edit rule.
+   */
+  const isEditable = (status: TripStatus | string) => ["Requested", "Draft", "Awaiting Approval"].includes(status);
 
   const openSortModal = () => {
     setDraftSortKey(sortKey);
@@ -446,6 +457,16 @@ function PartnerPortalDashboard() {
                             width={170}
                             items={[
                               { label: "Details", onSelect: () => openDetails(r) },
+                              // Returned by the TM for correction (or never acted on
+                              // yet) — open the editable form.
+                              ...(isEditable(r.status)
+                                ? [
+                                    {
+                                      label: r.partnerNote ? "Correct & Resend" : "Edit Request",
+                                      onSelect: () => openDetails(r, true),
+                                    },
+                                  ]
+                                : []),
                               // Only a still-pending request can be withdrawn.
                               ...(isWithdrawable(r.status)
                                 ? [
@@ -554,6 +575,16 @@ function PartnerPortalDashboard() {
                                 width={170}
                                 items={[
                                   { label: "Details", onSelect: () => openDetails(r) },
+                                  // Returned by the TM for correction (or never acted
+                                  // on yet) — open the editable form.
+                                  ...(isEditable(r.status)
+                                    ? [
+                                        {
+                                          label: r.partnerNote ? "Correct & Resend" : "Edit Request",
+                                          onSelect: () => openDetails(r, true),
+                                        },
+                                      ]
+                                    : []),
                                   ...(isWithdrawable(r.status)
                                     ? [
                                         {
