@@ -355,7 +355,7 @@ function ActiveDispatchPage() {
                     <th className="px-3 py-3">Dispatch ID</th>
                     <th className="px-3 py-3">Driver</th>
                     <th className="px-3 py-3">Truck Head</th>
-                    <th className="px-3 py-3">Head Type</th>
+                    <th className="px-3 py-3">Tail Type</th>
                     <th className="px-3 py-3">Phone Number</th>
                     <th className="px-3 py-3">Loading Site(s)</th>
                     <th className="px-3 py-3">Drop-off Location</th>
@@ -474,7 +474,9 @@ function ActiveDispatchPage() {
                 </div>
                 <MetaRow label="Driver:" value={trip.driverName || ""} />
                 <MetaRow label="Head No:" value={headCell(trip)} accent />
-                <MetaRow label="Head Type:" value={trip.tailType || ""} />
+                {/* The BODY comes from the tail, not the head — mislabelling it
+                    "Head Type" made operators read it as the truck's own type. */}
+                <MetaRow label="Tail Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
                 <MetaRow label="Loading Site(s):" value={loadingSitesLabel(trip)} />
               </div>

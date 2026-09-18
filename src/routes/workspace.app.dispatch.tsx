@@ -7,10 +7,13 @@ import {
   displayDriverAssigned,
   displayDriverOption,
   displayHeadCap,
-  displayHeadOption,
   displayRequestedTruckType,
   displayTailOption,
   displayTicket,
+  truckHeadChoice,
+  truckHeadSpec,
+  truckTailChoice,
+  truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
@@ -567,9 +570,12 @@ function DispatchPage() {
                 placeholder="eg: P002"
                 options={TRUCK_HEADS.filter(h => h.status === "Available" || h.id === headId).map(h => ({
                   value: h.id,
-                  label: displayHeadOption(h),
+                  label: truckHeadChoice(h),
+                  // Searchable too, so typing "UPCOUNTRY" finds those heads.
+                  hint: truckHeadSpec(h),
                 }))}
               />
+              {head ? <p className="mt-1 text-[12px] tracking-[0.4px] text-[#5c6470]">{truckHeadSpec(head)}</p> : null}
             </div>
             <div>
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
@@ -593,9 +599,13 @@ function DispatchPage() {
                 placeholder="Select Tail (Body)"
                 options={TRUCK_TAILS.filter(t => t.status === "Available" || t.id === tailId).map(t => ({
                   value: t.id,
-                  label: displayTailOption(t),
+                  // The BODY is part of the label ("B010 · Flatbed Tail") — a tail
+                  // code alone said nothing about what was being hitched up.
+                  label: truckTailChoice(t),
+                  hint: truckTailSpec(t),
                 }))}
               />
+              {tail ? <p className="mt-1 text-[12px] tracking-[0.4px] text-[#5c6470]">{truckTailSpec(tail)}</p> : null}
             </div>
             <div>
               <label className="block text-[14px] font-medium tracking-[0.4px] text-[#141A1F] mb-1.5">
@@ -801,9 +811,24 @@ function DispatchPage() {
               <span className="font-semibold text-[#141a1f]">{head?.registration || "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Truck Head Category:</span>
+              <span className="font-semibold text-[#141a1f]">
+                {head?.make && head.make !== "Unknown" ? head.make : "-"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Truck Tail assigned:</span>
               <span className="font-semibold text-[#141a1f]">
                 {tail ? `${displayTailOption(tail)}${tailNumber && tailNumber !== tail.number ? ` · ${tailNumber}` : ""}` : "-"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-[#5c6470]">Truck Body (Tail Type):</span>
+              <span className="font-semibold text-[#141a1f]">
+                {tail?.type || "-"}
+                {selectedOrder && displayRequestedTruckType(selectedOrder)
+                  ? ` — requested ${displayRequestedTruckType(selectedOrder)}`
+                  : ""}
               </span>
             </div>
             <div className="flex justify-between items-center text-[13px]">

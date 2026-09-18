@@ -9,6 +9,7 @@ import {
 } from "./petroline-roster";
 import { PETROLINE_DRIVERS, type PetrolineDriver } from "./petroline-drivers";
 import type { Driver, TruckHead, TruckTail } from "./types";
+
 import { displayRequestId } from "./request-id";
 import { PARTNER_TRUCK_TYPE_OPTIONS } from "./partner-request-options";
 
@@ -166,6 +167,55 @@ export function displayTailOption(tail: TruckTail): string {
   const plate = humanCode(tail.registration);
   if (code && plate && plate !== code) return `${code} (${plate})`;
   return code || plate || "Unknown tail";
+}
+
+/** `a · b · c`, skipping anything blank — the one join every spec below uses. */
+function specJoin(parts: Array<string | number | null | undefined>): string {
+  return parts
+    .map((p) => (p == null ? "" : String(p).trim()))
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * What a truck TAIL actually is: its BODY first — Full Sided, Semi Sided,
+ * Flatbed Tail… — then whether it is free and where it is standing.
+ *
+ * Choosing a tail by its code alone ("B010") told the operator nothing about the
+ * body they were hitching to the truck, so a request for a full-sided body could
+ * be dispatched with a flatbed and nobody saw it until the cargo was loaded.
+ */
+export function truckTailSpec(tail?: TruckTail | null): string {
+  if (!tail) return "";
+  return specJoin([tail.type, tail.status, tail.location]);
+}
+
+/**
+ * What a truck HEAD actually is: its category (UPCOUNTRY, …) and where it stands.
+ * The heads carry no body of their own — the body lives on the tail — so this is
+ * the head's own detail rather than the cargo-fitting one.
+ */
+export function truckHeadSpec(head?: TruckHead | null): string {
+  if (!head) return "";
+  return specJoin([
+    head.make && head.make !== "Unknown" ? head.make : "",
+    head.status,
+    head.location,
+  ]);
+}
+
+/** Dropdown label where a truck is PICKED: `B010 · Flatbed Tail`. */
+export function truckTailChoice(tail: TruckTail): string {
+  const body = tail.type?.trim();
+  const code = displayTailOption(tail);
+  return body && body !== code ? `${code} · ${body}` : code;
+}
+
+/** Dropdown label where a head is PICKED: `P017 (GRR171XA) · UPCOUNTRY`. */
+export function truckHeadChoice(head: TruckHead): string {
+  const category = head.make?.trim();
+  const code = displayHeadOption(head);
+  return category && category !== "Unknown" && category !== code ? `${code} · ${category}` : code;
 }
 
 /**

@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   displayDriverOption,
-  displayHeadOption,
-  displayTailOption,
+  displayRequestedTruckType,
+  truckHeadChoice,
+  truckHeadSpec,
+  truckTailChoice,
+  truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { tripService } from "@/lib/fleetopsx/services";
@@ -16,6 +19,13 @@ const formatN = (num: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num);
+
+/** Everything about the tail EXCEPT its body — state and where it stands. */
+function truckTailRest(tail: TruckTail): string {
+  const spec = truckTailSpec(tail);
+  const body = (tail.type || "").trim();
+  return (body ? spec.replace(body, "") : spec).replace(/^\s*·\s*/, "").trim();
+}
 
 function parseAmount(value: string): number {
   const n = Number(value);
@@ -224,7 +234,16 @@ export function TmEditAssignmentModal({
 
         {/* Step 1: Truck */}
         <section className="flex flex-col gap-3">
-          <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Truck Head &amp; Tail</h4>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Truck Head &amp; Tail</h4>
+            {/* The partner asked for this body — shown right where the truck is
+                chosen so the wrong body is obvious before it is saved. */}
+            {displayRequestedTruckType(trip) ? (
+              <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[12px] font-medium tracking-[0.4px] text-[#344256]">
+                Requested: <span className="font-semibold text-[#141A1F]">{displayRequestedTruckType(trip)}</span>
+              </span>
+            ) : null}
+          </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#141A1F]">
@@ -240,10 +259,13 @@ export function TmEditAssignmentModal({
                   .filter((h) => h.status === "Available" || h.id === headId)
                   .map((h) => (
                     <option key={h.id} value={h.id}>
-                      {displayHeadOption(h)}
+                      {truckHeadChoice(h)}
                     </option>
                   ))}
               </select>
+              {head ? (
+                <span className="text-[12px] leading-4 text-[#5C6470]">{truckHeadSpec(head)}</span>
+              ) : null}
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#141A1F]">Plate Number</span>
@@ -270,10 +292,16 @@ export function TmEditAssignmentModal({
                   .filter((t) => t.status === "Available" || t.id === tailId)
                   .map((t) => (
                     <option key={t.id} value={t.id}>
-                      {displayTailOption(t)}
+                      {truckTailChoice(t)}
                     </option>
                   ))}
               </select>
+              {tail ? (
+                <span className="text-[12px] leading-4 text-[#5C6470]">
+                  Body: <span className="font-semibold text-[#141A1F]">{tail.type || "Unknown"}</span>
+                  {truckTailRest(tail) ? ` · ${truckTailRest(tail)}` : ""}
+                </span>
+              ) : null}
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#141A1F]">Tail Number</span>

@@ -2,6 +2,7 @@ import type { Driver, Trip, TruckHead } from "@/lib/fleetopsx/types";
 import {
   displayDriverAssigned,
   displayHeadCap,
+  displayRequestedTruckType,
   humanCode,
   looksLikeUuid,
 } from "@/lib/fleetopsx/display-ids";
@@ -126,8 +127,12 @@ export function dispatchFields(
       })),
     ] as { label: string; value?: string | undefined }[],
     vehicle: [
+      // The body the partner asked for, right above what was actually hitched —
+      // so a Full Sided request on a Flatbed Tail is visible at a glance.
+      { label: "Truck Type requested", value: displayRequestedTruckType(trip) || undefined },
       { label: "Truck Head (Cap Number / Plate)", value: capPlate },
       { label: "Truck Tail assigned", value: tailAssigned },
+      { label: "Truck Body (Tail Type)", value: trip.tailType || undefined },
       { label: "Driver Assigned", value: driverLabel },
       { label: "Driver Contact Phone", value: driver?.phone },
     ] as { label: string; value?: string | undefined }[],
@@ -293,7 +298,9 @@ export function DispatchDetailsModal({
   const costs = trip.directCosts;
   const total = expenseTotal(trip, hideTmPricing);
   const hasCustomer = Boolean(customerName || trip.dropoff || sites.length > 0 || trip.pickup);
-  const hasVehicle = Boolean(capNumber || plate || tailAssigned || driverLabel || driverPhone);
+  const hasVehicle = Boolean(
+    capNumber || plate || tailAssigned || driverLabel || driverPhone || displayRequestedTruckType(trip),
+  );
   const hasExpense = Boolean(costs || typeof total === "number");
   const canAct = trip.status === "Requested";
   // TM can modify what FO configured while the dispatch is still pre-road.
@@ -343,8 +350,10 @@ export function DispatchDetailsModal({
           <div className="flex w-full flex-col gap-6 rounded-[6px] bg-[#F1F2F4] p-2.5">
             <span className="text-[14px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
             <div className="flex w-full flex-col gap-[15px]">
+              <DetailRow label="Truck Type requested:" value={displayRequestedTruckType(trip)} />
               <DetailRow label="Truck Head (Cap Number / Plate):" value={capPlate} />
               <DetailRow label="Truck Tail assigned:" value={tailAssigned} />
+              <DetailRow label="Truck Body (Tail Type):" value={trip.tailType} />
               <DetailRow label="Driver Assigned:" value={driverLabel} />
               <DetailRow label="Driver Contact Phone:" value={driverPhone} />
             </div>
