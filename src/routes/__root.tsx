@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { tenantService } from "@/lib/fleetopsx/services";
 import { getHostnameServerFn } from "@/lib/fleetopsx/hostname";
 import { useNotificationEngine } from "@/lib/fleetopsx/notification-engine";
+import { useDeployWatcher } from "@/lib/fleetopsx/use-deploy-watcher";
 
 function NotFoundComponent() {
   return (
@@ -176,6 +177,9 @@ function RootComponent() {
   // Real-time notifications: chime + toast pop-up + tab-title badge, one 10s
   // poll shared app-wide (idle on public/login routes).
   useNotificationEngine();
+  // A tab keeps the bundle it loaded, so a deploy is invisible until someone
+  // reloads — this notices and offers the reload.
+  useDeployWatcher();
 
   return (
     <QueryClientProvider client={queryClient}>
