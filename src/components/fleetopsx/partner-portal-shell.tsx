@@ -1,9 +1,12 @@
 import { Link, Outlet, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
 import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
-import { ArrowLeft, Bell, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Bell, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { authService, notificationService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
+import { setActiveRole } from "@/lib/fleetopsx/active-role";
+import { getRoleHome } from "@/lib/fleetopsx/role-home";
+import { displayStaffDepartment } from "@/lib/fleetopsx/staff-accounts";
 import { hardLogout } from "@/lib/fleetopsx/session";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { cn } from "@/lib/utils";
@@ -21,6 +24,15 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const [userEmail, setUserEmail] = useState("");
   const [userInitials, setUserInitials] = useState("PT");
   const [unread, setUnread] = useState(0);
+  // Departments this person ALSO holds — the partner portal is not a one-way door
+  // for our own staff who run a partner account alongside their day job.
+  const [otherRoles, setOtherRoles] = useState<string[]>([]);
+
+  const switchToDepartment = (role: string) => {
+    setActiveRole(role);
+    window.dispatchEvent(new Event("fleetopsx:role-switched"));
+    void navigate({ to: getRoleHome(role) });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -28,6 +40,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
     setUserEmail(currentUser?.email || "");
     setUserInitials(currentUser?.initials || "PT");
+    setOtherRoles(
+      authService.getRoles().filter((r: string) => r !== "Customer Portals (External)"),
+    );
     // Uploaded partner company logo (persisted at account creation) takes
     // priority over the tenant logo in the side menu.
     if (currentUser?.companyLogo) setLogoSrc(currentUser.companyLogo);
@@ -119,6 +134,24 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
               Log Out
             </button>
           )}
+          {/* One person, two sides of the counter: someone who also holds a staff
+              department can leave the partner portal without signing out. Hidden
+              for a pure partner login, which has nowhere else to go. */}
+          {otherRoles.length > 0 ? (
+            <div className="mb-2 flex flex-col gap-1">
+              {otherRoles.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => switchToDepartment(role)}
+                  className="flex h-9 w-full items-center justify-center gap-2 rounded border border-white/20 text-[13px] font-medium text-white hover:bg-white/10"
+                >
+                  <ArrowLeftRight className="size-3.5" />
+                  Switch to {displayStaffDepartment(role)}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div
             role="button"
             tabIndex={0}

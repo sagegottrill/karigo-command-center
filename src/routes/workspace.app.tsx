@@ -32,6 +32,18 @@ import { getActiveRoleHome } from "@/lib/fleetopsx/role-home";
 import { installSessionGuards } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 
+/**
+ * Is this session a PARTNER session right now?
+ *
+ * True for an account that only holds the partner role, or one whose currently
+ * selected department IS the partner role. False when the account also holds a
+ * staff role and is switched to it — the partner side must not swallow them.
+ */
+function partnerOnly(roles: string[], active: string) {
+  if (!roles.includes("Customer Portals (External)")) return false;
+  return roles.length === 1 || active === "Customer Portals (External)";
+}
+
 export const Route = createFileRoute("/workspace/app")({
   beforeLoad: ({ location }) => {
     if (typeof window === "undefined") return;
@@ -52,14 +64,18 @@ export const Route = createFileRoute("/workspace/app")({
     }
 
     const roles = authService.getRoles();
-    if (roles.includes("Customer Portals (External)")) {
-      throw redirect({ to: "/workspace/customer-portal/dashboard" });
-    }
-
     // Landing redirect respects the department currently selected (multi-role users):
     // the root of /workspace/app always resolves to the active role's own portal home.
     const active = getActiveRole(roles);
     const scoped = active ? [active] : roles;
+
+    // A partner login belongs in the customer portal — but only while the partner
+    // role is the one being worked as. Someone who ALSO holds a staff role (our own
+    // company runs both sides of the counter) must not be locked out of the staff
+    // app: the selected department decides, and the partner portal can switch back.
+    if (partnerOnly(roles, active)) {
+      throw redirect({ to: "/workspace/customer-portal/dashboard" });
+    }
 
     const path = location.pathname;
     if (path === "/workspace/app" || path === "/workspace/app/") {
@@ -115,7 +131,7 @@ function AppShell() {
       navigate({ to: "/workspace/login" });
     } else if (user.passwordResetRequired) {
       navigate({ to: "/workspace/forgot-password" });
-    } else if (authService.getRoles().includes("Customer Portals (External)")) {
+    } else if (partnerOnly(authService.getRoles(), getActiveRole(authService.getRoles()))) {
       navigate({ to: "/workspace/customer-portal/dashboard" });
     }
   }, [navigate]);

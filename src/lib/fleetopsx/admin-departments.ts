@@ -73,6 +73,19 @@ export function departmentRoleKeys(department: string): string[] {
 }
 
 /**
+ * The department checklist label for a stored RoleKey — the inverse of
+ * `departmentToRoleKey`, used to show an EXISTING account's departments ticked in
+ * the checklist. A role several departments claim ("Fleet Operations" also grants
+ * Fuel Management) resolves to the first, so one role never ticks two boxes.
+ */
+export function roleKeyToDepartment(role: string): string | null {
+  for (const department of ADMIN_DEPARTMENTS) {
+    if (departmentRoleKeys(department).includes(role)) return department;
+  }
+  return null;
+}
+
+/**
  * The role actually stored on the user that grants this department, or null
  * when they do not hold it. Always activate the RETURNED role — never the
  * department label — so the session only ever carries a real assigned role.

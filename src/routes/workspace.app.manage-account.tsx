@@ -341,6 +341,13 @@ function AdminManageAccount() {
                     width={176}
                     items={[
                       { label: "View details", onSelect: () => setDetailUser(u) },
+                      // Departments are editable after creation — one person can hold
+                      // two, and adding a second must not need a brand-new account.
+                      {
+                        label: "Edit departments",
+                        onSelect: () =>
+                          navigate({ to: "/workspace/app/add-account", search: { userId: u.id } }),
+                      },
                       { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
                       u.status === "Suspended"
                         ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
@@ -410,15 +417,19 @@ function AdminManageAccount() {
                       open={menuFor === u.id}
                       onOpenChange={(o) => setMenuFor(o ? u.id : null)}
                       label="Staff options"
-                      width={176}
-                      items={[
-                        { label: "View details", onSelect: () => setDetailUser(u) },
-                        { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
-                        u.status === "Suspended"
-                          ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
-                          : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
-                        { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
-                      ]}
+                      width={176}                        items={[
+                          { label: "View details", onSelect: () => setDetailUser(u) },
+                          {
+                            label: "Edit departments",
+                            onSelect: () =>
+                              navigate({ to: "/workspace/app/add-account", search: { userId: u.id } }),
+                          },
+                          { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                          u.status === "Suspended"
+                            ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
+                            : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
+                          { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                        ]}
                     />
                   </div>
                 </div>

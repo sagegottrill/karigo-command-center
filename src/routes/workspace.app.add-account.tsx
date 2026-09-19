@@ -2,11 +2,22 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Check, Download, MoreVertical, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
-import { ADMIN_DEPARTMENTS, departmentToRoleKey } from "@/lib/fleetopsx/admin-departments";
+import {
+  ADMIN_DEPARTMENTS,
+  departmentToRoleKey,
+  roleKeyToDepartment,
+} from "@/lib/fleetopsx/admin-departments";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 
 export const Route = createFileRoute("/workspace/app/add-account")({
+  // ?userId=<id> opens the SAME screen in edit mode: departments are the one thing
+  // that must be changeable after creation (one person, two departments — and our
+  // own company's partner login also needs a staff department).
+  validateSearch: (search: Record<string, unknown>): { userId?: string } => ({
+    userId: typeof search.userId === "string" && search.userId ? search.userId : undefined,
+  }),
   // Admin track only (matches the in-page check and the API's POST /users roles)
   // — otherwise the form fills in fine and only fails at Save with 403.
   beforeLoad: () => {
@@ -46,6 +57,7 @@ function AdminAddAccount() {
 
   const currentUser = authService.getCurrentUser();
   const deptRef = useRef<HTMLDivElement>(null);
+  const { userId: editingId } = Route.useSearch();
 
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
@@ -57,8 +69,58 @@ function AdminAddAccount() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [generatedPassword] = useState(() => generateSharePassword());
+  // Edit mode: the account being changed, plus the roles it holds that no
+  // department in this checklist represents (a partner company login, say) —
+  // those are preserved, never silently dropped by a department edit.
+  const [editing, setEditing] = useState<{ id: string; email: string; name: string } | null>(null);
+  const [keptRoles, setKeptRoles] = useState<string[]>([]);
+  const [loadingTarget, setLoadingTarget] = useState(false);
 
   const generatedUsername = buildUsername(firstName.trim(), surname.trim());
+
+  useEffect(() => {
+    if (!editingId) return;
+    let cancelled = false;
+    setLoadingTarget(true);
+    void adminService
+      .users()
+      .then((rows: any[]) => {
+        if (cancelled) return;
+        const user = (Array.isArray(rows) ? rows : []).find((u) => u.id === editingId);
+        if (!user) {
+          toast.error("That account could not be found.");
+          navigate({ to: "/workspace/app/manage-account" });
+          return;
+        }
+        const held: string[] = user.roles?.length ? user.roles : [user.department].filter(Boolean);
+        const parts = String(user.name || "").trim().split(/\s+/);
+        setFirstName(parts[0] || "");
+        setSurname(parts.slice(1).join(" "));
+        setStaffId(String(user.employeeId || user.staffId || ""));
+        setEditing({ id: user.id, email: user.email, name: user.name });
+        // Only what the checklist can express becomes a department; the rest
+        // (partner company logins) is kept untouched on save.
+        const depts: string[] = [];
+        const kept: string[] = [];
+        for (const role of held) {
+          const dept = roleKeyToDepartment(role);
+          if (dept) {
+            if (!depts.includes(dept)) depts.push(dept);
+          } else if (!kept.includes(role)) {
+            kept.push(role);
+          }
+        }
+        setDepartments(depts);
+        setKeptRoles(kept);
+      })
+      .catch(() => toast.error("Could not load that account."))
+      .finally(() => {
+        if (!cancelled) setLoadingTarget(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingId, navigate]);
 
   useEffect(() => {
     if (!showDeptDropdown) return;
@@ -71,7 +133,8 @@ function AdminAddAccount() {
 
   const handleSaveAccountClick = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !surname || departments.length === 0 || !staffId) {
+    // A staff ID is issued at creation; an existing account is not asked for one.
+    if (!firstName || !surname || departments.length === 0 || (!editing && !staffId)) {
       toast.error("Please fill in all fields.");
       return;
     }
@@ -79,11 +142,26 @@ function AdminAddAccount() {
   };
 
   const handleConfirmAndSend = async () => {
+    const chosen = departments.map(departmentToRoleKey);
+    // A partner company login keeps its partner role while a staff department is
+    // added — otherwise adding "Loading Operations" would quietly price them out
+    // of their own partner portal (and their own loading sites).
+    const roles = Array.from(new Set([...chosen, ...keptRoles]));
     try {
+      if (editing) {
+        await adminService.editUser(editing.id, {
+          name: [firstName.trim(), surname.trim()].filter(Boolean).join(" "),
+          roles,
+        });
+        toast.success("Account departments updated.");
+        setShowConfirmModal(false);
+        navigate({ to: "/workspace/app/manage-account" });
+        return;
+      }
       await adminService.createUser({
         firstName,
         surname,
-        roles: departments.map(departmentToRoleKey),
+        roles: chosen,
         username: generatedUsername,
         department,
         staffId,
@@ -93,8 +171,8 @@ function AdminAddAccount() {
       toast.success("Staff account created.");
       setShowConfirmModal(false);
       setShowShareModal(true);
-    } catch {
-      toast.error("Failed to create user.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save account.");
     }
   };
 
@@ -112,15 +190,29 @@ function AdminAddAccount() {
   const readOnlyClass =
     "flex h-10 w-full items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-[12.067px] text-[14px] font-normal tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_0px_rgba(0,0,0,0.05)]";
 
+  // Never show an empty form while the account being edited is still loading:
+  // saving from it would write blank names over a real person.
+  if (editingId && loadingTarget) {
+    return (
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        <FigmaLoadingState label="Loading account…" />
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Figma 59:1020 content — padding 30px, gap 20px */}
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Create Staff Account</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              {editing ? "Edit Account Departments" : "Create Staff Account"}
+            </h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              create the digital profile of internal staff
+              {editing
+                ? `${editing.name} · ${editing.email}`
+                : "create the digital profile of internal staff"}
             </p>
           </div>
 
@@ -267,14 +359,18 @@ function AdminAddAccount() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-5 text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
-              Confirm Account Details
+              {editing ? "Confirm Department Changes" : "Confirm Account Details"}
             </h3>
 
             <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-3">
-                <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Staff ID</label>
-                <div className={readOnlyClass}>{staffId}</div>
-              </div>
+              {/* A staff ID is issued once, at creation — showing an empty one on an
+                  edit reads as if it had been wiped. */}
+              {editing ? null : (
+                <div className="flex flex-col gap-3">
+                  <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Staff ID</label>
+                  <div className={readOnlyClass}>{staffId}</div>
+                </div>
+              )}
               <div className="flex flex-col gap-3">
                 <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">First Name</label>
                 <div className={readOnlyClass}>{firstName}</div>
@@ -295,22 +391,36 @@ function AdminAddAccount() {
                 </div>
               </div>
 
-              <div className="h-px w-full bg-[#E2E5E9]" />
-
-              <div className="flex flex-col gap-5 sm:flex-row sm:gap-5">
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Username</label>
-                  <div className={readOnlyClass}>{generatedUsername}</div>
+              {/* Roles the checklist cannot express are KEPT — say so, because an
+                  empty "Portal Access" list still holds the partner role. */}
+              {keptRoles.length > 0 ? (
+                <div className="rounded border border-[#FC0] bg-[#FC0]/10 px-3 py-2.5 text-[12px] leading-5 tracking-[0.4px] text-[#1B2432]">
+                  <span className="font-semibold">Also kept (not a department):</span>{" "}
+                  {keptRoles.join(", ")} — this account keeps its partner-portal access and the
+                  loading sites that belong to its company.
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
-                    Default Password
-                  </label>
-                  <div className={readOnlyClass}>{generatedPassword}</div>
-                </div>
-              </div>
+              ) : null}
 
-              <div className="h-px w-full bg-[#E2E5E9]" />
+              {editing ? null : (
+                <>
+                  <div className="h-px w-full bg-[#E2E5E9]" />
+
+                  <div className="flex flex-col gap-5 sm:flex-row sm:gap-5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Username</label>
+                      <div className={readOnlyClass}>{generatedUsername}</div>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      <label className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                        Default Password
+                      </label>
+                      <div className={readOnlyClass}>{generatedPassword}</div>
+                    </div>
+                  </div>
+
+                  <div className="h-px w-full bg-[#E2E5E9]" />
+                </>
+              )}
 
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -325,7 +435,7 @@ function AdminAddAccount() {
                   onClick={handleConfirmAndSend}
                   className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-3 text-[14px] font-medium leading-5 tracking-[0.4px] text-white hover:bg-[#d62e19]"
                 >
-                  Confirm and Send Details
+                  {editing ? "Save Changes" : "Confirm and Send Details"}
                 </button>
               </div>
             </div>
