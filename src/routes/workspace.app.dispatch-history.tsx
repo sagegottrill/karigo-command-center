@@ -406,7 +406,7 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Date,Company,Customer,Product,Truck Head,Head Type,Destination,Dispatch ID,Status\n";
+    const headers = "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
@@ -485,7 +485,9 @@ function DispatchHistoryPage() {
         </div>
 
         <div className="hidden grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Date", "Company", "Customer", "Product", "Truck Head", "Head Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
+          {/* This column is the body the load rides in (Flat, Flatbed Tail, Side
+              Guide) — calling it "Head Type" made operators read it as the cab. */}
+          {["Date", "Company", "Customer", "Product", "Truck Head", "Body Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
