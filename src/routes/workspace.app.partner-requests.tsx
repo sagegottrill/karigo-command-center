@@ -9,7 +9,12 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
-import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
+import {
+  displayCapFromTrip,
+  displayPlateFromTrip,
+  displayRequestedTruckType,
+} from "@/lib/fleetopsx/display-ids";
+import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
@@ -199,11 +204,13 @@ function AdminPartnerRequests() {
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
-    // The status word is searchable too, so typing "seen" (or "pending") finds
-    // those requests straight from the search box, not only via the filter.
-    const hay =
-      `${requestId(t)} ${t.customer} ${t.customerConsignee ?? ""} ${t.cargo} ${displayRequestedTruckType(t)} ${t.dropoff} ${toPartnerUiStatus(t)}`.toLowerCase();
-    return !query || hay.includes(query.toLowerCase());
+    // Search reaches the TRUCK as the operators name it — the cap code on the cab
+    // and the plate beside it — plus the tail, the assigned driver, the loading
+    // sites and both ends of the run. Spaces and punctuation in the query are
+    // ignored, so "KSF 72 YF" finds the plate stored as "KSF72YF" and "p-017"
+    // finds cap "P017". The status word stays searchable too.
+    const hay = `${requestId(t)} ${dispatchSearchText(t)} ${displayCapFromTrip(t)} ${displayPlateFromTrip(t)} ${toPartnerUiStatus(t)}`;
+    return matchesQuery(hay, query);
   });
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
+import { matchesQuery } from "@/lib/fleetopsx/search-match";
 import { ChevronLeft, ChevronRight, Download, Printer, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -299,7 +300,8 @@ function FleetRegistryPage() {
         tab === "head"
           ? `${headLabel(item as TruckHead)} ${(item as TruckHead).capNumber ?? ""} ${item.number} ${item.registration} ${(item as TruckHead).make} ${item.location} ${item.status}`
           : `${item.number} ${item.registration} ${(item as TruckTail).type} ${item.location} ${item.status}`;
-      return !query || hay.toLowerCase().includes(query.toLowerCase());
+      // Loose match: "b 010" finds tail B010, "p-017" finds cap P017.
+      return matchesQuery(hay, query);
     });
   }, [listing, statusFilter, query, tab]);
 

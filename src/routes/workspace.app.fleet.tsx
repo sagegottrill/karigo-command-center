@@ -12,6 +12,7 @@ import {
   displayRequestedTruckType,
 } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import {
@@ -219,9 +220,10 @@ function FleetDispatchRequests() {
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-    const hay =
-      `${dispatchId(t)} ${t.customerConsignee ?? ""} ${t.driverName ?? ""} ${driver?.name ?? ""} ${t.headId ?? ""} ${t.truckReg ?? ""} ${fleetTruckTypeOf(t)} ${driver?.phone ?? ""} ${t.dropoff}`.toLowerCase();
-    return !query || hay.includes(query.toLowerCase());
+    // A truck number typed the way it is said out loud ("KSF 72 YF") has to find
+    // the row, not just the stored spelling — cap code and plate both searched.
+    const hay = `${dispatchId(t)} ${displayRequestId(t)} ${dispatchSearchText(t)} ${displayCapFromTrip(t)} ${displayPlateFromTrip(t)} ${fleetTruckTypeOf(t)} ${driver?.name ?? ""} ${driver?.phone ?? ""}`;
+    return matchesQuery(hay, query);
   });
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

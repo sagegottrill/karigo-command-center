@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
   listCheckpoints,
   loadingSiteProgress,
@@ -163,19 +164,22 @@ function ActiveDispatchPage() {
       // Partner filter — "show me Saba's trucks" without typing a search.
       if (partner !== "All partners" && partnerOf(trip) !== partner) return false;
       if (!q) return true;
+      // What a dispatcher or loader actually types: the truck's cap code, its
+      // plate, the driver, the loading site the truck is bound for. Spacing and
+      // punctuation in the query are ignored, so "KSF 72 YF" finds "KSF72YF".
       const hay = [
         dispatchDisplayId(trip),
-        trip.driverName,
-        trip.truckReg,
-        trip.headId,
-        trip.tailType,
-        trip.dropoff,
+        dispatchSearchText(trip),
+        displayCapFromTrip(trip),
+        displayPlateFromTrip(trip),
+        partnerOf(trip),
+        tripLoadingSites(trip).join(" "),
+        getTrackingDelayStatus(trip),
         phoneFor(trip),
       ]
         .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
+        .join(" ");
+      return matchesQuery(hay, q);
     });
   }, [trips, search, filter, partner, phoneByDriverId, phoneByDriverName]);
 
