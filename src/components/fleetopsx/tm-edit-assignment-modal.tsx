@@ -115,6 +115,10 @@ export function TmEditAssignmentModal({
   const lubricantCost =
     (Number(lubricantQty) || 0) * fuelPricePerLitre(lubricant);
 
+  // When the TM expects this to leave the yard (YYYY-MM-DD, as the date input
+  // gives it). Security's real gate stamp supersedes it on the board.
+  const [estimatedDate, setEstimatedDate] = useState((trip.estimatedDate ?? "").slice(0, 10));
+
   const [saving, setSaving] = useState(false);
 
   const totalExpense =
@@ -186,6 +190,8 @@ export function TmEditAssignmentModal({
           ...(lubricantCost > 0 ? { lubricantCost } : {}),
         },
         ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
+        // The TM's estimate — cleared (not left stale) when the field is emptied.
+        estimatedDate: estimatedDate.trim() || null,
         ...(andApprove ? { status: "Scheduled" as const } : {}),
       });
       toast.success(
@@ -231,6 +237,21 @@ export function TmEditAssignmentModal({
             ✕
           </button>
         </div>
+
+        {/* Estimated dispatch date — the working date the board shows until the
+            truck actually leaves the gate. */}
+        <label className="flex flex-col gap-1.5 border-b border-[#E2E5E9] pb-3">
+          <span className="text-[13px] font-medium text-[#141A1F]">Estimated Dispatch Date</span>
+          <input
+            type="date"
+            value={estimatedDate}
+            onChange={(e) => setEstimatedDate(e.target.value)}
+            className="h-10 w-full max-w-[240px] rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+          />
+          <span className="text-[12px] leading-4 text-[#5C6470]">
+            Shown on the dispatch board until Security logs the truck out of the gate.
+          </span>
+        </label>
 
         {/* Step 1: Truck */}
         <section className="flex flex-col gap-3">

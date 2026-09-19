@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayDriverSalary, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
+import { formatMovementStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
   listCheckpoints,
@@ -43,6 +43,21 @@ function headCell(trip: Trip) {
  */
 function humanDriverId(driver: Driver) {
   return displayDriverSalary(driver);
+}
+
+/**
+ * What the Dispatched Date cell says.
+ *
+ * The real fact is Security's gate stamp — the moment the truck was let out.
+ * Until that exists the Transport Manager's estimated date is shown, marked
+ * "Est." so a plan is never mistaken for a departure that happened.
+ */
+function dispatchedCell(trip: Trip): { text: string; estimated: boolean } {
+  const stamp = formatMovementStamp(trip.startTime);
+  if (stamp) return { text: stamp, estimated: false };
+  const estimate = trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—";
+  if (estimate && estimate !== "—") return { text: `Est. ${estimate}`, estimated: true };
+  return { text: "—", estimated: false };
 }
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/")({
@@ -302,7 +317,7 @@ function ActiveDispatchPage() {
       const stop = lastStopLabel(list[0] ?? null);
       const progress = loadingSiteProgress(tripLoadingSites(trip), list);
       return [
-        formatMovementStamp(trip.startTime) || "Not dispatched",
+        dispatchedCell(trip).text,
         headCell(trip),
         trip.tailType ?? "",
         driverIdFor(trip) || "—",
@@ -508,9 +523,13 @@ function ActiveDispatchPage() {
                     return (
                       <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
                         <td className="px-3 py-4 whitespace-nowrap font-semibold tracking-[0.4px]">
-                          {/* The stamp Security writes when the truck leaves the gate —
-                              dashes until it has actually gone. */}
-                          {formatMovementStamp(trip.startTime) || "—"}
+                          {/* Security's real gate stamp, else the TM's estimate. */}
+                          {(() => {
+                            const cell = dispatchedCell(trip);
+                            return (
+                              <span className={cell.estimated ? "text-[#9A6700]" : undefined}>{cell.text}</span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-4">{headCell(trip)}</td>
                         <td className="px-3 py-4">{trip.tailType || ""}</td>
@@ -608,8 +627,13 @@ function ActiveDispatchPage() {
                       className="size-[10px] rounded-full"
                       style={{ backgroundColor: TRACKING_DELAY_COLOR[delay] }}
                     />
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
-                      {formatMovementStamp(trip.startTime) || "Not dispatched"}
+                    <span
+                      className={cn(
+                        "text-[14px] font-semibold tracking-[0.4px] text-[#303D50]",
+                        dispatchedCell(trip).estimated && "text-[#9A6700]",
+                      )}
+                    >
+                      {dispatchedCell(trip).text}
                     </span>
                   </div>
                   <Link

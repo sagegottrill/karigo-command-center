@@ -11,7 +11,7 @@ import {
   displayPlateFromTrip,
   displayRequestedTruckType,
 } from "@/lib/fleetopsx/display-ids";
-import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
+import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -42,7 +42,7 @@ const FLEET_GRID =
   // reference you look up after you have found the row, not the first thing you
   // read. Status keeps its own wide track: it has to hold "Awaiting Approval" on
   // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
-  "grid grid-cols-[minmax(112px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(146px,0.8fr)_minmax(96px,0.6fr)_auto]";
+  "grid grid-cols-[minmax(108px,0.75fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(104px,0.75fr)_minmax(80px,0.55fr)_minmax(0,0.85fr)_minmax(108px,0.75fr)_minmax(100px,0.7fr)_minmax(146px,0.8fr)_minmax(92px,0.55fr)_auto]";
 
 /** What the search box actually reaches, said out loud when it finds nothing. */
 const SEARCH_COVERS =
@@ -195,6 +195,12 @@ function FleetDispatchRequests() {
   const [sendBackTrip, setSendBackTrip] = useState<Trip | null>(null);
   const [sendBackNote, setSendBackNote] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
+  // The TM's estimated dispatch date. Deliberately its own small action: a
+  // request can be given a working date before Fleet Ops has picked a truck,
+  // which the full Modify form cannot do (it demands the whole assignment).
+  const [estimateTrip, setEstimateTrip] = useState<Trip | null>(null);
+  const [estimateValue, setEstimateValue] = useState("");
+  const [savingEstimate, setSavingEstimate] = useState(false);
 
   useEffect(() => {
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -300,11 +306,11 @@ function FleetDispatchRequests() {
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
     const headers =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Status,Dispatch ID\n";
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Status,Dispatch ID\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)},${dispatchId(t)}`;
+        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${t.estimatedDate ? formatTableDate(t.estimatedDate) : ""},${fleetStatusOf(t)},${dispatchId(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -348,6 +354,37 @@ function FleetDispatchRequests() {
     setDetail(null);
     setSendBackNote("");
     setSendBackTrip(trip);
+  };
+
+  const openEstimate = (trip: Trip) => {
+    setMenuFor(null);
+    setDetail(null);
+    setEstimateValue((trip.estimatedDate ?? "").slice(0, 10));
+    setEstimateTrip(trip);
+  };
+
+  const saveEstimate = async () => {
+    if (!estimateTrip) return;
+    const next = estimateValue.trim() || null;
+    setSavingEstimate(true);
+    try {
+      await tripService.update(estimateTrip.id, { estimatedDate: next });
+      // Show it immediately — the table must not need a reload to agree.
+      setTrips((prev) => prev.map((t) => (t.id === estimateTrip.id ? { ...t, estimatedDate: next } : t)));
+      toast.success(next ? "Estimated dispatch date saved." : "Estimated dispatch date cleared.");
+      setEstimateTrip(null);
+    } catch (err) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(
+        offline
+          ? "You are offline — the estimated date was NOT saved."
+          : err instanceof Error
+            ? err.message
+            : "Failed to save the estimated date.",
+      );
+    } finally {
+      setSavingEstimate(false);
+    }
   };
 
   const confirmSendBack = async () => {
@@ -514,6 +551,7 @@ function FleetDispatchRequests() {
                       width={170}
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
+                        { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
                         ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                           ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                           : []),
@@ -538,6 +576,10 @@ function FleetDispatchRequests() {
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
+                <MetaRow
+                  label="Est. Date:"
+                  value={trip.estimatedDate ? formatTableDate(trip.estimatedDate) : ""}
+                />
                 <MetaRow label="Dispatch ID:" value={dispatchId(trip)} />
               </div>
             );
@@ -660,6 +702,9 @@ function FleetDispatchRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
+                {/* The date the TM is working to — his own estimate, until the
+                    gate stamp records when the truck really left. */}
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Est. Date</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                 {/* The dispatch ID closes the row: the reference you quote once you
                     have found the dispatch you were looking for. */}
@@ -685,6 +730,9 @@ function FleetDispatchRequests() {
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{fleetTruckTypeOf(trip)}</span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                     <DateCell value={trip.dispatchedAt} />
+                    <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
+                    </span>
                     <span>
                       <StatusPill status={fleetStatusOf(trip)} />
                     </span>
@@ -698,6 +746,8 @@ function FleetDispatchRequests() {
                         label="Dispatch options"
                         items={[
                           { label: "View Details", onSelect: () => setDetail(trip) },
+                          { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
+                        { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
                           ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                             ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                             : []),
@@ -815,6 +865,45 @@ function FleetDispatchRequests() {
             setDetail(null);
           }}
         />
+      )}
+
+      {estimateTrip && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-[420px] rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-[16px] font-bold text-[#1B2432]">Estimated dispatch date</h3>
+            <p className="mt-1 text-[13px] text-[#5C6470]">
+              Dispatch {dispatchId(estimateTrip)}. Fleet Operations and Tracking see this date on the dispatch board
+              until Security logs the truck out of the gate — which replaces it with the real time.
+            </p>
+            <input
+              type="date"
+              autoFocus
+              value={estimateValue}
+              onChange={(e) => setEstimateValue(e.target.value)}
+              className="mt-3 h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
+            />
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEstimateTrip(null);
+                  setEstimateValue("");
+                }}
+                className="text-[13px] font-medium text-[#627084] hover:underline"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingEstimate}
+                onClick={() => void saveEstimate()}
+                className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {savingEstimate ? "Saving…" : "Save Date"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {sendBackTrip && (

@@ -211,6 +211,11 @@ export interface Trip {
   createdAt?: string;
   /** When the TM gave final approval and the truck was dispatched. */
   dispatchedAt?: string | null;
+  /**
+   * The Transport Manager's estimated dispatch date (YYYY-MM-DD) — what the
+   * board shows until Security logs the real gate departure.
+   */
+  estimatedDate?: string | null;
   /** TM first approval (partner sees "Seen"). */
   approvedAt?: string | null;
   /** Fleet Ops assigning driver/truck. */
