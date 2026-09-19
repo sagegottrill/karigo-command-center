@@ -8,8 +8,8 @@ import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
+import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -33,14 +33,13 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
 
 type DisplayStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
 
-const HISTORY_STATUS_FILTERS = [
-  "All",
-  "In Transit",
-  "Pending",
-  "Scheduled",
-  "Declined",
-  "Completed",
-] as const;
+/**
+ * The client asked for exactly three working states here — Scheduled, Pending,
+ * Declined — with "All" kept only as the way back to the full list. In Transit
+ * and Completed are deliberately dropped: the live ones are followed on Active
+ * Dispatch and Live Tracking, not in a history filter.
+ */
+const HISTORY_STATUS_FILTERS = ["All", "Scheduled", "Pending", "Declined"] as const;
 
 const STATUS_STYLES: Record<DisplayStatus, string> = {
   "In Transit": "bg-[#A259FF] text-white",
@@ -355,13 +354,20 @@ function DispatchHistoryPage() {
   });
 
   const filteredTrips = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     return trips.filter((t) => {
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
-      if (!q) return true;
-      const hay =
-      `${dispatchId(t)} ${formatHistoryDate(t)} ${companyName(t)} ${t.customerConsignee ?? ""} ${t.cargo} ${t.tailType ?? ""} ${displayRequestedTruckType(t)} ${t.dropoff} ${t.status}`.toLowerCase();
-      return hay.includes(q);
+      // The shared matcher, so what is typed finds what is on screen: the
+      // dispatch id as shown, every column's text, the date as displayed, and
+      // the truck/driver numbers however they are punctuated.
+      const hay = [
+        dispatchId(t),
+        formatHistoryDate(t),
+        companyName(t),
+        toDisplayStatus(t.status),
+        t.status,
+        t.driverName ?? "",
+      ].join(" ");
+      return matchesQuery(`${hay} ${dispatchSearchText(t)}`, searchQuery);
     });
   }, [trips, searchQuery, statusFilter]);
 

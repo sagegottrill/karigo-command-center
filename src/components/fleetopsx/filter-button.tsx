@@ -4,10 +4,33 @@ import { cn } from "@/lib/utils";
 
 /**
  * The red filter button next to the search bar, shared by every table page.
- * Opens a status-menu popover (fixed backdrop so stray re-renders can't eat
- * the click) and shows a ring while a non-"All" filter is active — the same
- * pattern as the Fleet Dispatch filter.
+ * Opens a status-menu popover and shows a ring while a non-"All" filter is
+ * active — the same pattern as the Fleet Dispatch filter.
+ *
+ * Closing outside the menu is done with a document `mousedown` listener, NOT a
+ * full-screen backdrop. The old backdrop swallowed the first click anywhere on
+ * the page while the menu was open: clicking the search box just dismissed the
+ * menu without focusing the field, so the next keystrokes went nowhere and the
+ * search read as broken. A listener closes the menu on the same click that then
+ * lands — and focuses — whatever was actually clicked.
  */
+function useCloseOnOutsideClick(open: boolean, setOpen: (next: boolean) => void, ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, ref, setOpen]);
+}
 export function FilterButton<T extends string>({
   options,
   value,
@@ -22,15 +45,7 @@ export function FilterButton<T extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  useCloseOnOutsideClick(open, setOpen, wrapRef);
 
   const describe = (option: T) => (label ? label(option) : option);
 
@@ -50,7 +65,6 @@ export function FilterButton<T extends string>({
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.15)]">
             {options.map((option) => (
               <button
@@ -107,15 +121,7 @@ export function CheckboxFilterButton<T extends string>({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chosen = useMemo(() => new Set(selected), [selected]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  useCloseOnOutsideClick(open, setOpen, wrapRef);
 
   const toggle = (option: T) => {
     const next = new Set(chosen);
@@ -147,7 +153,6 @@ export function CheckboxFilterButton<T extends string>({
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute top-full right-0 z-50 mt-1 max-h-[320px] w-[230px] overflow-y-auto rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.15)]">
             <button
               type="button"
