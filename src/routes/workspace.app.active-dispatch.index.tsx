@@ -118,13 +118,26 @@ function boardColumns(kind: "tracking" | "loading" | "truck"): BoardColumn[] {
  * Until that exists the Transport Manager's estimated date is shown, marked
  * "Est." so a plan is never mistaken for a departure that happened.
  */
-function dispatchedCell(trip: Trip): { text: string; estimated: boolean; progress: string } {
+function dispatchedCell(
+  trip: Trip,
+  /** The earliest checkpoint on the truck — its first recorded movement. */
+  firstMovementAt?: string | null,
+): { text: string; estimated: boolean; progress: string } {
   // "Day 3 of 4" once the trip is running, the booking length before that — the
   // Transport Manager's promise, which is what delay is judged against.
   const delay = tripDelay(trip);
   const progress = delay ? delay.progressLabel : formatTripDuration(trip.estimatedDays);
+  // 1. Security's gate stamp: the truck was physically let out of the yard.
   const stamp = formatMovementStamp(trip.startTime);
   if (stamp) return { text: stamp, estimated: false, progress };
+  // 2. No gate stamp. In the field the departure is usually recorded by the
+  //    tracking crew's FIRST checkpoint instead — the truck is plainly out, so
+  //    date the dispatch from that moment rather than leaving the column blank
+  //    on a truck that is already moving.
+  const moved = formatMovementStamp(firstMovementAt);
+  if (moved) return { text: moved, estimated: false, progress };
+  // 3. Nothing has happened yet — show the Transport Manager's plan, marked
+  //    "Est." so a plan is never mistaken for a departure that happened.
   const estimate = trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—";
   if (estimate && estimate !== "—") return { text: `Est. ${estimate}`, estimated: true, progress };
   return { text: "—", estimated: false, progress };
@@ -174,6 +187,12 @@ function ActiveDispatchPage() {
   // can never disagree.
   const [checkpointsByTrip, setCheckpointsByTrip] = useState<Record<string, LocationCheckpoint[]>>({});
   const lastStopOf = (tripId: string) => checkpointsByTrip[tripId]?.[0] ?? null;
+  // Checkpoints come back newest-first, so the LAST one is the first movement —
+  // the closest thing to a departure stamp on a truck Security never logged out.
+  const firstStopOf = (tripId: string) => {
+    const list = checkpointsByTrip[tripId];
+    return list && list.length > 0 ? list[list.length - 1] : null;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -274,7 +293,7 @@ function ActiveDispatchPage() {
     const delay = getTrackingDelayStatus(trip);
     switch (column) {
       case "dispatched": {
-        const cell = dispatchedCell(trip);
+        const cell = dispatchedCell(trip, firstStopOf(trip.id)?.at);
         return (
           <span className={cell.estimated ? "text-[#9A6700]" : undefined}>
             {cell.text}
@@ -454,7 +473,15 @@ function ActiveDispatchPage() {
           }
           if (column === "last") return stop.place;
           if (column === "status") return delay;
-          return cellText(trip, column, phoneFor, driverIdFor, partnerOf, sitesFor);
+          return cellText(
+            trip,
+            column,
+            phoneFor,
+            driverIdFor,
+            partnerOf,
+            sitesFor,
+            firstStopOf(trip.id)?.at ?? null,
+          );
         }),
         ...(visibleColumns.includes("last") ? [stop.when] : []),
       ]
@@ -721,10 +748,10 @@ function ActiveDispatchPage() {
                     <span
                       className={cn(
                         "text-[14px] font-semibold tracking-[0.4px] text-[#303D50]",
-                        dispatchedCell(trip).estimated && "text-[#9A6700]",
+                        dispatchedCell(trip, firstStopOf(trip.id)?.at).estimated && "text-[#9A6700]",
                       )}
                     >
-                      {dispatchedCell(trip).text}
+                      {dispatchedCell(trip, firstStopOf(trip.id)?.at).text}
                     </span>
                   </div>
                   <Link
@@ -765,7 +792,17 @@ function ActiveDispatchPage() {
                       <MetaRow
                         key={column}
                         label={`${BOARD_COLUMN_LABEL[column]}:`}
-                        value={String(cellText(trip, column, phoneFor, driverIdFor, partnerOf, sitesFor))}
+                        value={String(
+                          cellText(
+                            trip,
+                            column,
+                            phoneFor,
+                            driverIdFor,
+                            partnerOf,
+                            sitesFor,
+                            firstStopOf(trip.id)?.at ?? null,
+                          ),
+                        )}
                         accent={column === "head"}
                       />
                     );
@@ -809,10 +846,11 @@ function cellText(
   driverIdFor: (t: Trip) => string,
   partnerOf: (t: Trip) => string,
   sitesFor: (t: Trip) => string,
+  firstMovementAt?: string | null,
 ): string {
   switch (column) {
     case "dispatched": {
-      const cell = dispatchedCell(trip);
+      const cell = dispatchedCell(trip, firstMovementAt);
       return cell.progress ? `${cell.text} (${cell.progress})` : cell.text;
     }
     case "head":

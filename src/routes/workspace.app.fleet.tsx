@@ -62,10 +62,28 @@ function isDispatchRequest(trip: Trip) {
   // Fleet Ops' work) must STILL be visible here with its reason — otherwise the
   // row silently vanishes from the TM's own table the moment they correct it.
   if (!assigned) return trip.status === "Awaiting Approval" || Boolean(trip.sendBackReason);
-  return ["Awaiting Approval", "Approved", "Approved for Dispatch", "Scheduled", "Completed", "Stopped"].includes(
-    trip.status,
-  );
+  // Every status an assigned dispatch can REACH stays on this table. The moving
+  // ones (Loaded / En Route / Offloading / Returning / Delayed) were missing from
+  // this list, so the moment Tracking logged the truck off the yard the row
+  // vanished from the Transport Manager's own table — the exact "it just
+  // disappears" the client kept hitting.
+  return [
+    "Awaiting Approval",
+    "Approved",
+    "Approved for Dispatch",
+    "Scheduled",
+    "Loaded",
+    "En Route",
+    "Offloading",
+    "Returning",
+    "Delayed",
+    "Completed",
+    "Stopped",
+  ].includes(trip.status);
 }
+
+/** The moving statuses — one word for all of them on this table. */
+const IN_TRANSIT_STATUSES = ["Loaded", "En Route", "Offloading", "Returning", "Delayed"];
 
 /**
  * Every status this table can DISPLAY on a row.
@@ -75,7 +93,13 @@ function isDispatchRequest(trip: Trip) {
  * offers the three the Transport Manager actually acts on. Rows must keep their
  * real status even when the filter cannot select it.
  */
-type FleetStatus = "Awaiting Approval" | "Approved" | "Scheduled" | "Completed" | "Declined";
+type FleetStatus =
+  | "Awaiting Approval"
+  | "Approved"
+  | "Scheduled"
+  | "In Transit"
+  | "Completed"
+  | "Declined";
 
 /**
  * What the red filter offers, in the order the work arrives: the dispatch sitting
@@ -93,6 +117,9 @@ const STATUS_FILTERS: Array<"All" | "Awaiting Approval" | "Scheduled" | "Decline
 function fleetStatusOf(trip: Trip): FleetStatus {
   if (trip.status === "Stopped") return "Declined";
   if (trip.status === "Approved for Dispatch") return "Approved";
+  // The truck has left: one word for the whole on-road stretch, so the row reads
+  // the same whether it is loading, running or offloading.
+  if (IN_TRANSIT_STATUSES.includes(trip.status)) return "In Transit";
   return trip.status as FleetStatus;
 }
 
@@ -107,8 +134,9 @@ const FLEET_QUEUE_RANK: Record<string, number> = {
   "Awaiting Approval": 0,
   Approved: 1,
   Scheduled: 2,
-  Completed: 3,
-  Declined: 4,
+  "In Transit": 3,
+  Completed: 4,
+  Declined: 5,
 };
 
 /**
@@ -125,6 +153,7 @@ const STATUS_HINT: Record<FleetStatus, string> = {
     "Fleet Ops has configured this dispatch — approve it to put the truck on the road.",
   Approved: "Approved and waiting on Fleet Ops to schedule the truck.",
   Scheduled: "Approved and scheduled — the truck is on the dispatch board.",
+  "In Transit": "The truck is out of the yard and moving — see it on Tracking Operations.",
   Completed: "Delivered — the dispatch is closed.",
   Declined: "Rejected by the Transport Manager.",
 };
@@ -139,8 +168,10 @@ function StatusPill({ status }: { status: FleetStatus }) {
           ? "bg-[#007AFF] text-white"
           : status === "Scheduled"
             ? "bg-[#CB30E0] text-white"
-            : // Amber needs dark text: white on #FC0 was barely legible.
-              "bg-[#FC0] text-[#1B2432]";
+            : status === "In Transit"
+              ? "bg-[#30B0C7] text-white"
+              : // Amber needs dark text: white on #FC0 was barely legible.
+                "bg-[#FC0] text-[#1B2432]";
   return (
     <span
       title={STATUS_HINT[status] || status}
