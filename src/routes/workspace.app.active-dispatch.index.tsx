@@ -45,6 +45,71 @@ function humanDriverId(driver: Driver) {
   return displayDriverSalary(driver);
 }
 
+/** Every cell this board can show. */
+type BoardColumn =
+  | "dispatched"
+  | "head"
+  | "body"
+  | "driverId"
+  | "driver"
+  | "phone"
+  | "partner"
+  | "sites"
+  | "loading"
+  | "last"
+  | "dropoff"
+  | "status"
+  | "action";
+
+const BOARD_COLUMN_LABEL: Record<BoardColumn, string> = {
+  dispatched: "Dispatched Date",
+  head: "Truck Head",
+  body: "Body Type",
+  driverId: "Driver ID",
+  driver: "Driver Name",
+  phone: "Driver Phone Number",
+  partner: "Partner",
+  sites: "Loading Site",
+  loading: "Loading",
+  last: "Last Location",
+  dropoff: "Drop-off Location",
+  status: "Status",
+  action: "Action",
+};
+
+/**
+ * Three audiences share one board and each reads it differently, so the columns
+ * follow the visitor instead of one table trying to serve all three:
+ *
+ *  - Tracking walks the journey (they log the checkpoints): the truck, whose it
+ *    is, where it loads and where it is going. No body/driver-id clutter.
+ *  - The Loading department marks each site collected, so it keeps the Loading
+ *    progress column that is its own work.
+ *  - Fleet Ops, the TM and Security follow the trucks: body, driver id, the
+ *    partner and where each truck was last seen.
+ */
+function boardColumns(kind: "tracking" | "loading" | "truck"): BoardColumn[] {
+  if (kind === "tracking") {
+    return ["dispatched", "head", "driver", "phone", "sites", "dropoff", "status", "action"];
+  }
+  if (kind === "loading") {
+    return ["dispatched", "head", "driver", "phone", "sites", "loading", "dropoff", "status", "action"];
+  }
+  return [
+    "dispatched",
+    "head",
+    "body",
+    "driverId",
+    "driver",
+    "phone",
+    "partner",
+    "loading",
+    "last",
+    "status",
+    "action",
+  ];
+}
+
 /**
  * What the Dispatched Date cell says.
  *
@@ -179,6 +244,9 @@ function ActiveDispatchPage() {
   // A viewer's button opens the truck's own record — it is the way in to what
   // that vehicle is doing, not a place to write a checkpoint.
   const locationActionLabel = logsJourney ? "Log Location" : logsLoading ? "Log Loading" : "View Truck";
+  const boardKind: "tracking" | "loading" | "truck" = logsJourney ? "tracking" : logsLoading ? "loading" : "truck";
+  const columns = boardColumns(boardKind);
+  const visibleColumns = columns.filter((c) => c !== "action");
   const pageBlurb = logsJourney
     ? "Monitor active dispatches and manually log location checkpoints"
     : logsLoading
@@ -190,6 +258,65 @@ function ActiveDispatchPage() {
     if (byId) return byId;
     const name = trip.driverName?.trim().toLowerCase();
     return (name && phoneByDriverName.get(name)) || "";
+  };
+
+  /** Every site on the request, as the partner listed them. */
+  const sitesFor = (trip: Trip) => tripLoadingSites(trip).join(" · ");
+
+  /** One cell of the board, addressed by column so the header can never drift
+   *  out of step with the rows. */
+  const renderCell = (trip: Trip, column: BoardColumn) => {
+    const delay = getTrackingDelayStatus(trip);
+    switch (column) {
+      case "dispatched": {
+        const cell = dispatchedCell(trip);
+        return <span className={cell.estimated ? "text-[#9A6700]" : undefined}>{cell.text}</span>;
+      }
+      case "head":
+        return headCell(trip);
+      case "body":
+        return trip.tailType || "";
+      case "driverId":
+        return driverIdFor(trip) || "—";
+      case "driver":
+        return trip.driverName || "";
+      case "phone":
+        return phoneFor(trip);
+      case "partner":
+        return partnerOf(trip);
+      case "sites":
+        return sitesFor(trip) || "—";
+      case "dropoff":
+        return trip.dropoff || "";
+      case "loading":
+        return <LoadingProgressCell trip={trip} checkpoints={checkpointsByTrip[trip.id]} />;
+      case "last":
+        return <LastStopCell checkpoint={lastStopOf(trip.id)} />;
+      case "status":
+        return (
+          <span
+            className="inline-block size-3 rounded-full"
+            style={{ backgroundColor: TRACKING_DELAY_COLOR[delay] }}
+            title={delay}
+          />
+        );
+      case "action":
+        return (
+          <button
+            type="button"
+            onClick={() =>
+              navigate({
+                to: "/workspace/app/active-dispatch/$dispatchId",
+                params: { dispatchId: trip.id },
+              })
+            }
+            className="inline-flex items-center gap-[5px] rounded bg-[#1B2432] px-2.5 py-1.5 text-[12px] font-medium text-white"
+          >
+            {locationActionLabel}
+            <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
+          </button>
+        );
+    }
   };
 
   const partners = useMemo(() => {
@@ -298,18 +425,10 @@ function ActiveDispatchPage() {
       }),
     );
     const stopsById = new Map(stops);
+    // Same columns as the visitor's table, so the file reconciles with the screen.
     const header = [
-      "Dispatched Date",
-      "Truck Head",
-      "Body Type",
-      "Driver ID",
-      "Driver Name",
-      "Phone Number",
-      "Partner",
-      "Loading Progress",
-      "Last Location",
-      "Last Location Time",
-      "Status",
+      ...visibleColumns.map((column) => BOARD_COLUMN_LABEL[column]),
+      ...(visibleColumns.includes("last") ? ["Last Location Time"] : []),
     ];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
@@ -317,17 +436,15 @@ function ActiveDispatchPage() {
       const stop = lastStopLabel(list[0] ?? null);
       const progress = loadingSiteProgress(tripLoadingSites(trip), list);
       return [
-        dispatchedCell(trip).text,
-        headCell(trip),
-        trip.tailType ?? "",
-        driverIdFor(trip) || "—",
-        trip.driverName ?? "",
-        phoneFor(trip),
-        partnerOf(trip),
-        progress ? `${progress.logged} of ${progress.total} site(s) loaded` : "",
-        stop.place,
-        stop.when,
-        delay,
+        ...visibleColumns.map((column) => {
+          if (column === "loading") {
+            return progress ? `${progress.logged} of ${progress.total} site(s) loaded` : "";
+          }
+          if (column === "last") return stop.place;
+          if (column === "status") return delay;
+          return cellText(trip, column, phoneFor, driverIdFor, partnerOf, sitesFor);
+        }),
+        ...(visibleColumns.includes("last") ? [stop.when] : []),
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(",");
@@ -501,72 +618,34 @@ function ActiveDispatchPage() {
           <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           <>
-            <div className="overflow-x-auto">                <table className="w-full min-w-[1100px] border-collapse">
+            <div className="overflow-x-auto">                <table className="w-full min-w-[900px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E5E9] text-left text-[12px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                    <th className="px-3 py-3">Dispatched Date</th>
-                    <th className="px-3 py-3">Truck Head</th>
-                    <th className="px-3 py-3">Body Type</th>
-                    <th className="px-3 py-3">Driver ID</th>
-                    <th className="px-3 py-3">Driver Name</th>
-                    <th className="px-3 py-3">Phone Number</th>
-                    <th className="px-3 py-3">Partner</th>
-                    <th className="px-3 py-3">Loading</th>
-                    <th className="px-3 py-3">Last Location</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="px-3 py-3">Action</th>
+                    {columns.map((column) => (
+                      <th key={column} className="px-3 py-3">
+                        {BOARD_COLUMN_LABEL[column]}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map((trip) => {
-                    const delay = getTrackingDelayStatus(trip);
                     return (
                       <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
-                        <td className="px-3 py-4 whitespace-nowrap font-semibold tracking-[0.4px]">
-                          {/* Security's real gate stamp, else the TM's estimate. */}
-                          {(() => {
-                            const cell = dispatchedCell(trip);
-                            return (
-                              <span className={cell.estimated ? "text-[#9A6700]" : undefined}>{cell.text}</span>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-3 py-4">{headCell(trip)}</td>
-                        <td className="px-3 py-4">{trip.tailType || ""}</td>
-                        <td className="px-3 py-4 font-semibold tracking-[0.4px]">
-                          {driverIdFor(trip) || "—"}
-                        </td>
-                        <td className="px-3 py-4">{trip.driverName || ""}</td>
-                        <td className="px-3 py-4">{phoneFor(trip)}</td>
-                        <td className="px-3 py-4">{partnerOf(trip)}</td>
-                        <td className="px-3 py-4">
-                          <LoadingProgressCell trip={trip} checkpoints={checkpointsByTrip[trip.id]} />
-                        </td>
-                        <td className="px-3 py-4">
-                          <LastStopCell checkpoint={lastStopOf(trip.id)} />
-                        </td>
-                        <td className="px-3 py-4">
-                          <span
-                            className="inline-block size-3 rounded-full"
-                            style={{ backgroundColor: TRACKING_DELAY_COLOR[delay] }}
-                            title={delay}
-                          />
-                        </td>
-                        <td className="px-3 py-4">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate({
-                                to: "/workspace/app/active-dispatch/$dispatchId",
-                                params: { dispatchId: trip.id },
-                              })
-                            }
-                            className="inline-flex items-center gap-[5px] rounded bg-[#1B2432] px-2.5 py-1.5 text-[12px] font-medium text-white"
+                        {columns.map((column) => (
+                          <td
+                            key={column}
+                            className={cn(
+                              "px-3 py-4",
+                              column === "dispatched" && "whitespace-nowrap font-semibold tracking-[0.4px]",
+                              column === "driverId" && "font-semibold tracking-[0.4px]",
+                              column === "sites" && "max-w-[220px] truncate",
+                            )}
+                            title={column === "sites" ? sitesFor(trip) || undefined : undefined}
                           >
-                            {locationActionLabel}
-                            <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
-                          </button>
-                        </td>
+                            {renderCell(trip, column)}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -645,26 +724,40 @@ function ActiveDispatchPage() {
                     <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
                   </Link>
                 </div>
-                <MetaRow label="Truck Head:" value={headCell(trip)} accent />
-                {/* The BODY comes from the tail, not the head — mislabelling it
-                    "Head Type" made operators read it as the truck's own type. */}
-                <MetaRow label="Body Type:" value={trip.tailType || ""} />
-                <MetaRow label="Driver ID:" value={driverIdFor(trip) || "—"} />
-                <MetaRow label="Driver Name:" value={trip.driverName || ""} />
-                <MetaRow label="Phone No:" value={phoneFor(trip)} />
-                <MetaRow label="Partner:" value={partnerOf(trip)} />
-                {/* How much of the load is collected — the mobile card's own copy of
-                    the board's Loading column. */}
-                <MetaRow
-                  label="Loading:"
-                  value={loadingProgressLabel(trip, checkpointsByTrip[trip.id])}
-                  accent={isLoadingComplete(trip, checkpointsByTrip[trip.id])}
-                />
-                <MetaRow
-                  label="Last Seen:"
-                  value={lastStopRowLabel(lastStopOf(trip.id))}
-                  accent={Boolean(lastStopOf(trip.id))}
-                />
+                {/* Same columns as the table, minus the date (already the card's
+                    headline), the status dot and the action button. */}
+                {visibleColumns
+                  .filter((column) => column !== "dispatched" && column !== "status")
+                  .map((column) => {
+                    if (column === "loading") {
+                      return (
+                        <MetaRow
+                          key={column}
+                          label={`${BOARD_COLUMN_LABEL[column]}:`}
+                          value={loadingProgressLabel(trip, checkpointsByTrip[trip.id])}
+                          accent={isLoadingComplete(trip, checkpointsByTrip[trip.id])}
+                        />
+                      );
+                    }
+                    if (column === "last") {
+                      return (
+                        <MetaRow
+                          key={column}
+                          label="Last Seen:"
+                          value={lastStopRowLabel(lastStopOf(trip.id))}
+                          accent={Boolean(lastStopOf(trip.id))}
+                        />
+                      );
+                    }
+                    return (
+                      <MetaRow
+                        key={column}
+                        label={`${BOARD_COLUMN_LABEL[column]}:`}
+                        value={String(cellText(trip, column, phoneFor, driverIdFor, partnerOf, sitesFor))}
+                        accent={column === "head"}
+                      />
+                    );
+                  })}
               </div>
             );
           })
@@ -690,6 +783,43 @@ function lastStopLabel(checkpoint?: LocationCheckpoint | null): { place: string;
   const sameDay = at.toDateString() === new Date().toDateString();
   const day = at.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   return { place, when: sameDay ? clock : `${day} ${clock}` };
+}
+
+/**
+ * The plain-text twin of one board cell — used by the mobile card (which shows
+ * labelled rows) and by the CSV, so neither can disagree with the table about
+ * what a column holds.
+ */
+function cellText(
+  trip: Trip,
+  column: BoardColumn,
+  phoneFor: (t: Trip) => string,
+  driverIdFor: (t: Trip) => string,
+  partnerOf: (t: Trip) => string,
+  sitesFor: (t: Trip) => string,
+): string {
+  switch (column) {
+    case "dispatched":
+      return dispatchedCell(trip).text;
+    case "head":
+      return headCell(trip);
+    case "body":
+      return trip.tailType || "—";
+    case "driverId":
+      return driverIdFor(trip) || "—";
+    case "driver":
+      return trip.driverName || "—";
+    case "phone":
+      return phoneFor(trip) || "—";
+    case "partner":
+      return partnerOf(trip) || "—";
+    case "sites":
+      return sitesFor(trip) || "—";
+    case "dropoff":
+      return trip.dropoff || "—";
+    default:
+      return "";
+  }
 }
 
 /** The same value on one line, for the mobile card. */
