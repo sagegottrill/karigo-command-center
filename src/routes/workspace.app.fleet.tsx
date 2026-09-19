@@ -13,6 +13,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
+import { CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import {
@@ -43,6 +44,14 @@ const FLEET_GRID =
   // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
   "grid grid-cols-[minmax(112px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(146px,0.8fr)_minmax(96px,0.6fr)_auto]";
 
+/** What the search box actually reaches, said out loud when it finds nothing. */
+const SEARCH_COVERS =
+  "It matches the dispatch ID, the partner or customer company, the truck's cap code and plate, the driver, the drop-off location and the status word.";
+
+function noMatchBody(query: string): string {
+  return `Nothing on this board matches “${query.trim()}”. ${SEARCH_COVERS}`;
+}
+
 function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
   // pill — approving/declining used to make rows vanish with no trace. Raw
@@ -57,19 +66,33 @@ function isDispatchRequest(trip: Trip) {
   );
 }
 
-const STATUS_FILTERS: Array<"All" | "Awaiting Approval" | "Approved" | "Scheduled" | "Completed" | "Declined"> = [
+/**
+ * Every status this table can DISPLAY on a row.
+ *
+ * It is deliberately wider than the filter below: a dispatch can read "Approved"
+ * (released to Fleet Ops, no truck yet) or "Completed" while the red filter only
+ * offers the three the Transport Manager actually acts on. Rows must keep their
+ * real status even when the filter cannot select it.
+ */
+type FleetStatus = "Awaiting Approval" | "Approved" | "Scheduled" | "Completed" | "Declined";
+
+/**
+ * What the red filter offers, in the order the work arrives: the dispatch sitting
+ * on the TM's approval first, then what is on the board, then what he closed.
+ * "Approved" and "Completed" were dropped from this menu on the client's call —
+ * three choices that each mean one clear action beat six that needed reading.
+ */
+const STATUS_FILTERS: Array<"All" | "Awaiting Approval" | "Scheduled" | "Declined"> = [
   "All",
   "Awaiting Approval",
-  "Approved",
   "Scheduled",
-  "Completed",
   "Declined",
 ];
 
-function fleetStatusOf(trip: Trip): (typeof STATUS_FILTERS)[number] {
+function fleetStatusOf(trip: Trip): FleetStatus {
   if (trip.status === "Stopped") return "Declined";
   if (trip.status === "Approved for Dispatch") return "Approved";
-  return trip.status as (typeof STATUS_FILTERS)[number];
+  return trip.status as FleetStatus;
 }
 
 /**
@@ -96,17 +119,16 @@ function fleetQueueRank(trip: Trip): number {
 }
 
 /** Plain-language meaning of each dispatch status, shown on hover. */
-const STATUS_HINT: Record<(typeof STATUS_FILTERS)[number], string> = {
+const STATUS_HINT: Record<FleetStatus, string> = {
   "Awaiting Approval":
     "Fleet Ops has configured this dispatch — approve it to put the truck on the road.",
   Approved: "Approved and waiting on Fleet Ops to schedule the truck.",
   Scheduled: "Approved and scheduled — the truck is on the dispatch board.",
   Completed: "Delivered — the dispatch is closed.",
   Declined: "Rejected by the Transport Manager.",
-  All: "",
 };
 
-function StatusPill({ status }: { status: (typeof STATUS_FILTERS)[number] }) {
+function StatusPill({ status }: { status: FleetStatus }) {
   const cls =
     status === "Declined"
       ? "bg-[#ED351D] text-white"
@@ -163,6 +185,8 @@ function FleetDispatchRequests() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
+  // Ticked companies — empty means no company filter at all.
+  const [companyFilter, setCompanyFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -220,14 +244,52 @@ function FleetDispatchRequests() {
     [trips],
   );
 
+  /**
+   * Companies on this board — the partner that raised the work and the customer it
+   * is for. Both are "the company" to the person filtering, so a tick matches a row
+   * that carries the name in EITHER column.
+   *
+   * Grouping is case-INSENSITIVE and keeps the best spelling of each name: live
+   * data holds "Metalberg" and "metalberg" (and "Metalberg Nig Ltd" beside
+   * "Metalberg nig ltd") from typing, so a case-sensitive list offered 28 options
+   * for 24 companies — and ticking one of a pair silently hid the other's rows.
+   */
+  const companyOptions = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const t of listing) {
+      for (const raw of [t.customer, t.customerConsignee]) {
+        const name = (raw ?? "").trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        const existing = byKey.get(key);
+        if (!existing || (/[A-Z]/.test(name) && !/[A-Z]/.test(existing))) byKey.set(key, name);
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+  }, [listing]);
+
+  /** One lower-cased name per company a row belongs to, for case-insensitive ticks. */
+  const companyOf = (t: Trip) =>
+    [t.customer, t.customerConsignee]
+      .map((raw) => (raw ?? "").trim().toLowerCase())
+      .filter(Boolean);
+  const tickedCompanyKeys = useMemo(() => new Set(companyFilter.map((c) => c.toLowerCase())), [companyFilter]);
+
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
+    if (tickedCompanyKeys.size > 0 && !companyOf(t).some((name) => tickedCompanyKeys.has(name))) return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
     // A truck number typed the way it is said out loud ("KSF 72 YF") has to find
     // the row, not just the stored spelling — cap code and plate both searched.
-    const hay = `${dispatchId(t)} ${displayRequestId(t)} ${dispatchSearchText(t)} ${displayCapFromTrip(t)} ${displayPlateFromTrip(t)} ${fleetTruckTypeOf(t)} ${driver?.name ?? ""} ${driver?.phone ?? ""}`;
+    // The STATUS WORD the row displays is searched too, not the stored one: the
+    // pill says "Declined" while the record says "Stopped", so typing "declined"
+    // used to find nothing on a table full of declined rows.
+    const hay = `${dispatchId(t)} ${displayRequestId(t)} ${dispatchSearchText(t)} ${displayCapFromTrip(t)} ${displayPlateFromTrip(t)} ${fleetTruckTypeOf(t)} ${fleetStatusOf(t)} ${headLabel(t, heads)} ${driver?.name ?? ""} ${driver?.phone ?? ""}`;
     return matchesQuery(hay, query);
   });
+
+  // An empty table must say whether the search or a filter hid the rows.
+  const filtersActive = statusFilter !== "All" || companyFilter.length > 0;
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -383,7 +445,7 @@ function FleetDispatchRequests() {
                 setQuery(e.target.value);
                 setPage(0);
               }}
-              placeholder="Search dispatch, truck (plate or cap), driver…"
+              placeholder="Search dispatch, truck (plate or cap), driver, company…"
               className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-11 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
           </div>
@@ -402,6 +464,17 @@ function FleetDispatchRequests() {
               </option>
             ))}
           </select>
+          <CheckboxFilterButton
+            options={companyOptions}
+            selected={companyFilter}
+            onChange={(next) => {
+              setCompanyFilter(next);
+              setPage(0);
+            }}
+            allLabel="All companies"
+            emptyLabel="No company has a dispatch yet"
+            noun="company"
+          />
         </div>
 
         {/* Mobile cards */}
@@ -409,11 +482,13 @@ function FleetDispatchRequests() {
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title={query ? "No matching dispatch requests" : "No dispatch requests yet"}
+              title={query ? "No matching dispatch requests" : filtersActive ? "No dispatch matches this filter" : "No dispatch requests yet"}
               body={
                 query
-                  ? "Try a different dispatch ID, driver, or destination."
-                  : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval."
+                  ? `${noMatchBody(query)}${filtersActive ? " A filter button is also on — clear it to widen the search." : ""}`
+                  : filtersActive
+                    ? "Nothing here matches the filter you picked. Press a red filter button and choose “All” to see every dispatch again."
+                    : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval. Requests still with the partner live on Partner Requests."
               }
             />
           )}
@@ -513,7 +588,7 @@ function FleetDispatchRequests() {
                   setQuery(e.target.value);
                   setPage(0);
                 }}
-                placeholder="Search dispatch, truck (plate or cap), driver…"
+                placeholder="Search dispatch, truck (plate or cap), driver, company…"
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
@@ -555,6 +630,19 @@ function FleetDispatchRequests() {
                 </>
               )}
             </div>
+            {/* Second filter: the company — several at once, tick boxes, so the
+                board can be narrowed to one partner's or one customer's work. */}
+            <CheckboxFilterButton
+              options={companyOptions}
+              selected={companyFilter}
+              onChange={(next) => {
+                setCompanyFilter(next);
+                setPage(0);
+              }}
+              allLabel="All companies"
+              emptyLabel="No company has a dispatch yet"
+              noun="company"
+            />
           </div>
 
           {/* Responsive grid — the table flexes to the viewport instead of
@@ -634,11 +722,13 @@ function FleetDispatchRequests() {
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title={query ? "No matching dispatch requests" : "No dispatch requests yet"}
+              title={query ? "No matching dispatch requests" : filtersActive ? "No dispatch matches this filter" : "No dispatch requests yet"}
               body={
                 query
-                  ? "Try a different dispatch ID, driver, or destination."
-                  : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval."
+                  ? `${noMatchBody(query)}${filtersActive ? " A filter button is also on — clear it to widen the search." : ""}`
+                  : filtersActive
+                    ? "Nothing here matches the filter you picked. Press a red filter button and choose “All” to see every dispatch again."
+                    : "After Fleet Ops assigns a truck and driver, requests wait here for final TM approval. Requests still with the partner live on Partner Requests."
               }
             />
           )}
