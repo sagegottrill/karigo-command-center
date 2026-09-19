@@ -60,12 +60,15 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
     case "Returning":
     case "Delayed":
       return "In Transit";
+    // Pending means exactly one thing for Fleet Ops: the Transport Manager has
+    // not approved it yet. The moment he does — whether Fleet Ops has assigned a
+    // truck yet or not — the dispatch is scheduled work, not a pending request.
     case "Requested":
     case "Draft":
-    case "Awaiting Approval":
+      return "Pending";
     case "Approved":
     case "Approved for Dispatch":
-      return "Pending";
+    case "Awaiting Approval":
     case "Scheduled":
       return "Scheduled";
     case "Stopped":

@@ -222,13 +222,13 @@ export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
     case "inTransit":
       return "In Transit";
     case "scheduled":
-      // "Scheduled" gets its own word: the TM has final-approved it and it sits
-      // on the dispatch board, so showing "Pending" made finished work look
-      // like it was still waiting on somebody.
-      return "Scheduled";
-    case "pending":
     case "approved":
     case "awaiting":
+      // Once the Transport Manager has approved it, it is scheduled work — on
+      // the board and no longer waiting on anybody. "Pending" is reserved for a
+      // request he has not approved at all.
+      return "Scheduled";
+    case "pending":
       return "Pending";
     case "completed":
       return "Completed";
