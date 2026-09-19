@@ -105,6 +105,12 @@ function formatHistoryDate(trip: Trip) {
   return raw;
 }
 
+/** Sortable timestamp of the date this page shows, 0 when unreadable. */
+function dateValue(trip: Trip) {
+  const parsed = Date.parse(trip.scheduledDate ?? "");
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function companyName(trip: Trip) {
   if (trip.customer && trip.customer !== "Customer Portal") return trip.customer;
   return trip.customerConsignee ?? "";
@@ -357,7 +363,7 @@ function DispatchHistoryPage() {
   });
 
   const filteredTrips = useMemo(() => {
-    return trips.filter((t) => {
+    const rows = trips.filter((t) => {
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
       // The shared matcher, so what is typed finds what is on screen: the
       // dispatch id as shown, every column's text, the date as displayed, and
@@ -371,6 +377,15 @@ function DispatchHistoryPage() {
         t.driverName ?? "",
       ].join(" ");
       return matchesQuery(`${hay} ${dispatchSearchText(t)}`, searchQuery);
+    });
+    // Pending sits on top — it is the only thing on this page still waiting on
+    // somebody (the Transport Manager). Everything already approved reads
+    // Scheduled below it, newest first, same as the working queues.
+    return rows.sort((a, b) => {
+      const rank = (t: Trip) => (toDisplayStatus(t.status) === "Pending" ? 0 : 1);
+      const byRank = rank(a) - rank(b);
+      if (byRank !== 0) return byRank;
+      return dateValue(b) - dateValue(a);
     });
   }, [trips, searchQuery, statusFilter]);
 
