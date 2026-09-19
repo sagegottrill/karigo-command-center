@@ -133,7 +133,9 @@ function ActiveDispatchPage() {
   const roles = authService.getRoles();
   const logsJourney = canLogTracking(roles);
   const logsLoading = !logsJourney && canLogLoading(roles);
-  const locationActionLabel = logsJourney ? "Log Location" : logsLoading ? "Log Loading" : "View Location";
+  // A viewer's button opens the truck's own record — it is the way in to what
+  // that vehicle is doing, not a place to write a checkpoint.
+  const locationActionLabel = logsJourney ? "Log Location" : logsLoading ? "Log Loading" : "View Truck";
   const pageBlurb = logsJourney
     ? "Monitor active dispatches and manually log location checkpoints"
     : logsLoading
@@ -317,7 +319,11 @@ function ActiveDispatchPage() {
       </div>
 
       <p className="hidden text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[#1B2432] md:block">
-        MANUALLY LOG LOCATION CHECKPOINTS
+        {logsJourney
+          ? "MANUALLY LOG LOCATION CHECKPOINTS"
+          : logsLoading
+            ? "MARK EACH LOADING SITE AS IT IS COLLECTED"
+            : "VIEW TRUCKS AND THEIR LOCATION HISTORY"}
       </p>
 
       <button
