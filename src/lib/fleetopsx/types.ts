@@ -89,7 +89,13 @@ export type TruckStatus =
    * truck goes back to Available or into Maintenance. */
   | "Check Up"
   | "Maintenance"
-  | "Accident";
+  | "Accident"
+  /**
+   * Taken out of service deliberately — a sold, retired or parked-up truck whose
+   * number must stay on the books (the client will not renumber). A blocked asset
+   * is never offered in an assignment picker, whatever else is true about it.
+   */
+  | "Blocked";
 
 export interface TruckHead {
   id: ID;

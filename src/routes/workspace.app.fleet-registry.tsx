@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { matchesQuery } from "@/lib/fleetopsx/search-match";
-import { ChevronLeft, ChevronRight, Download, Printer, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Printer, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
@@ -29,6 +30,7 @@ const STATUS_FILTERS = [
   "Check Up",
   "Maintenance",
   "Accident",
+  "Blocked",
 ] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type AssetTab = "head" | "tail";
@@ -45,7 +47,18 @@ const ASSET_STATUS_ORDER: TruckStatus[] = [
   "Check Up",
   "Maintenance",
   "Accident",
+  "Blocked",
 ];
+
+/**
+ * Column tracks for the registry table. A caller who may act on a row (add,
+ * edit, block, retire) gets one extra narrow track for its menu — Fleet Ops,
+ * which only reads and re-states, sees the same table without it.
+ */
+const registryGrid = (canAct: boolean) =>
+  canAct
+    ? "grid-cols-[122px_132px_1fr_120px_120px_44px] gap-x-8"
+    : "grid-cols-[146px_146px_1fr_140px_140px] gap-[50px]";
 
 /** Where an asset sits when it is not on a trip. The client's sheet only ever uses
  * Port or Customer; Depot is the fallback for assets without a sheet location. */
@@ -83,6 +96,8 @@ function statusPillClass(status: TruckStatus) {
       return "bg-[#F99E1F] text-white";
     case "Accident":
       return "bg-[#ED351D] text-white";
+    case "Blocked":
+      return "bg-[#1B2432] text-white";
     default: {
       const _exhaustive: never = status;
       return _exhaustive;
@@ -92,6 +107,48 @@ function statusPillClass(status: TruckStatus) {
 
 function headLabel(head: TruckHead) {
   return displayHeadCap(head) || head.capNumber || head.number;
+}
+
+/**
+ * Only the Transport Manager owns the fleet itself — which trucks exist, what
+ * they are and whether they may be used. Fleet Ops works the trucks (status,
+ * where one is standing) but does not add, re-plate or retire them.
+ */
+const FLEET_ADMIN_ROLES = ["Transport Manager", "Platform Admin"];
+
+/** The editable shape of an asset, whichever tab it came from. */
+type AssetDraft = {
+  /** Cap number (head) or tail number (tail) — the UNIQUE number that never changes hands. */
+  number: string;
+  registration: string;
+  /** A head's category or a tail's body. */
+  kind: string;
+  status: TruckStatus;
+  location: string;
+};
+
+function draftOf(tab: AssetTab, item?: TruckHead | TruckTail): AssetDraft {
+  if (!item) {
+    return { number: "", registration: "", kind: "", status: "Available", location: "Depot" };
+  }
+  if (tab === "head") {
+    const head = item as TruckHead;
+    return {
+      number: headLabel(head),
+      registration: head.registration ?? "",
+      kind: head.make ?? "",
+      status: head.status,
+      location: head.location || "Depot",
+    };
+  }
+  const tail = item as TruckTail;
+  return {
+    number: tail.number ?? "",
+    registration: tail.registration ?? "",
+    kind: tail.type ?? "",
+    status: tail.status,
+    location: tail.location || "Depot",
+  };
 }
 
 /**
@@ -227,6 +284,13 @@ function FleetRegistryPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const canManageFleet = authService.getRoles().some((r: string) => FLEET_ADMIN_ROLES.includes(r));
+  // Add / edit surface, and the row queued for deletion (never deleted on a
+  // single click — a fleet number that disappears by accident is unrecoverable).
+  const [editor, setEditor] = useState<{ mode: "create" | "edit"; item?: TruckHead | TruckTail } | null>(null);
+  const [removing, setRemoving] = useState<TruckHead | TruckTail | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
     const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
@@ -288,6 +352,83 @@ function FleetRegistryPage() {
       refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update location");
+    }
+  };
+
+  /**
+   * Write one asset to the server: create or update, on whichever tab is open.
+   * A duplicate number comes back as a readable sentence rather than a raw error
+   * — the number is the one thing about a truck that must stay unambiguous.
+   */
+  const submitAsset = async (draft: AssetDraft, target?: TruckHead | TruckTail) => {
+    const number = draft.number.trim();
+    if (!number) {
+      toast.error(tab === "head" ? "A head number (cap) is required." : "A tail number is required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (tab === "head") {
+        const body = {
+          cabId: number,
+          registration: draft.registration.trim(),
+          category: draft.kind.trim() || null,
+          destination: draft.location.trim() || null,
+          status: draft.status,
+        };
+        if (target) await fleetService.updateHead(target.id, body as Partial<TruckHead>);
+        else await fleetService.createHead(body);
+      } else {
+        const body = {
+          number,
+          type: draft.kind.trim() || null,
+          status: draft.status,
+        };
+        if (target) await fleetService.updateTail(target.id, { ...body, location: draft.location } as Partial<TruckTail>);
+        else {
+          await fleetService.createTail(body);
+          // POST /tails takes number/type/status only — the standing location is
+          // written straight after, so a new tail is never left with a blank one.
+          const created = (await fleetService.listTails()).find((t) => t.number === number);
+          if (created && draft.location.trim()) await fleetService.setTailDestination(created.id, draft.location.trim());
+        }
+      }
+      toast.success(target ? `${number} updated.` : `${number} added to the fleet.`);
+      setEditor(null);
+      refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save the asset.";
+      toast.error(/409|already exists|unique/i.test(message) ? `${number} already exists in the fleet.` : message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Blocked / un-blocked: the number stays, it simply cannot be assigned. */
+  const setBlocked = async (item: TruckHead | TruckTail, blocked: boolean) => {
+    try {
+      if (tab === "head") await fleetService.updateHeadStatus(item.id, blocked ? "Blocked" : "Available");
+      else await fleetService.updateTailStatus(item.id, blocked ? "Blocked" : "Available");
+      toast.success(blocked ? "Blocked — this number can no longer be assigned." : "Unblocked — available for assignment again.");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not change the block state");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!removing) return;
+    setBusy(true);
+    try {
+      if (tab === "head") await fleetService.deleteHead(removing.id);
+      else await fleetService.deleteTail(removing.id);
+      toast.success("Removed from the fleet.");
+      setRemoving(null);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove the asset");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -457,6 +598,18 @@ function FleetRegistryPage() {
               <Printer className="size-[18px]" strokeWidth={1.75} />
               Print
             </button>
+            {/* The Transport Manager grows the fleet from here — Fleet Ops does
+                not add, re-plate or retire trucks. */}
+            {canManageFleet ? (
+              <button
+                type="button"
+                onClick={() => setEditor({ mode: "create" })}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19] md:text-[14px]"
+              >
+                <Plus className="size-[18px]" strokeWidth={2} />
+                {tab === "head" ? "Add Head" : "Add Tail"}
+              </button>
+            ) : null}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:pb-0">
             {STATUS_FILTERS.map((filter) => (
@@ -512,7 +665,12 @@ function FleetRegistryPage() {
             </div>
           </div>
 
-          <div className="hidden grid-cols-[146px_146px_1fr_140px_140px] items-center gap-[50px] border-b border-[#E2E5E9] py-2.5 md:grid">
+          <div
+            className={cn(
+              "hidden items-center border-b border-[#E2E5E9] py-2.5 md:grid",
+              registryGrid(canManageFleet),
+            )}
+          >
             {(tab === "head"
               ? ["Head No", "Registration", "Category", "Status", "Location"]
               : ["Tail No", "Registration", "Body", "Status", "Location"]
@@ -521,6 +679,7 @@ function FleetRegistryPage() {
                 {h}
               </span>
             ))}
+            {canManageFleet ? <span /> : null}
           </div>
 
           <div className="flex flex-col gap-2.5 md:hidden">
@@ -574,6 +733,31 @@ function FleetRegistryPage() {
                       </option>
                     ))}
                   </select>
+                  {canManageFleet ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditor({ mode: "edit", item })}
+                        className="h-7 rounded border border-[#627084] px-2.5 text-[12px] font-medium text-[#303D50]"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void setBlocked(item, item.status !== "Blocked")}
+                        className="h-7 rounded border border-[#627084] px-2.5 text-[12px] font-medium text-[#303D50]"
+                      >
+                        {item.status === "Blocked" ? "Unblock" : "Block"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRemoving(item)}
+                        className="h-7 rounded border border-[#ED351D] px-2.5 text-[12px] font-medium text-[#ED351D]"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -586,7 +770,10 @@ function FleetRegistryPage() {
               return (
                 <div
                   key={item.id}
-                  className="grid grid-cols-[146px_146px_1fr_140px_140px] items-center gap-[50px] border-b border-[#E2E5E9] py-2.5"
+                  className={cn(
+                    "grid items-center border-b border-[#E2E5E9] py-2.5",
+                    registryGrid(canManageFleet),
+                  )}
                 >
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {head ? headLabel(head) : tail?.number}
@@ -634,6 +821,23 @@ function FleetRegistryPage() {
                       </option>
                     ))}
                   </select>
+                  {canManageFleet ? (
+                    <div className="justify-self-end">
+                      <RowActionMenu
+                        open={menuFor === item.id}
+                        onOpenChange={(o) => setMenuFor(o ? item.id : null)}
+                        label="Fleet asset options"
+                        width={184}
+                        items={[
+                          { label: "Edit", onSelect: () => setEditor({ mode: "edit", item }) },
+                          item.status === "Blocked"
+                            ? { label: "Unblock", onSelect: () => void setBlocked(item, false) }
+                            : { label: "Block", onSelect: () => void setBlocked(item, true) },
+                          { label: "Delete", onSelect: () => setRemoving(item), danger: true },
+                        ]}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -693,6 +897,183 @@ function FleetRegistryPage() {
           )}
         </div>
 
+      </div>
+
+      {editor ? (
+        <AssetEditorModal
+          tab={tab}
+          item={editor.item}
+          busy={busy}
+          onCancel={() => setEditor(null)}
+          onSubmit={(draft) => void submitAsset(draft, editor.item)}
+        />
+      ) : null}
+
+      {removing ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-[420px] rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-[16px] font-bold text-[#1B2432]">
+              Remove {tab === "head" ? "this head" : "this tail"} from the fleet?
+            </h3>
+            <p className="mt-1 text-[13px] text-[#5C6470]">
+              {tab === "head" ? headLabel(removing as TruckHead) : (removing as TruckTail).number} disappears from
+              every assignment list. Use Block instead if the truck is sold or parked up but its number must stay on
+              the books — blocking keeps it listed and simply never offers it for dispatch.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRemoving(null)}
+                className="text-[13px] font-medium text-[#627084] hover:underline"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void confirmDelete()}
+                className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {busy ? "Removing…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Add-a-truck / edit-a-truck form, shared by both registry tabs.
+ *
+ * The number is the one field the rest of the platform keys on (a partner's
+ * request is matched to a tail by its body, an assignment to a head by its cap),
+ * so it is always shown and always required — and a duplicate is refused by the
+ * server rather than silently overwriting the truck that already owns it.
+ */
+function AssetEditorModal({
+  tab,
+  item,
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  tab: AssetTab;
+  item?: TruckHead | TruckTail;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (draft: AssetDraft) => void;
+}) {
+  const [draft, setDraft] = useState<AssetDraft>(() => draftOf(tab, item));
+  const isHead = tab === "head";
+  const editing = Boolean(item);
+  const set = <K extends keyof AssetDraft>(key: K, value: AssetDraft[K]) =>
+    setDraft((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-[520px] flex-col gap-4 overflow-auto rounded-xl bg-white p-5 shadow-xl">
+        <div className="border-b border-[#E2E5E9] pb-3">
+          <h3 className="text-[18px] font-bold text-[#1B2432]">
+            {editing ? "Edit" : "Add"} {isHead ? "truck head" : "tail"}
+          </h3>
+          <p className="mt-1 text-[12px] text-[#5C6470]">
+            {isHead
+              ? "The cap number is how this truck is called on every dispatch. Category is what it is used for."
+              : "The tail number is how this body is called on every dispatch. Body is what it actually carries."}
+          </p>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-[#141A1F]">
+            {isHead ? "Head No (Cap Number)" : "Tail No"} <span className="text-[#ED351D]">*</span>
+          </span>
+          <input
+            autoFocus
+            value={draft.number}
+            onChange={(e) => set("number", e.target.value)}
+            placeholder={isHead ? "e.g. P121" : "e.g. B109"}
+            className="h-10 rounded border border-[#E2E5E9] px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#ED351D]"
+          />
+        </label>
+
+        {isHead ? (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[#141A1F]">Registration (Plate)</span>
+            <input
+              value={draft.registration}
+              onChange={(e) => set("registration", e.target.value)}
+              placeholder="e.g. KRD990YM"
+              className="h-10 rounded border border-[#E2E5E9] px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#ED351D]"
+            />
+          </label>
+        ) : null}
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-[#141A1F]">{isHead ? "Category" : "Body Type"}</span>
+          <select
+            value={draft.kind}
+            onChange={(e) => set("kind", e.target.value)}
+            className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#ED351D]"
+          >
+            <option value="">Not set</option>
+            {(isHead ? headCategoryOptions(draft.kind) : tailBodyOptions(draft.kind)).map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[#141A1F]">Status</span>
+            <select
+              value={draft.status}
+              onChange={(e) => set("status", e.target.value as TruckStatus)}
+              className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#ED351D]"
+            >
+              {ASSET_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[#141A1F]">Location</span>
+            <select
+              value={draft.location}
+              onChange={(e) => set("location", e.target.value)}
+              className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#ED351D]"
+            >
+              {locationOptions(draft.location).map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[#E2E5E9] pt-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-[13px] font-medium text-[#627084] hover:underline"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy || !draft.number.trim()}
+            onClick={() => onSubmit(draft)}
+            className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? "Saving…" : editing ? "Save Changes" : isHead ? "Add Head" : "Add Tail"}
+          </button>
+        </div>
       </div>
     </div>
   );

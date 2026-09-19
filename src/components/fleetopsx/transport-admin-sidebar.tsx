@@ -59,6 +59,10 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     label: "DEPARTMENTS",
     items: [
       { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, liveDot: "fleetDispatch" },
+      // The fleet itself: add a head or tail, correct it, block one off or retire
+      // it. Transport Manager's call alone — Fleet Ops works the trucks, it does
+      // not decide which trucks exist.
+      { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck },
       // Tracking Operations board: the TM watches every truck on the road here.
       { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },

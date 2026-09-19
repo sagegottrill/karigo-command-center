@@ -52,7 +52,8 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
               statusRaw === "Out of Yard" ||
               statusRaw === "Check Up" ||
               statusRaw === "Maintenance" ||
-              statusRaw === "Accident"
+              statusRaw === "Accident" ||
+              statusRaw === "Blocked"
             ? (statusRaw as TruckHead["status"])
             : "Accident";
 
@@ -91,7 +92,9 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
           ? statusRaw
           : statusRaw === "Out of Service" || statusRaw === "Accident"
             ? "Accident"
-            : "Available";
+            : statusRaw === "Blocked"
+              ? "Blocked"
+              : "Available";
   return {
     id: String(t["id"] ?? ""),
     number: String(t["number"] ?? t["id"] ?? ""),

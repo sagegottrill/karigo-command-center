@@ -44,6 +44,9 @@ const TONE_MAP: Record<string, Tone> = {
   Delayed: "warning",
   Stopped: "warning",
   Maintenance: "warning",
+  // Deliberately out of service (sold / retired / parked up): a neutral state the
+  // fleet team set, not an alarm.
+  Blocked: "neutral",
   "Low Stock": "warning",
   "Expiring Soon": "warning",
   "Awaiting Parts": "warning",
