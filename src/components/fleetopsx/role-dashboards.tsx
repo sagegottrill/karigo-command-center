@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { formatNaira } from "@/lib/fleetopsx/services";
 import { ACTIVE_DISPATCH_BUCKETS, FO_QUEUE_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
+import { dailyActivity } from "@/lib/fleetopsx/daily-stats";
+import { DailyCaptureBand, useDailyClock } from "./daily-capture";
 import { StatusBadge } from "./status-badge";
 import { MetricCard } from "./metric-card";
 import { Button } from "@/components/ui/button";
@@ -71,6 +73,9 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
   const availableHeads = trucks.filter((t) => t.status === "Available").length;
   const inUseHeads = trucks.filter((t) => t.status === "Assigned" || t.status === "Out of Yard").length;
   const completed = trips.filter((t) => t.status === "Completed").length;
+  // Daily capture, same day boundary as the Transport Manager's dashboard.
+  const clock = useDailyClock();
+  const daily = clock ? dailyActivity(trips, clock) : null;
 
   return (
     <div className="flex w-full flex-col gap-[30px] bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
@@ -80,6 +85,8 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
           Live dispatch queue and fleet readiness
         </p>
       </div>
+
+      <DailyCaptureBand activity={daily} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link
@@ -112,6 +119,7 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
         >
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Completed trips</p>
           <p className="mt-2 font-space-grotesk text-[32px] font-medium leading-10 text-[#1B2432]">{completed}</p>
+          <p className="mt-1 text-[12px] text-[#5C6470]">{daily?.completed ?? 0} completed today</p>
         </Link>
       </div>
 

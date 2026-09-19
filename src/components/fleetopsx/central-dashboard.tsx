@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminService, authService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
+import { dailyActivity } from "@/lib/fleetopsx/daily-stats";
+import { DailyCaptureBand, useDailyClock } from "./daily-capture";
 import { ACTIVE_DISPATCH_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -59,12 +61,22 @@ function StatCard({
   );
 }
 
-function SectionTitle({ children }: { children: string }) {
+/**
+ * Section header. The `scope` chip states out loud whether the numbers under it
+ * are TODAY's capture, an all-time total, or the live state right now — so no
+ * card can look stale without saying so.
+ */
+function SectionTitle({ children, scope }: { children: string; scope?: string }) {
   return (
-    <div className="flex w-full items-center border-b border-[rgba(92,100,112,0.3)] pb-2.5">
+    <div className="flex w-full flex-wrap items-center justify-between gap-2 border-b border-[rgba(92,100,112,0.3)] pb-2.5">
       <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[24px] md:font-medium md:leading-8">
         {children}
       </h2>
+      {scope ? (
+        <span className="rounded-[4px] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.6px] text-[#5C6470]">
+          {scope}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -74,6 +86,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [users, setUsers] = useState<User[]>([]);
   // Cards stay live: poll the same APIs the initial load used (30s).
   const [live, setLive] = useState<OverviewData>(data);
+  // Daily capture clock (client-only, ticks every second).
+  const clock = useDailyClock();
 
   useEffect(() => {
     let cancelled = false;
@@ -196,12 +210,53 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     };
   }, [live.trips, live.trucks, tails, users]);
 
+  // Today's capture. Rebuilt from the trip stamps on every tick, so the rollover
+  // at midnight needs no cron job and no stored snapshot — yesterday's numbers
+  // cannot bleed into today's.
+  const daily = clock ? dailyActivity(live.trips ?? [], clock) : null;
+
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-5 md:p-[30px] md:pb-[30px]">
+      {/* Daily capture band — the day this board reports on, and how fresh it is. */}
+      <DailyCaptureBand />
+
       {/* Figma 472:17727 / mobile 472:17760 */}
-      <SectionTitle>Customer Requests</SectionTitle>
+      <SectionTitle scope="Today">Today's Activity</SectionTitle>
       <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
-        <StatCard tall label="Total Requests" value={stats.requests.total} className="md:min-w-[160px] md:flex-1" />
+        <StatCard
+          label="Requests Today"
+          value={daily?.requests ?? 0}
+          hint={stats.requests.total > 0 ? `${stats.requests.total} raised all time` : undefined}
+          className="md:min-w-[160px] md:flex-1"
+        />
+        <StatCard label="Approved Today" value={daily?.approved ?? 0} className="md:min-w-[160px] md:flex-1" />
+        <StatCard
+          label="Dispatched Today"
+          value={daily?.dispatched ?? 0}
+          className="md:min-w-[160px] md:flex-1"
+        />
+        <StatCard label="Completed Today" value={daily?.completed ?? 0} className="md:min-w-[160px] md:flex-1" />
+        <StatCard
+          label="Declined Today"
+          value={daily?.declined ?? 0}
+          {...(daily && daily.declined > 0
+            ? { hint: "partner was told why", hintClass: "text-[#ED351D]" }
+            : {})}
+          className="col-span-2 md:col-span-1 md:min-w-[160px] md:flex-1"
+        />
+      </div>
+
+      <SectionTitle scope="All time">Customer Requests</SectionTitle>
+      <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
+        <StatCard
+          tall
+          label="Total Requests"
+          value={stats.requests.total}
+          {...(daily && daily.requests > 0
+            ? { hint: `+${daily.requests} today`, hintClass: "text-[#34C759]" }
+            : {})}
+          className="md:min-w-[160px] md:flex-1"
+        />
         <StatCard
           tall
           label="In transit"
@@ -221,7 +276,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         />
       </div>
 
-      <SectionTitle>Tracking Operations</SectionTitle>
+      <SectionTitle scope="Live now">Tracking Operations</SectionTitle>
       <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
         <StatCard label="Active Dispatches" value={stats.dispatch.total} className="md:min-w-[160px] md:flex-1" />
         <StatCard label="On Schedule" value={stats.dispatch.onSchedule} className="md:min-w-[160px] md:flex-1" />
@@ -243,7 +298,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         />
       </div>
 
-      <SectionTitle>Fleet Registry</SectionTitle>
+      <SectionTitle scope="Live now">Fleet Registry</SectionTitle>
       <div className="flex flex-col gap-3 md:gap-5">
         <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
           <StatCard label="Total Head" value={stats.heads.total} className="md:min-w-[160px] md:flex-1" />
@@ -317,7 +372,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         </div>
       </div>
 
-      <SectionTitle>Staff Registry</SectionTitle>
+      <SectionTitle scope="Live now">Staff Registry</SectionTitle>
       <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
         <StatCard
           label="Total Staff Account"
