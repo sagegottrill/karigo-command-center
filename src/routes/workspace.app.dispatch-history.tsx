@@ -31,13 +31,24 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   component: DispatchHistoryPage,
 });
 
-type DisplayStatus = "In Transit" | "Pending" | "Declined" | "Completed";
+type DisplayStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
 
-const HISTORY_STATUS_FILTERS = ["All", "In Transit", "Pending", "Declined", "Completed"] as const;
+const HISTORY_STATUS_FILTERS = [
+  "All",
+  "In Transit",
+  "Pending",
+  "Scheduled",
+  "Declined",
+  "Completed",
+] as const;
 
 const STATUS_STYLES: Record<DisplayStatus, string> = {
   "In Transit": "bg-[#A259FF] text-white",
   Pending: "bg-[#FC0] text-[#1B2432]",
+  // Booked and on the board, not yet moving — its own word, not "Pending":
+  // the Transport Manager has already final-approved these, so calling them
+  // pending read as work still waiting on somebody.
+  Scheduled: "bg-[#007AFF] text-white",
   Declined: "bg-[#FF383C] text-white",
   Completed: "bg-[#34C759] text-white",
 };
@@ -55,8 +66,9 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
-    case "Scheduled":
       return "Pending";
+    case "Scheduled":
+      return "Scheduled";
     case "Stopped":
       return "Declined";
     case "Completed":

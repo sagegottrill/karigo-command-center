@@ -215,16 +215,20 @@ export function approvedStampOf(
 }
 
 /** Dispatch History display label (internal staff view). */
-export type HistoryUiStatus = "In Transit" | "Pending" | "Declined" | "Completed";
+export type HistoryUiStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
 
 export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): HistoryUiStatus {
   switch (tripBucket(trip)) {
     case "inTransit":
       return "In Transit";
+    case "scheduled":
+      // "Scheduled" gets its own word: the TM has final-approved it and it sits
+      // on the dispatch board, so showing "Pending" made finished work look
+      // like it was still waiting on somebody.
+      return "Scheduled";
     case "pending":
     case "approved":
     case "awaiting":
-    case "scheduled":
       return "Pending";
     case "completed":
       return "Completed";
