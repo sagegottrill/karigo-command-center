@@ -36,9 +36,12 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 /** Desktop table columns — fr units so the table flexes to fit 1280–1920px
     laptops instead of forcing the page sideways (screenshot bug). */
 const FLEET_GRID =
-  // The Status column has to hold "Awaiting Approval" on ONE line — 86px wrapped
-  // it into a two-line pill that read as a rendering glitch.
-  "grid grid-cols-[minmax(112px,0.8fr)_minmax(94px,0.6fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(146px,0.8fr)_auto]";
+  // Column order is the order the row is read in: the DATE leads (what came in
+  // first), then who it is for, the truck, and the DISPATCH ID last — it is the
+  // reference you look up after you have found the row, not the first thing you
+  // read. Status keeps its own wide track: it has to hold "Awaiting Approval" on
+  // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
+  "grid grid-cols-[minmax(112px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(110px,0.8fr)_minmax(84px,0.6fr)_minmax(0,0.9fr)_minmax(112px,0.8fr)_minmax(146px,0.8fr)_minmax(96px,0.6fr)_auto]";
 
 function isDispatchRequest(trip: Trip) {
   // Every dispatched request stays visible across its lifecycle with a status
@@ -233,11 +236,13 @@ function FleetDispatchRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Date Requested,Dispatch ID,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Status\n";
+    // Same order as the table, so the file reconciles with the screen row for row.
+    const headers =
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Status,Dispatch ID\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${formatDateTimeStamp(t.createdAt)},${dispatchId(t)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)}`;
+        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${fleetStatusOf(t)},${dispatchId(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -420,8 +425,10 @@ function FleetDispatchRequests() {
                 className="relative flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
+                  {/* Phone cards follow the table's order: the date leads the card
+                      and the dispatch ID closes it. */}
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
-                    {dispatchId(trip)}
+                    {formatDateTimeStamp(trip.createdAt)}
                   </span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={fleetStatusOf(trip)} />
@@ -455,8 +462,8 @@ function FleetDispatchRequests() {
                 <MetaRow label="Truck Type:" value={fleetTruckTypeOf(trip)} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
+                <MetaRow label="Dispatch ID:" value={dispatchId(trip)} />
               </div>
             );
           })}
@@ -557,7 +564,6 @@ function FleetDispatchRequests() {
               <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", FLEET_GRID)}>
                 {/* Date Requested leads the row — the TM reads the request date first. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
@@ -567,6 +573,9 @@ function FleetDispatchRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
+                {/* The dispatch ID closes the row: the reference you quote once you
+                    have found the dispatch you were looking for. */}
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
                 <span className="justify-self-end text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Actions</span>
               </div>
 
@@ -578,9 +587,6 @@ function FleetDispatchRequests() {
                     className={cn("relative items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0", FLEET_GRID)}
                   >
                     <DateCell value={trip.createdAt} />
-                    <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                      {dispatchId(trip)}
-                    </span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.customerConsignee || "—"}
                     </span>
@@ -593,6 +599,9 @@ function FleetDispatchRequests() {
                     <DateCell value={trip.dispatchedAt} />
                     <span>
                       <StatusPill status={fleetStatusOf(trip)} />
+                    </span>
+                    <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                      {dispatchId(trip)}
                     </span>
                     <div className="flex shrink-0 items-center gap-2 justify-self-end">
                       <RowActionMenu
