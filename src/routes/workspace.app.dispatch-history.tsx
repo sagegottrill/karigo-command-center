@@ -8,6 +8,21 @@ import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+
+/**
+ * The assigned truck as the operators read it off the vehicle: cap code first,
+ * plate in brackets — "P073 (APP857YL)", the same pairing the Transport
+ * Manager's board and every printout use. Empty while nothing is assigned, so
+ * a request still sitting with the TM never advertises a truck it does not
+ * have.
+ */
+function headCell(trip: Trip) {
+  const cap = displayCapFromTrip(trip);
+  const plate = displayPlateFromTrip(trip);
+  const realPlate = plate && !/^unassigned$/i.test(plate) ? plate : "";
+  if (cap && realPlate) return `${cap} (${realPlate})`;
+  return cap || realPlate || "—";
+}
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -375,6 +390,7 @@ function DispatchHistoryPage() {
         toDisplayStatus(t.status),
         t.status,
         t.driverName ?? "",
+        headCell(t),
       ].join(" ");
       return matchesQuery(`${hay} ${dispatchSearchText(t)}`, searchQuery);
     });
@@ -390,11 +406,11 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Date,Company,Customer,Product,Head Type,Destination,Dispatch ID,Status\n";
+    const headers = "Date,Company,Customer,Product,Truck Head,Head Type,Destination,Dispatch ID,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
-          `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)}`,
+          `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -468,8 +484,8 @@ function DispatchHistoryPage() {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Date", "Company", "Customer", "Product", "Head Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
+        <div className="hidden grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
+          {["Date", "Company", "Customer", "Product", "Truck Head", "Head Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -503,6 +519,10 @@ function DispatchHistoryPage() {
                     <span className="flex-1 text-[#344256]">{trip.cargo || "—"}</span>
                   </div>
                   <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Truck Head:</span>
+                    <span className="flex-1 text-[#344256]">{headCell(trip)}</span>
+                  </div>
+                  <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
                     <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
                   </div>
@@ -524,12 +544,13 @@ function DispatchHistoryPage() {
                 key={trip.id}
                 type="button"
                 onClick={() => setSelectedTrip(trip)}
-                className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
+                className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
                 <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee || "—"}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
+                <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{headCell(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                 <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
