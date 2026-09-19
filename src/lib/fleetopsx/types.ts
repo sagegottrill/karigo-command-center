@@ -222,6 +222,13 @@ export interface Trip {
    * board shows until Security logs the real gate departure.
    */
   estimatedDate?: string | null;
+  /**
+   * How many days the Transport Manager expects the vehicle to spend ON THE
+   * ROAD, set at his final approval. This is the number the delay status is
+   * measured against (see `trip-duration.ts`) and what the partner is told as
+   * the expected return.
+   */
+  estimatedDays?: number | null;
   /** TM first approval (partner sees "Seen"). */
   approvedAt?: string | null;
   /** Fleet Ops assigning driver/truck. */

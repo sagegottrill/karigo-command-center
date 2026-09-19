@@ -33,6 +33,7 @@ import {
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { dispatchFields, printDispatch } from "@/components/fleetopsx/dispatch-details-modal";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
+import { expectedReturnAt, tripDelay } from "@/lib/fleetopsx/trip-duration";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/$dispatchId")({
@@ -340,9 +341,24 @@ function LogLocationPage() {
             </div>
           </div>
 
-          <div className="mt-5 flex items-center gap-2 border-t border-[#E2E5E9] pt-3 text-[13px] font-medium text-[#5C6470]">
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[#E2E5E9] pt-3 text-[13px] font-medium text-[#5C6470]">
             <span className="size-2.5 rounded-full" style={{ backgroundColor: TRACKING_DELAY_COLOR[delayStatus] }} />
             Current: {delayStatus}
+            {/* The evidence behind the status: the Transport Manager's promise
+                (days on the road) and the date the cargo is due back. */}
+            {tripDelay(trip) ? (
+              <span className="text-[#627084]">
+                · {tripDelay(trip)!.progressLabel}
+                {expectedReturnAt(trip)
+                  ? ` · due back ${expectedReturnAt(trip)!.toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`
+                  : ""}
+                {tripDelay(trip)!.daysOver > 0 ? ` · ${tripDelay(trip)!.daysOver} day(s) over` : ""}
+              </span>
+            ) : null}
           </div>
         </section>
 

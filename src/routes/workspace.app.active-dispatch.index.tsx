@@ -26,6 +26,7 @@ import {
   TRACKING_DELAY_COLOR,
   type TrackingDelayStatus,
 } from "@/lib/fleetopsx/tracking-ops";
+import { formatTripDuration, tripDelay } from "@/lib/fleetopsx/trip-duration";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -117,12 +118,16 @@ function boardColumns(kind: "tracking" | "loading" | "truck"): BoardColumn[] {
  * Until that exists the Transport Manager's estimated date is shown, marked
  * "Est." so a plan is never mistaken for a departure that happened.
  */
-function dispatchedCell(trip: Trip): { text: string; estimated: boolean } {
+function dispatchedCell(trip: Trip): { text: string; estimated: boolean; progress: string } {
+  // "Day 3 of 4" once the trip is running, the booking length before that — the
+  // Transport Manager's promise, which is what delay is judged against.
+  const delay = tripDelay(trip);
+  const progress = delay ? delay.progressLabel : formatTripDuration(trip.estimatedDays);
   const stamp = formatMovementStamp(trip.startTime);
-  if (stamp) return { text: stamp, estimated: false };
+  if (stamp) return { text: stamp, estimated: false, progress };
   const estimate = trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—";
-  if (estimate && estimate !== "—") return { text: `Est. ${estimate}`, estimated: true };
-  return { text: "—", estimated: false };
+  if (estimate && estimate !== "—") return { text: `Est. ${estimate}`, estimated: true, progress };
+  return { text: "—", estimated: false, progress };
 }
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/")({
@@ -270,7 +275,14 @@ function ActiveDispatchPage() {
     switch (column) {
       case "dispatched": {
         const cell = dispatchedCell(trip);
-        return <span className={cell.estimated ? "text-[#9A6700]" : undefined}>{cell.text}</span>;
+        return (
+          <span className={cell.estimated ? "text-[#9A6700]" : undefined}>
+            {cell.text}
+            {cell.progress ? (
+              <span className="block text-[11px] text-[#627084]">{cell.progress}</span>
+            ) : null}
+          </span>
+        );
       }
       case "head":
         return headCell(trip);
@@ -799,8 +811,10 @@ function cellText(
   sitesFor: (t: Trip) => string,
 ): string {
   switch (column) {
-    case "dispatched":
-      return dispatchedCell(trip).text;
+    case "dispatched": {
+      const cell = dispatchedCell(trip);
+      return cell.progress ? `${cell.text} (${cell.progress})` : cell.text;
+    }
     case "head":
       return headCell(trip);
     case "body":

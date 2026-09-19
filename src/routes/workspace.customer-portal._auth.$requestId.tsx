@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, MapPin, Pencil, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Download, MapPin, Pencil, Share2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
@@ -32,6 +32,12 @@ import {
   looksLikeUuid,
 } from "@/lib/fleetopsx/display-ids";
 import { driverService, partnerSiteService, tripService } from "@/lib/fleetopsx/services";
+import { expectedReturnAt, formatTripDuration } from "@/lib/fleetopsx/trip-duration";
+import {
+  downloadTicketJpeg,
+  shareTicketJpeg,
+  type TicketImageInput,
+} from "@/lib/fleetopsx/ticket-image";
 import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -531,6 +537,58 @@ function PartnerRequestDetailsPage() {
     }
   };
 
+  /**
+   * Everything the printed / shared ticket carries. Assembled in ONE place so
+   * the image, and anything added later, cannot drift from what the page shows.
+   */
+  const buildTicketImageInput = (source: Trip): TicketImageInput => ({
+    ticketId: displayRequestId(source),
+    status: uiStatus === "In transit" ? "In Transit" : uiStatus,
+    customerName: source.customerConsignee || "—",
+    product: source.cargo || "—",
+    truckType: displayRequestedTruckType(source) || "—",
+    destination: source.dropoff || "—",
+    destinationAddress: source.dropoffAddress || undefined,
+    loadingSites: tripLoadingSites(source),
+    driverName: source.driverName && source.driverName !== "Unassigned" ? source.driverName : undefined,
+    driverPhone: driverPhone || undefined,
+    truckHead: capPlate,
+    truckTail: truckTail !== "—" ? truckTail : undefined,
+    serial: serial !== "—" ? serial : undefined,
+    tripDuration: formatTripDuration(source.estimatedDays) || undefined,
+    expectedReturn: expectedReturnAt(source)
+      ? stampLabel(expectedReturnAt(source)!.toISOString())
+      : undefined,
+    dispatchedDate: stampLabel(source.startTime) ?? stampLabel(source.dispatchedAt),
+    timeline: timeline.map((step) => ({ label: step.label, date: step.at, state: step.state })),
+  });
+
+  const handleSaveImage = async () => {
+    if (!trip) return;
+    try {
+      await downloadTicketJpeg(buildTicketImageInput(trip));
+      toast.success("Ticket image saved — attach it to your WhatsApp message or email.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create the ticket image.");
+    }
+  };
+
+  const handleShareImage = async () => {
+    if (!trip) return;
+    try {
+      const outcome = await shareTicketJpeg(buildTicketImageInput(trip));
+      toast.success(
+        outcome === "shared"
+          ? "Ticket shared."
+          : "Ticket image downloaded — attach it in WhatsApp to send.",
+      );
+    } catch (err) {
+      // A cancelled share sheet is not a failure worth shouting about.
+      if (err instanceof Error && err.name === "AbortError") return;
+      toast.error(err instanceof Error ? err.message : "Could not share the ticket.");
+    }
+  };
+
   const handleExport = () => {
     if (!trip) return;
     const rows = [
@@ -629,6 +687,24 @@ function PartnerRequestDetailsPage() {
               >
                 <Upload className="size-[18px]" />
                 Export CSV
+              </button>
+              {/* The partner raises a WP from this document — a JPEG is what
+                  travels in WhatsApp, so the whole ticket is drawn as one. */}
+              <button
+                type="button"
+                onClick={() => void handleSaveImage()}
+                className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
+              >
+                <Download className="size-[18px]" />
+                Save as Image
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShareImage()}
+                className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
+              >
+                <Share2 className="size-[18px]" />
+                Share
               </button>
               {canDelete ? (
                 <button
@@ -763,6 +839,19 @@ function PartnerRequestDetailsPage() {
                   <ReadonlyField label="Truck Head (Cap Number / Plate)" value={capPlate} />
                   <ReadonlyField label="Truck Tail (Type)" value={truckTail} />
                   <ReadonlyField label="Serial Number" value={serial} />
+                  {/* The TM's promise, handed back to the customer: how long the
+                      truck was booked for and when the cargo is expected back. */}
+                  {trip.estimatedDays ? (
+                    <>
+                      <ReadonlyField label="Trip Duration" value={formatTripDuration(trip.estimatedDays)} />
+                      <ReadonlyField
+                        label="Expected Return"
+                        value={
+                          expectedReturnAt(trip) ? stampLabel(expectedReturnAt(trip)!.toISOString()) || "—" : "—"
+                        }
+                      />
+                    </>
+                  ) : null}
                 </div>
               )}
               {canDelete ? <SectionActions onDelete={() => setDeleteOpen(true)} /> : null}

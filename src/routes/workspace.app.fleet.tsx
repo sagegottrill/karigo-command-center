@@ -13,6 +13,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
+import { expectedReturnAt, formatTripDuration } from "@/lib/fleetopsx/trip-duration";
 import { CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
@@ -200,6 +201,13 @@ function FleetDispatchRequests() {
   // which the full Modify form cannot do (it demands the whole assignment).
   const [estimateTrip, setEstimateTrip] = useState<Trip | null>(null);
   const [estimateValue, setEstimateValue] = useState("");
+  // How many days the vehicle is expected to spend ON THE ROAD. This is the
+  // number the delay status is measured against (Fortune, 17 Sept): he sets it
+  // at the FINAL approval, once Fleet Ops has put a truck on the dispatch.
+  const [estimateDays, setEstimateDays] = useState("");
+  // Approving and promising a duration are the same act — the modal opens from
+  // the Approve action and finishes the approval when it saves.
+  const [estimateApproveAfter, setEstimateApproveAfter] = useState(false);
   const [savingEstimate, setSavingEstimate] = useState(false);
 
   useEffect(() => {
@@ -306,11 +314,11 @@ function FleetDispatchRequests() {
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
     const headers =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Status,Dispatch ID\n";
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Trip Duration,Status,Dispatch ID\n";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${t.estimatedDate ? formatTableDate(t.estimatedDate) : ""},${fleetStatusOf(t)},${dispatchId(t)}`;
+        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${t.estimatedDate ? formatTableDate(t.estimatedDate) : ""},${formatTripDuration(t.estimatedDays) || ""},${fleetStatusOf(t)},${dispatchId(t)}`;
       })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -325,6 +333,19 @@ function FleetDispatchRequests() {
   const handleApprove = async (trip: Trip) => {
     if (approvingId) return;
     setMenuFor(null);
+    // The final approval is where the TM promises how many days the truck will
+    // be on the road — that promise is what delay is measured against later, and
+    // what the partner is told to expect. So approval ASKS for it instead of
+    // approving silently and leaving delay to be guessed by hand.
+    if (!trip.estimatedDays) {
+      setDetail(null);
+      setEstimateTrip(trip);
+      setEstimateValue((trip.estimatedDate ?? "").slice(0, 10));
+      setEstimateDays("");
+      setEstimateApproveAfter(true);
+      toast.info("Set the trip duration to finish the approval.");
+      return;
+    }
     // Guarded: pending state, distinct offline message, revert on failure.
     setApprovingId(trip.id);
     try {
@@ -359,31 +380,62 @@ function FleetDispatchRequests() {
     setSendBackTrip(trip);
   };
 
-  const openEstimate = (trip: Trip) => {
+  const openEstimate = (trip: Trip, approveAfter = false) => {
     setMenuFor(null);
     setDetail(null);
     setEstimateValue((trip.estimatedDate ?? "").slice(0, 10));
+    setEstimateDays(trip.estimatedDays ? String(trip.estimatedDays) : "");
+    setEstimateApproveAfter(approveAfter);
     setEstimateTrip(trip);
+  };
+
+  const closeEstimate = () => {
+    setEstimateTrip(null);
+    setEstimateValue("");
+    setEstimateDays("");
+    setEstimateApproveAfter(false);
   };
 
   const saveEstimate = async () => {
     if (!estimateTrip) return;
     const next = estimateValue.trim() || null;
+    const days = Number(estimateDays);
+    // An approval cannot go through without the duration — that is the whole
+    // point of asking here.
+    if (estimateApproveAfter && (!Number.isFinite(days) || days <= 0)) {
+      toast.error("Enter how many days the trip is expected to take.");
+      return;
+    }
     setSavingEstimate(true);
     try {
-      await tripService.update(estimateTrip.id, { estimatedDate: next });
+      await tripService.update(estimateTrip.id, {
+        estimatedDate: next,
+        estimatedDays: Number.isFinite(days) && days > 0 ? days : null,
+      });
       // Show it immediately — the table must not need a reload to agree.
-      setTrips((prev) => prev.map((t) => (t.id === estimateTrip.id ? { ...t, estimatedDate: next } : t)));
-      toast.success(next ? "Estimated dispatch date saved." : "Estimated dispatch date cleared.");
-      setEstimateTrip(null);
+      setTrips((prev) =>
+        prev.map((t) =>
+          t.id === estimateTrip.id
+            ? { ...t, estimatedDate: next, estimatedDays: Number.isFinite(days) && days > 0 ? days : null }
+            : t,
+        ),
+      );
+      if (estimateApproveAfter) {
+        const target = estimateTrip;
+        closeEstimate();
+        await handleApprove({ ...target, estimatedDays: days });
+        return;
+      }
+      toast.success(next || days > 0 ? "Trip estimate saved." : "Trip estimate cleared.");
+      closeEstimate();
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       toast.error(
         offline
-          ? "You are offline — the estimated date was NOT saved."
+          ? "You are offline — the estimate was NOT saved."
           : err instanceof Error
             ? err.message
-            : "Failed to save the estimated date.",
+            : "Failed to save the trip estimate.",
       );
     } finally {
       setSavingEstimate(false);
@@ -554,7 +606,7 @@ function FleetDispatchRequests() {
                       width={170}
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
-                        { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
+                        { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
                         ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                           ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                           : []),
@@ -582,6 +634,13 @@ function FleetDispatchRequests() {
                 <MetaRow
                   label="Est. Date:"
                   value={trip.estimatedDate ? formatTableDate(trip.estimatedDate) : ""}
+                />
+                <MetaRow label="Trip Duration:" value={formatTripDuration(trip.estimatedDays)} />
+                <MetaRow
+                  label="Expected Return:"
+                  value={
+                    expectedReturnAt(trip) ? formatTableDate(expectedReturnAt(trip)!.toISOString()) : ""
+                  }
                 />
                 <MetaRow label="Dispatch ID:" value={dispatchId(trip)} />
               </div>
@@ -735,6 +794,11 @@ function FleetDispatchRequests() {
                     <DateCell value={trip.dispatchedAt} />
                     <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
+                      {formatTripDuration(trip.estimatedDays) ? (
+                        <span className="block text-[12px] text-[#627084]">
+                          {formatTripDuration(trip.estimatedDays)} on the road
+                        </span>
+                      ) : null}
                     </span>
                     <span>
                       <StatusPill status={fleetStatusOf(trip)} />
@@ -749,8 +813,9 @@ function FleetDispatchRequests() {
                         label="Dispatch options"
                         items={[
                           { label: "View Details", onSelect: () => setDetail(trip) },
-                          { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
-                        { label: "Set Estimated Date", onSelect: () => openEstimate(trip) },
+                          // The date the truck leaves AND how long it will be gone —
+                          // the two halves of the promise the partner is given.
+                          { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
                           ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
                             ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                             : []),
@@ -873,25 +938,63 @@ function FleetDispatchRequests() {
       {estimateTrip && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-[420px] rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-[16px] font-bold text-[#1B2432]">Estimated dispatch date</h3>
+            <h3 className="text-[16px] font-bold text-[#1B2432]">
+              {estimateApproveAfter ? "Approve and set trip duration" : "Trip duration & estimated date"}
+            </h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
-              Dispatch {dispatchId(estimateTrip)}. Fleet Operations and Tracking see this date on the dispatch board
-              until Security logs the truck out of the gate — which replaces it with the real time.
+              Dispatch {dispatchId(estimateTrip)}.{" "}
+              {estimateApproveAfter
+                ? "Approving puts the truck on the road — say how long it is expected to take, so delay is measured against your number and the partner knows when to expect the cargo."
+                : "Fleet Operations and Tracking see this date on the dispatch board until Security logs the truck out of the gate — which replaces it with the real time."}
             </p>
-            <input
-              type="date"
-              autoFocus
-              value={estimateValue}
-              onChange={(e) => setEstimateValue(e.target.value)}
-              className="mt-3 h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
-            />
+            <label className="mt-3 flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium text-[#1B2432]">
+                Trip duration (days) {estimateApproveAfter ? <span className="text-[#ED351D]">*</span> : null}
+              </span>
+              <input
+                type="number"
+                min={1}
+                autoFocus
+                inputMode="numeric"
+                value={estimateDays}
+                onChange={(e) => setEstimateDays(e.target.value)}
+                placeholder="e.g. 4"
+                className="h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
+              />
+              <span className="text-[12px] text-[#627084]">
+                How many days the vehicle is expected to spend on the road. Past this, the dispatch reads
+                Slight then Significant Delay automatically.
+              </span>
+            </label>
+            <label className="mt-3 flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium text-[#1B2432]">Estimated dispatch date</span>
+              <input
+                type="date"
+                value={estimateValue}
+                onChange={(e) => setEstimateValue(e.target.value)}
+                className="h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
+              />
+              {expectedReturnAt({
+                ...(estimateTrip as Trip),
+                estimatedDays: Number(estimateDays) || null,
+                estimatedDate: estimateValue || null,
+              }) ? (
+                <span className="text-[12px] text-[#627084]">
+                  Expected return:{" "}
+                  {formatTableDate(
+                    expectedReturnAt({
+                      ...(estimateTrip as Trip),
+                      estimatedDays: Number(estimateDays) || null,
+                      estimatedDate: estimateValue || null,
+                    })!.toISOString(),
+                  )}
+                </span>
+              ) : null}
+            </label>
             <div className="mt-4 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setEstimateTrip(null);
-                  setEstimateValue("");
-                }}
+                onClick={closeEstimate}
                 className="text-[13px] font-medium text-[#627084] hover:underline"
               >
                 Cancel
@@ -902,7 +1005,7 @@ function FleetDispatchRequests() {
                 onClick={() => void saveEstimate()}
                 className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
               >
-                {savingEstimate ? "Saving…" : "Save Date"}
+                {savingEstimate ? "Saving…" : estimateApproveAfter ? "Approve Dispatch" : "Save"}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import type { Trip } from "@/lib/fleetopsx/types";
 import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "./status-buckets";
 import { displayDispatchId } from "./request-id";
+import { tripDelay } from "./trip-duration";
 
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
@@ -27,6 +28,12 @@ export function sortLatestFirst(a: Trip, b: Trip): number {
 }
 
 export function getTrackingDelayStatus(trip: Trip): TrackingDelayStatus {
+  // The Transport Manager's duration is a promise with a date on it: once he has
+  // set the days, the CLOCK decides the status (see trip-duration.ts).
+  const derived = tripDelay(trip);
+  if (derived) return derived.status;
+  // No duration set yet — fall back to whatever the trip itself says, so a
+  // dispatch somebody marked Delayed by hand still reads as delayed.
   if (trip.status === "Delayed" && (trip.priority === "Critical" || trip.priority === "High")) {
     return "Significant Delay";
   }

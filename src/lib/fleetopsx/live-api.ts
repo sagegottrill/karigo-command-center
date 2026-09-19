@@ -202,6 +202,10 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     scheduledDate: String(t.scheduledDate ?? t.createdAt ?? new Date().toISOString()),
     startTime: String(t.startTime ?? ""),
     estimatedDate: t.estimatedDate != null && String(t.estimatedDate).trim() !== "" ? String(t.estimatedDate) : null,
+    estimatedDays:
+      t.estimatedDays != null && String(t.estimatedDays).trim() !== "" && !Number.isNaN(Number(t.estimatedDays))
+        ? Number(t.estimatedDays)
+        : null,
     eta: String(t.eta ?? "—"),
     progress: Number(t.progress ?? 4),
     lat: Number(t.lat ?? 6.5244),
@@ -264,6 +268,13 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   // The TM's estimated dispatch date, and the gate stamp Security writes on
   // departure — both stored as text (ISO / the stamp as typed at the gate).
   if (input.estimatedDate !== undefined) out.estimatedDate = input.estimatedDate || null;
+  // Trip duration in days — 0 is not a duration, so an emptied field clears it.
+  if (input.estimatedDays !== undefined) {
+    out.estimatedDays =
+      input.estimatedDays === null || (input.estimatedDays as unknown) === "" || Number(input.estimatedDays) <= 0
+        ? null
+        : Number(input.estimatedDays);
+  }
   if (input.startTime !== undefined) out.startTime = input.startTime || null;
   if (input.partnerNote !== undefined) out.partnerNote = input.partnerNote || null;
   return out;
