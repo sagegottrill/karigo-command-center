@@ -366,11 +366,11 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Dispatch ID,Date,Company,Customer,Product,Head Type,Destination,Status\n";
+    const headers = "Date,Company,Customer,Product,Head Type,Destination,Dispatch ID,Status\n";
     const csv = filteredTrips
       .map(
         (t) =>
-          `${dispatchId(t)},${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${toDisplayStatus(t.status)}`,
+          `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -444,8 +444,8 @@ function DispatchHistoryPage() {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-          {["Dispatch ID", "Date", "Company", "Customer", "Product", "Head Type", "Drop-off Location", "Status"].map((h) => (
+        <div className="hidden grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
+          {["Date", "Company", "Customer", "Product", "Head Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -463,15 +463,13 @@ function DispatchHistoryPage() {
                 className="flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 text-left shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{dispatchId(trip)}</span>
+                  <span className="text-[14px] font-semibold capitalize tracking-[0.4px] text-[#303D50]">
+                    {formatHistoryDate(trip) || "—"}
+                  </span>
                   <StatusPill status={status} />
                 </div>
                 <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{companyName(trip) || "—"}</p>
                 <div className="flex flex-col gap-1 text-[12px]">
-                  <div className="flex gap-2">
-                    <span className="w-24 font-medium text-[#5C6470]">Date:</span>
-                    <span className="flex-1 text-[#344256]">{formatHistoryDate(trip)}</span>
-                  </div>
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Customer:</span>
                     <span className="flex-1 text-[#344256]">{trip.customerConsignee || "—"}</span>
@@ -483,6 +481,10 @@ function DispatchHistoryPage() {
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
                     <span className="flex-1 text-[#344256]">{trip.dropoff || "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Dispatch ID:</span>
+                    <span className="flex-1 font-semibold text-[#344256]">{dispatchId(trip)}</span>
                   </div>
                 </div>
               </button>
@@ -498,15 +500,15 @@ function DispatchHistoryPage() {
                 key={trip.id}
                 type="button"
                 onClick={() => setSelectedTrip(trip)}
-                className="grid w-full grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
+                className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
-                <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
+                <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee || "—"}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
                 <StatusPill status={status} />
               </button>
             );

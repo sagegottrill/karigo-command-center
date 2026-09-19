@@ -373,8 +373,9 @@ function DispatchPage() {
               className="flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{requestId(trip)}</span>
-                <span className="text-[12px] tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
+                <span className="text-[14px] font-semibold capitalize tracking-[0.4px] text-[#303D50]">
+                  {formatQueueDate(trip)}
+                </span>
               </div>
               <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{companyName(trip) || "—"}</p>
               <div className="flex flex-col gap-1 text-[12px]">
@@ -397,6 +398,10 @@ function DispatchPage() {
                 <div className="flex gap-2">
                   <span className="w-24 font-medium text-[#5C6470]">Loading Site(s):</span>
                   <span className="flex-1 text-[#344256]">{tripLoadingSites(trip).join(" · ") || "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-24 font-medium text-[#5C6470]">ID No.:</span>
+                  <span className="flex-1 font-semibold text-[#344256]">{requestId(trip)}</span>
                 </div>
               </div>
               {trip.sendBackReason ? (
@@ -424,8 +429,8 @@ function DispatchPage() {
 
         {/* Desktop table */}
         <div className="hidden px-5 py-6 md:block">
-          <div className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5">
-            {["ID No.", "Date", "Company", "Customer", "Product", "Truck Type", "Drop-off Location", "Loading Site(s)"].map((h) => (
+          <div className="grid grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5">
+            {["Date", "Company", "Customer", "Product", "Truck Type", "Drop-off Location", "Loading Site(s)", "ID No."].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
@@ -436,10 +441,9 @@ function DispatchPage() {
           {pendingOrders.map((trip) => (
             <div
               key={trip.id}
-              className="grid grid-cols-[minmax(96px,0.8fr)_minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
             >
-              <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
-              <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
+              <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">{formatQueueDate(trip)}</span>
               <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
               <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee || "—"}</span>
               <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
@@ -453,6 +457,7 @@ function DispatchPage() {
               >
                 {tripLoadingSites(trip).join(" · ") || "—"}
               </span>
+              <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{requestId(trip)}</span>
               <div className="flex items-center justify-end gap-2">
                 {trip.sendBackReason ? (
                   <span
