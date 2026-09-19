@@ -4,7 +4,8 @@ import { ArrowBigRight, Check, ChevronLeft, ChevronRight, ListFilter, Search, Up
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { displayCapFromTrip, displayDriverSalary, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
   listCheckpoints,
@@ -33,6 +34,15 @@ function headCell(trip: Trip) {
   const plate = displayPlateFromTrip(trip);
   if (cap && plate) return `${cap} (${plate})`;
   return cap || plate || "";
+}
+
+/**
+ * The driver's staff number (P1003). The roster carries it in salaryNumber /
+ * employeeId, and `displayDriverSalary` already knows both plus the roster
+ * fallback — and refuses to print a raw uuid the way a bare field read would.
+ */
+function humanDriverId(driver: Driver) {
+  return displayDriverSalary(driver);
 }
 
 export const Route = createFileRoute("/workspace/app/active-dispatch/")({
@@ -125,6 +135,24 @@ function ActiveDispatchPage() {
     return map;
   }, [drivers]);
 
+  /** The driver record behind a row, matched on the name the dispatch stores. */
+  const driverByName = useMemo(() => {
+    const map = new Map<string, Driver>();
+    for (const d of drivers) map.set(d.name.trim().toLowerCase(), d);
+    return map;
+  }, [drivers]);
+
+  /**
+   * The driver's staff number — the id HR, payroll and the gate know him by.
+   * Fleet Ops stores only the NAME on a dispatch, so the id comes from the
+   * roster (name → staff number), never from the trip record.
+   */
+  const driverIdFor = (trip: Trip) => {
+    const name = trip.driverName?.trim().toLowerCase();
+    const driver = name ? driverByName.get(name) : undefined;
+    return driver ? humanDriverId(driver) : "";
+  };
+
   // The page is shared by three kinds of visitor, and the wording has to match
   // what each of them can actually do here: Tracking logs the whole journey, the
   // Loading department marks collection (which is a checkpoint too — the same
@@ -178,6 +206,10 @@ function ActiveDispatchPage() {
         tripLoadingSites(trip).join(" "),
         getTrackingDelayStatus(trip),
         phoneFor(trip),
+        // The driver's staff number and the truck as it is written on the board,
+        // so "P0860" and "P065 (GGE95YK)" both find the row.
+        driverIdFor(trip),
+        headCell(trip),
       ]
         .filter(Boolean)
         .join(" ");
@@ -252,14 +284,14 @@ function ActiveDispatchPage() {
     );
     const stopsById = new Map(stops);
     const header = [
-      "Dispatch ID",
-      "Driver",
+      "Dispatched Date",
       "Truck Head",
-      "Tail Type",
+      "Body Type",
+      "Driver ID",
+      "Driver Name",
       "Phone Number",
-      "Loading Site(s)",
+      "Partner",
       "Loading Progress",
-      "Drop-off Location",
       "Last Location",
       "Last Location Time",
       "Status",
@@ -270,14 +302,14 @@ function ActiveDispatchPage() {
       const stop = lastStopLabel(list[0] ?? null);
       const progress = loadingSiteProgress(tripLoadingSites(trip), list);
       return [
-        dispatchDisplayId(trip),
-        trip.driverName ?? "",
+        formatMovementStamp(trip.startTime) || "Not dispatched",
         headCell(trip),
         trip.tailType ?? "",
+        driverIdFor(trip) || "—",
+        trip.driverName ?? "",
         phoneFor(trip),
-        tripLoadingSites(trip).join(" | "),
+        partnerOf(trip),
         progress ? `${progress.logged} of ${progress.total} site(s) loaded` : "",
-        trip.dropoff ?? "",
         stop.place,
         stop.when,
         delay,
@@ -454,17 +486,17 @@ function ActiveDispatchPage() {
           <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           <>
-            <div className="overflow-x-auto">                <table className="w-full min-w-[1170px] border-collapse">
+            <div className="overflow-x-auto">                <table className="w-full min-w-[1100px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E5E9] text-left text-[12px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                    <th className="px-3 py-3">Dispatch ID</th>
-                    <th className="px-3 py-3">Driver</th>
+                    <th className="px-3 py-3">Dispatched Date</th>
                     <th className="px-3 py-3">Truck Head</th>
-                    <th className="px-3 py-3">Tail Type</th>
+                    <th className="px-3 py-3">Body Type</th>
+                    <th className="px-3 py-3">Driver ID</th>
+                    <th className="px-3 py-3">Driver Name</th>
                     <th className="px-3 py-3">Phone Number</th>
-                    <th className="px-3 py-3">Loading Site(s)</th>
+                    <th className="px-3 py-3">Partner</th>
                     <th className="px-3 py-3">Loading</th>
-                    <th className="px-3 py-3">Drop-off Location</th>
                     <th className="px-3 py-3">Last Location</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Action</th>
@@ -475,18 +507,22 @@ function ActiveDispatchPage() {
                     const delay = getTrackingDelayStatus(trip);
                     return (
                       <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
-                        <td className="px-3 py-4 font-semibold tracking-[0.4px]">{dispatchDisplayId(trip)}</td>
-                        <td className="px-3 py-4">{trip.driverName || ""}</td>
+                        <td className="px-3 py-4 whitespace-nowrap font-semibold tracking-[0.4px]">
+                          {/* The stamp Security writes when the truck leaves the gate —
+                              dashes until it has actually gone. */}
+                          {formatMovementStamp(trip.startTime) || "—"}
+                        </td>
                         <td className="px-3 py-4">{headCell(trip)}</td>
                         <td className="px-3 py-4">{trip.tailType || ""}</td>
-                        <td className="px-3 py-4">{phoneFor(trip)}</td>
-                        <td className="px-3 py-4" title={tripLoadingSites(trip).join(", ") || undefined}>
-                          {loadingSitesLabel(trip)}
+                        <td className="px-3 py-4 font-semibold tracking-[0.4px]">
+                          {driverIdFor(trip) || "—"}
                         </td>
+                        <td className="px-3 py-4">{trip.driverName || ""}</td>
+                        <td className="px-3 py-4">{phoneFor(trip)}</td>
+                        <td className="px-3 py-4">{partnerOf(trip)}</td>
                         <td className="px-3 py-4">
                           <LoadingProgressCell trip={trip} checkpoints={checkpointsByTrip[trip.id]} />
                         </td>
-                        <td className="px-3 py-4">{trip.dropoff || ""}</td>
                         <td className="px-3 py-4">
                           <LastStopCell checkpoint={lastStopOf(trip.id)} />
                         </td>
@@ -573,7 +609,7 @@ function ActiveDispatchPage() {
                       style={{ backgroundColor: TRACKING_DELAY_COLOR[delay] }}
                     />
                     <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
-                      {dispatchDisplayId(trip)}
+                      {formatMovementStamp(trip.startTime) || "Not dispatched"}
                     </span>
                   </div>
                   <Link
@@ -585,13 +621,14 @@ function ActiveDispatchPage() {
                     <ArrowBigRight className="size-3.5" strokeWidth={1.5} />
                   </Link>
                 </div>
-                <MetaRow label="Driver:" value={trip.driverName || ""} />
-                <MetaRow label="Head No:" value={headCell(trip)} accent />
+                <MetaRow label="Truck Head:" value={headCell(trip)} accent />
                 {/* The BODY comes from the tail, not the head — mislabelling it
                     "Head Type" made operators read it as the truck's own type. */}
-                <MetaRow label="Tail Type:" value={trip.tailType || ""} />
+                <MetaRow label="Body Type:" value={trip.tailType || ""} />
+                <MetaRow label="Driver ID:" value={driverIdFor(trip) || "—"} />
+                <MetaRow label="Driver Name:" value={trip.driverName || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
-                <MetaRow label="Loading Site(s):" value={loadingSitesLabel(trip)} />
+                <MetaRow label="Partner:" value={partnerOf(trip)} />
                 {/* How much of the load is collected — the mobile card's own copy of
                     the board's Loading column. */}
                 <MetaRow
@@ -611,17 +648,6 @@ function ActiveDispatchPage() {
       </div>
     </div>
   );
-}
-
-/**
- * Compact loading-site label for the board: the single site by name, or
- * "first +N" for a multiple-loading request (the full list lives on the detail).
- */
-function loadingSitesLabel(trip: Trip): string {
-  const sites = tripLoadingSites(trip);
-  if (sites.length === 0) return "—";
-  const first = sites[0] ?? "—";
-  return sites.length === 1 ? first : `${first} +${sites.length - 1}`;
 }
 
 /**
