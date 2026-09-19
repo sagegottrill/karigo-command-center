@@ -112,18 +112,30 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
  *  - Mark as Seen  → only while the request is Pending. It is the FIRST
  *    approval; on a request already dispatched it would pull the trip back to
  *    Approved and quietly un-dispatch a truck that may be on the road.
- *  - Send Back     → only while Pending, for the same reason: a dispatch the TM
- *    wants reworked is corrected through Fleet Operation, not by returning the
- *    partner's request underneath a live assignment.
+ *  - Return to Customer → the request goes back to the partner to correct, for as
+ *    long as it has not ended. When a truck was already assigned the return
+ *    RELEASES that dispatch first (head, tail, driver, costs) and then hands the
+ *    request back, so the customer can edit it — the customer asking for a change
+ *    is the normal reason a TM needs this, and the only other answer the page had
+ *    was "Decline", which told the partner nothing and kept the vehicle busy.
  *  - Decline       → anything that has not already ended. A request declined
  *    after assignment still reads as Declined everywhere (never "In transit").
  */
 function requestActions(status: PartnerUiStatus) {
+  const ended = status === "Declined" || status === "Completed";
   return {
     canMarkSeen: status === "Pending",
-    canSendBack: status === "Pending",
-    canDecline: status !== "Declined" && status !== "Completed",
+    canSendBack: !ended,
+    canDecline: !ended,
   };
+}
+
+/**
+ * True once Fleet Ops has put a truck on this request, so returning it to the
+ * customer has a dispatch to undo first.
+ */
+function hasDispatch(status: PartnerUiStatus) {
+  return status === "Approved" || status === "In transit";
 }
 
 function loadingSitesFor(trip: Trip): string[] {
@@ -266,29 +278,32 @@ function AdminPartnerRequests() {
       toast.error("Tell the partner what to correct.");
       return;
     }
-    // Same guard as the menu: returning a request underneath a live assignment
-    // would leave a truck dispatched to a request the partner is editing.
-    if (noteMode === "sendback" && toPartnerUiStatus(noteTrip) !== "Pending") {
+    // Same guard as the menu: a request that has ended has nothing to return.
+    if (noteMode === "sendback" && !requestActions(toPartnerUiStatus(noteTrip)).canSendBack) {
       setNoteTrip(null);
-      toast.error("This request has already been actioned — send it back through Fleet Operation instead.");
+      toast.error("This request has already ended — it cannot be returned to the customer.");
       return;
     }
     setNoting(true);
     const declining = noteMode === "decline";
+    const returning = !declining;
     try {
+      // Both answers clear the assignment the request was holding — a declined
+      // request is dead, and a returned one has to be editable by the customer
+      // again without a truck still pointing at it. The approval stamps go too,
+      // so a returned request does not keep advertising a dispatch that no
+      // longer exists (the partner's "Date Approved" would lie otherwise).
       await tripService.update(noteTrip.id, {
         status: declining ? "Stopped" : "Requested",
         partnerNote: text || null,
-        // A declined request is dead: release the truck, tail, driver and cost
-        // configuration it was holding, so nothing stays tied to a request that
-        // will never run and the vehicle is free for the next dispatch.
-        ...(declining ? assignmentReleaseService.clearedFields() : {}),
+        ...assignmentReleaseService.clearedFields(),
+        ...(returning ? { approvedAt: null, dispatchedAt: null } : {}),
       });
-      const freed = declining ? await assignmentReleaseService.releaseAssets(noteTrip) : [];
+      const freed = await assignmentReleaseService.releaseAssets(noteTrip);
       toast[declining ? "warning" : "success"](
         declining
           ? `Request ${requestId(noteTrip)} declined.`
-          : `Request ${requestId(noteTrip)} sent back to the partner for correction.`,
+          : `Request ${requestId(noteTrip)} returned to the customer to correct.`,
         freed.length
           ? { description: `Released back to the fleet: ${freed.join(", ")}.` }
           : undefined,
@@ -416,7 +431,7 @@ function AdminPartnerRequests() {
                             ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canSendBack
-                          ? [{ label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") }]
+                          ? [{ label: "Return to Customer", onSelect: () => openNote(trip, "sendback") }]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canDecline
                           ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
@@ -564,7 +579,7 @@ function AdminPartnerRequests() {
                             ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canSendBack
-                          ? [{ label: "Send Back to Partner", onSelect: () => openNote(trip, "sendback") }]
+                          ? [{ label: "Return to Customer", onSelect: () => openNote(trip, "sendback") }]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canDecline
                           ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
@@ -637,12 +652,14 @@ function AdminPartnerRequests() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-[18px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
-              {noteMode === "sendback" ? "Send back to partner" : "Decline request"}
+              {noteMode === "sendback" ? "Return to customer" : "Decline request"}
             </h3>
             <p className="text-[13px] text-[#5C6470]">
-              {noteMode === "sendback"
-                ? `Request ${requestId(noteTrip)} goes back to the partner to correct. It stays part of the same flow — the partner edits it and resends, nothing is re-raised.`
-                : `Request ${requestId(noteTrip)} will be closed as declined. A reason helps the partner understand what was wrong.`}
+              {noteMode === "decline"
+                ? `Request ${requestId(noteTrip)} will be closed as declined. A reason helps the partner understand what was wrong.`
+                : hasDispatch(toPartnerUiStatus(noteTrip))
+                  ? `Request ${requestId(noteTrip)} is already dispatched. Returning it releases the truck, tail, driver and costs first, then sends it back to the customer to correct and resend — nothing is re-raised.`
+                  : `Request ${requestId(noteTrip)} goes back to the customer to correct. It stays part of the same flow — the partner edits it and resends, nothing is re-raised.`}
             </p>
             <textarea
               autoFocus
@@ -670,7 +687,7 @@ function AdminPartnerRequests() {
                 onClick={() => void confirmNote()}
                 className="h-9 rounded bg-[#ED351D] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
               >
-                {noting ? "Saving…" : noteMode === "sendback" ? "Send Back" : "Decline"}
+                {noting ? "Saving…" : noteMode === "sendback" ? "Return to Customer" : "Decline"}
               </button>
             </div>
           </div>
@@ -710,6 +727,18 @@ function AdminPartnerRequests() {
                 Go Back
               </button>
               <div className="flex items-center gap-2">
+                {requestActions(toPartnerUiStatus(detail)).canSendBack && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetail(null);
+                      openNote(detail, "sendback");
+                    }}
+                    className="flex h-8 items-center rounded border border-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-[#1B2432]"
+                  >
+                    Return to Customer
+                  </button>
+                )}
                 {requestActions(toPartnerUiStatus(detail)).canDecline && (
                   <button
                     type="button"
