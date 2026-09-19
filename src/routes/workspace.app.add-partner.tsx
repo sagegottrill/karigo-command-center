@@ -40,6 +40,10 @@ function AddPartner() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [createdUsername, setCreatedUsername] = useState("");
+  // The loading locations the server set up for this company, so the admin can
+  // see the yards that came with the account instead of wondering where the
+  // partner's site list will come from.
+  const [createdSites, setCreatedSites] = useState<string[]>([]);
 
   const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
   const [generatedPassword] = useState(() => {
@@ -83,7 +87,7 @@ function AddPartner() {
       const suffix = attempt === 0 ? "" : String(attempt + 1);
       usernameForLogin = `${generatedUsername}${suffix}`;
       try {
-        await adminService.createUser({
+        const created = (await adminService.createUser({
           firstName,
           surname,
           roles: ["Customer Portals (External)"],
@@ -95,7 +99,8 @@ function AddPartner() {
           partnerCompanyName: companyName,
           companyLogo: logo,
           password: generatedPassword,
-        });
+        })) as { seededLoadingSites?: string[] } | undefined;
+        setCreatedSites(Array.isArray(created?.seededLoadingSites) ? created.seededLoadingSites : []);
         setCreatedUsername(usernameForLogin);
         toast.success("Partner account created.");
         setShowConfirmModal(false);
@@ -315,6 +320,12 @@ function AddPartner() {
             </button>
             <div className="px-8 pt-8 pb-5">
               <h3 className="text-[18px] font-semibold text-[#ED351D]">Share Sign In Details</h3>
+              {createdSites.length > 0 ? (
+                <p className="mt-3 text-[12px] leading-5 tracking-[0.4px] text-[#5C6470]">
+                  Loading locations set up for {companyName}:{" "}
+                  <span className="font-medium text-[#1B2432]">{createdSites.join(" · ")}</span>
+                </p>
+              ) : null}
             </div>
             <div className="mb-2 h-px w-full bg-[#F1F2F4]" />
 
