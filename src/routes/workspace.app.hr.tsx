@@ -172,7 +172,7 @@ function HrStaffDirectory() {
   };
 
   const exportCSV = () => {
-    const headers = "Staff ID,Name,Phone,License,Assigned Asset,Status\n";
+    const headers = "Staff ID,Name,Phone,License,Assigned Truck,Status\n";
     const csv = filtered
       .map((d) => `${displayDriverSalary(d) || d.employeeId},${d.name},${d.phone},${d.licenseNumber},${d.assignedTruck ?? ""},${d.status}`)
       .join("\n");
@@ -243,7 +243,7 @@ function HrStaffDirectory() {
           </div>
 
           <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
-            {["Staff ID", "Name", "Phone", "License", "Assigned Asset", "Status"].map((h) => (
+            {["Staff ID", "Name", "Phone", "License", "Assigned Truck", "Status"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
@@ -281,7 +281,7 @@ function HrStaffDirectory() {
                       <span className="flex-1 text-[#344256]">{driver.licenseNumber || "—"}</span>
                     </div>
                     <div className="flex gap-2">
-                      <span className="w-20 font-medium text-[#5C6470]">Asset:</span>
+                      <span className="w-20 font-medium text-[#5C6470]">Truck:</span>
                       <span className="flex-1 text-[#344256]">{driver.assignedTruck || "—"}</span>
                     </div>
                   </div>
