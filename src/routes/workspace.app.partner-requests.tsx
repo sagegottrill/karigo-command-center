@@ -396,6 +396,23 @@ function AdminPartnerRequests() {
         ...(returning ? { approvedAt: null, dispatchedAt: null } : {}),
       });
       const freed = await assignmentReleaseService.releaseAssets(noteTrip);
+      // Read the row back BEFORE claiming success. A decline that does not stick
+      // is the worst failure this page has: the toast says "declined", the row
+      // still reads In transit, and the request quietly stays on the road. The
+      // API now refuses to revive a declined request, so anything other than the
+      // expected status here means the save was lost or overruled — and it is
+      // said out loud instead of being papered over with a success message.
+      const fresh = await tripService.list();
+      setTrips(fresh);
+      const after = fresh.find((t) => t.id === noteTrip.id);
+      const expected: PartnerUiStatus = declining ? "Declined" : "Pending";
+      const actual = after ? toPartnerUiStatus(after) : null;
+      if (actual !== expected) {
+        toast.error(
+          `The ${declining ? "decline" : "return to the customer"} did NOT save — request ${requestId(noteTrip)} is still ${actual ?? "unreadable"}. Nothing was changed, so please try again.`,
+        );
+        return;
+      }
       toast[declining ? "warning" : "success"](
         declining
           ? `Request ${requestId(noteTrip)} declined.`
@@ -407,7 +424,6 @@ function AdminPartnerRequests() {
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       setNoteTrip(null);
       setNote("");
-      void tripService.list().then(setTrips);
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       toast.error(
