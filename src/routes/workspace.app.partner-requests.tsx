@@ -20,6 +20,18 @@ import {
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * The table's "Loading Point" cell: the first site by name, or "first +N" when
+ * the request collects from several (the full list is in the tooltip and on the
+ * request's own details). Same shape the tracking board uses, so one request
+ * never reads differently in two places.
+ */
+function loadingPointLabel(trip: Trip): string {
+  const sites = loadingSitesFor(trip);
+  if (sites.length === 0) return "—";
+  return sites.length === 1 ? sites[0]! : `${sites[0]} +${sites.length - 1}`;
+}
+
 export const Route = createFileRoute("/workspace/app/partner-requests")({
   // Acting on a partner request needs the same roles the API accepts (PATCH
   // /trips) — without this guard any department could deep-link in and get a
@@ -199,11 +211,11 @@ function AdminPartnerRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Drop-off Location,Date Approved,Status\n";
+    const headers = "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Loading Point,Drop-off Location,Date Approved,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
+          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -444,6 +456,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Name:" value={trip.customerConsignee || ""} />
                 <MetaRow label="Product:" value={trip.cargo || ""} />
                 <MetaRow label="Truck Type:" value={displayRequestedTruckType(trip)} />
+                <MetaRow label="Loading Point:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(approvedStampOf(trip))} />
@@ -511,13 +524,14 @@ function AdminPartnerRequests() {
             {/* No min-width floor: the fr grid flexes to the viewport, so the
                 page never scrolls sideways on smaller laptops. */}
             <div className="w-full">
-              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Loading Point</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
@@ -527,7 +541,7 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {formatDateLines(trip.createdAt).date}
@@ -547,6 +561,12 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {displayRequestedTruckType(trip) || "—"}
+                  </span>
+                  <span
+                    className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]"
+                    title={loadingSitesFor(trip).join(", ") || undefined}
+                  >
+                    {loadingPointLabel(trip)}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
