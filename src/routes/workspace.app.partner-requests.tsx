@@ -13,6 +13,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
   displayRequestedTruckType,
+  displayTruckAssigned,
 } from "@/lib/fleetopsx/display-ids";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
@@ -36,6 +37,39 @@ function loadingPointLabel(trip: Trip): string {
   const sites = loadingSitesFor(trip);
   if (sites.length === 0) return "—";
   return sites.length === 1 ? sites[0]! : `${sites[0]} +${sites.length - 1}`;
+}
+
+/**
+ * The truck as a row shows it: the cap code beside its plate, never apart.
+ * "—" until Fleet Ops assigns one — an approved request can still have none.
+ */
+function truckCell(trip: Trip): string {
+  return displayTruckAssigned(trip) || "—";
+}
+
+/**
+ * Does a query look like something painted on a cab (GRR171XA, KSF 72 YF) or a
+ * cap code (P017)? Only ever used to explain an empty result, never to filter.
+ */
+function looksLikeTruckNumber(query: string): boolean {
+  const v = query.trim();
+  if (!v || /^(req|dis)/i.test(v)) return false;
+  return /[a-z]/i.test(v) && /\d/.test(v);
+}
+
+/** What the search box actually covers — said out loud when it finds nothing. */
+const SEARCH_COVERS =
+  "Search covers the Request ID, partner, customer name, product, truck (cap code and plate), tail, driver, loading sites and drop-off location.";
+
+/** Body of the empty state under an active search: it names what was typed. */
+function noMatchBody(query: string): string {
+  const head = `Nothing on this list matches “${query.trim()}”.`;
+  // The one case that reads as a broken search but is not: a truck number typed
+  // for a request that has no truck yet (Fleet Ops assigns it after approval).
+  if (looksLikeTruckNumber(query)) {
+    return `${head} A truck only shows on a request once Fleet Ops assigns it, so an approved request can still be waiting for one. ${SEARCH_COVERS}`;
+  }
+  return `${head} ${SEARCH_COVERS}`;
 }
 
 export const Route = createFileRoute("/workspace/app/partner-requests")({
@@ -220,11 +254,12 @@ function AdminPartnerRequests() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Loading Point,Drop-off Location,Date Approved,Status\n";
+    const headers =
+      "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
+          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -391,7 +426,7 @@ function AdminPartnerRequests() {
                 setQuery(e.target.value);
                 setPage(0);
               }}
-              placeholder="Search"
+              placeholder="Search request, partner, truck (cap or plate)…"
               className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-11 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
             />
           </div>
@@ -419,7 +454,7 @@ function AdminPartnerRequests() {
               title={query ? "No matching partner requests" : "No partner requests yet"}
               body={
                 query
-                  ? "Try a different request ID, partner, or destination."
+                  ? noMatchBody(query)
                   : "Requests submitted by partner companies will appear here."
               }
             />
@@ -465,6 +500,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Name:" value={trip.customerConsignee || ""} />
                 <MetaRow label="Product:" value={trip.cargo || ""} />
                 <MetaRow label="Truck Type:" value={displayRequestedTruckType(trip)} />
+                <MetaRow label="Truck:" value={displayTruckAssigned(trip) || "—"} />
                 <MetaRow label="Loading Point:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
@@ -514,7 +550,7 @@ function AdminPartnerRequests() {
                   setQuery(e.target.value);
                   setPage(0);
                 }}
-                placeholder="Search"
+                placeholder="Search request, partner, truck (cap or plate)…"
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
@@ -533,13 +569,14 @@ function AdminPartnerRequests() {
             {/* No min-width floor: the fr grid flexes to the viewport, so the
                 page never scrolls sideways on smaller laptops. */}
             <div className="w-full">
-              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Loading Point</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
@@ -550,7 +587,7 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {formatDateLines(trip.createdAt).date}
@@ -570,6 +607,14 @@ function AdminPartnerRequests() {
                   <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {displayRequestedTruckType(trip) || "—"}
+                  </span>
+                  {/* Cap beside plate — the truck is how a request is found on the
+                      phone ("where is GRR171XA"), so the search result shows it. */}
+                  <span
+                    className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]"
+                    title={displayTruckAssigned(trip) || undefined}
+                  >
+                    {truckCell(trip)}
                   </span>
                   <span
                     className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]"
@@ -626,7 +671,7 @@ function AdminPartnerRequests() {
               title={query ? "No matching partner requests" : "No partner requests yet"}
               body={
                 query
-                  ? "Try a different request ID, partner, or destination."
+                  ? noMatchBody(query)
                   : "Requests submitted by partner companies will appear here."
               }
             />
@@ -735,6 +780,7 @@ function AdminPartnerRequests() {
             <ReadOnlyField label="Customer Name" value={detail.customerConsignee ?? ""} />
             <ReadOnlyField label="Product" value={detail.cargo} />
             <ReadOnlyField label="Truck Type" value={displayRequestedTruckType(detail)} />
+            <ReadOnlyField label="Truck" value={displayTruckAssigned(detail) || "Not assigned yet"} />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
             <ReadOnlyField
               label="Destination Address"

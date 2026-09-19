@@ -264,6 +264,24 @@ export function displayPlateFromTrip(
   return "";
 }
 
+/**
+ * The truck on a request as ONE string: the cap code beside the plate they are
+ * painted next to — husband and wife, never separated.
+ *
+ * Returns "" while Fleet Ops has not assigned anything yet: an unassigned
+ * request stores the literal "Unassigned" in `truckReg`, which is not a plate
+ * and must never be shown (or searched) as one.
+ */
+export function displayTruckAssigned(
+  trip: { headId?: string | null; truckReg?: string | null },
+  head?: TruckHead | null,
+): string {
+  const plate = displayPlateFromTrip(trip, head);
+  if (!plate || /^unassigned$/i.test(plate)) return "";
+  const cap = displayCapFromTrip(trip, head);
+  return cap && cap !== plate ? `${cap} · ${plate}` : plate;
+}
+
 /** Resolve plate → roster cab when API omitted cabId. */
 export function enrichTruckHead(head: TruckHead): TruckHead {
   const roster = findRosterCabByPlate(head.registration) || findRosterCabById(head.capNumber) || findRosterCabById(head.number);

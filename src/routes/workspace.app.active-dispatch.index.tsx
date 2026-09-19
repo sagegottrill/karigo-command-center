@@ -336,7 +336,7 @@ function ActiveDispatchPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search"
+              placeholder="Search dispatch, truck (plate or cap), driver…"
               className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
             />
           </div>
@@ -393,7 +393,7 @@ function ActiveDispatchPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search"
+                placeholder="Search dispatch, truck (plate or cap), driver…"
                 className="w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#5C6470]"
               />
             </div>

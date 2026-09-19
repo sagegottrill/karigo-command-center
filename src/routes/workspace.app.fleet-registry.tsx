@@ -497,7 +497,7 @@ function FleetRegistryPage() {
                     setQuery(e.target.value);
                     setPage(0);
                   }}
-                  placeholder="Search"
+                  placeholder="Search cap, plate, tail or location…"
                   className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
                 />
               </div>
