@@ -16,7 +16,13 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import {
+  assignmentReleaseService,
+  authService,
+  driverService,
+  fleetService,
+  tripService,
+} from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import { FO_QUEUE_BUCKETS, isInBucket, queueOrder } from "@/lib/fleetopsx/status-buckets";
@@ -317,7 +323,17 @@ function DispatchPage() {
       // never shown a stale reason.
       sendBackReason: null,
     });
-    
+
+    // "Assigned" now means what it says: the truck, the tail and the driver this
+    // dispatch just took are moved to Assigned / On Trip on the fleet board.
+    void assignmentReleaseService.claimAssets({
+      ...selectedOrder!,
+      truckReg: tail
+        ? `${assignedHead.registration} / ${tail.number || tail.registration}`
+        : assignedHead.registration,
+      driverName: driverName.trim(),
+    });
+
       toast.success(`Dispatch Configured`, {
       description: `${displayTicket(selectedOrder!)} assigned to ${displayHeadCap(head) || head.registration} — sent for final TM approval`,
     });

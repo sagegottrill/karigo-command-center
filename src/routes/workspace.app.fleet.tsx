@@ -329,6 +329,9 @@ function FleetDispatchRequests() {
     setApprovingId(trip.id);
     try {
       await tripService.approveDispatch(trip.id);
+      // Belt and braces: final approval is the moment the dispatch certainly
+      // holds a truck, whatever happened on the Fleet Ops side.
+      void assignmentReleaseService.claimAssets(trip);
       toast.success(`Dispatch ${dispatchId(trip)} approved.`);
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       const fresh = await tripService.list();

@@ -9,7 +9,7 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { tripService } from "@/lib/fleetopsx/services";
+import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -193,6 +193,15 @@ export function TmEditAssignmentModal({
         // The TM's estimate — cleared (not left stale) when the field is emptied.
         estimatedDate: estimatedDate.trim() || null,
         ...(andApprove ? { status: "Scheduled" as const } : {}),
+      });
+      // The TM has just re-stated which truck and driver this dispatch holds, so
+      // the fleet board follows: Assigned / On Trip, never left on Available.
+      void assignmentReleaseService.claimAssets({
+        ...trip,
+        truckReg: tail
+          ? `${head.registration} / ${tail.number || tail.registration}`
+          : head.registration,
+        driverName: driver ? driver.name : driverName.trim(),
       });
       toast.success(
         andApprove

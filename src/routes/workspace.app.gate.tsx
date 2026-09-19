@@ -156,6 +156,20 @@ function SecurityLogPage() {
           await fleetService.updateHeadStatus(head.id, "Check Up");
           marked = true;
         }
+        // The TAIL came back with the truck — and it was set to Assigned when the
+        // dispatch took it. Leaving it there would advertise a body that is
+        // standing in the yard as fitted to a live run.
+        const tailCode = String(trip.tailNumber || (trip.truckReg || "").split("/")[1] || "").trim();
+        if (tailCode) {
+          const tails = await fleetService.listTails();
+          const tail = tails.find(
+            (t) => t.number.replace(/\s/g, "").toUpperCase() === tailCode.replace(/\s/g, "").toUpperCase(),
+          );
+          if (tail && (tail.status === "Assigned" || tail.status === "Out of Yard")) {
+            await fleetService.updateTailStatus(tail.id, "Check Up");
+            marked = true;
+          }
+        }
       } catch {
         /* the return itself must stand even if the asset row cannot be updated */
       }

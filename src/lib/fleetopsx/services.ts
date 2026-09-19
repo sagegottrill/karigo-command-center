@@ -160,6 +160,59 @@ export const assignmentReleaseService = {
   }),
 
   /**
+   * Mark what a dispatch is HOLDING as Assigned — the other half of releasing.
+   *
+   * The register's "Assigned" was a status somebody typed by hand: assigning a
+   * truck to a dispatch never moved it there, so a truck could sit on three live
+   * dispatches and still read "Available", or read "Assigned" long after its
+   * dispatch died. "Assigned" now means exactly what it says — a truck has been
+   * assigned.
+   *
+   * Only an Available asset is claimed: a truck in the workshop, one just back
+   * for check-up, or a blocked number is never silently dragged onto the road.
+   * Returns a human list of what was taken, for the toast.
+   */
+  claimAssets: async (trip: Trip): Promise<string[]> => {
+    const norm = (s: string) => s.replace(/\s/g, "").toUpperCase();
+    const [plateRaw, tailCodeRaw] = String(trip.truckReg || "")
+      .split("/")
+      .map((part) => part.trim());
+    const plate = (plateRaw ?? "").replace(/^unassigned$/i, "");
+    const tailCode = (tailCodeRaw ?? "").replace(/^unassigned$/i, "");
+    const claimed: string[] = [];
+    const jobs: Promise<unknown>[] = [];
+
+    const heads = await fleetService.listHeads().catch(() => [] as TruckHead[]);
+    const head = plate
+      ? heads.find((h) => norm(h.registration) === norm(plate) || norm(h.capNumber ?? "") === norm(plate))
+      : undefined;
+    if (head && head.status === "Available") {
+      jobs.push(fleetService.updateHeadStatus(head.id, "Assigned"));
+      claimed.push(`truck ${head.capNumber || head.registration}`);
+    }
+
+    const tails = await fleetService.listTails().catch(() => [] as TruckTail[]);
+    const tail = tailCode ? tails.find((t) => norm(t.number) === norm(tailCode)) : undefined;
+    if (tail && tail.status === "Available") {
+      jobs.push(fleetService.updateTailStatus(tail.id, "Assigned"));
+      claimed.push(`tail ${tail.number}`);
+    }
+
+    const heldByName = trip.driverName;
+    if (heldByName && !/^unassigned$/i.test(heldByName)) {
+      const drivers = await driverService.list().catch(() => [] as Driver[]);
+      const driver = drivers.find((d) => norm(d.name) === norm(heldByName));
+      if (driver && driver.status === "Available") {
+        jobs.push(driverService.update(driver.id, { status: "On Trip" }));
+        claimed.push(`driver ${driver.name}`);
+      }
+    }
+
+    await Promise.allSettled(jobs);
+    return claimed;
+  },
+
+  /**
    * Put whatever the dispatch was holding back on the board.
    * Only assets actually marked as held (Assigned / On Trip) are touched, so a
    * truck parked for maintenance or a driver who is Off Duty is never disturbed.
