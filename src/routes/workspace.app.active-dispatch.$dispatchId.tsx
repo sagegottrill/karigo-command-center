@@ -117,6 +117,30 @@ function LogLocationPage() {
   }, [dispatchId, navigate]);
 
   /**
+   * Roles decide the whole shape of this page (Tracking logs the journey, Loading
+   * logs collection, everyone else only views), so they are read as HOOKS-LEVEL
+   * data here — above the loading / not-found early returns below.
+   *
+   * They used to sit after those returns, which made the tab-title useEffect
+   * conditional: the first render bailed out at "Loading dispatch…" before reaching
+   * the hook, the next render called it, and React threw #310 (more hooks than the
+   * previous render) the moment the dispatch loaded — the page died on arrival.
+   */
+  const roles = authService.getRoles();
+  const canLogTracking = canLogTrackingRole(roles);
+  const loggableLegs = loggableLegsFor(roles, TRACKING_LEGS);
+  const canLogAnything = loggableLegs.length > 0;
+  const loadingOnly = canLogAnything && !canLogTracking;
+  // The tab title follows the same rule — a viewer's page is not "Log Location".
+  useEffect(() => {
+    document.title = canLogTracking
+      ? "Log Location | Tracking Ops"
+      : loadingOnly
+        ? "Log Loading | Loading Ops"
+        : "Track Location | Dispatch";
+  }, [canLogTracking, loadingOnly]);
+
+  /**
    * Status dropdown is a TRACKING LABEL, not a trip-status write. Changing it
    * used to PATCH the trip to Delayed/Stopped — which silently re-bucketed the
    * trip and made it vanish from the Active Dispatch board (Stopped-without-
@@ -184,26 +208,14 @@ function LogLocationPage() {
   const sites = tripLoadingSites(trip);
   const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
-  const hideTmPricing = !canSeeTmPricing(authService.getRoles());
   // Only the Tracking department logs the whole journey and moves the delay
   // status. The Loading department logs ONE thing here — collection — and that
   // entry is the same checkpoint record Tracking writes, so whichever of the two
   // marks a site first is the truth and the other simply agrees with it (the API
   // refuses the duplicate). Everyone else (Transport Manager, Fleet Ops, Security)
-  // gets the same page as pure visibility.
-  const roles = authService.getRoles();
-  const canLogTracking = canLogTrackingRole(roles);
-  const loggableLegs = loggableLegsFor(roles, TRACKING_LEGS);
-  const canLogAnything = loggableLegs.length > 0;
-  const loadingOnly = canLogAnything && !canLogTracking;
-  // The tab title follows the same rule — a viewer's page is not "Log Location".
-  useEffect(() => {
-    document.title = canLogTracking
-      ? "Log Location | Tracking Ops"
-      : loadingOnly
-        ? "Log Loading | Loading Ops"
-        : "Track Location | Dispatch";
-  }, [canLogTracking, loadingOnly]);
+  // gets the same page as pure visibility — all of it decided by the `roles` read
+  // above the early returns.
+  const hideTmPricing = !canSeeTmPricing(roles);
   const detailFields = dispatchFields(trip, driver ?? undefined, undefined, hideTmPricing);
 
   return (
