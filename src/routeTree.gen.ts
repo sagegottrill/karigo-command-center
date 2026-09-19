@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DeleteaccountRouteImport } from './routes/deleteaccount'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as SuperadminIndexRouteImport } from './routes/superadmin.index'
 import { Route as SuperadminLoginRouteImport } from './routes/superadmin.login'
@@ -64,6 +66,16 @@ import { Route as WorkspaceCustomerPortalAuthRequestRouteImport } from './routes
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteaccountRoute = DeleteaccountRouteImport.update({
+  id: '/deleteaccount',
+  path: '/deleteaccount',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -340,6 +352,8 @@ const WorkspaceCustomerPortalAuthRequestRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/deleteaccount': typeof DeleteaccountRoute
+  '/privacy': typeof PrivacyRoute
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
@@ -392,6 +406,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/deleteaccount': typeof DeleteaccountRoute
+  '/privacy': typeof PrivacyRoute
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
@@ -442,6 +458,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/deleteaccount': typeof DeleteaccountRoute
+  '/privacy': typeof PrivacyRoute
   '/workspace': typeof WorkspaceRouteWithChildren
   '/superadmin/login': typeof SuperadminLoginRoute
   '/workspace/account-type': typeof WorkspaceAccountTypeRoute
@@ -497,6 +515,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/deleteaccount'
+    | '/privacy'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
@@ -549,6 +569,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/deleteaccount'
+    | '/privacy'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
@@ -598,6 +620,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/deleteaccount'
+    | '/privacy'
     | '/workspace'
     | '/superadmin/login'
     | '/workspace/account-type'
@@ -652,6 +676,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DeleteaccountRoute: typeof DeleteaccountRoute
+  PrivacyRoute: typeof PrivacyRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
   SuperadminLoginRoute: typeof SuperadminLoginRoute
   SuperadminIndexRoute: typeof SuperadminIndexRoute
@@ -664,6 +690,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deleteaccount': {
+      id: '/deleteaccount'
+      path: '/deleteaccount'
+      fullPath: '/deleteaccount'
+      preLoaderRoute: typeof DeleteaccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspace': {
@@ -1177,6 +1217,8 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DeleteaccountRoute: DeleteaccountRoute,
+  PrivacyRoute: PrivacyRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
   SuperadminLoginRoute: SuperadminLoginRoute,
   SuperadminIndexRoute: SuperadminIndexRoute,
