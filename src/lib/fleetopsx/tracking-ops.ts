@@ -121,6 +121,28 @@ export function tripLoadingSites(trip: Pick<Trip, "loadingSite" | "pickup">): st
 }
 
 /**
+ * Do these two names refer to the same place?
+ *
+ * Exact equality is not enough in the field. A partner raises "18 Creek Road" and
+ * "Apapa"; the crew logs the pair as ONE checkpoint, "18 CREEK RD,APAPA"; another
+ * writes "H/H" for Happy Home. Under strict comparison a site that HAS been loaded
+ * still shows as outstanding — on the partner's timeline, in the loader's
+ * checklist and in the board's Loading column alike.
+ *
+ * So a name that contains the other counts as the same place, but only on a
+ * meaningful run of characters: "Ijesha.1" must not be swallowed by a stray "1".
+ */
+export function sitesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = normalizeSiteKey(a);
+  const y = normalizeSiteKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const MIN_OVERLAP = 4;
+  if (x.length < MIN_OVERLAP || y.length < MIN_OVERLAP) return false;
+  return x.includes(y) || y.includes(x);
+}
+
+/**
  * One sub-dot under a stage. `logged` is false for a requested loading site the
  * Tracking team has not reached yet — the dot still shows, so the checklist is
  * visible instead of a site silently going missing.
@@ -157,7 +179,8 @@ export function stageDots(
   const claimed = new Set<string>();
   const siteDots: StageDot[] = sites.map((site, i) => {
     const key = normalizeSiteKey(site);
-    const hit = forStage.find((cp) => normalizeSiteKey(cp.location) === key);
+    // Abbreviated / jointly-logged names still count as this site being loaded.
+    const hit = forStage.find((cp) => sitesMatch(cp.location, site));
     if (hit) claimed.add(hit.id);
     return {
       key: `${key || "site"}-${i}`,

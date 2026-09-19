@@ -1,13 +1,15 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ArrowBigRight, ChevronLeft, ChevronRight, ListFilter, Search, Upload } from "lucide-react";
+import { ArrowBigRight, Check, ChevronLeft, ChevronRight, ListFilter, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import {
   listCheckpoints,
+  loadingSiteProgress,
   partnerOf,
+  stageDots,
   tripLoadingSites,
   type LocationCheckpoint,
 } from "@/lib/fleetopsx/tracking-ops";
@@ -69,9 +71,13 @@ function ActiveDispatchPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("All");
   const [page, setPage] = useState(0);
-  // Latest logged checkpoint per dispatch, so the board answers "where is that
-  // truck right now?" at a glance instead of making the reader open every row.
-  const [lastStops, setLastStops] = useState<Record<string, LocationCheckpoint | null>>({});
+  // Every checkpoint the board's visible rows have, keyed by dispatch. The latest
+  // one answers "where is that truck right now?", and the Loading ones answer the
+  // loading department's own question — "how much of this load is collected, and
+  // which sites are still outstanding?" — from the same fetch, so the two columns
+  // can never disagree.
+  const [checkpointsByTrip, setCheckpointsByTrip] = useState<Record<string, LocationCheckpoint[]>>({});
+  const lastStopOf = (tripId: string) => checkpointsByTrip[tripId]?.[0] ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -200,13 +206,13 @@ function ActiveDispatchPage() {
       const rows = await Promise.all(
         ids.map(async (id) => {
           const list = await listCheckpoints(id).catch(() => [] as LocationCheckpoint[]);
-          return [id, list[0] ?? null] as const;
+          return [id, list] as const;
         }),
       );
       if (cancelled) return;
-      setLastStops((prev) => {
+      setCheckpointsByTrip((prev) => {
         const next = { ...prev };
-        for (const [id, checkpoint] of rows) next[id] = checkpoint;
+        for (const [id, list] of rows) next[id] = list;
         return next;
       });
     };
@@ -232,13 +238,13 @@ function ActiveDispatchPage() {
     // screen — the file must not disagree with what the board shows.
     const stops = await Promise.all(
       filtered.map(async (trip) => {
-        const known = lastStops[trip.id];
+        const known = checkpointsByTrip[trip.id];
         if (known !== undefined) return [trip.id, known] as const;
         const list = await listCheckpoints(trip.id).catch(() => [] as LocationCheckpoint[]);
-        return [trip.id, list[0] ?? null] as const;
+        return [trip.id, list] as const;
       }),
     );
-    const stopById = new Map(stops);
+    const stopsById = new Map(stops);
     const header = [
       "Dispatch ID",
       "Driver",
@@ -246,6 +252,7 @@ function ActiveDispatchPage() {
       "Tail Type",
       "Phone Number",
       "Loading Site(s)",
+      "Loading Progress",
       "Drop-off Location",
       "Last Location",
       "Last Location Time",
@@ -253,7 +260,9 @@ function ActiveDispatchPage() {
     ];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
-      const stop = lastStopLabel(stopById.get(trip.id));
+      const list = stopsById.get(trip.id) ?? [];
+      const stop = lastStopLabel(list[0] ?? null);
+      const progress = loadingSiteProgress(tripLoadingSites(trip), list);
       return [
         dispatchDisplayId(trip),
         trip.driverName ?? "",
@@ -261,6 +270,7 @@ function ActiveDispatchPage() {
         trip.tailType ?? "",
         phoneFor(trip),
         tripLoadingSites(trip).join(" | "),
+        progress ? `${progress.logged} of ${progress.total} site(s) loaded` : "",
         trip.dropoff ?? "",
         stop.place,
         stop.when,
@@ -434,7 +444,7 @@ function ActiveDispatchPage() {
           <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           <>
-            <div className="overflow-x-auto">                <table className="w-full min-w-[1080px] border-collapse">
+            <div className="overflow-x-auto">                <table className="w-full min-w-[1170px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E5E9] text-left text-[12px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                     <th className="px-3 py-3">Dispatch ID</th>
@@ -443,6 +453,7 @@ function ActiveDispatchPage() {
                     <th className="px-3 py-3">Tail Type</th>
                     <th className="px-3 py-3">Phone Number</th>
                     <th className="px-3 py-3">Loading Site(s)</th>
+                    <th className="px-3 py-3">Loading</th>
                     <th className="px-3 py-3">Drop-off Location</th>
                     <th className="px-3 py-3">Last Location</th>
                     <th className="px-3 py-3">Status</th>
@@ -462,9 +473,12 @@ function ActiveDispatchPage() {
                         <td className="px-3 py-4" title={tripLoadingSites(trip).join(", ") || undefined}>
                           {loadingSitesLabel(trip)}
                         </td>
+                        <td className="px-3 py-4">
+                          <LoadingProgressCell trip={trip} checkpoints={checkpointsByTrip[trip.id]} />
+                        </td>
                         <td className="px-3 py-4">{trip.dropoff || ""}</td>
                         <td className="px-3 py-4">
-                          <LastStopCell checkpoint={lastStops[trip.id]} />
+                          <LastStopCell checkpoint={lastStopOf(trip.id)} />
                         </td>
                         <td className="px-3 py-4">
                           <span
@@ -568,10 +582,17 @@ function ActiveDispatchPage() {
                 <MetaRow label="Tail Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
                 <MetaRow label="Loading Site(s):" value={loadingSitesLabel(trip)} />
+                {/* How much of the load is collected — the mobile card's own copy of
+                    the board's Loading column. */}
+                <MetaRow
+                  label="Loading:"
+                  value={loadingProgressLabel(trip, checkpointsByTrip[trip.id])}
+                  accent={isLoadingComplete(trip, checkpointsByTrip[trip.id])}
+                />
                 <MetaRow
                   label="Last Seen:"
-                  value={lastStopRowLabel(lastStops[trip.id])}
-                  accent={Boolean(lastStops[trip.id])}
+                  value={lastStopRowLabel(lastStopOf(trip.id))}
+                  accent={Boolean(lastStopOf(trip.id))}
                 />
               </div>
             );
@@ -616,6 +637,69 @@ function lastStopRowLabel(checkpoint?: LocationCheckpoint | null): string {
   const { place, when } = lastStopLabel(checkpoint);
   if (place === "—") return "No checkpoint logged yet";
   return when ? `${place} · ${when}` : place;
+}
+
+/** "2 of 3 sites" for a multi-loading request, or null when there is nothing to count. */
+function loadingProgressOf(trip: Trip, checkpoints?: LocationCheckpoint[]) {
+  const sites = tripLoadingSites(trip);
+  if (sites.length === 0) return null;
+  return loadingSiteProgress(sites, checkpoints ?? []);
+}
+
+function isLoadingComplete(trip: Trip, checkpoints?: LocationCheckpoint[]) {
+  const progress = loadingProgressOf(trip, checkpoints);
+  return Boolean(progress && progress.total > 0 && progress.logged === progress.total);
+}
+
+function loadingProgressLabel(trip: Trip, checkpoints?: LocationCheckpoint[]) {
+  const progress = loadingProgressOf(trip, checkpoints);
+  return progress ? `${progress.logged} of ${progress.total} site(s)` : "—";
+}
+
+/**
+ * "Loading" cell — how much of the load is collected.
+ *
+ * The Loading department's whole job in one column: which sites are done and how
+ * many are left, so a loader can see at a glance whether the next truck is theirs
+ * and what is still outstanding. It reads the SAME checkpoints the Last Location
+ * column reads, so a site marked loaded by Tracking and one marked loaded by
+ * Loading are counted identically — one record, one number.
+ */
+function LoadingProgressCell({
+  trip,
+  checkpoints,
+}: {
+  trip: Trip;
+  checkpoints?: LocationCheckpoint[];
+}) {
+  const sites = tripLoadingSites(trip);
+  if (sites.length === 0) return <span className="text-[#5C6470]">—</span>;
+  const list = checkpoints ?? [];
+  const progress = loadingSiteProgress(sites, list);
+  if (!progress) return <span className="text-[#5C6470]">—</span>;
+  // stageDots leads with one dot per requested site, in request order, so the
+  // outstanding ones are simply the un-logged entries at the head of that list.
+  const outstanding = stageDots("Loading", sites, list)
+    .slice(0, sites.length)
+    .filter((dot) => !dot.logged)
+    .map((dot) => dot.label);
+  const done = progress.logged === progress.total;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
+        done ? "bg-[#0ACF83]/15 text-[#0B7A4E]" : "bg-[#FC0]/20 text-[#1B2432]",
+      )}
+      title={
+        done
+          ? `All ${progress.total} site(s) loaded`
+          : `Loaded: ${progress.logged} of ${progress.total} — still outstanding: ${outstanding.join(", ")}`
+      }
+    >
+      {done ? <Check className="size-3.5" strokeWidth={2.5} /> : null}
+      {progress.logged}/{progress.total}
+    </span>
+  );
 }
 
 /** "Last Location" cell — place over time, with the leg it was logged against on hover. */
