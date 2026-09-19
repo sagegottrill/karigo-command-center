@@ -13,7 +13,13 @@ import {
 import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
-import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import {
+  assignmentReleaseService,
+  authService,
+  driverService,
+  fleetService,
+  tripService,
+} from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
@@ -261,16 +267,20 @@ function FleetDispatchRequests() {
       //   reads as unassigned everywhere) rather than null.
       await tripService.update(sendBackTrip.id, {
         status: "Approved",
-        driverName: "",
-        truckReg: "",
-        tailType: null,
-        tailNumber: null,
-        directCosts: null,
+        ...assignmentReleaseService.clearedFields(),
         sendBackReason: reason,
       });
+      // The vehicle itself is freed too, not just the record: if Fleet Ops had
+      // marked the truck/tail Assigned or the driver On Trip, they go back on the
+      // board so the next dispatcher can pick them.
+      const freed = await assignmentReleaseService.releaseAssets(sendBackTrip);
       toast.success(
         `Dispatch ${dispatchId(sendBackTrip)} cleared and returned to Fleet Operations.`,
-        { description: "The truck, driver and costs are removed — Fleet Ops re-assigns from the queue." },
+        {
+          description: freed.length
+            ? `Released back to the fleet: ${freed.join(", ")} — Fleet Ops re-assigns from the queue.`
+            : "The truck, driver and costs are removed — Fleet Ops re-assigns from the queue.",
+        },
       );
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       setSendBackTrip(null);

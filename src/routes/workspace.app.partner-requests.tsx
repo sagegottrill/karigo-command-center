@@ -9,7 +9,7 @@ import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fle
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
-import { tripService } from "@/lib/fleetopsx/services";
+import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   approvedStampOf,
@@ -274,15 +274,24 @@ function AdminPartnerRequests() {
       return;
     }
     setNoting(true);
+    const declining = noteMode === "decline";
     try {
       await tripService.update(noteTrip.id, {
-        status: noteMode === "sendback" ? "Requested" : "Stopped",
+        status: declining ? "Stopped" : "Requested",
         partnerNote: text || null,
+        // A declined request is dead: release the truck, tail, driver and cost
+        // configuration it was holding, so nothing stays tied to a request that
+        // will never run and the vehicle is free for the next dispatch.
+        ...(declining ? assignmentReleaseService.clearedFields() : {}),
       });
-      toast[noteMode === "sendback" ? "success" : "warning"](
-        noteMode === "sendback"
-          ? `Request ${requestId(noteTrip)} sent back to the partner for correction.`
-          : `Request ${requestId(noteTrip)} declined.`,
+      const freed = declining ? await assignmentReleaseService.releaseAssets(noteTrip) : [];
+      toast[declining ? "warning" : "success"](
+        declining
+          ? `Request ${requestId(noteTrip)} declined.`
+          : `Request ${requestId(noteTrip)} sent back to the partner for correction.`,
+        freed.length
+          ? { description: `Released back to the fleet: ${freed.join(", ")}.` }
+          : undefined,
       );
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       setNoteTrip(null);

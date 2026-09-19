@@ -95,6 +95,16 @@ export const fleetService = {
     fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ destination }) }),
   setTailDestination: (id: string, destination: string) =>
     fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ destination }) }),
+  /**
+   * The BODY a tail carries (Full Sided, Semi Sided, Flatbed Tail…). Recorded on
+   * the asset so every assignment, tracking row and printout can show what is
+   * actually being hitched up instead of one default word for the whole fleet.
+   */
+  setTailType: (id: string, type: string) =>
+    fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ type }) }),
+  /** A head's operating category (UPCOUNTRY, LOCAL, Pick Up, Short Body…). */
+  setHeadCategory: (id: string, category: string) =>
+    fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ category }) }),
   updateHead: (id: string, updates: Partial<TruckHead>) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteHead: (id: string) => fetchApi(`/trucks/${id}`, { method: 'DELETE' }),
   updateTail: (id: string, updates: Partial<TruckTail>) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
@@ -123,6 +133,90 @@ export const driverService = {
   create: (input: any) => fetchApi('/drivers', { method: 'POST', body: JSON.stringify(input) }).then(mapDriver),
   update: (id: string, updates: Partial<Driver>) => fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
   delete: (id: string) => fetchApi(`/drivers/${id}`, { method: 'DELETE' }),
+};
+
+/**
+ * Releasing a dispatch's assignment — ONE implementation for every way a
+ * dispatch can die (TM declines the request, TM sends a mis-assigned dispatch
+ * back to Fleet Ops).
+ *
+ * Before this existed, a dead request kept naming its truck, tail and driver
+ * forever: the record still read "DGR183XA / B010 · Ahmadu Ali" while the vehicle
+ * sat idle in the yard, so nothing told the next dispatcher it was free — and a
+ * declined request still looked like a live trip in every view that reads the
+ * trip record.
+ */
+export const assignmentReleaseService = {
+  /**
+   * Field-clear patch. driverName/truckReg are NOT NULL columns, so they empty
+   * to "" — which is what every screen already reads as "unassigned".
+   */
+  clearedFields: (): Omit<Partial<Trip>, keyof ClearableTripFields> & ClearableTripFields => ({
+    driverName: "",
+    truckReg: "",
+    tailType: null,
+    tailNumber: null,
+    directCosts: null,
+  }),
+
+  /**
+   * Put whatever the dispatch was holding back on the board.
+   * Only assets actually marked as held (Assigned / On Trip) are touched, so a
+   * truck parked for maintenance or a driver who is Off Duty is never disturbed.
+   * Returns a human list of what was freed, for the toast.
+   */
+  releaseAssets: async (trip: Trip): Promise<string[]> => {
+    const norm = (s: string) => s.replace(/\s/g, "").toUpperCase();
+    const [plateRaw, tailCodeRaw] = String(trip.truckReg || "")
+      .split("/")
+      .map((part) => part.trim());
+    const plate = plateRaw ?? "";
+    const tailCode = tailCodeRaw ?? "";
+    const freed: string[] = [];
+    const jobs: Promise<unknown>[] = [];
+
+    // Never free a vehicle another LIVE dispatch is still running on. The same
+    // truck legitimately appears on two records (a request that was declined and
+    // a later one that was dispatched with it), and releasing the dead twin must
+    // not take the truck off the road.
+    const dead: string[] = ["Stopped", "Completed"];
+    const live = await tripService.list().catch(() => [] as Trip[]);
+    const stillHeldByAnotherTrip = (reg: string, driverName: string) =>
+      live.some((t) => {
+        if (t.id === trip.id || dead.includes(String(t.status))) return false;
+        if (reg && norm(t.truckReg || "").includes(norm(reg))) return true;
+        return Boolean(driverName) && norm(t.driverName || "") === norm(driverName);
+      });
+
+    const heads = await fleetService.listHeads().catch(() => [] as TruckHead[]);
+    const head = plate
+      ? heads.find((h) => norm(h.registration) === norm(plate) || norm(h.capNumber ?? "") === norm(plate))
+      : undefined;
+    if (head && head.status === "Assigned" && !stillHeldByAnotherTrip(plate, "")) {
+      jobs.push(fleetService.updateHeadStatus(head.id, "Available"));
+      freed.push(`truck ${plate}`);
+    }
+
+    const tails = await fleetService.listTails().catch(() => [] as TruckTail[]);
+    const tail = tailCode ? tails.find((t) => norm(t.number) === norm(tailCode)) : undefined;
+    if (tail && tail.status === "Assigned" && !stillHeldByAnotherTrip(tailCode, "")) {
+      jobs.push(fleetService.updateTailStatus(tail.id, "Available"));
+      freed.push(`tail ${tailCode}`);
+    }
+
+    const heldByName = trip.driverName;
+    if (heldByName) {
+      const drivers = await driverService.list().catch(() => [] as Driver[]);
+      const driver = drivers.find((d) => norm(d.name) === norm(heldByName));
+      if (driver && driver.status === "On Trip" && !stillHeldByAnotherTrip("", heldByName)) {
+        jobs.push(driverService.update(driver.id, { status: "Available" }));
+        freed.push(`driver ${driver.name}`);
+      }
+    }
+
+    await Promise.allSettled(jobs);
+    return freed;
+  },
 };
 
 export const authService = {

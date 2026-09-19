@@ -7,6 +7,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
+import { headCategoryOptions, tailBodyOptions } from "@/lib/fleetopsx/asset-options";
 import type { TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -178,7 +179,7 @@ function printFleetReport({
     </table>
     <h2>${tab === "head" ? "Truck Heads" : "Truck Tails"} (${listing.length})</h2>
     <table>
-      <tr><th>${tab === "head" ? "Head No" : "Tail No"}</th><th>Registration</th><th>${tab === "head" ? "Brand" : "Type"}</th><th>Status</th><th>Location</th></tr>
+      <tr><th>${tab === "head" ? "Head No" : "Tail No"}</th><th>Registration</th><th>${tab === "head" ? "Category" : "Body"}</th><th>Status</th><th>Location</th></tr>
       ${detailRows || `<tr><td colspan="5">No records.</td></tr>`}
     </table>
     <div class="sign">Prepared by:<br/><span>${htmlEsc(preparedBy || "")}</span></div>
@@ -259,6 +260,23 @@ function FleetRegistryPage() {
     }
   };
 
+  /**
+   * The asset's own kind, straight from the table: a tail's BODY (Full Sided,
+   * Semi Sided, Flatbed Tail…) or a head's operating category. This is the value
+   * every assignment screen, tracking row and printout reads, so recording it
+   * here is what makes those screens tell the truth.
+   */
+  const handleKindChange = async (item: TruckHead | TruckTail, value: string) => {
+    try {
+      if (tab === "head") await fleetService.setHeadCategory(item.id, value);
+      else await fleetService.setTailType(item.id, value);
+      toast.success(tab === "head" ? `Category updated to ${value}` : `Body updated to ${value}`);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update the asset type");
+    }
+  };
+
   /** TM and Fleet Ops can place an asset (Port / Customer) straight from the table. */
   const handleLocationChange = async (item: TruckHead | TruckTail, destination: string) => {
     try {
@@ -292,7 +310,7 @@ function FleetRegistryPage() {
 
   const exportCSV = () => {
     const headers =
-      tab === "head" ? "Head No,Registration,Truck Brand,Status,Location\n" : "Tail No,Registration,Type,Status,Location\n";
+      tab === "head" ? "Head No,Registration,Category,Status,Location\n" : "Tail No,Registration,Body,Status,Location\n";
     const csv = filtered
       .map((item) => {
         if (tab === "head") {
@@ -493,8 +511,8 @@ function FleetRegistryPage() {
 
           <div className="hidden grid-cols-[146px_146px_1fr_140px_140px] items-center gap-[50px] border-b border-[#E2E5E9] py-2.5 md:grid">
             {(tab === "head"
-              ? ["Head No", "Registration", "Truck Brand", "Status", "Location"]
-              : ["Tail No", "Registration", "Type", "Status", "Location"]
+              ? ["Head No", "Registration", "Category", "Status", "Location"]
+              : ["Tail No", "Registration", "Body", "Status", "Location"]
             ).map((h) => (
               <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
@@ -525,9 +543,23 @@ function FleetRegistryPage() {
                     </span>
                   </div>
                   <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">{item.registration || "—"}</span>
-                  <span className="text-[13px] tracking-[0.4px] text-[#5C6470]">
-                    {head ? head.make : tail?.type || "Trailer"}
-                  </span>
+                  {/* Editable kind: a tail's body / a head's category. */}
+                  <select
+                    value={head ? head.make : tail?.type || "Trailer"}
+                    onChange={(e) => void handleKindChange(item, e.target.value)}
+                    className="h-[26px] w-full cursor-pointer rounded border border-[#E2E5E9] bg-white px-2 text-[13px] tracking-[0.4px] text-[#5C6470] outline-none"
+                    title={
+                      tab === "head"
+                        ? "The head's operating category"
+                        : "The body this tail carries — what the partner's request is matched against"
+                    }
+                  >
+                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map((opt) => (
+                      <option key={opt} value={opt} className="bg-white text-[#1B2432]">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
                   <select
                     value={item.location || "Depot"}
                     onChange={(e) => void handleLocationChange(item, e.target.value)}
@@ -557,9 +589,23 @@ function FleetRegistryPage() {
                     {head ? headLabel(head) : tail?.number}
                   </span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{item.registration}</span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
-                    {head ? head.make : tail?.type}
-                  </span>
+                  {/* Editable kind: a tail's body / a head's category. */}
+                  <select
+                    value={head ? head.make : tail?.type || "Trailer"}
+                    onChange={(e) => void handleKindChange(item, e.target.value)}
+                    className="h-[26px] w-full cursor-pointer rounded border border-[#E2E5E9] bg-white px-2 text-[13px] tracking-[0.4px] text-[#5C6470] outline-none"
+                    title={
+                      tab === "head"
+                        ? "The head's operating category"
+                        : "The body this tail carries — what the partner's request is matched against"
+                    }
+                  >
+                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map((opt) => (
+                      <option key={opt} value={opt} className="bg-white text-[#1B2432]">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
                   <span>
                     <select
                       value={item.status}

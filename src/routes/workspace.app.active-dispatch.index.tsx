@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { partnerOf, tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
+import {
+  listCheckpoints,
+  partnerOf,
+  tripLoadingSites,
+  type LocationCheckpoint,
+} from "@/lib/fleetopsx/tracking-ops";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { canLogTracking } from "@/lib/fleetopsx/active-role";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -59,6 +64,9 @@ function ActiveDispatchPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("All");
   const [page, setPage] = useState(0);
+  // Latest logged checkpoint per dispatch, so the board answers "where is that
+  // truck right now?" at a glance instead of making the reader open every row.
+  const [lastStops, setLastStops] = useState<Record<string, LocationCheckpoint | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -163,23 +171,78 @@ function ActiveDispatchPage() {
     setPage(0);
   }, [search, filter, partner]);
 
-  const exportCsv = () => {
+  /**
+   * The board's "Last Seen" column.
+   *
+   * The API only serves checkpoints one trip at a time (GET /tracking/:tripId —
+   * there is no bulk route), so only the rows actually on screen are fetched.
+   * Logging a checkpoint does not touch the trip row, so the 10s trips poll can
+   * never reveal it: this refreshes on its own slower cadence, plus the moment the
+   * tab is brought back into view.
+   */
+  const visibleIds = pageRows.map((trip) => trip.id).join(",");
+  useEffect(() => {
+    const ids = visibleIds ? visibleIds.split(",") : [];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    const load = async () => {
+      const rows = await Promise.all(
+        ids.map(async (id) => {
+          const list = await listCheckpoints(id).catch(() => [] as LocationCheckpoint[]);
+          return [id, list[0] ?? null] as const;
+        }),
+      );
+      if (cancelled) return;
+      setLastStops((prev) => {
+        const next = { ...prev };
+        for (const [id, checkpoint] of rows) next[id] = checkpoint;
+        return next;
+      });
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [visibleIds]);
+
+  const exportCsv = async () => {
     if (filtered.length === 0) {
       toast.message("Nothing to export");
       return;
     }
+    // The export covers every page, so fetch the checkpoints that were never on
+    // screen — the file must not disagree with what the board shows.
+    const stops = await Promise.all(
+      filtered.map(async (trip) => {
+        const known = lastStops[trip.id];
+        if (known !== undefined) return [trip.id, known] as const;
+        const list = await listCheckpoints(trip.id).catch(() => [] as LocationCheckpoint[]);
+        return [trip.id, list[0] ?? null] as const;
+      }),
+    );
+    const stopById = new Map(stops);
     const header = [
       "Dispatch ID",
       "Driver",
       "Truck Head",
-      "Head Type",
+      "Tail Type",
       "Phone Number",
       "Loading Site(s)",
       "Drop-off Location",
+      "Last Location",
+      "Last Location Time",
       "Status",
     ];
     const lines = filtered.map((trip) => {
       const delay = getTrackingDelayStatus(trip);
+      const stop = lastStopLabel(stopById.get(trip.id));
       return [
         dispatchDisplayId(trip),
         trip.driverName ?? "",
@@ -188,6 +251,8 @@ function ActiveDispatchPage() {
         phoneFor(trip),
         tripLoadingSites(trip).join(" | "),
         trip.dropoff ?? "",
+        stop.place,
+        stop.when,
         delay,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -358,8 +423,7 @@ function ActiveDispatchPage() {
           <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse">
+            <div className="overflow-x-auto">                <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E5E9] text-left text-[12px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                     <th className="px-3 py-3">Dispatch ID</th>
@@ -369,6 +433,7 @@ function ActiveDispatchPage() {
                     <th className="px-3 py-3">Phone Number</th>
                     <th className="px-3 py-3">Loading Site(s)</th>
                     <th className="px-3 py-3">Drop-off Location</th>
+                    <th className="px-3 py-3">Last Location</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Action</th>
                   </tr>
@@ -387,6 +452,9 @@ function ActiveDispatchPage() {
                           {loadingSitesLabel(trip)}
                         </td>
                         <td className="px-3 py-4">{trip.dropoff || ""}</td>
+                        <td className="px-3 py-4">
+                          <LastStopCell checkpoint={lastStops[trip.id]} />
+                        </td>
                         <td className="px-3 py-4">
                           <span
                             className="inline-block size-3 rounded-full"
@@ -489,6 +557,11 @@ function ActiveDispatchPage() {
                 <MetaRow label="Tail Type:" value={trip.tailType || ""} />
                 <MetaRow label="Phone No:" value={phoneFor(trip)} />
                 <MetaRow label="Loading Site(s):" value={loadingSitesLabel(trip)} />
+                <MetaRow
+                  label="Last Seen:"
+                  value={lastStopRowLabel(lastStops[trip.id])}
+                  accent={Boolean(lastStops[trip.id])}
+                />
               </div>
             );
           })
@@ -507,6 +580,48 @@ function loadingSitesLabel(trip: Trip): string {
   if (sites.length === 0) return "—";
   const first = sites[0] ?? "—";
   return sites.length === 1 ? first : `${first} +${sites.length - 1}`;
+}
+
+/**
+ * The last place a truck was logged, split for a table cell: the place on its
+ * own line and a compact time underneath. Today's checkpoints drop the date
+ * ("09:12"), older ones keep a short day ("18 Sept 09:12") — so a stale entry is
+ * visible as stale rather than looking like it just happened.
+ */
+function lastStopLabel(checkpoint?: LocationCheckpoint | null): { place: string; when: string } {
+  const place = (checkpoint?.location || "").trim();
+  if (!place) return { place: "—", when: "" };
+  const at = checkpoint?.at ? new Date(checkpoint.at) : null;
+  if (!at || Number.isNaN(at.getTime())) return { place, when: "" };
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const clock = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  const sameDay = at.toDateString() === new Date().toDateString();
+  const day = at.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return { place, when: sameDay ? clock : `${day} ${clock}` };
+}
+
+/** The same value on one line, for the mobile card. */
+function lastStopRowLabel(checkpoint?: LocationCheckpoint | null): string {
+  const { place, when } = lastStopLabel(checkpoint);
+  if (place === "—") return "No checkpoint logged yet";
+  return when ? `${place} · ${when}` : place;
+}
+
+/** "Last Location" cell — place over time, with the leg it was logged against on hover. */
+function LastStopCell({ checkpoint }: { checkpoint?: LocationCheckpoint | null }) {
+  const { place, when } = lastStopLabel(checkpoint);
+  if (place === "—") {
+    return <span className="text-[13px] text-[#5C6470]">—</span>;
+  }
+  return (
+    <span
+      className="flex flex-col leading-tight"
+      title={checkpoint ? `${checkpoint.leg}${when ? ` · ${when}` : ""}` : undefined}
+    >
+      <span className="font-medium">{place}</span>
+      {when ? <span className="text-[11.4px] text-[#5C6470]">{when}</span> : null}
+    </span>
+  );
 }
 
 function MetaRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
