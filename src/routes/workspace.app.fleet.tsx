@@ -74,14 +74,21 @@ function fleetStatusOf(trip: Trip): (typeof STATUS_FILTERS)[number] {
  * so the one you just closed is the one you can see. Without this the amber row
  * that needs a decision was scattered anywhere down the page.
  */
-const FLEET_QUEUE_RANK: Record<(typeof STATUS_FILTERS)[number], number> = {
+const FLEET_QUEUE_RANK: Record<string, number> = {
   "Awaiting Approval": 0,
   Approved: 1,
   Scheduled: 2,
   Completed: 3,
   Declined: 4,
-  All: 99,
 };
+
+/**
+ * A status this table has never been taught still has to land somewhere — it
+ * sorts below the known live ones rather than turning the whole column into NaN.
+ */
+function fleetQueueRank(trip: Trip): number {
+  return FLEET_QUEUE_RANK[fleetStatusOf(trip)] ?? 5;
+}
 
 /** Plain-language meaning of each dispatch status, shown on hover. */
 const STATUS_HINT: Record<(typeof STATUS_FILTERS)[number], string> = {
@@ -201,8 +208,8 @@ function FleetDispatchRequests() {
         .filter((t) => isDispatchRequest(t))
         .sort((a, b) =>
           queueOrder(
-            { rank: FLEET_QUEUE_RANK[fleetStatusOf(a)], at: a.createdAt },
-            { rank: FLEET_QUEUE_RANK[fleetStatusOf(b)], at: b.createdAt },
+            { rank: fleetQueueRank(a), at: a.createdAt },
+            { rank: fleetQueueRank(b), at: b.createdAt },
           ),
         ),
     [trips],
