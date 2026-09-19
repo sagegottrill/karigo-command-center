@@ -519,6 +519,18 @@ export const notificationService = {
   list: () => fetchApi('/notifications'),
   getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
   markAllRead: () => fetchApi('/notifications/mark-all-read', { method: 'POST' }),
+  /**
+   * Removes a notification from THIS user's center only. Notifications are shared
+   * (a broadcast, or every holder of a role), so the server records a per-user
+   * dismissal instead of deleting the row.
+   */
+  remove: (id: string) => fetchApi(`/notifications/${id}`, { method: 'DELETE' }),
+  /** Clears this user's center: specific `ids`, or their READ ones with `readOnly`. */
+  clear: (options: { ids?: string[]; readOnly?: boolean } = {}) =>
+    fetchApi<{ ok: boolean; removed: number }>('/notifications/clear', {
+      method: 'POST',
+      body: JSON.stringify({ ids: options.ids, read: options.readOnly === true }),
+    }),
   toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }), // Simplify toggle to mark read
   // `audience` (comma-separated roles / 'Partner:<Company>') scopes who receives
   // it. Omitted = broadcast to EVERY user, partners included — only use that for

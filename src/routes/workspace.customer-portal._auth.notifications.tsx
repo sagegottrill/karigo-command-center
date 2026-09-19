@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/notificat
 function PartnerNotificationsPage() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     void notificationService
@@ -41,6 +42,22 @@ function PartnerNotificationsPage() {
   });
 
   const unreadCount = items.filter((n) => !n.read).length;
+
+  // Dismissal is per user (the server records it): clearing an alert here never
+  // removes it from anyone else's center.
+  const removeNotification = async (n: Notification) => {
+    setDeletingId(n.id);
+    try {
+      await notificationService.remove(n.id);
+      setItems((prev) => prev.filter((x) => x.id !== n.id));
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      toast.success("Notification removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove the notification");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(0);
@@ -115,13 +132,16 @@ function PartnerNotificationsPage() {
         </div>
 
         {pageRows.map((n) => (
-          <button
+          <div
             key={n.id}
-            type="button"
             className={cn(
-              "flex w-full items-start justify-between border-b border-[#E2E5E9] px-5 py-2.5 text-left last:border-b-0",
-              n.read ? "bg-white" : "bg-[rgba(255,255,255,0.7)] hover:bg-[#F1F2F4]",
+              "flex w-full items-stretch border-b border-[#E2E5E9] last:border-b-0",
+              n.read ? "bg-white" : "bg-[rgba(255,255,255,0.7)]",
             )}
+          >
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-start justify-between px-5 py-2.5 text-left hover:bg-[#F1F2F4]"
             onClick={() => {
               if (!n.read) {
                 void notificationService.toggleRead(n.id).then(() => {
@@ -143,6 +163,17 @@ function PartnerNotificationsPage() {
               {!n.read && <span className="size-[10px] rounded-full bg-[#ED351D]" />}
             </div>
           </button>
+          <button
+            type="button"
+            aria-label={`Delete notification: ${n.title}`}
+            title="Delete from your notification center"
+            disabled={deletingId === n.id}
+            onClick={() => void removeNotification(n)}
+            className="grid w-12 shrink-0 place-items-center text-[#5C6470] transition-colors hover:text-[#B42318] disabled:opacity-40"
+          >
+            <Trash2 className="size-[18px]" strokeWidth={1.6} />
+          </button>
+          </div>
         ))}
 
         {items.length === 0 && (
