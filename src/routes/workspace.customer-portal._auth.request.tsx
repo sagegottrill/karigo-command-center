@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
   ADD_LOADING_SITE_LABEL,
@@ -363,6 +364,7 @@ function PartnerNewRequest() {
                     site. It is saved to your account and offered on your next request.
                   </p>
                 ) : null}
+                <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />
                 {routingType === "Multiple" ? (
                   <button
                     type="button"

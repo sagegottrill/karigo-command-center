@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ChevronDown, MapPin, Pencil, Trash2, Upload } from "l
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
+import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
   listCheckpoints,
@@ -1098,6 +1099,9 @@ function PartnerRequestDetailsPage() {
                 >
                   + Add loading site
                 </button>
+                {/* The company's own list, editable — a yard that closed should not
+                    sit in the dropdown of every future request. */}
+                <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />
               </div>
             </div>
 

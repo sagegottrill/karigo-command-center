@@ -426,11 +426,13 @@ export const partnerSiteService = {
       body: JSON.stringify({ name, company }),
     }),
 
+  // Returns the list that remains, like `list()` — callers set state straight
+  // from it instead of re-fetching and hoping the two agree.
   remove: (name: string, company?: string) =>
     fetchApi<{ company: string | null; sites: string[] }>(
       `/partner-sites?name=${encodeURIComponent(name)}${company ? `&company=${encodeURIComponent(company)}` : ""}`,
       { method: "DELETE" },
-    ),
+    ).then((res) => (Array.isArray(res?.sites) ? res.sites : [])),
 };
 
 export const fuelService = {
