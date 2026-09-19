@@ -82,6 +82,8 @@ export function displayStaffDepartment(department: string) {
       return "Engineering and Maintenance";
     case "Tracking":
       return "Tracking Operations";
+    case "Loading":
+      return "Loading Operations";
     default:
       return department;
   }

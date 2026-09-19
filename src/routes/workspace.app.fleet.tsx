@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { Check, ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/workspace/app/fleet")({
   component: FleetDispatchRequests,
 });
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 /** Desktop table columns — fr units so the table flexes to fit 1280–1920px
     laptops instead of forcing the page sideways (screenshot bug). */

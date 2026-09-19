@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
       "HR",
       "Security",
       "Tracking",
+      "Loading",
       "Driver",
       "Customer Portals (External)",
       "Platform Admin",
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/workspace/app/notifications")({
 
 type CategoryTab = ReturnType<typeof tabsForRoles>[number];
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 function matchesCategory(category: string, tab: CategoryTab) {
   switch (tab) {

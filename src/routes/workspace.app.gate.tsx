@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 export const Route = createFileRoute("/workspace/app/gate")({
   beforeLoad: () => {

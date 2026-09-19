@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   AlertCircle,
   Check,
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/workspace/app/manage-partner")({
   component: AdminManagePartner,
 });
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 type SortKey = "name" | "username" | "company";

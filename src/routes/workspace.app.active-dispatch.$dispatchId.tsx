@@ -10,7 +10,10 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { canLogTracking as canLogTrackingRole } from "@/lib/fleetopsx/active-role";
+import {
+  canLogTracking as canLogTrackingRole,
+  loggableLegs as loggableLegsFor,
+} from "@/lib/fleetopsx/active-role";
 import {
   addCheckpoint,
   dispatchDisplayId,
@@ -35,7 +38,14 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/workspace/app/active-dispatch/$dispatchId")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Tracking", "Platform Admin"];
+    const allowed = [
+      "Transport Manager",
+      "Fleet Operations",
+      "Security",
+      "Tracking",
+      "Loading",
+      "Platform Admin",
+    ];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
@@ -128,9 +138,21 @@ function LogLocationPage() {
     setSaving(true);
     try {
       const row = await addCheckpoint({ tripId: trip.id, location: location.trim(), leg });
-      setCheckpoints((prev) => [row, ...prev]);
+      // One source of truth: if the other department already logged this exact
+      // stage + place, the API returns THAT entry instead of a duplicate. Say so
+      // rather than silently pretending a new one was written.
+      const alreadyLogged = Boolean((row as { duplicate?: boolean }).duplicate);
+      setCheckpoints((prev) =>
+        alreadyLogged
+          ? prev.map((cp) => (cp.id === row.id ? row : cp))
+          : [row, ...prev.filter((cp) => cp.id !== row.id)],
+      );
       setLocation("");
-      toast.success("Location checkpoint saved");
+      if (alreadyLogged) {
+        toast.info(`${row.location} was already logged — nothing was duplicated.`);
+      } else {
+        toast.success(loadingOnly ? "Site marked as loaded" : "Location checkpoint saved");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save checkpoint");
     } finally {
@@ -163,14 +185,25 @@ function LogLocationPage() {
   const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
   const hideTmPricing = !canSeeTmPricing(authService.getRoles());
-  // Only the Tracking department logs checkpoints and moves the delay status.
-  // Everyone else (Transport Manager, Fleet Ops, Security) gets the same page as
-  // pure visibility — they watch what Tracking inputs, they never input it.
-  const canLogTracking = canLogTrackingRole(authService.getRoles());
+  // Only the Tracking department logs the whole journey and moves the delay
+  // status. The Loading department logs ONE thing here — collection — and that
+  // entry is the same checkpoint record Tracking writes, so whichever of the two
+  // marks a site first is the truth and the other simply agrees with it (the API
+  // refuses the duplicate). Everyone else (Transport Manager, Fleet Ops, Security)
+  // gets the same page as pure visibility.
+  const roles = authService.getRoles();
+  const canLogTracking = canLogTrackingRole(roles);
+  const loggableLegs = loggableLegsFor(roles, TRACKING_LEGS);
+  const canLogAnything = loggableLegs.length > 0;
+  const loadingOnly = canLogAnything && !canLogTracking;
   // The tab title follows the same rule — a viewer's page is not "Log Location".
   useEffect(() => {
-    document.title = canLogTracking ? "Log Location | Tracking Ops" : "Track Location | Dispatch";
-  }, [canLogTracking]);
+    document.title = canLogTracking
+      ? "Log Location | Tracking Ops"
+      : loadingOnly
+        ? "Log Loading | Loading Ops"
+        : "Track Location | Dispatch";
+  }, [canLogTracking, loadingOnly]);
   const detailFields = dispatchFields(trip, driver ?? undefined, undefined, hideTmPricing);
 
   return (
@@ -188,7 +221,9 @@ function LogLocationPage() {
         <h2 className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[18px]">
           {canLogTracking
             ? "Access Location History and Log New Locations"
-            : "Track Location and History"}
+            : loadingOnly
+              ? "Mark Each Loading Site as it is Collected"
+              : "Track Location and History"}
         </h2>
       </div>
 
@@ -300,18 +335,23 @@ function LogLocationPage() {
         </section>
 
         <div className="flex min-w-0 flex-col gap-5">
-          {/* Log New Location — Figma Frame 96 (657px). Tracking-only: every other
-              role reads the history this form produces. */}
-          {canLogTracking ? (
+          {/* Log New Location — Figma Frame 96 (657px). Tracking and Loading write
+              here (the same checkpoint); every other role reads the history. */}
+          {canLogAnything ? (
           <section className="rounded-[10px] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
             <div className="mb-5 flex items-center gap-3 border-b border-[#E2E5E9] pb-4">
               <span className="grid size-6 place-items-center rounded-full bg-[#ED351D]/10">
                 <MapPinCheck className="size-4 text-[#ED351D]" />
               </span>
-              <h3 className="text-[16px] font-semibold tracking-[0.4px] text-[#5C6470]">Log New Location</h3>
+              <h3 className="text-[16px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                {loadingOnly ? "Log Loaded Site" : "Log New Location"}
+              </h3>
             </div>
 
-            {/* Dispatch Trip (leg) dropdown — custom, matches Figma "Button dialog" */}
+            {/* Dispatch Trip (leg) dropdown — custom, matches Figma "Button dialog".
+                A role with only one stage to log (Loading) sees it stated, not
+                offered: there is nothing else they are allowed to pick. */}
+            {loggableLegs.length > 1 ? (
             <div className="mb-4">
               <span className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                 Dispatch Trip <span className="text-[#ED351D]">*</span>
@@ -329,7 +369,7 @@ function LogLocationPage() {
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setLegOpen(false)} />
                     <div className="absolute inset-x-0 top-full z-40 mt-1 rounded-[6px] border border-[#E2E5E9] bg-white py-2 shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
-                      {TRACKING_LEGS.map((opt) => (
+                      {loggableLegs.map((opt) => (
                         <button
                           key={opt}
                           type="button"
@@ -350,6 +390,16 @@ function LogLocationPage() {
                 )}
               </div>
             </div>
+            ) : (
+              <div className="mb-4">
+                <span className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Dispatch Trip
+                </span>
+                <div className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[#F5F6F8] px-3 text-[14px] font-medium text-[#5C6470]">
+                  {loggableLegs[0] ?? "Loading"}
+                </div>
+              </div>
+            )}
 
             {/* Multiple-loading requests: pick the site being collected. Logging
                 per site is what gives the partner a breakdown under Loading. */}
@@ -422,7 +472,7 @@ function LogLocationPage() {
                 onClick={() => void saveLocation()}
                 className="flex h-9 flex-1 items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save Update"}
+                {saving ? "Saving…" : loadingOnly ? "Mark as Loaded" : "Save Update"}
               </button>
             </div>
           </section>

@@ -16,6 +16,11 @@ import {
   shouldUseTrackingOpsShell,
 } from "@/components/fleetopsx/tracking-operations-sidebar";
 import {
+  LoadingOperationsMobileNav,
+  LoadingOperationsSidebar,
+  shouldUseLoadingShell,
+} from "@/components/fleetopsx/loading-operations-sidebar";
+import {
   TransportAdminMobileNav,
   TransportAdminSidebar,
 } from "@/components/fleetopsx/transport-admin-sidebar";
@@ -73,6 +78,7 @@ function AppShell() {
   const [useFoShell, setUseFoShell] = useState(false);
   const [useGateShell, setUseGateShell] = useState(false);
   const [useTrackingShell, setUseTrackingShell] = useState(false);
+  const [useLoadingShell, setUseLoadingShell] = useState(false);
   const [shellReady, setShellReady] = useState(false);
 
   const [activeRole, setActiveRoleState] = useState<string>("");
@@ -87,6 +93,7 @@ function AppShell() {
       setUseFoShell(shouldUseFleetOpsShell(scoped));
       setUseGateShell(shouldUseGateSecurityShell(scoped));
       setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
+      setUseLoadingShell(shouldUseLoadingShell(scoped));
       setActiveRoleState(active);
       setShellReady(true);
     };
@@ -128,6 +135,8 @@ function AppShell() {
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
       {useGateShell ? (
         <GateSecuritySidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      ) : useLoadingShell ? (
+        <LoadingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useTrackingShell ? (
         <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useFoShell ? (
@@ -143,6 +152,7 @@ function AppShell() {
           forceFleetOps={shellReady ? useFoShell : false}
           forceTrackingOps={shellReady ? useTrackingShell : false}
           forceGateSecurity={shellReady ? useGateShell : false}
+          forceLoadingOps={shellReady ? useLoadingShell : false}
         />
         <main
           className={cn(
@@ -156,6 +166,8 @@ function AppShell() {
         </main>
         {useGateShell ? (
           <GateSecurityMobileNav />
+        ) : useLoadingShell ? (
+          <LoadingOperationsMobileNav />
         ) : useTrackingShell ? (
           <TrackingOperationsMobileNav />
         ) : useFoShell ? (

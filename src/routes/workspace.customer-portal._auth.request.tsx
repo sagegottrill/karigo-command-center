@@ -1,14 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
-  PARTNER_LOADING_SITE_OPTIONS,
+  ADD_LOADING_SITE_LABEL,
+  isAddingLoadingSite,
+  loadingSiteChoices,
   PARTNER_TRUCK_TYPE_OPTIONS,
+  resolvePartnerLoadingSite,
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
-import { orderService } from "@/lib/fleetopsx/services";
+import { orderService, partnerSiteService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/request")({
@@ -16,7 +19,6 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/request")
 });
 
 const TRUCK_TYPE_OPTIONS = PARTNER_TRUCK_TYPE_OPTIONS;
-const LOADING_SITE_OPTIONS = PARTNER_LOADING_SITE_OPTIONS;
 type LoadingSite = PartnerLoadingSiteDraft;
 
 const inputClass =
@@ -37,6 +39,16 @@ function PartnerNewRequest() {
   ]);
   const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // THIS partner's own sites — loaded from their company account. Nobody sees
+  // another company's yards: a partner with none gets "Add your loading site".
+  const [savedSites, setSavedSites] = useState<string[]>([]);
+
+  useEffect(() => {
+    void partnerSiteService
+      .list()
+      .then(setSavedSites)
+      .catch(() => setSavedSites([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +57,7 @@ function PartnerNewRequest() {
       return;
     }
 
-    const finalSites = loadingSites
-      .map((s) => (s.type === "Others" ? s.customValue.trim() : s.type.trim()))
-      .filter(Boolean);
+    const finalSites = loadingSites.map(resolvePartnerLoadingSite).filter(Boolean);
 
     if (finalSites.length === 0 || (routingType === "Multiple" && finalSites.length !== loadingSites.length)) {
       toast.error("Please specify all loading sites");
@@ -68,6 +78,13 @@ function PartnerNewRequest() {
 
     setSubmitting(true);
     try {
+      // Every site typed here becomes one of the company's own — offered from the
+      // dropdown next time instead of being retyped (or lost).
+      const newlyAdded = finalSites.filter(
+        (site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()),
+      );
+      await Promise.all(newlyAdded.map((site) => partnerSiteService.add(site).catch(() => null)));
+      if (newlyAdded.length) setSavedSites((prev) => [...prev, ...newlyAdded]);
       await orderService.submitCustomerOrder({
         customerConsignee: customerConsignee.trim(),
         cargo: product.trim(),
@@ -266,10 +283,10 @@ function PartnerNewRequest() {
                     </div>
                     {openDropdownIndex === index ? (
                       <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                        {LOADING_SITE_OPTIONS.map((opt) => {
+                        {loadingSiteChoices(savedSites).map((opt) => {
                           const takenElsewhere = loadingSites.some((s, i) => {
                             if (i === index) return false;
-                            if (opt === "Others") return false;
+                            if (isAddingLoadingSite(opt)) return false;
                             return s.type === opt;
                           });
                           return (
@@ -282,7 +299,11 @@ function PartnerNewRequest() {
                                 setLoadingSites((prev) =>
                                   prev.map((s, i) =>
                                     i === index
-                                      ? { id: s.id, type: opt, customValue: opt === "Others" ? s.customValue : "" }
+                                      ? {
+                                          id: s.id,
+                                          type: opt,
+                                          customValue: isAddingLoadingSite(opt) ? s.customValue : "",
+                                        }
                                       : s,
                                   ),
                                 );
@@ -304,7 +325,7 @@ function PartnerNewRequest() {
                         })}
                       </div>
                     ) : null}
-                    {site.type === "Others" ? (
+                    {isAddingLoadingSite(site.type) ? (
                       <input
                         value={site.customValue}
                         onChange={(e) => {
@@ -334,6 +355,14 @@ function PartnerNewRequest() {
                     ) : null}
                   </div>
                 ))}
+                {/* A partner with no sites yet is told so plainly, and the dropdown
+                    below still opens with "Add your loading site" in it. */}
+                {savedSites.length === 0 ? (
+                  <p className="text-[11px] tracking-[0.4px] text-[#5C6470]">
+                    You have no saved loading sites yet — choose “{ADD_LOADING_SITE_LABEL}” and type the
+                    site. It is saved to your account and offered on your next request.
+                  </p>
+                ) : null}
                 {routingType === "Multiple" ? (
                   <button
                     type="button"

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ArrowBigRight, ChevronLeft, ChevronRight, ListFilter, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +12,7 @@ import {
   type LocationCheckpoint,
 } from "@/lib/fleetopsx/tracking-ops";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { canLogTracking } from "@/lib/fleetopsx/active-role";
+import { canLogLoading, canLogTracking } from "@/lib/fleetopsx/active-role";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   dispatchDisplayId,
@@ -44,13 +45,17 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/")({
   head: () => ({
     meta: [
       { title: "Active Dispatch | Live Tracking" },
-      { name: "description", content: "Monitor active dispatches and manually log location checkpoints." },
+      {
+        name: "description",
+        content:
+          "Track every active dispatch — the journey, and each loading site as it is collected.",
+      },
     ],
   }),
   component: ActiveDispatchPage,
 });
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 const FILTERS = ["All", "On Schedule", "Slight delay", "Significant Delay"] as const;
 type FilterTab = (typeof FILTERS)[number];
 
@@ -113,14 +118,20 @@ function ActiveDispatchPage() {
     return map;
   }, [drivers]);
 
-  // The page is shared: Tracking logs checkpoints here, everyone else (TM, Fleet
-  // Ops, Security) only reads them — so the same button must not promise a
-  // logging action to a viewer.
-  const locationActionLabel = canLogTracking(authService.getRoles()) ? "Log Location" : "View Location";
-  // Same split in the page's own words: a viewer is not told they log checkpoints.
-  const pageBlurb = canLogTracking(authService.getRoles())
+  // The page is shared by three kinds of visitor, and the wording has to match
+  // what each of them can actually do here: Tracking logs the whole journey, the
+  // Loading department marks collection (which is a checkpoint too — the same
+  // record, so a site marked loaded here is loaded for everyone), and TM / Fleet
+  // Ops / Security only ever read them.
+  const roles = authService.getRoles();
+  const logsJourney = canLogTracking(roles);
+  const logsLoading = !logsJourney && canLogLoading(roles);
+  const locationActionLabel = logsJourney ? "Log Location" : logsLoading ? "Log Loading" : "View Location";
+  const pageBlurb = logsJourney
     ? "Monitor active dispatches and manually log location checkpoints"
-    : "Track every active dispatch and its location history";
+    : logsLoading
+      ? "Track every active dispatch and mark each loading site as it is collected"
+      : "Track every active dispatch and its location history";
 
   const phoneFor = (trip: Trip) => {
     const byId = trip.driverId ? phoneByDriverId.get(trip.driverId) : undefined;

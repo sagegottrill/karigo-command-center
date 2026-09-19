@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, MoreVertical, Search } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
   component: AdminPartnerRequests,
 });
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 function isPartnerRequest(trip: Trip) {
   // EVERY partner request stays visible here across its whole lifecycle —

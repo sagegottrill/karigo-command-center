@@ -3,6 +3,7 @@ export const ADMIN_DEPARTMENTS = [
   "Transport Admin",
   "Fleet Operations",
   "Tracking Operations",
+  "Loading Operations",
   "Fuel Management",
   "Engineering and Maintenance",
   "Parts and Store",
@@ -24,6 +25,8 @@ export function departmentToRoleKey(department: string): string {
       return "Fleet Operations";
     case "Tracking Operations":
       return "Tracking";
+    case "Loading Operations":
+      return "Loading";
     case "Engineering and Maintenance":
       return "Engineering";
     case "Parts and Store":
@@ -54,6 +57,7 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   "Transport Admin": ["Transport Manager", "Platform Admin"],
   "Fleet Operations": ["Fleet Operations", "Fuel Management", "Fuel Manager"],
   "Tracking Operations": ["Tracking", "Tracking Operations"],
+  "Loading Operations": ["Loading", "Loading Operations"],
   "Fuel Management": ["Fleet Operations", "Fuel Manager"],
   "Engineering and Maintenance": ["Engineering"],
   "Parts and Store": ["Parts & Store", "Parts and Store"],

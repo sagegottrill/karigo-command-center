@@ -14,6 +14,11 @@ const ROLE_HOME: Record<string, string> = {
   "Gate Security": "/workspace/app/gate",
   Tracking: "/workspace/app/active-dispatch",
   "Tracking Operations": "/workspace/app/active-dispatch",
+  // The Loading department works the SAME board as Tracking, scoped to
+  // collecting: one page, one set of checkpoints, no second board to keep in
+  // step. What they can DO there is what differs.
+  Loading: "/workspace/app/active-dispatch",
+  "Loading Operations": "/workspace/app/active-dispatch",
   HR: "/workspace/app/hr",
   "HR & Personnel": "/workspace/app/hr",
   // Roles without a dedicated Figma portal home stay on the Central Dashboard.

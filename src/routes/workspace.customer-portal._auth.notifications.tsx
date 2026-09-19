@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -59,7 +60,7 @@ function PartnerNotificationsPage() {
     }
   };
 
-  const PAGE_SIZE = 10;
+  // Rows per page — the shared portal setting (lib/fleetopsx/pagination).
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);

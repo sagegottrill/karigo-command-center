@@ -14,7 +14,10 @@ import {
   type TrackingLeg,
 } from "@/lib/fleetopsx/tracking-ops";
 import {
-  PARTNER_LOADING_SITE_OPTIONS,
+  ADD_LOADING_SITE_LABEL,
+  isAddingLoadingSite,
+  loadingSiteChoices,
+  loadingSiteDraftFor,
   PARTNER_TRUCK_TYPE_OPTIONS,
   resolvePartnerLoadingSite,
   type PartnerLoadingSiteDraft,
@@ -27,7 +30,7 @@ import {
   humanCode,
   looksLikeUuid,
 } from "@/lib/fleetopsx/display-ids";
-import { driverService, tripService } from "@/lib/fleetopsx/services";
+import { driverService, partnerSiteService, tripService } from "@/lib/fleetopsx/services";
 import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -46,20 +49,18 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
 
 type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
 
-/** Split joined site strings so each site is its own field (Figma 356:9825). */
-function sitesToDrafts(sites: string[]): PartnerLoadingSiteDraft[] {
+/**
+ * Split joined site strings so each site is its own field (Figma 356:9825).
+ *
+ * A site the PARTNER has saved opens as a plain pick; one they no longer have on
+ * their list opens as an added site holding its own name, so correcting a request
+ * can never silently drop the yard it was raised with.
+ */
+function sitesToDrafts(sites: string[], saved: string[]): PartnerLoadingSiteDraft[] {
   if (sites.length === 0) {
     return [{ id: crypto.randomUUID(), type: "", customValue: "" }];
   }
-  return sites.map((site) => {
-    const known = PARTNER_LOADING_SITE_OPTIONS.find(
-      (opt) => opt !== "Others" && opt.toLowerCase() === site.toLowerCase(),
-    );
-    if (known) {
-      return { id: crypto.randomUUID(), type: known, customValue: "" };
-    }
-    return { id: crypto.randomUUID(), type: "Others", customValue: site };
-  });
+  return sites.map((site) => loadingSiteDraftFor(site, saved, () => crypto.randomUUID()));
 }
 
 function toPartnerStatus(status: TripStatus): PartnerUiStatus {
@@ -274,6 +275,15 @@ function PartnerRequestDetailsPage() {
   const [draftSites, setDraftSites] = useState<PartnerLoadingSiteDraft[]>([
     { id: "initial", type: "", customValue: "" },
   ]);
+  // This partner company's own sites — the only ones offered here.
+  const [savedSites, setSavedSites] = useState<string[]>([]);
+
+  useEffect(() => {
+    void partnerSiteService
+      .list()
+      .then(setSavedSites)
+      .catch(() => setSavedSites([]));
+  }, []);
   const [truckDropdownOpen, setTruckDropdownOpen] = useState(false);
   const [siteDropdownIndex, setSiteDropdownIndex] = useState<number | null>(null);
 
@@ -442,7 +452,7 @@ function PartnerRequestDetailsPage() {
     setDraftTruckType(displayRequestedTruckType(trip));
     setDraftDestination(trip.dropoff || "");
     setDraftAddress(trip.dropoffAddress || "");
-    setDraftSites(sitesToDrafts(tripLoadingSites(trip)));
+    setDraftSites(sitesToDrafts(tripLoadingSites(trip), savedSites));
     setTruckDropdownOpen(false);
     setSiteDropdownIndex(null);
     setModifyOpen(true);
@@ -484,6 +494,13 @@ function PartnerRequestDetailsPage() {
     }
     setSaving(true);
     try {
+      // A site corrected here joins the company's own list, so the next request
+      // offers it instead of asking for it again.
+      const newlyAdded = sites.filter(
+        (site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()),
+      );
+      await Promise.all(newlyAdded.map((site) => partnerSiteService.add(site).catch(() => null)));
+      if (newlyAdded.length) setSavedSites((prev) => [...prev, ...newlyAdded]);
       const updated = await tripService.updateTrip(trip.id, {
         customerConsignee: draftCustomer.trim(),
         cargo: draftProduct.trim(),
@@ -976,8 +993,8 @@ function PartnerRequestDetailsPage() {
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Select Loading Site</span>
                 {draftSites.map((site, index) => {
                   const display =
-                    site.type === "Others"
-                      ? site.customValue.trim() || "Others"
+                    isAddingLoadingSite(site.type)
+                      ? site.customValue.trim() || ADD_LOADING_SITE_LABEL
                       : site.type || "Select";
                   return (
                     <div
@@ -1012,10 +1029,10 @@ function PartnerRequestDetailsPage() {
                       </div>
                       {siteDropdownIndex === index ? (
                         <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                          {PARTNER_LOADING_SITE_OPTIONS.map((opt) => {
+                          {loadingSiteChoices(savedSites).map((opt) => {
                             const takenElsewhere = draftSites.some((s, i) => {
                               if (i === index) return false;
-                              if (opt === "Others") return false;
+                              if (isAddingLoadingSite(opt)) return false;
                               return s.type === opt;
                             });
                             return (
@@ -1031,7 +1048,7 @@ function PartnerRequestDetailsPage() {
                                         ? {
                                             id: s.id,
                                             type: opt,
-                                            customValue: opt === "Others" ? s.customValue : "",
+                                            customValue: isAddingLoadingSite(opt) ? s.customValue : "",
                                           }
                                         : s,
                                     ),
@@ -1054,7 +1071,7 @@ function PartnerRequestDetailsPage() {
                           })}
                         </div>
                       ) : null}
-                      {site.type === "Others" ? (
+                      {isAddingLoadingSite(site.type) ? (
                         <input
                           value={site.customValue}
                           onChange={(e) =>

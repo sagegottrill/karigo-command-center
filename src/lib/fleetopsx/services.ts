@@ -298,6 +298,7 @@ export const authService = {
     { key: "Diesel", name: "Fuel Manager", modules: [] },
     { key: "Gate", name: "Gate Security", modules: [] },
     { key: "Tracking", name: "Tracking Operations", modules: [] },
+    { key: "Loading", name: "Loading Operations", modules: [] },
     { key: "Engineering", name: "Engineering / Workshop", modules: [] },
     { key: "Procurement", name: "Procurement", modules: [] },
     { key: "Inventory", name: "Inventory", modules: [] },
@@ -403,6 +404,33 @@ export const orderService = {
     delete apiPayload.loadingRoutingType;
     return fetchApi('/trips', { method: 'POST', body: JSON.stringify(apiPayload) });
   }
+};
+
+/**
+ * A partner company's OWN loading sites (the list the request form offers).
+ *
+ * The backend owns the list: it is stored on the company's account, so every
+ * account of one company sees the same sites and a site typed on one login is
+ * offered on the next. A partner with no sites simply gets an empty list and
+ * adds the first one through the form.
+ */
+export const partnerSiteService = {
+  list: (company?: string) =>
+    fetchApi<{ company: string | null; sites: string[] }>(
+      company ? `/partner-sites?company=${encodeURIComponent(company)}` : "/partner-sites",
+    ).then((res) => (Array.isArray(res?.sites) ? res.sites : [])),
+
+  add: (name: string, company?: string) =>
+    fetchApi<{ company: string | null; sites: string[]; added: boolean }>("/partner-sites", {
+      method: "POST",
+      body: JSON.stringify({ name, company }),
+    }),
+
+  remove: (name: string, company?: string) =>
+    fetchApi<{ company: string | null; sites: string[] }>(
+      `/partner-sites?name=${encodeURIComponent(name)}${company ? `&company=${encodeURIComponent(company)}` : ""}`,
+      { method: "DELETE" },
+    ),
 };
 
 export const fuelService = {

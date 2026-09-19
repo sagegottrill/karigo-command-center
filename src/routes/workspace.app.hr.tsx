@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/workspace/app/hr")({
   component: HrStaffDirectory,
 });
 
-const PAGE_SIZE = 10;
+// Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
 

@@ -53,6 +53,49 @@ export function canLogTracking(roles: string[]): boolean {
   return roles.some((r) => TRACKING_LOG_ROLES.includes(String(r)));
 }
 
+/**
+ * Roles that may record a LOADING checkpoint.
+ *
+ * Collection is two departments' work at once: the Loading team standing at the
+ * yard marks a site loaded the moment it happens, and Tracking — which owns the
+ * journey — can log the same fact from the road. Both write ONE record (the
+ * shared tracking checkpoint), so whichever gets there first is the truth and
+ * the other simply agrees with it, instead of a second, conflicting entry.
+ */
+const LOADING_LOG_ROLES = ["Loading", "Loading Operations", "Platform Admin"];
+
+export function canLogLoading(roles: string[]): boolean {
+  return canLogTracking(roles) || roles.some((r) => LOADING_LOG_ROLES.includes(String(r)));
+}
+
+/**
+ * The dispatch stages a role may pick from.
+ *
+ * Tracking walks the whole journey; the Loading department updates the Loading
+ * stage only — that is their job, and the truck's later legs are not theirs to
+ * move. A viewer gets nothing (the form is not shown at all).
+ */
+export function loggableLegs<T extends string>(roles: string[], allLegs: T[]): T[] {
+  if (canLogTracking(roles)) return allLegs;
+  if (canLogLoading(roles)) return allLegs.filter((leg) => String(leg) === "Loading");
+  return [];
+}
+
+/** Roles that may see the Loading department's own board. */
+const LOADING_VIEW_ROLES = [
+  "Loading",
+  "Loading Operations",
+  "Tracking",
+  "Tracking Operations",
+  "Transport Manager",
+  "Platform Admin",
+  "Fleet Operations",
+];
+
+export function canViewLoading(roles: string[]): boolean {
+  return roles.some((r) => LOADING_VIEW_ROLES.includes(String(r)));
+}
+
 /** Persist the department switch; pass null to clear the override. */
 export function setActiveRole(role: string | null) {
   if (typeof window === "undefined") return;

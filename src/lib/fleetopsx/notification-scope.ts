@@ -21,6 +21,9 @@ const ROLE_CATEGORIES: Record<string, NotificationCategory[]> = {
   "Customer Portals (External)": ["Operations", "System"],
   Diesel: ["Operations", "System"],
   Tracking: ["Operations", "System"],
+  // Loading works the same operational picture as Tracking — the trucks and the
+  // checkpoints — so it reads the same categories.
+  Loading: ["Operations", "System"],
 };
 
 export function categoriesForRoles(roles: string[]): NotificationCategory[] {
@@ -108,6 +111,7 @@ export function synthesizeRoleNotifications(input: {
   const isHr = roles.includes("HR") && !isTm;
   const isPartner = roles.includes("Customer Portals (External)");
   const isTracking = roles.includes("Tracking") && !isTm;
+  const isLoading = !isTracking && !isTm && roles.some((r) => /loading/i.test(r));
 
   if (isFo || isTm) {
     const queue = input.trips.filter((t) => t.status === "Requested");
@@ -205,6 +209,23 @@ export function synthesizeRoleNotifications(input: {
         id: `trk-${t.id}`,
         category: "Operations",
         title: `Checkpoint due · ${displayRequestId(t)}`,
+        body: `${t.driverName || "Driver"} · ${t.truckReg || "Plate TBD"} · ${t.status}`,
+        time: relativeTime(t.scheduledDate),
+        severity: t.status === "Delayed" ? "warning" : "info",
+      });
+    }
+  }
+
+  // The Loading department's queue: trucks assigned and on the road, whose
+  // collection is what they are here to record.
+  if (isLoading) {
+    for (const t of input.trips.filter((t) =>
+      ["Scheduled", "En Route", "Loaded", "Delayed"].includes(t.status),
+    ).slice(0, 8)) {
+      push({
+        id: `load-${t.id}`,
+        category: "Operations",
+        title: `Loading due · ${displayRequestId(t)}`,
         body: `${t.driverName || "Driver"} · ${t.truckReg || "Plate TBD"} · ${t.status}`,
         time: relativeTime(t.scheduledDate),
         severity: t.status === "Delayed" ? "warning" : "info",
