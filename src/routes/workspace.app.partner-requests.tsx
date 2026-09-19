@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Download, MoreVertical, Search } from "lucid
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FilterButton } from "@/components/fleetopsx/filter-button";
+import { FilterButton, CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -99,6 +99,15 @@ function isPartnerRequest(trip: Trip) {
     trip.status === "Requested" ||
     trip.status === "Draft"
   );
+}
+
+/**
+ * The partner company a request belongs to — the value behind this table's
+ * "Partner" column, the company filter and the CSV. One helper so the column,
+ * the filter list and the export can never disagree about whose request it is.
+ */
+function partnerNameOf(trip: Pick<Trip, "customer">): string {
+  return trip.customer === "Customer Portal" ? "" : (trip.customer ?? "");
 }
 
 const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
@@ -207,6 +216,9 @@ function AdminPartnerRequests() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
+  // Ticked partner companies. Empty = no company filter (every row shows), so the
+  // table is never mysteriously empty on first load.
+  const [companyFilter, setCompanyFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
@@ -230,14 +242,27 @@ function AdminPartnerRequests() {
     void tripService.list().then(setTrips).catch(() => {});
   });
 
-  // Queue order, act-on-me first: Pending (nobody has opened it) then Seen (work
-  // still owed on our side) hold the top, oldest waiting first; Approved and in
-  // transit run below, and finished/rejected rows sit at the bottom. The CSV
-  // exports `filtered`, so the file matches the screen row for row.
+  // Queue order, act-on-me first: Seen (opened, still no approval date on it) then
+  // Pending hold the top, oldest waiting first; Approved and in transit run below,
+  // and finished/rejected rows sit at the bottom. The CSV exports `filtered`, so
+  // the file matches the screen row for row.
   const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
+
+  // Every partner company that actually has a request on this board — the filter
+  // never offers a company with nothing behind it, and it stays in sync by itself
+  // as partners are added.
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of listing) {
+      const name = partnerNameOf(t).trim();
+      if (name) names.add(name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [listing]);
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
+    if (companyFilter.length > 0 && !companyFilter.includes(partnerNameOf(t))) return false;
     // Search reaches the TRUCK as the operators name it — the cap code on the cab
     // and the plate beside it — plus the tail, the assigned driver, the loading
     // sites and both ends of the run. Spaces and punctuation in the query are
@@ -253,13 +278,28 @@ function AdminPartnerRequests() {
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
+  // An empty table has to say WHY it is empty: no requests yet, nothing matching
+  // the search, or nothing matching the ticked filter buttons — otherwise a filter
+  // left on reads as a broken page.
+  const filtersActive = statusFilter !== "All" || companyFilter.length > 0;
+  const emptyTitle = query
+    ? "No matching partner requests"
+    : filtersActive
+      ? "No requests match this filter"
+      : "No partner requests yet";
+  const emptyBody = query
+    ? `${noMatchBody(query)}${filtersActive ? " A filter button is also on — clear it to widen the search." : ""}`
+    : filtersActive
+      ? "Nothing here matches the filter you picked. Press a red filter button and choose “All” to see every request again."
+      : "Requests submitted by partner companies will appear here.";
+
   const exportCSV = () => {
     const headers =
       "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${formatTableDate(t.createdAt)},${requestId(t)},${t.customer === "Customer Portal" ? "" : t.customer},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
+          `${formatTableDate(t.createdAt)},${requestId(t)},${partnerNameOf(t)},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -445,22 +485,24 @@ function AdminPartnerRequests() {
               </option>
             ))}
           </select>
+          <CheckboxFilterButton
+            options={companyOptions}
+            selected={companyFilter}
+            onChange={(next) => {
+              setCompanyFilter(next);
+              setPage(0);
+            }}
+            allLabel="All companies"
+            emptyLabel="No partner company has a request yet"
+            noun="partner company"
+          />
         </div>
 
         <div className="flex flex-col gap-[11px] md:hidden">
           {loading && <FigmaLoadingState />}
-          {!loading && filtered.length === 0 && (
-            <FigmaEmptyState
-              title={query ? "No matching partner requests" : "No partner requests yet"}
-              body={
-                query
-                  ? noMatchBody(query)
-                  : "Requests submitted by partner companies will appear here."
-              }
-            />
-          )}
+          {!loading && filtered.length === 0 && <FigmaEmptyState title={emptyTitle} body={emptyBody} />}
           {slice.map((trip) => {
-            const partner = trip.customer === "Customer Portal" ? "" : trip.customer;
+            const partner = partnerNameOf(trip);
             return (
               <div
                 key={trip.id}
@@ -563,6 +605,19 @@ function AdminPartnerRequests() {
               }}
               label={(s) => (s === "All" ? "All Statuses" : s)}
             />
+            {/* Second filter: partner company, several at once — tick the companies
+                whose requests you want to see, or “All companies” for every one. */}
+            <CheckboxFilterButton
+              options={companyOptions}
+              selected={companyFilter}
+              onChange={(next) => {
+                setCompanyFilter(next);
+                setPage(0);
+              }}
+              allLabel="All companies"
+              emptyLabel="No partner company has a request yet"
+              noun="partner company"
+            />
           </div>
 
           <div className="overflow-x-auto">
@@ -599,7 +654,7 @@ function AdminPartnerRequests() {
                     {requestId(trip)}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
-                    {trip.customer === "Customer Portal" ? "" : trip.customer}
+                    {partnerNameOf(trip)}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {trip.customerConsignee}
@@ -666,16 +721,7 @@ function AdminPartnerRequests() {
             </div>
           </div>
           {loading && <FigmaLoadingState />}
-          {!loading && filtered.length === 0 && (
-            <FigmaEmptyState
-              title={query ? "No matching partner requests" : "No partner requests yet"}
-              body={
-                query
-                  ? noMatchBody(query)
-                  : "Requests submitted by partner companies will appear here."
-              }
-            />
-          )}
+          {!loading && filtered.length === 0 && <FigmaEmptyState title={emptyTitle} body={emptyBody} />}
 
           {!loading && filtered.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
