@@ -71,7 +71,7 @@ export function isInBucket(
   return buckets.includes(tripBucket(trip));
 }
 
-/** Everything currently moving or dispatched (Active Dispatch board). */
+/** Everything currently moving or dispatched (Tracking Operations board). */
 export const ACTIVE_DISPATCH_BUCKETS: TripBucket[] = ["scheduled", "inTransit"];
 
 /** Queue Fleet Operations works from — only TM-approved requests. */

@@ -18,8 +18,8 @@ const FO_NAV: FoNavItem[] = [
   { label: "Fleet Dispatch", to: "/workspace/app/dispatch", icon: ClipboardList },
   { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck },
   { label: "Dispatch History", to: "/workspace/app/dispatch-history", icon: History },
-  // Live tracking: FO must see where every truck on the road is right now.
-  { label: "Active Dispatch", to: "/workspace/app/active-dispatch", icon: Navigation },
+  // Tracking Operations board: FO must see where every truck on the road is right now.
+  { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
 ];

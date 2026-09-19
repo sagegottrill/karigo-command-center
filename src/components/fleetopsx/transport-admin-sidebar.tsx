@@ -59,8 +59,8 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     label: "DEPARTMENTS",
     items: [
       { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, liveDot: "fleetDispatch" },
-      // Live tracking: the TM tracks every truck on the road from here.
-      { label: "Active Dispatch", to: "/workspace/app/active-dispatch", icon: Navigation },
+      // Tracking Operations board: the TM watches every truck on the road here.
+      { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },

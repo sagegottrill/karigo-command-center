@@ -207,7 +207,7 @@ function exportCsv(fields: ReturnType<typeof dispatchFields>) {
   toast.success("Dispatch details exported.");
 }
 
-/** Open a clean print sheet with just the dispatch details. (Shared with the Active Dispatch detail page.) */
+/** Open a clean print sheet with just the dispatch details. (Shared with the Tracking Operations detail page.) */
 export function printDispatch(fields: ReturnType<typeof dispatchFields>) {
   const section = (title: string, items: { label: string; value?: string | undefined }[]) =>
     items.length === 0

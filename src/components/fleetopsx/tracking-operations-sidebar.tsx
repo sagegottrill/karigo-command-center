@@ -15,7 +15,7 @@ type TrackingNavItem = {
 
 /** Figma Tracking Ops sidebar — TRACKING group (459:10574) */
 const TRACKING_NAV: TrackingNavItem[] = [
-  { label: "Active Dispatch", to: "/workspace/app/active-dispatch", icon: ClipboardList },
+  { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: ClipboardList },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
 ];
@@ -181,12 +181,8 @@ export function TrackingOperationsMobileNav() {
         const active = isPathActive(pathname, item.to);
         const Icon = item.icon;
         const showBadge = item.to.includes("notifications") && unread > 0;
-        const shortLabel =
-          item.label === "Notifications"
-            ? "Notification"
-            : item.label === "Active Dispatch"
-              ? "Active Dispatch"
-              : item.label;
+        // Mobile tab bar: only "Notifications" needs shortening.
+        const shortLabel = item.label === "Notifications" ? "Notification" : item.label;
         return (
           <Link
             key={item.to}

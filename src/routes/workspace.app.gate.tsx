@@ -297,7 +297,7 @@ function SecurityLogPage() {
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px] md:hidden">
-        <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">Active Dispatch</h2>
+        <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#141A1F]">Dispatch Logs</h2>
         <p className="text-[12px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
           Log departure and return timestamp for dispatch and vehicles
         </p>

@@ -143,7 +143,7 @@ function LogLocationPage() {
   /**
    * Status dropdown is a TRACKING LABEL, not a trip-status write. Changing it
    * used to PATCH the trip to Delayed/Stopped — which silently re-bucketed the
-   * trip and made it vanish from the Active Dispatch board (Stopped-without-
+   * trip and made it vanish from the Tracking Operations board (Stopped-without-
    * truck = Declined). Tracking reports observations; only FO/TM change the
    * lifecycle status.
    */
@@ -195,7 +195,7 @@ function LogLocationPage() {
   if (!trip) {
     return (
       <div className="p-[30px]">
-        <FigmaEmptyState title="Dispatch not found" body="Return to Active Dispatch and try again." />
+        <FigmaEmptyState title="Dispatch not found" body="Return to Tracking Operations and try again." />
       </div>
     );
   }
@@ -226,7 +226,7 @@ function LogLocationPage() {
           type="button"
           onClick={() => navigate({ to: "/workspace/app/active-dispatch" })}
           className="grid size-[30px] shrink-0 place-items-center rounded-full text-[#1B2432] hover:bg-black/5"
-          aria-label="Back to Active Dispatch"
+          aria-label="Back to Tracking Operations"
         >
           <ChevronLeft className="size-6" />
         </button>

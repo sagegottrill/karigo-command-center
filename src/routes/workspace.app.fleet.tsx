@@ -362,7 +362,7 @@ function FleetDispatchRequests() {
       // Clear EVERYTHING Fleet Ops configured for this dispatch and hand the
       // request straight back to their queue. Leaving the old truck/driver/costs
       // on the record kept the wrong dispatch visible on the TM table, Dispatch
-      // History, Active Dispatch and Tracking until someone re-assigned it — the
+      // History, Tracking Operations and Tracking until someone re-assigned it — the
       // client had no way to make a mistaken assignment go away.
       //   driverName/truckReg are NOT NULL columns, so they empty to "" (which
       //   reads as unassigned everywhere) rather than null.

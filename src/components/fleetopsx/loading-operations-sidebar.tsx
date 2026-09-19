@@ -16,7 +16,7 @@ type LoadingNavItem = {
 /**
  * The Loading department's own portal.
  *
- * They work the SAME Active Dispatch board the Tracking team works — that is
+ * They work the SAME Tracking Operations board the Tracking team works — that is
  * deliberate: the loading checkpoints live in one place, so a site marked loaded
  * here is instantly loaded for Tracking, the Transport Manager and the partner.
  * The label says what the department is here to do.

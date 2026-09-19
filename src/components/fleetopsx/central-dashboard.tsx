@@ -221,9 +221,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         />
       </div>
 
-      <SectionTitle>Active Dispatch</SectionTitle>
+      <SectionTitle>Tracking Operations</SectionTitle>
       <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:gap-5">
-        <StatCard label="Total Active Dispatch" value={stats.dispatch.total} className="md:min-w-[160px] md:flex-1" />
+        <StatCard label="Active Dispatches" value={stats.dispatch.total} className="md:min-w-[160px] md:flex-1" />
         <StatCard label="On Schedule" value={stats.dispatch.onSchedule} className="md:min-w-[160px] md:flex-1" />
         <StatCard
           label="Slight Delay"

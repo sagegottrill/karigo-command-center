@@ -175,11 +175,11 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
 
   return (
     <div className="w-full mt-2 md:mt-4">
-      {/* Mobile Active Dispatch Header */}
+      {/* Mobile Tracking Operations header — the badge is the real trip count, not a mockup number. */}
       <div className="flex items-center gap-2 mb-4 md:hidden">
-        <h2 className="text-[16px] font-bold text-[#141a1f]">Active Dispatch</h2>
+        <h2 className="text-[16px] font-bold text-[#141a1f]">Tracking Operations</h2>
         <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
-          2
+          {trips.length}
         </span>
       </div>
 

@@ -5,7 +5,7 @@ import { displayDispatchId } from "./request-id";
 export type TrackingDelayStatus = "On Schedule" | "Slight delay" | "Significant Delay";
 
 /**
- * Active Dispatch board = the shared ACTIVE_DISPATCH_BUCKETS definition
+ * Tracking Operations board = the shared ACTIVE_DISPATCH_BUCKETS definition
  * (scheduled + everything moving). A DECLINED request (`Stopped`) is never on
  * this board, even when a truck had already been assigned to it before the
  * decline — it is not cargo in motion.

@@ -127,7 +127,7 @@ function LiveTrackingPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-        <StatCard label="Total Active Dispatch" value={stats.total} />
+        <StatCard label="Active Dispatches" value={stats.total} />
         <StatCard label="On Schedule" value={stats.onSchedule} />
         <StatCard label="Slight Delay" value={stats.slight} hint="Attention needed" hintColor="#F99E1F" />
         <StatCard
@@ -141,7 +141,7 @@ function LiveTrackingPage() {
       <section className="relative flex flex-col gap-5 overflow-hidden rounded-[10px] bg-white p-5 shadow-[0px_1px_4px_rgba(12,12,13,0.1)]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E5E9] pb-2.5">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Active Dispatch</h3>
+            <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Tracking Operations</h3>
             <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium text-white">
               {stats.total}
             </span>
