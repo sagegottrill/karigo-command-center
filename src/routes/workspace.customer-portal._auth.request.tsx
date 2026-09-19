@@ -29,6 +29,8 @@ function PartnerNewRequest() {
   const [truckType, setTruckType] = useState("");
   const [showTruckDropdown, setShowTruckDropdown] = useState(false);
   const [destination, setDestination] = useState("");
+  // Optional: the partner often raises the load before they know the exact yard.
+  const [destinationAddress, setDestinationAddress] = useState("");
   const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
   const [loadingSites, setLoadingSites] = useState<LoadingSite[]>([
     { id: "initial", type: "", customValue: "" },
@@ -76,6 +78,7 @@ function PartnerNewRequest() {
         loadingSite: finalSites,
         pickup,
         dropoff: destination.trim(),
+        dropoffAddress: destinationAddress.trim(),
       });
       toast.success("Request submitted to Fleet Operations");
       navigate({ to: "/workspace/customer-portal/dashboard" });
@@ -178,6 +181,23 @@ function PartnerNewRequest() {
                   required
                   className={inputClass}
                 />
+              </label>
+
+              <label className="flex flex-col gap-3">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Destination Address{" "}
+                  <span className="text-[#5C6470]">(optional)</span>
+                </span>
+                <input
+                  value={destinationAddress}
+                  onChange={(e) => setDestinationAddress(e.target.value)}
+                  placeholder="example: 12 Kute Road, off Airport Road"
+                  className={inputClass}
+                />
+                <span className="text-[12px] text-[#5C6470]">
+                  The exact street address at the destination — leave it blank if you do not have it
+                  yet, the driver can be told later.
+                </span>
               </label>
             </div>
           </section>

@@ -269,6 +269,8 @@ function PartnerRequestDetailsPage() {
   const [draftProduct, setDraftProduct] = useState("");
   const [draftTruckType, setDraftTruckType] = useState("");
   const [draftDestination, setDraftDestination] = useState("");
+  // Optional street address at the destination.
+  const [draftAddress, setDraftAddress] = useState("");
   const [draftSites, setDraftSites] = useState<PartnerLoadingSiteDraft[]>([
     { id: "initial", type: "", customValue: "" },
   ]);
@@ -439,6 +441,7 @@ function PartnerRequestDetailsPage() {
     setDraftProduct(trip.cargo || "");
     setDraftTruckType(displayRequestedTruckType(trip));
     setDraftDestination(trip.dropoff || "");
+    setDraftAddress(trip.dropoffAddress || "");
     setDraftSites(sitesToDrafts(tripLoadingSites(trip)));
     setTruckDropdownOpen(false);
     setSiteDropdownIndex(null);
@@ -488,6 +491,7 @@ function PartnerRequestDetailsPage() {
         // tail Fleet Ops assigned (a partner edit must not touch that).
         requestedTruckType: draftTruckType.trim(),
         dropoff: draftDestination.trim(),
+        dropoffAddress: draftAddress.trim(),
         pickup: sites[0] || trip.pickup,
         loadingSite: sites,
         // The correction answers the Transport Manager's note — clear it so the
@@ -518,6 +522,7 @@ function PartnerRequestDetailsPage() {
       ["Product", trip.cargo],
       ["Truck Type", requestedTruckType],
       ["Destination", trip.dropoff],
+      ["Destination Address", trip.dropoffAddress || ""],
       ...loadingSites.map((site, i) => [`Loading Site ${i + 1}`, site]),
       ["Driver", trip.driverName || ""],
       ["Truck Head (Cap Number / Plate)", capPlate],
@@ -655,6 +660,10 @@ function PartnerRequestDetailsPage() {
                   <ReadonlyField label="Truck Type" value={requestedTruckType} />
                 </div>
                 <ReadonlyField label="Destination" value={trip.dropoff} />
+                <ReadonlyField
+                  label="Destination Address"
+                  value={trip.dropoffAddress?.trim() ? trip.dropoffAddress : "Not provided yet"}
+                />
                 {/* One label, then each site in its own field (stacked) */}
                 <div className="flex w-full min-w-0 flex-col gap-1.5">
                   <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
@@ -947,6 +956,18 @@ function PartnerRequestDetailsPage() {
                 <input
                   value={draftDestination}
                   onChange={(e) => setDraftDestination(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Destination Address <span className="text-[#5C6470]">(optional)</span>
+                </span>
+                <input
+                  value={draftAddress}
+                  onChange={(e) => setDraftAddress(e.target.value)}
+                  placeholder="example: 12 Kute Road, off Airport Road"
                   className={inputClass}
                 />
               </div>

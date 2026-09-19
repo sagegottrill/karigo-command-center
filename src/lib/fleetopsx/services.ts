@@ -361,6 +361,11 @@ export const tripService = {
     // partner correcting a multi-site request failed with no way to succeed.
     // Normalise here so every caller (partner correction, TM edit) is safe.
     if (Array.isArray(payload.loadingSite)) payload.loadingSite = payload.loadingSite.join(", ");
+    // The destination ADDRESS is optional: sent empty it means "cleared", so store
+    // null rather than an empty string every screen then has to special-case.
+    if (payload.dropoffAddress !== undefined) {
+      payload.dropoffAddress = String(payload.dropoffAddress ?? "").trim() || null;
+    }
     
     // NOTE: lifecycle notifications (request/assign/depart/return) are generated
     // server-side with role targeting — do not duplicate them client-side.

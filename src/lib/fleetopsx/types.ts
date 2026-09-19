@@ -172,6 +172,11 @@ export interface Trip {
   loadingSite?: string[];
   loadingRoutingType?: "Single" | "Multiple";
   dropoff: string;
+  /**
+   * Street address at the drop-off destination — optional, because a partner
+   * often raises the load before they know the exact yard or gate.
+   */
+  dropoffAddress?: string | null;
   headId?: ID;
   tailId?: ID;
   /**

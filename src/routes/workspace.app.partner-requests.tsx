@@ -707,6 +707,10 @@ function AdminPartnerRequests() {
             <ReadOnlyField label="Product" value={detail.cargo} />
             <ReadOnlyField label="Truck Type" value={displayRequestedTruckType(detail)} />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
+            <ReadOnlyField
+              label="Destination Address"
+              value={detail.dropoffAddress?.trim() ? detail.dropoffAddress : "Not provided yet"}
+            />
             <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
             <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(approvedStampOf(detail))} />
             {loadingSitesFor(detail).length > 0 ? (

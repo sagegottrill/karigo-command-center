@@ -175,6 +175,7 @@ export function mapTrip(t: Record<string, unknown>): Trip {
         : undefined,
     loadingRoutingType: (t.loadingRoutingType as Trip["loadingRoutingType"]) || "Single",
     dropoff: String(t.dropoff ?? ""),
+    dropoffAddress: String(t.dropoffAddress ?? ""),
     headId: t.headId ? String(t.headId) : undefined,
     tailId: t.tailId ? String(t.tailId) : undefined,
     requestedTruckType: t.requestedTruckType ? String(t.requestedTruckType) : null,
@@ -215,6 +216,7 @@ export function tripToApi(input: Partial<Trip>): Record<string, unknown> {
     tailType: input.tailType || null,
     pickup: input.pickup || "",
     dropoff: input.dropoff || "",
+    dropoffAddress: input.dropoffAddress || null,
     // Partner company (portal) — separate from consignee person/name on the form
     customer: input.customer || null,
     customerConsignee: input.customerConsignee || input.customer || "Petroline Partner",
@@ -241,6 +243,8 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   if (input.tailType !== undefined) out.tailType = input.tailType || null;
   if (input.pickup !== undefined) out.pickup = input.pickup;
   if (input.dropoff !== undefined) out.dropoff = input.dropoff;
+  // Optional — an emptied address clears the column instead of leaving "".
+  if (input.dropoffAddress !== undefined) out.dropoffAddress = input.dropoffAddress || null;
   if (input.customer !== undefined) out.customer = input.customer || null;
   if (input.customerConsignee !== undefined) out.customerConsignee = input.customerConsignee;
   if (input.cargo !== undefined) out.cargo = input.cargo;

@@ -121,6 +121,11 @@ export function dispatchFields(
     customer: [
       { label: "Customer Name", value: customerName },
       { label: "Drop-off Location", value: trip.dropoff },
+      // Optional on the request — only shown once the partner gave one, so the
+      // driver's sheet never carries an empty "Address" line.
+      ...(trip.dropoffAddress?.trim()
+        ? [{ label: "Destination Address", value: trip.dropoffAddress }]
+        : []),
       ...sites.map((s, i) => ({
         label: sites.length === 1 ? "Loading Site" : `Loading Site ${i + 1}`,
         value: s,
@@ -333,6 +338,9 @@ export function DispatchDetailsModal({
             <div className="flex w-full flex-col gap-[15px]">
               <DetailRow label="Customer Name:" value={customerName} />
               <DetailRow label="Drop-off Location:" value={trip.dropoff} />
+              {trip.dropoffAddress?.trim() ? (
+                <DetailRow label="Destination Address:" value={trip.dropoffAddress} />
+              ) : null}
               {sites.length > 0
                 ? sites.map((site, i) => (
                     <DetailRow
