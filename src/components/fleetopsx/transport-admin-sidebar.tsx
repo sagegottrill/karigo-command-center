@@ -275,14 +275,30 @@ function isMobileNavActive(pathname: string, item: (typeof ADMIN_MOBILE_NAV)[num
 export function TransportAdminMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const badges = useLiveBadges();
-  const unread = badges.unreadNotifications;
-  const showBadge = unread > 0;
+
+  /**
+   * Each tab carries ITS OWN count, exactly like the desktop sidebar — the tab
+   * bar used to stamp the unread-notification number on all five tabs, so
+   * "Internal Staff" advertised 9 unread notifications and told the reader
+   * nothing about the password requests it actually leads to.
+   */
+  const countFor = (label: (typeof ADMIN_MOBILE_NAV)[number]["label"]) =>
+    label === "Partners"
+      ? badges.partnerRequestsPending
+      : label === "Internal Staff"
+        ? badges.passwordRequestsPending
+        : label === "Department"
+          ? badges.fleetDispatchPending
+          : label === "Notification"
+            ? badges.unreadNotifications
+            : 0;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-2 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
       {ADMIN_MOBILE_NAV.map((item) => {
         const active = isMobileNavActive(pathname, item);
         const Icon = item.icon;
+        const count = countFor(item.label);
         return (
           <Link
             key={item.to}
@@ -294,9 +310,9 @@ export function TransportAdminMobileNav() {
           >
             <span className="relative">
               <Icon className="size-5" strokeWidth={1.5} />
-              {showBadge && (
+              {count > 0 && (
                 <span className="absolute -right-3 -top-1 grid size-4 place-items-center rounded-[10px] bg-[#ED351D] text-[10px] font-medium text-white">
-                  {unread > 9 ? "9+" : unread}
+                  {count > 9 ? "9+" : count}
                 </span>
               )}
             </span>
