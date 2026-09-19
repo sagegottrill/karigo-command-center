@@ -91,7 +91,9 @@ const BOARD_COLUMN_LABEL: Record<BoardColumn, string> = {
  */
 function boardColumns(kind: "tracking" | "loading" | "truck"): BoardColumn[] {
   if (kind === "tracking") {
-    return ["dispatched", "head", "driver", "phone", "sites", "dropoff", "status", "action"];
+    // The body rides right beside the head: together they are how the truck is
+    // named on the road — which cab pulled it and what body the load is in.
+    return ["dispatched", "head", "body", "driver", "phone", "sites", "dropoff", "status", "action"];
   }
   if (kind === "loading") {
     return ["dispatched", "head", "driver", "phone", "sites", "loading", "dropoff", "status", "action"];
@@ -306,7 +308,9 @@ function ActiveDispatchPage() {
       case "head":
         return headCell(trip);
       case "body":
-        return trip.tailType || "";
+        // The body the load actually rides in — the same word Fleet Ops' Dispatch
+        // History prints for the same truck, and "—" while none is fitted yet.
+        return trip.tailType || "—";
       case "driverId":
         return driverIdFor(trip) || "—";
       case "driver":
