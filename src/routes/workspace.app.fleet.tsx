@@ -21,7 +21,7 @@ import {
   tripService,
 } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
-import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
+import { hasAssignment, queueOrder } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,22 @@ function fleetStatusOf(trip: Trip): (typeof STATUS_FILTERS)[number] {
   if (trip.status === "Approved for Dispatch") return "Approved";
   return trip.status as (typeof STATUS_FILTERS)[number];
 }
+
+/**
+ * The order the TM reads this table in: the dispatch sitting on HIS approval
+ * (amber) first, then what Fleet Ops still has to schedule, then what is already
+ * on the board. Finished and rejected work sinks to the bottom — freshest first,
+ * so the one you just closed is the one you can see. Without this the amber row
+ * that needs a decision was scattered anywhere down the page.
+ */
+const FLEET_QUEUE_RANK: Record<(typeof STATUS_FILTERS)[number], number> = {
+  "Awaiting Approval": 0,
+  Approved: 1,
+  Scheduled: 2,
+  Completed: 3,
+  Declined: 4,
+  All: 99,
+};
 
 /** Plain-language meaning of each dispatch status, shown on hover. */
 const STATUS_HINT: Record<(typeof STATUS_FILTERS)[number], string> = {
@@ -180,7 +196,15 @@ function FleetDispatchRequests() {
   }, [drivers]);
 
   const listing = useMemo(
-    () => trips.filter((t) => isDispatchRequest(t)),
+    () =>
+      trips
+        .filter((t) => isDispatchRequest(t))
+        .sort((a, b) =>
+          queueOrder(
+            { rank: FLEET_QUEUE_RANK[fleetStatusOf(a)], at: a.createdAt },
+            { rank: FLEET_QUEUE_RANK[fleetStatusOf(b)], at: b.createdAt },
+          ),
+        ),
     [trips],
   );
 

@@ -19,7 +19,7 @@ import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
-import { FO_QUEUE_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
+import { FO_QUEUE_BUCKETS, isInBucket, queueOrder } from "@/lib/fleetopsx/status-buckets";
 // Every loading site on a request, split and de-duplicated — the pricing input
 // Fleet Ops must read before assigning a truck.
 import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
@@ -128,9 +128,15 @@ function DispatchPage() {
     // (declined / withdrawn / finished) is filtered out explicitly: it must never
     // be assignable again, whatever its bucket says.
     setPendingOrders(
-      trips.filter(
-        (t) => isInBucket(t, FO_QUEUE_BUCKETS) && t.status !== "Stopped" && t.status !== "Completed",
-      ),
+      trips
+        .filter(
+          (t) => isInBucket(t, FO_QUEUE_BUCKETS) && t.status !== "Stopped" && t.status !== "Completed",
+        )
+        // One queue, one ranking: oldest approval first, so the request that has
+        // been waiting longest is the one Fleet Ops assigns next.
+        .sort((a, b) =>
+          queueOrder({ rank: 0, at: a.createdAt }, { rank: 0, at: b.createdAt }),
+        ),
     );
   };
 

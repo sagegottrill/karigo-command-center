@@ -190,9 +190,10 @@ function AdminPartnerRequests() {
     void tripService.list().then(setTrips).catch(() => {});
   });
 
-  // FIFO queue: requests nobody has acted on yet are pinned to the top, oldest
-  // first, so the TM sees at a glance what is still waiting on him. Everything
-  // already actioned drops below them, most recent first.
+  // Queue order, act-on-me first: Pending (nobody has opened it) then Seen (work
+  // still owed on our side) hold the top, oldest waiting first; Approved and in
+  // transit run below, and finished/rejected rows sit at the bottom. The CSV
+  // exports `filtered`, so the file matches the screen row for row.
   const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
 
   const filtered = listing.filter((t) => {
