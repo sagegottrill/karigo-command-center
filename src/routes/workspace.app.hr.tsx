@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
+import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService } from "@/lib/fleetopsx/services";
 import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,9 @@ function statusPillClass(status: DriverStatus) {
   }
 }
 
+/** Licence state for a driver row — one shape for the table cell and the phone card. */
+const licenseState = (driver: Driver) => licenseExpiry(driver.licenseExpiry);
+
 function HrStaffDirectory() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +57,8 @@ function HrStaffDirectory() {
     name: "",
     phone: "",
     staffId: "",
+    licenseNumber: "",
+    licenseExpiry: "",
   });
   const [idEdit, setIdEdit] = useState<{
     driver: Driver;
@@ -60,6 +66,8 @@ function HrStaffDirectory() {
     name: string;
     phone: string;
     status: DriverStatus;
+    licenseNumber: string;
+    licenseExpiry: string;
   } | null>(null);
 
   /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
@@ -87,7 +95,10 @@ function HrStaffDirectory() {
     return drivers.filter((d) => {
       if (statusFilter !== "All" && d.status !== statusFilter) return false;
       const salary = displayDriverSalary(d);
-      const hay = `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.assignedTruck ?? ""} ${d.status}`.toLowerCase();
+      // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
+      // be found without knowing whose licence it is.
+      const hay =
+        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.status}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
   }, [drivers, query, statusFilter]);
@@ -109,17 +120,19 @@ function HrStaffDirectory() {
       return;
     }
     try {
-      // The live Driver model is { staffId (unique), name, phone, status } —
-      // send exactly those so Prisma doesn't reject unknown fields.
+      // Live Driver columns only (staffId unique, name, phone + the licence
+      // fields) so Prisma never rejects the payload with an unknown field.
       await driverService.create({
         name: newStaff.name.trim(),
         phone: newStaff.phone.trim(),
         staffId,
         status: "Active",
+        licenseNumber: newStaff.licenseNumber.trim(),
+        licenseExpiry: newStaff.licenseExpiry.trim(),
       });
       toast.success("Staff added successfully.");
       setIsAddOpen(false);
-      setNewStaff({ name: "", phone: "", staffId: "" });
+      setNewStaff({ name: "", phone: "", staffId: "", licenseNumber: "", licenseExpiry: "" });
       await refreshDrivers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to add staff";
@@ -135,12 +148,16 @@ function HrStaffDirectory() {
       name: driver.name,
       phone: driver.phone ?? "",
       status: driver.status,
+      licenseNumber: driver.licenseNumber ?? "",
+      // <input type="date"> needs yyyy-mm-dd; the API may return a full stamp.
+      licenseExpiry: (driver.licenseExpiry ?? "").slice(0, 10),
     });
 
   /**
-   * Save corrections to an existing staff record: Driver ID, name, phone and
-   * status. These are exactly the columns the API whitelists on PATCH, so HR can
-   * fix a misspelt name or a wrong phone without deleting and re-onboarding.
+   * Save corrections to an existing staff record: Driver ID, name, phone, status
+   * and the licence itself (number + expiry). These are exactly the columns the
+   * API whitelists on PATCH, so HR can fix a misspelt name, a wrong phone or a
+   * licence that was renewed without deleting and re-onboarding.
    */
   const handleSaveEdits = async () => {
     if (!idEdit) return;
@@ -156,11 +173,15 @@ function HrStaffDirectory() {
     }
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
+      // The licence may be CLEARED, so an emptied field is sent as "" (never left
+      // out, which would silently keep the old value).
       await driverService.update(idEdit.driver.id, {
         staffId,
         name,
         phone: idEdit.phone.trim(),
         status: idEdit.status,
+        licenseNumber: idEdit.licenseNumber.trim(),
+        licenseExpiry: idEdit.licenseExpiry.trim(),
       } as never);
       toast.success(`${name} updated.`);
       setIdEdit(null);
@@ -172,9 +193,12 @@ function HrStaffDirectory() {
   };
 
   const exportCSV = () => {
-    const headers = "Staff ID,Name,Phone,License,Assigned Truck,Status\n";
+    const headers = "Staff ID,Name,Phone,License Number,License Expiry,Assigned Truck,Status\n";
     const csv = filtered
-      .map((d) => `${displayDriverSalary(d) || d.employeeId},${d.name},${d.phone},${d.licenseNumber},${d.assignedTruck ?? ""},${d.status}`)
+      .map(
+        (d) =>
+          `${displayDriverSalary(d) || d.employeeId},${d.name},${d.phone},${d.licenseNumber},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.status}`,
+      )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -253,6 +277,7 @@ function HrStaffDirectory() {
           {slice.map((driver, index) => {
             const staffId = displayDriverSalary(driver) || driver.employeeId || "—";
             const sn = currentPage * PAGE_SIZE + index + 1;
+            const licence = licenseState(driver);
             return (
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
@@ -281,6 +306,10 @@ function HrStaffDirectory() {
                       <span className="flex-1 text-[#344256]">{driver.licenseNumber || "—"}</span>
                     </div>
                     <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Expires:</span>
+                      <span className={cn("flex-1", licenseToneClass(licence.tone))}>{licence.text}</span>
+                    </div>
+                    <div className="flex gap-2">
                       <span className="w-20 font-medium text-[#5C6470]">Truck:</span>
                       <span className="flex-1 text-[#344256]">{driver.assignedTruck || "—"}</span>
                     </div>
@@ -303,7 +332,27 @@ function HrStaffDirectory() {
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
                   <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone}</span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.licenseNumber}</span>
+                  {/* Licence number over its expiry date — the column he reads to
+                      know whether a driver can still be put on a truck. */}
+                  <span className="flex flex-col gap-0.5 text-[14px] tracking-[0.4px]">
+                    {driver.licenseNumber ? (
+                      <span className="text-[#5C6470]">{driver.licenseNumber}</span>
+                    ) : (
+                      <span className="text-[#5C6470]">—</span>
+                    )}
+                    {(driver.licenseNumber || driver.licenseExpiry) && (
+                      <span
+                        className={cn("text-[11px] leading-none", licenseToneClass(licence.tone))}
+                        title={
+                          licence.days !== null && licence.days >= 0
+                            ? `${licence.days} day(s) left on this licence`
+                            : undefined
+                        }
+                      >
+                        {licence.text}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.assignedTruck || "—"}</span>
                   <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
                     {driver.status}
@@ -403,6 +452,27 @@ function HrStaffDirectory() {
                 className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
               />
             </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Number</span>
+              <input
+                value={newStaff.licenseNumber}
+                onChange={(e) => setNewStaff({ ...newStaff, licenseNumber: e.target.value })}
+                placeholder="example: ABC-123456"
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Expiry</span>
+              <input
+                type="date"
+                value={newStaff.licenseExpiry}
+                onChange={(e) => setNewStaff({ ...newStaff, licenseExpiry: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+              <span className="text-[11px] text-[#5C6470]">
+                Staff Records flags the licence amber 60 days before this date, and red once it passes.
+              </span>
+            </label>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={() => setIsAddOpen(false)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
                 Go Back
@@ -455,6 +525,29 @@ function HrStaffDirectory() {
                 onChange={(e) => setIdEdit({ ...idEdit, phone: e.target.value })}
                 className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
               />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Number</span>
+              <input
+                value={idEdit.licenseNumber}
+                onChange={(e) => setIdEdit({ ...idEdit, licenseNumber: e.target.value })}
+                placeholder="example: ABC-123456"
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Expiry</span>
+              <input
+                type="date"
+                value={idEdit.licenseExpiry}
+                onChange={(e) => setIdEdit({ ...idEdit, licenseExpiry: e.target.value })}
+                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+              />
+              {idEdit.licenseExpiry && (
+                <span className={cn("text-[11px]", licenseToneClass(licenseExpiry(idEdit.licenseExpiry).tone))}>
+                  {licenseExpiry(idEdit.licenseExpiry).text}
+                </span>
+              )}
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Status</span>
