@@ -193,11 +193,12 @@ function HrStaffDirectory() {
   };
 
   const exportCSV = () => {
-    const headers = "Staff ID,Name,Phone,License Number,License Expiry,Assigned Truck,Status\n";
+    // Same order as the table — the Staff ID closes the row.
+    const headers = "Name,Phone,License Number,License Expiry,Assigned Truck,Status,Staff ID\n";
     const csv = filtered
       .map(
         (d) =>
-          `${displayDriverSalary(d) || d.employeeId},${d.name},${d.phone},${d.licenseNumber},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.status}`,
+          `${d.name},${d.phone},${d.licenseNumber},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.status},${displayDriverSalary(d) || d.employeeId}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -266,8 +267,8 @@ function HrStaffDirectory() {
             />
           </div>
 
-          <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
-            {["Staff ID", "Name", "Phone", "License", "Assigned Truck", "Status"].map((h) => (
+          <div className="hidden grid-cols-[180px_140px_140px_1fr_110px_120px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
+            {["Name", "Phone", "License", "Assigned Truck", "Status", "Staff ID"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
@@ -294,10 +295,6 @@ function HrStaffDirectory() {
                   </div>
                   <div className="flex flex-col gap-1.5 text-[12px]">
                     <div className="flex gap-2">
-                      <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
-                      <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
-                    </div>
-                    <div className="flex gap-2">
                       <span className="w-20 font-medium text-[#5C6470]">Phone:</span>
                       <span className="flex-1 text-[#344256]">{driver.phone || "—"}</span>
                     </div>
@@ -319,6 +316,11 @@ function HrStaffDirectory() {
                       {driver.status}
                     </span>
                   )}
+                  {/* The ID closes the card, exactly like the table's last column. */}
+                  <div className="flex gap-2 text-[12px]">
+                    <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
+                    <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => openEdit(driver)}
@@ -328,8 +330,7 @@ function HrStaffDirectory() {
                   </button>
                 </div>
 
-                <div className="hidden grid-cols-[120px_180px_140px_140px_1fr_110px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
+                <div className="hidden grid-cols-[180px_140px_140px_1fr_110px_120px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
                   <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone}</span>
                   {/* Licence number over its expiry date — the column he reads to
@@ -357,6 +358,9 @@ function HrStaffDirectory() {
                   <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
                     {driver.status}
                   </span>
+                  {/* The ID closes the row — the reference you quote once the
+                      driver you were looking for is found. */}
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
                   <button
                     type="button"
                     onClick={() => openEdit(driver)}

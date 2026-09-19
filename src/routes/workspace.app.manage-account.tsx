@@ -127,11 +127,12 @@ function AdminManageAccount() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers = "S/N,Name,Department,Staff ID,Username,Status,Last Login\n";
+    // Same order as the table — the Staff ID closes the data columns.
+    const headers = "S/N,Name,Department,Username,Staff ID,Status,Last Login\n";
     const csv = filtered
       .map(
         (u, i) =>
-          `${i + 1},${u.name},${Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(" ")},${staffIdLabel(u)},${displayUsername(u)},${u.status},${formatLastLogin(u.lastActive)}`,
+          `${i + 1},${u.name},${Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(" ")},${displayUsername(u)},${staffIdLabel(u)},${u.status},${formatLastLogin(u.lastActive)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -372,12 +373,13 @@ function AdminManageAccount() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
-                    <span className="min-w-0 flex-1 font-semibold text-[#ED351D]">{staffIdLabel(u)}</span>
-                  </div>
-                  <div className="flex gap-2">
                     <span className="w-20 shrink-0 font-medium text-[#5C6470]">Username:</span>
                     <span className="min-w-0 flex-1 text-[#344256]">{displayUsername(u)}</span>
+                  </div>
+                  {/* The ID closes the card, exactly like the table's last column. */}
+                  <div className="flex gap-2">
+                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
+                    <span className="min-w-0 flex-1 font-semibold text-[#ED351D]">{staffIdLabel(u)}</span>
                   </div>
                 </div>
               </div>
@@ -391,8 +393,10 @@ function AdminManageAccount() {
                 <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
                 <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
                 <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Department</span>
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Staff ID</span>
                 <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
+                {/* The ID closes the row — the reference you quote once the person
+                    you were looking for is found. */}
+                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Staff ID</span>
                 <span className="w-5" />
               </div>
               {slice.map((u, i) => (
@@ -406,8 +410,8 @@ function AdminManageAccount() {
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]" title={Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}>
                     {Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}
                   </span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
                   <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
+                  <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
                   <div className="flex w-[92px] shrink-0 items-center justify-end gap-2">
                     {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
                     <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded px-2 text-[10px] font-medium text-white">

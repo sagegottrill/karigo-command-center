@@ -295,11 +295,11 @@ function AdminPartnerRequests() {
 
   const exportCSV = () => {
     const headers =
-      "Date Requested,Request ID,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Status\n";
+      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Request ID,Status\n";
     const csv = filtered
       .map(
         (t) =>
-          `${formatTableDate(t.createdAt)},${requestId(t)},${partnerNameOf(t)},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${toPartnerUiStatus(t)}`,
+          `${formatTableDate(t.createdAt)},${partnerNameOf(t)},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${requestId(t)},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -525,7 +525,11 @@ function AdminPartnerRequests() {
                 className="relative flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">{requestId(trip)}</span>
+                  {/* The card leads with the date it came in; the Request ID closes
+                      the card, exactly like the table's column order. */}
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
+                    {formatDateTimeStamp(trip.createdAt)}
+                  </span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={toPartnerUiStatus(trip)} />
                     <RowActionMenu
@@ -561,8 +565,8 @@ function AdminPartnerRequests() {
                 <MetaRow label="Truck:" value={displayTruckAssigned(trip) || "—"} />
                 <MetaRow label="Loading Point:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(approvedStampOf(trip))} />
+                <MetaRow label="Request ID:" value={requestId(trip)} />
               </div>
             );
           })}
@@ -640,9 +644,8 @@ function AdminPartnerRequests() {
             {/* No min-width floor: the fr grid flexes to the viewport, so the
                 page never scrolls sideways on smaller laptops. */}
             <div className="w-full">
-              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+              <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
@@ -651,6 +654,7 @@ function AdminPartnerRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Loading Point</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
                 <span className="w-5" />
               </div>
@@ -658,16 +662,13 @@ function AdminPartnerRequests() {
               {slice.map((trip) => (
                 <div
                   key={trip.id}
-                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                  className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {formatDateLines(trip.createdAt).date}
                     {formatDateLines(trip.createdAt).time && (
                       <span className="block text-[12px] text-[#627084]">{formatDateLines(trip.createdAt).time}</span>
                     )}
-                  </span>
-                  <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                    {requestId(trip)}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {partnerNameOf(trip)}
@@ -705,6 +706,9 @@ function AdminPartnerRequests() {
                     ) : (
                       "—"
                     )}
+                  </span>
+                  <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                    {requestId(trip)}
                   </span>
                   <StatusPill status={toPartnerUiStatus(trip)} />
                   <div className="shrink-0 justify-self-end">

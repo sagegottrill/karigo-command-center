@@ -486,10 +486,6 @@ function PartnerPortalDashboard() {
                     <p className="mb-3 text-[16px] font-semibold text-[#1B2432]">{r.customerConsignee || "—"}</p>
                     <dl className="grid gap-2 text-[13px]">
                       <div className="grid grid-cols-[100px_1fr] gap-2">
-                        <dt className="font-medium text-[#5C6470]">ID No:</dt>
-                        <dd className="font-semibold text-[#ED351D]">{displayRequestId(r)}</dd>
-                      </div>
-                      <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Product</dt>
                         <dd className="font-medium text-[#1B2432]">{r.cargo || "—"}</dd>
                       </div>
@@ -503,6 +499,11 @@ function PartnerPortalDashboard() {
                         <dt className="font-medium text-[#5C6470]">Destination</dt>
                         <dd className="font-medium leading-snug text-[#1B2432]">{r.dropoff || "—"}</dd>
                       </div>
+                      {/* The ID closes the card, exactly like the table. */}
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <dt className="font-medium text-[#5C6470]">ID No:</dt>
+                        <dd className="font-semibold text-[#ED351D]">{displayRequestId(r)}</dd>
+                      </div>
                     </dl>
                   </div>
                 );
@@ -515,12 +516,14 @@ function PartnerPortalDashboard() {
                 <table className="w-full min-w-[920px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-[#E2E5E9] text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">ID No.</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Date</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Consignee</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Product</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Truck Type</th>
                       <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">Destination</th>
+                      {/* The ID closes the row — the reference the partner quotes
+                          once the request they were looking for is found. */}
+                      <th className="whitespace-nowrap py-2.5 pr-3 font-semibold">ID No.</th>
                       <th className="whitespace-nowrap py-2.5 font-semibold">Status</th>
                     </tr>
                   </thead>
@@ -533,9 +536,6 @@ function PartnerPortalDashboard() {
                           className="cursor-pointer border-b border-[#E2E5E9] last:border-0 hover:bg-[#F8F9FA]"
                           onClick={() => openDetails(r)}
                         >
-                          <td className="whitespace-nowrap py-2.5 pr-3 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                            {displayRequestId(r)}
-                          </td>
                           <td className="whitespace-nowrap py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                             {formatTripDate(r.scheduledDate)}
                           </td>
@@ -550,6 +550,9 @@ function PartnerPortalDashboard() {
                           </td>
                           <td className="max-w-[200px] truncate py-2.5 pr-3 text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                             {r.dropoff || "—"}
+                          </td>
+                          <td className="whitespace-nowrap py-2.5 pr-3 text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                            {displayRequestId(r)}
                           </td>
                           <td className="py-2.5">
                             <div className="flex items-center justify-between gap-2">

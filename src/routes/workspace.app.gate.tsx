@@ -283,11 +283,12 @@ function SecurityLogPage() {
       toast.message("Nothing to export");
       return;
     }
-    const header = "Dispatch ID,Driver,Truck Head,Plate No,Tail No,Departure,Return\n";
+    // Same order as the table — the dispatch ID closes the row.
+    const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Dispatch ID\n";
     const body = filtered
       .map(
         (t) =>
-          `${dispatchId(t)},${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")}`,
+          `${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")},${dispatchId(t)}`,
       )
       .join("\n");
     const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
@@ -366,8 +367,8 @@ function SecurityLogPage() {
       </div>
 
       <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-        <div className="hidden grid-cols-[96px_150px_110px_120px_110px_1fr_1fr_40px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-          {["Dispatch ID", "Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return"].map((h) => (
+        <div className="hidden grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_40px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+          {["Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Dispatch ID"].map((h) => (
             <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -381,15 +382,20 @@ function SecurityLogPage() {
           return (
             <div
               key={trip.id}
-              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[96px_150px_110px_120px_110px_1fr_1fr_40px] md:items-center md:gap-4 md:px-5"
+              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_40px] md:items-center md:gap-4 md:px-5"
             >
-              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.driverName || "—"}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{plateOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{tailOf(trip)}</span>
               <StampCell value={dep} fallback="Not Departed" />
               <StampCell value={ret} fallback="Not Returned" />
+              {/* The ID closes the row on every table; on the stacked phone view
+                  it carries its own label so it cannot read as an orphan value. */}
+              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                <span className="text-[#627084] md:hidden">Dispatch ID: </span>
+                {dispatchId(trip)}
+              </span>
               <div className="hidden justify-self-end md:block">
                 <RowActionMenu
                   open={menuTripId === trip.id}
