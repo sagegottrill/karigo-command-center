@@ -386,8 +386,12 @@ export interface Notification {
 export interface Message {
   id: ID;
   author: string;
+  /** Who wrote it — `self` is decided per reader against this, never stored. */
+  authorId?: ID | null;
   role: string;
   body: string;
+  /** ISO stamp the message was written at (older rows only carry `time`). */
+  at?: string;
   time: string;
   self?: boolean;
 }

@@ -6,6 +6,8 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
 import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
+import { TripChatPanel } from "@/components/fleetopsx/trip-chat";
+import { chatService, CHAT_POLL_MS, type ChatThread } from "@/lib/fleetopsx/chat";
 import {
   listCheckpoints,
   normalizeLeg,
@@ -379,6 +381,35 @@ function PartnerRequestDetailsPage() {
     };
     load();
     const id = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [trip?.id]);
+
+  // The operations thread for THIS dispatch, shared with the Transport Manager,
+  // Fleet Operations and Tracking. The server scopes the list to the partner's
+  // own company, so this can only ever resolve one of their own conversations.
+  const [chatThread, setChatThread] = useState<ChatThread | null>(null);
+  useEffect(() => {
+    if (!trip?.id) return;
+    let cancelled = false;
+    const load = () => {
+      void chatService
+        .list()
+        .then((threads) => {
+          if (cancelled) return;
+          const mine = threads.find((t) => t.tripId === trip.id) ?? null;
+          setChatThread(mine ? { ...mine, trip, name: mine.name } : null);
+          if (mine?.unread) {
+            void chatService.markRead(mine.id).catch(() => {});
+            window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+          }
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = window.setInterval(load, CHAT_POLL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -987,6 +1018,27 @@ function PartnerRequestDetailsPage() {
               </div>
               {canDelete ? <SectionActions onDelete={() => setDeleteOpen(true)} /> : null}
             </section>
+
+            {/* Messages — the SAME operations thread the internal departments
+                write in, not a separate customer-support inbox. */}
+            {chatThread ? (
+              <section className="flex w-full min-w-0 flex-col overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
+                <div className="w-full border-b border-[#E2E5E9] px-5 py-2.5 sm:px-[30px]">
+                  <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Messages</h3>
+                  <p className="text-[12px] tracking-[0.4px] text-[#5C6470]">
+                    Talk to the Transport Manager, Fleet Operations and Tracking about this dispatch.
+                  </p>
+                </div>
+                <div className="p-5 sm:px-[30px]">
+                  <TripChatPanel
+                    thread={chatThread}
+                    onThreadChange={(updated) => setChatThread({ ...updated, trip })}
+                    heightClass="h-[460px]"
+                    placeholder="Ask about this dispatch…"
+                  />
+                </div>
+              </section>
+            ) : null}
           </div>
         </main>
       )}

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, History, LogOut, MapPinCheck, MoreVertical, Navigation, Truck } from "lucide-react";
+import { Bell, ClipboardList, History, LogOut, MapPinCheck, MessageSquare, MoreVertical, Navigation, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -22,6 +22,8 @@ const FO_NAV: FoNavItem[] = [
   { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+  // Chat lives with the dispatch it is about — one thread per trip.
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
 ];
 
 function isPathActive(pathname: string, to: string) {
@@ -40,6 +42,7 @@ export function FleetOperationsSidebar({
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
   const unread = useLiveBadges().unreadNotifications;
+  const unreadMessages = useLiveBadges().unreadMessages;
 
   useEffect(() => {
     setMounted(true);
@@ -88,7 +91,10 @@ export function FleetOperationsSidebar({
             {FO_NAV.map((item) => {
               const active = isPathActive(pathname, item.to);
               const Icon = item.icon;
-              const showBadge = item.to.includes("notifications") && unread > 0;
+              const showBadge =
+                (item.to.includes("notifications") && unread > 0) ||
+                (item.to.includes("messages") && unreadMessages > 0);
+              const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
               return (
                 <Link
                   key={item.to}
@@ -113,7 +119,7 @@ export function FleetOperationsSidebar({
                             active ? "bg-white text-[#ED351D]" : "bg-[#ED351D] text-white",
                           )}
                         >
-                          {unread > 9 ? "9+" : unread}
+                          {badgeCount > 9 ? "9+" : badgeCount}
                         </span>
                       )}
                     </>
@@ -175,13 +181,17 @@ export function shouldUseFleetOpsShell(roles: string[]) {
 export function FleetOperationsMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const unread = useLiveBadges().unreadNotifications;
+  const unreadMessages = useLiveBadges().unreadMessages;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] md:hidden">
       {FO_NAV.map((item) => {
         const active = isPathActive(pathname, item.to);
         const Icon = item.icon;
-        const showBadge = item.to.includes("notifications") && unread > 0;
+        const showBadge =
+          (item.to.includes("notifications") && unread > 0) ||
+          (item.to.includes("messages") && unreadMessages > 0);
+        const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
         return (
           <Link
             key={item.to}
@@ -195,7 +205,7 @@ export function FleetOperationsMobileNav() {
               <Icon className="size-5" strokeWidth={1.5} />
               {showBadge && (
                 <span className="absolute -right-2 -top-1 grid size-4 place-items-center rounded-full bg-[#ED351D] text-[9px] text-white">
-                  {unread > 9 ? "9+" : unread}
+                  {badgeCount > 9 ? "9+" : badgeCount}
                 </span>
               )}
             </span>

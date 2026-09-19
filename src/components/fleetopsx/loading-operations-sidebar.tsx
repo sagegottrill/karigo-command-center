@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, LogOut, MapPinCheck, PackageCheck, MoreVertical } from "lucide-react";
+import { Bell, LogOut, MapPinCheck, MessageSquare, PackageCheck, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -25,6 +25,7 @@ const LOADING_NAV: LoadingNavItem[] = [
   { label: "Loading Board", to: "/workspace/app/active-dispatch", icon: PackageCheck },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
 ];
 
 function isPathActive(pathname: string, to: string) {
@@ -52,6 +53,7 @@ export function LoadingOperationsSidebar({
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
   const unread = useLiveBadges().unreadNotifications;
+  const unreadMessages = useLiveBadges().unreadMessages;
 
   useEffect(() => {
     setMounted(true);
@@ -101,7 +103,10 @@ export function LoadingOperationsSidebar({
             {LOADING_NAV.map((item) => {
               const active = isPathActive(pathname, item.to);
               const Icon = item.icon;
-              const showBadge = item.to.includes("notifications") && unread > 0;
+              const showBadge =
+                (item.to.includes("notifications") && unread > 0) ||
+                (item.to.includes("messages") && unreadMessages > 0);
+              const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
               return (
                 <Link
                   key={item.to}
@@ -126,7 +131,7 @@ export function LoadingOperationsSidebar({
                             active ? "bg-white text-[#ED351D]" : "bg-[#ED351D] text-white",
                           )}
                         >
-                          {unread > 9 ? "9+" : unread}
+                          {badgeCount > 9 ? "9+" : badgeCount}
                         </span>
                       )}
                     </>
@@ -185,13 +190,17 @@ export function LoadingOperationsSidebar({
 export function LoadingOperationsMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const unread = useLiveBadges().unreadNotifications;
+  const unreadMessages = useLiveBadges().unreadMessages;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-5 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
       {LOADING_NAV.map((item) => {
         const active = isPathActive(pathname, item.to);
         const Icon = item.icon;
-        const showBadge = item.to.includes("notifications") && unread > 0;
+        const showBadge =
+          (item.to.includes("notifications") && unread > 0) ||
+          (item.to.includes("messages") && unreadMessages > 0);
+        const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
         const shortLabel =
           item.label === "Notifications"
             ? "Notification"
@@ -211,7 +220,7 @@ export function LoadingOperationsMobileNav() {
               <Icon className="size-[22px]" strokeWidth={1.5} />
               {showBadge && (
                 <span className="absolute -right-3 -top-1 grid size-4 place-items-center rounded-[10px] bg-[#ED351D] text-[10px] font-medium text-white">
-                  {unread > 9 ? "9+" : unread}
+                  {badgeCount > 9 ? "9+" : badgeCount}
                 </span>
               )}
             </span>

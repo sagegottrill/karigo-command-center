@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { authService, notificationService, tripService, adminService } from "@/lib/fleetopsx/services";
+import { chatService } from "@/lib/fleetopsx/chat";
 import { isInBucket, TM_REQUESTS_BUCKETS } from "@/lib/fleetopsx/status-buckets";
 import { getToken } from "@/lib/fleetopsx/apiClient";
 
@@ -13,6 +14,8 @@ export type LiveBadges = {
   partnerRequestsPending: number;
   passwordRequestsPending: number;
   fleetDispatchPending: number;
+  /** Unread chat messages across this user's dispatch threads. */
+  unreadMessages: number;
 };
 
 const EMPTY: LiveBadges = {
@@ -20,6 +23,7 @@ const EMPTY: LiveBadges = {
   partnerRequestsPending: 0,
   passwordRequestsPending: 0,
   fleetDispatchPending: 0,
+  unreadMessages: 0,
 };
 
 // ---- Module-level singleton store: ONE poller per page, shared by every
@@ -77,13 +81,20 @@ async function refresh() {
           )
           .catch(() => ["password", 0] as const);
 
-    const results = await Promise.all([unreadP, requestsP, dispatchP, passwordP]);
+    // 5. Unread chat — scoped server-side (a partner only counts their own company).
+    const messagesP = chatService
+      .unreadCount()
+      .then((n) => ["messages", n] as const)
+      .catch(() => ["messages", 0] as const);
+
+    const results = await Promise.all([unreadP, requestsP, dispatchP, passwordP, messagesP]);
     const next: LiveBadges = { ...current };
     for (const [key, value] of results) {
       if (key === "unread") next.unreadNotifications = value;
       if (key === "requests") next.partnerRequestsPending = value;
       if (key === "dispatch") next.fleetDispatchPending = value;
       if (key === "password") next.passwordRequestsPending = value;
+      if (key === "messages") next.unreadMessages = value;
     }
     current = next;
     emit();

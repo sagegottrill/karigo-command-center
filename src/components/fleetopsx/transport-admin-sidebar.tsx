@@ -9,6 +9,7 @@ import {
   List,
   LogOut,
   MapPinCheck,
+  MessageSquare,
   MoreVertical,
   Navigation,
   Truck,
@@ -26,7 +27,7 @@ type AdminNavItem = {
   to: string;
   icon: typeof LayoutDashboard;
   /** Which live badge count drives the orange dot (only rendered when > 0). */
-  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread";
+  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread" | "messages";
 };
 
 type AdminNavGroup = {
@@ -71,7 +72,12 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     ],
   },
   {
-    items: [{ label: "Notification", to: "/workspace/app/notifications", icon: Bell, liveDot: "unread" }],
+    items: [
+      { label: "Notification", to: "/workspace/app/notifications", icon: Bell, liveDot: "unread" },
+      // One operations thread per dispatch — the TM reads the same conversation
+      // the partner and every department in the loop are writing in.
+      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, liveDot: "messages" },
+    ],
   },
 ];
 
@@ -102,7 +108,9 @@ export function TransportAdminSidebar({
           ? badges.passwordRequestsPending
           : dot === "unread"
             ? badges.unreadNotifications
-            : 0;
+            : dot === "messages"
+              ? badges.unreadMessages
+              : 0;
 
   useEffect(() => {
     setMounted(true);
@@ -264,6 +272,7 @@ const ADMIN_MOBILE_NAV = [
     matchPrefixes: ["/workspace/app/fleet", "/workspace/app/hr", "/workspace/app/fuel-pricing"],
   },
   { label: "Notification", to: "/workspace/app/notifications", icon: Bell, matchPrefixes: ["/workspace/app/notifications"] },
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, matchPrefixes: ["/workspace/app/messages"] },
 ] as const;
 
 function isMobileNavActive(pathname: string, item: (typeof ADMIN_MOBILE_NAV)[number]) {
@@ -295,7 +304,9 @@ export function TransportAdminMobileNav() {
           ? badges.fleetDispatchPending
           : label === "Notification"
             ? badges.unreadNotifications
-            : 0;
+            : label === "Messages"
+              ? badges.unreadMessages
+              : 0;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-2 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
