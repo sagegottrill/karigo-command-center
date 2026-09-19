@@ -276,6 +276,8 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
         : Number(input.estimatedDays);
   }
   if (input.startTime !== undefined) out.startTime = input.startTime || null;
+  // The return stamp — written when the truck is back and the trip closes.
+  if (input.eta !== undefined) out.eta = input.eta || null;
   if (input.partnerNote !== undefined) out.partnerNote = input.partnerNote || null;
   return out;
 }

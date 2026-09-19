@@ -32,6 +32,7 @@ import {
 } from "@/lib/fleetopsx/tracking-ops";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { dispatchFields, printDispatch } from "@/components/fleetopsx/dispatch-details-modal";
+import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { expectedReturnAt, tripDelay } from "@/lib/fleetopsx/trip-duration";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,10 @@ function LogLocationPage() {
   const [location, setLocation] = useState("");
   const [checkpoints, setCheckpoints] = useState<LocationCheckpoint[]>([]);
   const [saving, setSaving] = useState(false);
+  // Ending the trip is destructive (it closes the dispatch and sends the truck to
+  // Check Up), so it asks once before it runs.
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +137,17 @@ function LogLocationPage() {
   const loggableLegs = loggableLegsFor(roles, TRACKING_LEGS);
   const canLogAnything = loggableLegs.length > 0;
   const loadingOnly = canLogAnything && !canLogTracking;
+  /**
+   * Who may CLOSE the trip. Tracking and Security are the two who physically see
+   * the truck come back; the Loading department only marks collection and has no
+   * view of the return at all. A trip that is already over (Completed) or was
+   * declined (Stopped) is never offered the button again.
+   */
+  const CLOSING_ROLES = ["Tracking", "Tracking Operations", "Security", "Platform Admin"];
+  const canCloseTrip =
+    roles.some((r: string) => CLOSING_ROLES.includes(String(r))) &&
+    trip?.status !== "Completed" &&
+    trip?.status !== "Stopped";
   // The tab title follows the same rule — a viewer's page is not "Log Location".
   useEffect(() => {
     document.title = canLogTracking
@@ -152,6 +168,31 @@ function LogLocationPage() {
     setDelayStatus(next);
     setStatusOpen(false);
     toast.success(`Tracking status noted: ${next}`);
+  };
+
+  /**
+   * Close the trip — the truck is back, so the circle is over. This is the end
+   * point the Tracking department never had: the dispatch leaves the active board
+   * (it is no longer a truck that is out) and the head and tail go to Check Up via
+   * the same shared routine Security's gate uses.
+   */
+  const closeTrip = async () => {
+    if (!trip) return;
+    setClosing(true);
+    try {
+      const { marked } = await completeTripReturn(trip);
+      toast.success(
+        marked
+          ? `${dispatchDisplayId(trip)} closed — the truck is back and on Check Up.`
+          : `${dispatchDisplayId(trip)} closed — the truck is back.`,
+      );
+      setConfirmClose(false);
+      navigate({ to: "/workspace/app/active-dispatch" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to end the trip");
+    } finally {
+      setClosing(false);
+    }
   };
 
   const saveLocation = async () => {
@@ -253,6 +294,44 @@ function LogLocationPage() {
             </div>
             {/* Update Status dropdown — Figma 472:15170 style */}
             <div className="flex items-start gap-2">
+              {/* THE END OF THE CYCLE. A dispatch had no end point on this side at
+                  all: the only thing that ever closed a trip was Security's gate,
+                  so a truck that had come home sat on the Tracking board forever.
+                  The people who watch the truck arrive close it here, the same way
+                  the gate does. */}
+              {canCloseTrip ? (
+                confirmClose ? (
+                  <div className="flex h-9 items-center gap-2 rounded border border-[#ED351D] bg-white px-3 shadow-[0px_1px_4px_rgba(12,12,13,0.08)]">
+                    <span className="text-[12px] tracking-[0.4px] text-[#1B2432]">Truck back in the yard?</span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClose(false)}
+                      className="text-[12px] font-medium text-[#5C6470] hover:text-[#1B2432]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={closing}
+                      onClick={() => void closeTrip()}
+                      className="rounded bg-[#ED351D] px-2.5 py-1 text-[12px] font-medium text-white disabled:opacity-60 hover:bg-[#d62e19]"
+                    >
+                      {closing ? "Closing…" : "Yes, end trip"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClose(true)}
+                    className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] bg-white px-3 text-[13px] font-medium text-[#1B2432] shadow-[0px_1px_4px_rgba(12,12,13,0.08)] hover:border-[#5C6470]/40"
+                    aria-label="Mark the truck as returned and end the trip"
+                    title="The truck is back — this closes the trip"
+                  >
+                    <Check className="size-4" />
+                    Truck Returned
+                  </button>
+                )
+              ) : null}
               <button
                 type="button"
                 onClick={() => printDispatch(detailFields)}

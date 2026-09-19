@@ -12,8 +12,8 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, fleetService, notificationService, tripService } from "@/lib/fleetopsx/services";
-import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
+import { authService, tripService } from "@/lib/fleetopsx/services";
+import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -130,57 +130,12 @@ function SecurityLogPage() {
       minute: "2-digit",
     });
 
+  // Closing the trip is shared with the Tracking department's own "Truck
+  // Returned" action — see lib/fleetopsx/return-trip.ts. One implementation, so
+  // the gate and the tracking crew can never close a dispatch differently.
   const handleLogReturn = async (trip: Trip) => {
     try {
-      await tripService.update(trip.id, {
-        status: "Completed",
-        eta: stampNow(),
-        progress: 100,
-      });
-
-      // The truck is back in the yard: it goes to CHECK UP, not straight back to
-      // Available. The fleet team inspects it and decides Available or Maintenance
-      // from the Fleet Registry; Engineering is told a truck is waiting.
-      const plate = plateOf(trip).replace(/\s/g, "").toUpperCase();
-      const cap = headOf(trip);
-      let marked = false;
-      try {
-        const heads = await fleetService.listHeads();
-        const head =
-          (trip.headId ? heads.find((h) => h.id === trip.headId) : undefined) ??
-          (plate
-            ? heads.find((h) => h.registration.replace(/\s/g, "").toUpperCase() === plate)
-            : undefined) ??
-          heads.find((h) => cap && cap !== "—" && (displayHeadCap(h) === cap || h.number === cap));
-        if (head) {
-          await fleetService.updateHeadStatus(head.id, "Check Up");
-          marked = true;
-        }
-        // The TAIL came back with the truck — and it was set to Assigned when the
-        // dispatch took it. Leaving it there would advertise a body that is
-        // standing in the yard as fitted to a live run.
-        const tailCode = String(trip.tailNumber || (trip.truckReg || "").split("/")[1] || "").trim();
-        if (tailCode) {
-          const tails = await fleetService.listTails();
-          const tail = tails.find(
-            (t) => t.number.replace(/\s/g, "").toUpperCase() === tailCode.replace(/\s/g, "").toUpperCase(),
-          );
-          if (tail && (tail.status === "Assigned" || tail.status === "Out of Yard")) {
-            await fleetService.updateTailStatus(tail.id, "Check Up");
-            marked = true;
-          }
-        }
-      } catch {
-        /* the return itself must stand even if the asset row cannot be updated */
-      }
-
-      void notificationService.create({
-        title: "Truck returned — check-up required",
-        body: `${plate || cap || "Truck"} is back in the yard${marked ? " and is now on Check Up" : ""}. Confirm Available or Maintenance.`,
-        category: "Operations",
-        audience: "Engineering,Transport Manager,Fleet Operations,Platform Admin",
-      });
-
+      const { marked } = await completeTripReturn(trip);
       toast.success(marked ? "Return logged — truck set to Check Up" : "Return logged");
       setMenuTripId(null);
       await refresh();

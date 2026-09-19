@@ -378,6 +378,8 @@ export type ClearableTripFields = {
   approvedAt?: string | null;
   partnerNote?: string | null;
   sendBackReason?: string | null;
+  /** The return stamp — cleared when a closed trip has to be reopened. */
+  eta?: string | null;
 };
 
 export const tripService = {
@@ -408,7 +410,10 @@ export const tripService = {
     delete payload.tailId;
     delete payload.driverId;
     delete payload.totalCosts;
-    delete payload.eta;
+    // `eta` is deliberately NOT stripped any more: it is the RETURN stamp the
+    // trip stores when the truck comes back, and deleting it here meant Security's
+    // Log Return — and the Tracking department's own end-of-trip action — could
+    // never record when the circle closed. `progress` is still a UI-only value.
     delete payload.progress;
     // The app models loading sites as a list, but Trip.loadingSite is a STRING
     // column. Sending the raw array made the API reject the whole write, so a
