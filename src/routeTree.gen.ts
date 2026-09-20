@@ -41,6 +41,11 @@ import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
 import { Route as WorkspaceAppLiveTrackingRouteImport } from './routes/workspace.app.live-tracking'
+import { Route as WorkspaceAppLubricantRouteImport } from './routes/workspace.app.lubricant'
+import { Route as WorkspaceAppLubricantDisbursalRouteImport } from './routes/workspace.app.lubricant-disbursal'
+import { Route as WorkspaceAppLubricantHistoryRouteImport } from './routes/workspace.app.lubricant-history'
+import { Route as WorkspaceAppLubricantInventoryRouteImport } from './routes/workspace.app.lubricant-inventory'
+import { Route as WorkspaceAppLubricantNotificationsRouteImport } from './routes/workspace.app.lubricant-notifications'
 import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
 import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
@@ -228,6 +233,35 @@ const WorkspaceAppLiveTrackingRoute =
     path: '/live-tracking',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppLubricantRoute = WorkspaceAppLubricantRouteImport.update({
+  id: '/lubricant',
+  path: '/lubricant',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppLubricantDisbursalRoute =
+  WorkspaceAppLubricantDisbursalRouteImport.update({
+    id: '/lubricant-disbursal',
+    path: '/lubricant-disbursal',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppLubricantHistoryRoute =
+  WorkspaceAppLubricantHistoryRouteImport.update({
+    id: '/lubricant-history',
+    path: '/lubricant-history',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppLubricantInventoryRoute =
+  WorkspaceAppLubricantInventoryRouteImport.update({
+    id: '/lubricant-inventory',
+    path: '/lubricant-inventory',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppLubricantNotificationsRoute =
+  WorkspaceAppLubricantNotificationsRouteImport.update({
+    id: '/lubricant-notifications',
+    path: '/lubricant-notifications',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppManageAccountRoute =
   WorkspaceAppManageAccountRouteImport.update({
     id: '/manage-account',
@@ -382,6 +416,11 @@ export interface FileRoutesByFullPath {
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
+  '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
+  '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
+  '/workspace/app/lubricant-history': typeof WorkspaceAppLubricantHistoryRoute
+  '/workspace/app/lubricant-inventory': typeof WorkspaceAppLubricantInventoryRoute
+  '/workspace/app/lubricant-notifications': typeof WorkspaceAppLubricantNotificationsRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -433,6 +472,11 @@ export interface FileRoutesByTo {
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
+  '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
+  '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
+  '/workspace/app/lubricant-history': typeof WorkspaceAppLubricantHistoryRoute
+  '/workspace/app/lubricant-inventory': typeof WorkspaceAppLubricantInventoryRoute
+  '/workspace/app/lubricant-notifications': typeof WorkspaceAppLubricantNotificationsRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -488,6 +532,11 @@ export interface FileRoutesById {
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
+  '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
+  '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
+  '/workspace/app/lubricant-history': typeof WorkspaceAppLubricantHistoryRoute
+  '/workspace/app/lubricant-inventory': typeof WorkspaceAppLubricantInventoryRoute
+  '/workspace/app/lubricant-notifications': typeof WorkspaceAppLubricantNotificationsRoute
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
@@ -545,6 +594,11 @@ export interface FileRouteTypes {
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/live-tracking'
+    | '/workspace/app/lubricant'
+    | '/workspace/app/lubricant-disbursal'
+    | '/workspace/app/lubricant-history'
+    | '/workspace/app/lubricant-inventory'
+    | '/workspace/app/lubricant-notifications'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -596,6 +650,11 @@ export interface FileRouteTypes {
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/live-tracking'
+    | '/workspace/app/lubricant'
+    | '/workspace/app/lubricant-disbursal'
+    | '/workspace/app/lubricant-history'
+    | '/workspace/app/lubricant-inventory'
+    | '/workspace/app/lubricant-notifications'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -650,6 +709,11 @@ export interface FileRouteTypes {
     | '/workspace/app/hr'
     | '/workspace/app/inventory'
     | '/workspace/app/live-tracking'
+    | '/workspace/app/lubricant'
+    | '/workspace/app/lubricant-disbursal'
+    | '/workspace/app/lubricant-history'
+    | '/workspace/app/lubricant-inventory'
+    | '/workspace/app/lubricant-notifications'
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
@@ -909,6 +973,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppLiveTrackingRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/lubricant': {
+      id: '/workspace/app/lubricant'
+      path: '/lubricant'
+      fullPath: '/workspace/app/lubricant'
+      preLoaderRoute: typeof WorkspaceAppLubricantRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/lubricant-disbursal': {
+      id: '/workspace/app/lubricant-disbursal'
+      path: '/lubricant-disbursal'
+      fullPath: '/workspace/app/lubricant-disbursal'
+      preLoaderRoute: typeof WorkspaceAppLubricantDisbursalRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/lubricant-history': {
+      id: '/workspace/app/lubricant-history'
+      path: '/lubricant-history'
+      fullPath: '/workspace/app/lubricant-history'
+      preLoaderRoute: typeof WorkspaceAppLubricantHistoryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/lubricant-inventory': {
+      id: '/workspace/app/lubricant-inventory'
+      path: '/lubricant-inventory'
+      fullPath: '/workspace/app/lubricant-inventory'
+      preLoaderRoute: typeof WorkspaceAppLubricantInventoryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/lubricant-notifications': {
+      id: '/workspace/app/lubricant-notifications'
+      path: '/lubricant-notifications'
+      fullPath: '/workspace/app/lubricant-notifications'
+      preLoaderRoute: typeof WorkspaceAppLubricantNotificationsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/manage-account': {
       id: '/workspace/app/manage-account'
       path: '/manage-account'
@@ -1097,6 +1196,11 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
   WorkspaceAppLiveTrackingRoute: typeof WorkspaceAppLiveTrackingRoute
+  WorkspaceAppLubricantRoute: typeof WorkspaceAppLubricantRoute
+  WorkspaceAppLubricantDisbursalRoute: typeof WorkspaceAppLubricantDisbursalRoute
+  WorkspaceAppLubricantHistoryRoute: typeof WorkspaceAppLubricantHistoryRoute
+  WorkspaceAppLubricantInventoryRoute: typeof WorkspaceAppLubricantInventoryRoute
+  WorkspaceAppLubricantNotificationsRoute: typeof WorkspaceAppLubricantNotificationsRoute
   WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
   WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
@@ -1133,6 +1237,12 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
   WorkspaceAppLiveTrackingRoute: WorkspaceAppLiveTrackingRoute,
+  WorkspaceAppLubricantRoute: WorkspaceAppLubricantRoute,
+  WorkspaceAppLubricantDisbursalRoute: WorkspaceAppLubricantDisbursalRoute,
+  WorkspaceAppLubricantHistoryRoute: WorkspaceAppLubricantHistoryRoute,
+  WorkspaceAppLubricantInventoryRoute: WorkspaceAppLubricantInventoryRoute,
+  WorkspaceAppLubricantNotificationsRoute:
+    WorkspaceAppLubricantNotificationsRoute,
   WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
   WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,

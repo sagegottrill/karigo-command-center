@@ -21,6 +21,11 @@ import {
   shouldUseLoadingShell,
 } from "@/components/fleetopsx/loading-operations-sidebar";
 import {
+  LubricantMobileNav,
+  LubricantSidebar,
+  shouldUseLubricantShell,
+} from "@/components/fleetopsx/lubricant-sidebar";
+import {
   TransportAdminMobileNav,
   TransportAdminSidebar,
 } from "@/components/fleetopsx/transport-admin-sidebar";
@@ -95,6 +100,7 @@ function AppShell() {
   const [useGateShell, setUseGateShell] = useState(false);
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [useLoadingShell, setUseLoadingShell] = useState(false);
+  const [useLubricantShell, setUseLubricantShell] = useState(false);
   const [shellReady, setShellReady] = useState(false);
 
   const [activeRole, setActiveRoleState] = useState<string>("");
@@ -110,6 +116,7 @@ function AppShell() {
       setUseGateShell(shouldUseGateSecurityShell(scoped));
       setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
       setUseLoadingShell(shouldUseLoadingShell(scoped));
+      setUseLubricantShell(shouldUseLubricantShell(scoped));
       setActiveRoleState(active);
       setShellReady(true);
     };
@@ -153,6 +160,8 @@ function AppShell() {
         <GateSecuritySidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useLoadingShell ? (
         <LoadingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      ) : useLubricantShell ? (
+        <LubricantSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useTrackingShell ? (
         <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useFoShell ? (
@@ -169,6 +178,7 @@ function AppShell() {
           forceTrackingOps={shellReady ? useTrackingShell : false}
           forceGateSecurity={shellReady ? useGateShell : false}
           forceLoadingOps={shellReady ? useLoadingShell : false}
+          forceLubricantOps={shellReady ? useLubricantShell : false}
         />
         <main
           className={cn(
@@ -184,6 +194,8 @@ function AppShell() {
           <GateSecurityMobileNav />
         ) : useLoadingShell ? (
           <LoadingOperationsMobileNav />
+        ) : useLubricantShell ? (
+          <LubricantMobileNav />
         ) : useTrackingShell ? (
           <TrackingOperationsMobileNav />
         ) : useFoShell ? (

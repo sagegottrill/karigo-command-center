@@ -29,6 +29,33 @@ export const fuelPriceService = {
     fetchApi<FuelPrice>('/fuel-prices', { method: 'PUT', body: JSON.stringify({ fuelType, pricePerLitre }) }),
 };
 
+/**
+ * Lubricant module — inventory, restock and disbursal.
+ *
+ * The department hands diesel/gas to a dispatch. Every figure that involves
+ * money comes back from the server already computed against the Transport
+ * Manager's price per litre, so no screen here ever sends a cost.
+ */
+export const lubricantService = {
+  overview: () =>
+    fetchApi<import('./lubricant').LubricantOverview>('/lubricant/overview'),
+  restocks: () =>
+    fetchApi<import('./lubricant').LubricantRestock[]>('/lubricant/restocks').then((res) => asList(res as any) as any),
+  restock: (input: { fuelType: "Diesel" | "Gas"; quantity: number; loggedBy: string }) =>
+    fetchApi<{ reference: string; stock?: any }>('/lubricant/restocks', { method: 'POST', body: JSON.stringify(input) }),
+  requests: () =>
+    fetchApi<import('./lubricant').LubricantRequestRow[]>('/lubricant/requests').then((res) => asList(res as any) as any),
+  disbursals: () =>
+    fetchApi<import('./lubricant').LubricantDisbursalRow[]>('/lubricant/disbursals').then((res) => asList(res as any) as any),
+  disburse: (input: { tripId: string; fuelType: "Diesel" | "Gas"; quantity: number; dispensedBy: string }) =>
+    fetchApi<{ reference: string; amount: number; quantity: number; stock?: any }>('/lubricant/disbursals', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  notifications: () =>
+    fetchApi<import('./lubricant').LubricantFeedItem[]>('/lubricant/notifications').then((res) => asList(res as any) as any),
+};
+
 export const tenantService = {
   list: () => fetchApi('/tenants'),
   // Backend route is GET /tenants/slug/:slug (a ?slug= query just returns the

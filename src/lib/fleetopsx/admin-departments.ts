@@ -4,6 +4,7 @@ export const ADMIN_DEPARTMENTS = [
   "Fleet Operations",
   "Tracking Operations",
   "Loading Operations",
+  "Lubricant",
   "Fuel Management",
   "Engineering and Maintenance",
   "Parts and Store",
@@ -27,6 +28,8 @@ export function departmentToRoleKey(department: string): string {
       return "Tracking";
     case "Loading Operations":
       return "Loading";
+    case "Lubricant":
+      return "Lubricant";
     case "Engineering and Maintenance":
       return "Engineering";
     case "Parts and Store":
@@ -58,7 +61,11 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   "Fleet Operations": ["Fleet Operations", "Fuel Management", "Fuel Manager"],
   "Tracking Operations": ["Tracking", "Tracking Operations"],
   "Loading Operations": ["Loading", "Loading Operations"],
-  "Fuel Management": ["Fleet Operations", "Fuel Manager"],
+  // The department that dispenses diesel and gas has its own portal; the older
+  // "Fuel Manager" spelling is kept so an account created before it still lands
+  // in the right place.
+  Lubricant: ["Lubricant", "Lubricant Manager", "Lubricant Operations", "Fuel Manager"],
+  "Fuel Management": ["Fleet Operations", "Fuel Manager", "Lubricant"],
   "Engineering and Maintenance": ["Engineering"],
   "Parts and Store": ["Parts & Store", "Parts and Store"],
   Accounts: ["Accounts", "Accountant"],

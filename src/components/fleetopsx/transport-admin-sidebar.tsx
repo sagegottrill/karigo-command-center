@@ -4,6 +4,7 @@ import {
   Briefcase,
   CircleHelp,
   CirclePlus,
+  Droplets,
   Fuel,
   LayoutDashboard,
   List,
@@ -69,6 +70,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
+      // The department's own ledger: litres in the tank, litres dispensed, and
+      // what the Transport Manager's rate turned them into.
+      { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
     ],
   },
   {

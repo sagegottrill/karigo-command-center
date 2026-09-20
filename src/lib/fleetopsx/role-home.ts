@@ -21,6 +21,11 @@ const ROLE_HOME: Record<string, string> = {
   "Loading Operations": "/workspace/app/active-dispatch",
   HR: "/workspace/app/hr",
   "HR & Personnel": "/workspace/app/hr",
+  // The Lubricant (fuel) department dispenses diesel and gas — its own portal,
+  // opening on what is in the tank.
+  Lubricant: "/workspace/app/lubricant-inventory",
+  "Lubricant Manager": "/workspace/app/lubricant-inventory",
+  "Lubricant Operations": "/workspace/app/lubricant-inventory",
   // Roles without a dedicated Figma portal home stay on the Central Dashboard.
   Accounts: "/workspace/app",
   Diesel: "/workspace/app",

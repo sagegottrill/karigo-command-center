@@ -1,38 +1,82 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, Droplets, History, LogOut, MapPinCheck, MessageSquare, MoreVertical, Navigation, Truck } from "lucide-react";
-import { useEffect, useState } from "react";
-import { authService } from "@/lib/fleetopsx/services";
+import { Bell, Droplets, History, LogOut, MoreVertical, NotebookPen } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
-import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
-type FoNavItem = {
+type LubricantNavItem = {
   label: string;
   to: string;
-  icon: typeof Truck;
+  icon: typeof Droplets;
 };
 
-/** Figma Fleet Operations sidebar — OPERATIONS group */
-const FO_NAV: FoNavItem[] = [
-  { label: "Fleet Dispatch", to: "/workspace/app/dispatch", icon: ClipboardList },
-  { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck },
-  { label: "Dispatch History", to: "/workspace/app/dispatch-history", icon: History },
-  // Tracking Operations board: FO must see where every truck on the road is right now.
-  { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
-  { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
-  // What the Lubricant department dispensed for the fleet's trucks, and what it cost.
-  { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
-  { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
-  // Chat lives with the dispatch it is about — one thread per trip.
-  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
+/**
+ * The Lubricant department's own portal — four pages, exactly the Figma set:
+ * what is in the tank, dispensing against a dispatch, what was dispensed, and
+ * what needs attention.
+ */
+export const LUBRICANT_NAV: LubricantNavItem[] = [
+  { label: "Lubricant Inventory", to: "/workspace/app/lubricant-inventory", icon: Droplets },
+  { label: "Log Disbursal", to: "/workspace/app/lubricant-disbursal", icon: NotebookPen },
+  { label: "Disbursal History", to: "/workspace/app/lubricant-history", icon: History },
+  { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
 ];
 
-function isPathActive(pathname: string, to: string) {
+export function lubricantPathActive(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
-export function FleetOperationsSidebar({
+/**
+ * Which departments see the Lubricant portal.
+ *
+ * Anyone holding the Lubricant (fuel) department gets it. The Transport Manager,
+ * Fleet Ops, Tracking and Security keep their own portals — they READ the
+ * lubricant reporting from their side instead, so the department's own screens
+ * stay the department's.
+ */
+export function shouldUseLubricantShell(roles: string[]) {
+  if (roles.includes("Transport Manager") || roles.includes("Platform Admin")) return false;
+  if (roles.includes("Fleet Operations")) return false;
+  if (roles.includes("Security")) return false;
+  if (roles.some((r) => /tracking|loading/i.test(r))) return false;
+  return roles.some((r) => /lubricant|fuel manager|fuel management/i.test(r));
+}
+
+/**
+ * How many things in this portal want attention: dispatches still waiting for
+ * lubricant, plus any tank that has fallen under its minimum. It refreshes on
+ * the app's shared 10-second tick, so the badge keeps up without a second poller.
+ */
+export function useLubricantBadges() {
+  const [pending, setPending] = useState(0);
+
+  const refresh = useCallback(async () => {
+    try {
+      const overview = await lubricantService.overview();
+      const low = (overview?.stocks ?? []).filter((s) => s.low).length;
+      setPending((overview?.counts?.requests ?? 0) + low);
+    } catch {
+      /* the sidebar badge is not worth an error surface */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const onRefresh = () => void refresh();
+    window.addEventListener("fleetopsx:badges-refresh", onRefresh);
+    window.addEventListener("focus", onRefresh);
+    return () => {
+      window.removeEventListener("fleetopsx:badges-refresh", onRefresh);
+      window.removeEventListener("focus", onRefresh);
+    };
+  }, [refresh]);
+
+  return pending;
+}
+
+export function LubricantSidebar({
   collapsed,
   onToggle,
 }: {
@@ -43,8 +87,7 @@ export function FleetOperationsSidebar({
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const unread = useLiveBadges().unreadNotifications;
-  const unreadMessages = useLiveBadges().unreadMessages;
+  const attention = useLubricantBadges();
 
   useEffect(() => {
     setMounted(true);
@@ -56,8 +99,7 @@ export function FleetOperationsSidebar({
   const userInitials = mounted && currentUser?.initials ? currentUser.initials : "";
   const logoSrc = tenantLogo || "/figma/petroline-logo.png";
 
-  const handleLogout = () => {
-    hardLogout("/workspace/login");};
+  const handleLogout = () => hardLogout("/workspace/login");
 
   return (
     <>
@@ -71,10 +113,7 @@ export function FleetOperationsSidebar({
       >
         <Link
           to="/workspace/account-type"
-          className={cn(
-            "flex w-full items-end px-5 py-2",
-            collapsed ? "justify-center px-2" : "justify-end",
-          )}
+          className={cn("flex w-full items-end px-5 py-2", collapsed ? "justify-center px-2" : "justify-end")}
         >
           <img
             src={logoSrc}
@@ -87,16 +126,13 @@ export function FleetOperationsSidebar({
           <div className={cn("flex w-full flex-col gap-[5px]", collapsed ? "items-center px-2" : "w-[224px]")}>
             {!collapsed && (
               <span className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-white/70">
-                operations
+                LUBRICANT
               </span>
             )}
-            {FO_NAV.map((item) => {
-              const active = isPathActive(pathname, item.to);
+            {LUBRICANT_NAV.map((item) => {
+              const active = lubricantPathActive(pathname, item.to);
               const Icon = item.icon;
-              const showBadge =
-                (item.to.includes("notifications") && unread > 0) ||
-                (item.to.includes("messages") && unreadMessages > 0);
-              const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
+              const badge = item.to.includes("notifications") ? attention : 0;
               return (
                 <Link
                   key={item.to}
@@ -114,14 +150,14 @@ export function FleetOperationsSidebar({
                       <span className="flex-1 truncate text-[14px] font-normal leading-5 tracking-[0.4px] text-white">
                         {item.label}
                       </span>
-                      {showBadge && (
+                      {badge > 0 && (
                         <span
                           className={cn(
                             "grid size-5 shrink-0 place-items-center rounded-[10px] text-[12px] tracking-[0.4px]",
                             active ? "bg-white text-[#ED351D]" : "bg-[#ED351D] text-white",
                           )}
                         >
-                          {badgeCount > 9 ? "9+" : badgeCount}
+                          {badge > 9 ? "9+" : badge}
                         </span>
                       )}
                     </>
@@ -147,10 +183,12 @@ export function FleetOperationsSidebar({
             role="button"
             tabIndex={0}
             onClick={() => setShowLogout((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v);
+            }}
             className={cn(
               "flex h-12 w-full cursor-pointer items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
-              collapsed && "justify-center"
+              collapsed && "justify-center",
             )}
           >
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
@@ -174,45 +212,35 @@ export function FleetOperationsSidebar({
   );
 }
 
-/** Primary FO role without Transport Manager — use Figma FO chrome */
-export function shouldUseFleetOpsShell(roles: string[]) {
-  return roles.includes("Fleet Operations") && !roles.includes("Transport Manager");
-}
-
-/** Figma FO mobile bottom tab bar (390 frames) */
-export function FleetOperationsMobileNav() {
+/** Lubricant department mobile bottom tab bar. */
+export function LubricantMobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const unread = useLiveBadges().unreadNotifications;
-  const unreadMessages = useLiveBadges().unreadMessages;
+  const attention = useLubricantBadges();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] md:hidden">
-      {FO_NAV.map((item) => {
-        const active = isPathActive(pathname, item.to);
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-5 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
+      {LUBRICANT_NAV.map((item) => {
+        const active = lubricantPathActive(pathname, item.to);
         const Icon = item.icon;
-        const showBadge =
-          (item.to.includes("notifications") && unread > 0) ||
-          (item.to.includes("messages") && unreadMessages > 0);
-        const badgeCount = item.to.includes("messages") ? unreadMessages : unread;
+        const badge = item.to.includes("notifications") ? attention : 0;
         return (
           <Link
             key={item.to}
             to={item.to}
             className={cn(
-              "relative flex flex-1 flex-col items-center justify-center gap-0.5 px-1",
-              active ? "text-white" : "text-white/50",
+              "relative flex flex-1 flex-col items-center justify-center gap-1 px-0.5",
+              active ? "border-b-[5px] border-white text-white" : "text-white/70",
             )}
           >
             <span className="relative">
-              <Icon className="size-5" strokeWidth={1.5} />
-              {showBadge && (
-                <span className="absolute -right-2 -top-1 grid size-4 place-items-center rounded-full bg-[#ED351D] text-[9px] text-white">
-                  {badgeCount > 9 ? "9+" : badgeCount}
+              <Icon className="size-[22px]" strokeWidth={1.5} />
+              {badge > 0 && (
+                <span className="absolute -right-3 -top-1 grid size-4 place-items-center rounded-[10px] bg-[#ED351D] text-[10px] font-medium text-white">
+                  {badge > 9 ? "9+" : badge}
                 </span>
               )}
             </span>
-            <span className="text-[10px] font-medium leading-tight">{item.label.replace("Fleet ", "").replace("Manage ", "")}</span>
-            {active && <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" />}
+            <span className="w-full text-center text-[10px] font-medium leading-tight">{item.label}</span>
           </Link>
         );
       })}
