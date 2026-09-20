@@ -41,6 +41,22 @@ function ordinalDay(n: number): string {
 }
 
 /**
+ * "Just now" / "12m ago" / "3h ago" / "2d ago" — the label a live feed needs,
+ * where an absolute stamp makes the reader do the arithmetic. An unparseable or
+ * missing value reads "Just now" rather than "Invalid Date".
+ */
+export function formatTimeAgo(value?: string | null): string {
+  const t = value ? Date.parse(value) : NaN;
+  if (Number.isNaN(t)) return "Just now";
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+/**
  * Security-log movement stamp, matching the Figma design exactly:
  * "3rd Aug 2026 • 06:25". Legacy free-text stamps that no longer parse are
  * shown as-is so history never turns into "—".

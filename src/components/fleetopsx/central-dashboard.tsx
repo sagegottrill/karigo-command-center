@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { adminService, authService, dashboardService, fleetService } from "@/lib/fleetopsx/services";
 import { dailyActivity } from "@/lib/fleetopsx/daily-stats";
 import { DailyCaptureBand, useDailyClock } from "./daily-capture";
+import { TrackingUpdatesPanel } from "./tracking-updates-panel";
 import { ACTIVE_DISPATCH_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -297,6 +298,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           className="md:min-w-[160px] md:flex-1"
         />
       </div>
+
+      {/* The Tracking department's own updates, live, right under the numbers —
+          the TM should not have to open the bell to learn that a specific truck
+          just reached a checkpoint. */}
+      <TrackingUpdatesPanel trips={live.trips ?? []} />
 
       <SectionTitle scope="Live now">Fleet Registry</SectionTitle>
       <div className="flex flex-col gap-3 md:gap-5">
