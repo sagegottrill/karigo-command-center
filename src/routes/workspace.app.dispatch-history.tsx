@@ -480,6 +480,7 @@ function DispatchHistoryPage() {
               onChange={(s) => {
                 setStatusFilter(s);
               }}
+              allLabel="All Statuses"
             />
           </div>
         </div>

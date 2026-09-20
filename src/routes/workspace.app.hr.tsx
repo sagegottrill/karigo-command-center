@@ -264,6 +264,7 @@ function HrStaffDirectory() {
                 setStatusFilter(s);
                 setPage(0);
               }}
+              allLabel="All Statuses"
             />
           </div>
 

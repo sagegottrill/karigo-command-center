@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { Check, ChevronLeft, ChevronRight, Download, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
@@ -14,7 +14,7 @@ import {
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { expectedReturnAt, formatTripDuration } from "@/lib/fleetopsx/trip-duration";
-import { CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
+import { CheckboxFilterButton, FilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
 import {
@@ -221,7 +221,7 @@ function FleetDispatchRequests() {
   const [companyFilter, setCompanyFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
+
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [sendBackTrip, setSendBackTrip] = useState<Trip | null>(null);
@@ -556,8 +556,10 @@ function FleetDispatchRequests() {
           Export CSV
         </button>
 
-        <div className="flex w-full items-center gap-5 md:hidden">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
+          {/* Search takes its own row on a phone: two named filter boxes beside it
+              squeezed the field down to nothing. */}
+          <div className="relative min-w-0 basis-full">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-[22px] -translate-y-1/2 text-[#5C6470]"
               strokeWidth={1.5}
@@ -711,7 +713,7 @@ function FleetDispatchRequests() {
 
         {/* Desktop table card */}
         <div className="hidden w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:block">
-          <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
+          <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
@@ -727,44 +729,19 @@ function FleetDispatchRequests() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setFilterOpen((o) => !o)}
-                className={cn(
-                  "grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white",
-                  statusFilter !== "All" && "ring-2 ring-[#1B2432] ring-offset-2",
-                )}
-                aria-label="Filter by status"
-              >
-                <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-              </button>
-              {filterOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
-                  <div className="absolute top-full right-0 z-50 mt-1 w-[190px] rounded border border-[#E2E5E9] bg-white py-1 shadow-[0px_4px_16px_rgba(0,0,0,0.15)]">
-                    {STATUS_FILTERS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => {
-                          setStatusFilter(s);
-                          setPage(0);
-                          setFilterOpen(false);
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] tracking-[0.4px] text-[#141A1F] hover:bg-[#F1F2F4]",
-                          statusFilter === s && "font-semibold",
-                        )}
-                      >
-                        {s === "All" ? "All Statuses" : s}
-                        {statusFilter === s && <Check className="size-4 text-[#ED351D]" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Status filter — a named box with a drop-down arrow. It replaced a
+                bare red square that sat beside an identical bare red square (the
+                company filter), which read as one ambiguous control. */}
+            <FilterButton
+              options={STATUS_FILTERS}
+              value={statusFilter}
+              onChange={(s) => {
+                setStatusFilter(s);
+                setPage(0);
+              }}
+              allLabel="All Statuses"
+              noun="status"
+            />
             {/* Second filter: the company — several at once, tick boxes, so the
                 board can be narrowed to one partner's or one customer's work. */}
             <CheckboxFilterButton

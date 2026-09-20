@@ -470,8 +470,10 @@ function AdminPartnerRequests() {
           Export CSV
         </button>
 
-        <div className="flex w-full items-center gap-5 md:hidden">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
+          {/* Search takes its own row on a phone: two named filter boxes beside it
+              squeezed the field down to nothing. */}
+          <div className="relative min-w-0 basis-full">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-[22px] -translate-y-1/2 text-[#5C6470]"
               strokeWidth={1.5}
@@ -603,7 +605,7 @@ function AdminPartnerRequests() {
         </div>
 
         <div className="hidden w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:block">
-          <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
+          <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
               <input
@@ -623,7 +625,7 @@ function AdminPartnerRequests() {
                 setStatusFilter(s);
                 setPage(0);
               }}
-              label={(s) => (s === "All" ? "All Statuses" : s)}
+              allLabel="All Statuses"
             />
             {/* Second filter: partner company, several at once — tick the companies
                 whose requests you want to see, or “All companies” for every one. */}

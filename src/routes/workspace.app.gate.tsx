@@ -310,6 +310,7 @@ function SecurityLogPage() {
             setStatusFilter(s);
             setPage(0);
           }}
+          allLabel="All Statuses"
         />
         <button
           type="button"

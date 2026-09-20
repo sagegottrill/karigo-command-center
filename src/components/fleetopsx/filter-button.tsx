@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The red filter button next to the search bar, shared by every table page.
- * Opens a status-menu popover and shows a ring while a non-"All" filter is
- * active — the same pattern as the Fleet Dispatch filter.
+ * The filter control next to the search bar, shared by every table page.
+ *
+ * It is a BOX THAT NAMES THE FILTER with a drop-down arrow — not a bare icon.
+ * Two unlabelled red squares sat side by side looking like one control, and
+ * nothing on screen said which filter was on or what either box filtered by,
+ * so the pair read as a single confusing button.
  *
  * Closing outside the menu is done with a document `mousedown` listener, NOT a
  * full-screen backdrop. The old backdrop swallowed the first click anywhere on
@@ -36,18 +39,29 @@ export function FilterButton<T extends string>({
   value,
   onChange,
   label,
+  allLabel,
+  allValue = "All" as T,
+  noun = "status",
 }: {
   options: readonly T[];
   value: T;
   onChange: (next: T) => void;
   /** Optional label override, e.g. (s) => s === "All" ? "All Statuses" : s. */
   label?: (option: T) => string;
+  /** What the box reads while nothing is filtered — e.g. "All Statuses". */
+  allLabel?: string;
+  /** The option that means "no filter" — every caller puts "All" first. */
+  allValue?: T;
+  /** What is being filtered, for screen readers: "status", "company". */
+  noun?: string;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   useCloseOnOutsideClick(open, setOpen, wrapRef);
 
   const describe = (option: T) => (label ? label(option) : option);
+  const isAll = value === allValue;
+  const shown = isAll ? (allLabel ?? describe(allValue)) : describe(value);
 
   return (
     <div ref={wrapRef} className="relative shrink-0">
@@ -55,13 +69,19 @@ export function FilterButton<T extends string>({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white",
-          value !== "All" && "ring-2 ring-[#1B2432] ring-offset-2",
+          "flex h-9 shrink-0 items-center gap-2 rounded border bg-white px-3 text-[13px] tracking-[0.4px] transition-colors hover:bg-[#F7F8F9]",
+          isAll
+            ? "border-[rgba(92,100,112,0.6)] text-[#141A1F]"
+            : "border-[#ED351D] font-medium text-[#1B2432]",
         )}
-        aria-label="Filter by status"
+        aria-label={`Filter by ${noun}`}
         aria-expanded={open}
       >
-        <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+        <span className="max-w-[170px] truncate">{shown}</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 text-[#5C6470] transition-transform", open && "rotate-180")}
+          strokeWidth={1.75}
+        />
       </button>
       {open && (
         <>
@@ -90,15 +110,15 @@ export function FilterButton<T extends string>({
 }
 
 /**
- * Second filter button — the same red control as FilterButton, but for a value a
- * row can hold several of (a partner company, a department): tick boxes instead
- * of a single choice, and the menu stays open so several boxes can be ticked in
- * one visit.
+ * Second filter — the same labelled box as FilterButton, but for a value a row
+ * can hold several of (a partner company, a department): tick boxes instead of a
+ * single choice, and the menu stays open so several boxes can be ticked in one
+ * visit.
  *
- * An empty `selected` means NO filter, exactly like "All" in FilterButton, so the
- * button only carries its ring once something is actually ticked — and the ring
- * count says how many, because a multi-filter that hides rows with no visible
- * reason is how a table reads as broken.
+ * An empty `selected` means NO filter, exactly like "All" in FilterButton. The box
+ * always says what it is doing: one company reads as its name, several read as
+ * "First +2" — a multi-filter that hides rows with nothing on screen saying why
+ * is how a table reads as broken.
  */
 export function CheckboxFilterButton<T extends string>({
   options,
@@ -123,6 +143,14 @@ export function CheckboxFilterButton<T extends string>({
   const chosen = useMemo(() => new Set(selected), [selected]);
   useCloseOnOutsideClick(open, setOpen, wrapRef);
 
+  const isFiltered = selected.length > 0;
+  const shown =
+    selected.length === 0
+      ? allLabel
+      : selected.length === 1
+        ? selected[0]
+        : `${selected[0]} +${selected.length - 1}`;
+
   const toggle = (option: T) => {
     const next = new Set(chosen);
     if (next.has(option)) next.delete(option);
@@ -138,18 +166,19 @@ export function CheckboxFilterButton<T extends string>({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "relative grid size-9 place-items-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-white",
-          selected.length > 0 && "ring-2 ring-[#1B2432] ring-offset-2",
+          "flex h-9 shrink-0 items-center gap-2 rounded border bg-white px-3 text-[13px] tracking-[0.4px] transition-colors hover:bg-[#F7F8F9]",
+          isFiltered
+            ? "border-[#ED351D] font-medium text-[#1B2432]"
+            : "border-[rgba(92,100,112,0.6)] text-[#141A1F]",
         )}
         aria-label={`Filter by ${noun}`}
         aria-expanded={open}
       >
-        <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-        {selected.length > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 grid min-w-4 place-items-center rounded-full bg-[#1B2432] px-1 text-[10px] font-semibold leading-4 text-white">
-            {selected.length}
-          </span>
-        )}
+        <span className="max-w-[170px] truncate">{shown}</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 text-[#5C6470] transition-transform", open && "rotate-180")}
+          strokeWidth={1.75}
+        />
       </button>
       {open && (
         <>

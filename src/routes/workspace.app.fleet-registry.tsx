@@ -661,6 +661,7 @@ function FleetRegistryPage() {
                   setStatusFilter(s);
                   setPage(0);
                 }}
+                allLabel="All Statuses"
               />
             </div>
           </div>
