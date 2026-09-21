@@ -52,7 +52,10 @@ export function LiveMetricTile({
     <Comp
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "group relative flex h-full min-w-0 flex-col rounded-[10px] border bg-white p-[15px] text-left",
+        // `w-full` matters: a <button> is shrink-to-fit, so without it the card
+        // drew at its content width and left a gulf between columns on a wide
+        // screen — the 1440 design hid it, a 1920 monitor did not.
+        "group relative flex h-full w-full min-w-0 flex-col rounded-[10px] border bg-white p-[15px] text-left",
         "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.12),0px_4px_4px_-4px_rgba(12,12,13,0.06)]",
         onClick && "transition-shadow hover:shadow-[0px_8px_24px_-10px_rgba(12,12,13,0.22)]",
         className,
