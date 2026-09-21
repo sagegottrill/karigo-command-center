@@ -101,10 +101,34 @@ function fleetStatusWord(status: string): { word: string; tone: TileTone } {
 
 /** `P062 • GGE98YK` for a head, `B079 • FLATBED TAIL` for a tail. */
 function headLabel(head: TruckHead) {
-  return [head.number, head.registration].filter(Boolean).join(" • ");
+  return [cleanAssetNumber(head.number), String(head.registration ?? "").trim()]
+    .filter(Boolean)
+    .join(" • ");
 }
+
+/**
+ * `B079 • FLATBED` — the design names a tail by its body, not by the word
+ * "TAIL": the roster type is `Flatbed Tail`, so the trailing word is trimmed
+ * before it is shouted. A roster row with no number reads as just its body
+ * rather than as `None • TRAILER`.
+ */
 function tailLabel(tail: TruckTail) {
-  return [tail.number, String(tail.type ?? "").toUpperCase()].filter(Boolean).join(" • ");
+  const body = String(tail.type ?? "")
+    .replace(/\s*tail\s*$/i, "")
+    .trim()
+    .toUpperCase();
+  return [cleanAssetNumber(tail.number), body].filter(Boolean).join(" • ") || "—";
+}
+
+/** A missing roster number arrives as the literal string "None" — never print it. */
+function cleanAssetNumber(value: unknown) {
+  const text = String(value ?? "").trim();
+  return !text || /^none$/i.test(text) ? "" : text;
+}
+
+/** `1 Head` / `2 Heads` — the design pluralises its group headers and footers. */
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /* ------------------------------------------------------------- presentation */
@@ -928,26 +952,26 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   open={drill.isOpen(`fleet-${card.id}`)}
                   onClose={drill.close}
                   title={card.title}
-                  width={390}
+                  width={350}
                   footer={
+                    // The design's footer appears only on the All Fleet breakdown:
+                    // a single-side segment already says its side in the header.
                     segment === "all" ? (
                       <span>
-                        {assets.heads.length} Heads • {assets.tails.length} Tails
+                        {countLabel(assets.heads.length, "Head")} •{" "}
+                        {countLabel(assets.tails.length, "Tail")}
                       </span>
-                    ) : segment === "head" ? (
-                      <span>{assets.heads.length} Heads</span>
-                    ) : (
-                      <span>{assets.tails.length} Tails</span>
-                    )
+                    ) : undefined
                   }
                 >
                   {assets.heads.length + assets.tails.length === 0 ? (
                     <p className="py-3 text-[12px] text-white/60">Nothing in this group.</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {segment === "all" && assets.heads.length > 0 ? (
+                      {assets.heads.length > 0 ? (
                         <p className="text-[10px] font-semibold uppercase tracking-[0.5px] text-white/70">
-                          Truck Heads ({assets.heads.length})
+                          {countLabel(assets.heads.length, "Truck Head")} (
+                          {assets.heads.length})
                         </p>
                       ) : null}
                       {assets.heads.map((head) => {
@@ -974,9 +998,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                         );
                       })}
 
-                      {segment === "all" && assets.tails.length > 0 ? (
+                      {assets.tails.length > 0 ? (
                         <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.5px] text-white/70">
-                          Truck Tails ({assets.tails.length})
+                          {countLabel(assets.tails.length, "Truck Tail")} (
+                          {assets.tails.length})
                         </p>
                       ) : null}
                       {assets.tails.map((tail) => {
@@ -1252,13 +1277,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               return (
                 <div
                   key={head.id}
-                  className="flex flex-col gap-2.5 rounded-[8px] border border-[#E2E5E9] p-3.5"
+                  className="flex flex-col gap-2.5 rounded-[8px] border p-3.5"
+                  style={{ borderColor: TONE[status.tone].border }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
                       {headLabel(head)}
                     </p>
-                    <StatusPill label={status.word} tone={status.tone} variant="soft" />
+                    <StatusPill label={status.word} tone={status.tone} />
                   </div>
                   <div className="flex items-center justify-between rounded-[6px] bg-[#F1F2F4] px-3.5 py-2.5">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.5px] text-[#8E95A1]">
@@ -1286,13 +1312,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               return (
                 <div
                   key={tail.id}
-                  className="flex flex-col gap-2.5 rounded-[8px] border border-[#E2E5E9] p-3.5"
+                  className="flex flex-col gap-2.5 rounded-[8px] border p-3.5"
+                  style={{ borderColor: TONE[status.tone].border }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
                       {tailLabel(tail)}
                     </p>
-                    <StatusPill label={status.word} tone={status.tone} variant="soft" />
+                    <StatusPill label={status.word} tone={status.tone} />
                   </div>
                   <div className="flex flex-col gap-1.5 rounded-[6px] bg-[#F1F2F4] px-3.5 py-2.5">
                     <div className="flex items-center justify-between">

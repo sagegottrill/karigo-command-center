@@ -245,11 +245,19 @@ export function ToneTabs<T extends string>({
   className?: string;
   variant?: "segment" | "pill";
 }) {
+  /**
+   * Two looks, both from the design:
+   *  - `segment` — the board's control: light track, the active chip filled navy.
+   *  - `pill` — the audit dialog's control: the track itself is navy and the
+   *    active chip is WHITE. The two are inverses; using one for both would put a
+   *    dark chip on a light strip inside a dark dialog.
+   */
+  const pill = variant === "pill";
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-[6px] p-0.5",
-        variant === "segment" ? "bg-[#F1F2F4]" : "bg-[#F1F2F4]",
+        "inline-flex items-center gap-0.5 rounded-[7px] p-[3px]",
+        pill ? "bg-[#1B2432]" : "bg-[#F1F2F4]",
         className,
       )}
     >
@@ -261,8 +269,14 @@ export function ToneTabs<T extends string>({
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "rounded-[5px] px-3 py-[7px] text-[12px] font-medium leading-none tracking-[0.2px] transition-colors",
-              on ? "bg-[#1B2432] text-white" : "text-[#5C6470] hover:text-[#1B2432]",
+              "rounded-[5px] px-3 py-[7px] text-[12px] leading-none tracking-[0.2px] transition-colors",
+              pill
+                ? on
+                  ? "bg-white font-semibold text-[#1B2432]"
+                  : "font-medium text-white/75 hover:text-white"
+                : on
+                  ? "bg-[#1B2432] font-medium text-white"
+                  : "font-medium text-[#5C6470] hover:text-[#1B2432]",
             )}
           >
             {tab.label}
@@ -314,7 +328,8 @@ export function AuditDialog({
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-3 md:p-6">
-      <div className="flex max-h-[90vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_24px_60px_-16px_rgba(12,12,13,0.45)]">
+      {/* 750px — the design's audit modal is a narrow sheet, not a wide one. */}
+      <div className="flex max-h-[90vh] w-full max-w-[750px] flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_24px_60px_-16px_rgba(12,12,13,0.45)]">
         <div className="flex items-start justify-between gap-4 bg-[#1B2432] px-6 py-4">
           <h2 className="text-[18px] font-semibold leading-6 tracking-[0.2px] text-white">{title}</h2>
           <button
@@ -332,7 +347,12 @@ export function AuditDialog({
             {subtitle}
           </p>
           {tabs && activeTab && onTabChange ? (
-            <ToneTabs tabs={tabs as { id: string; label: string }[]} active={activeTab} onChange={onTabChange} />
+            <ToneTabs
+              tabs={tabs as { id: string; label: string }[]}
+              active={activeTab}
+              onChange={onTabChange}
+              variant="pill"
+            />
           ) : null}
         </div>
 
