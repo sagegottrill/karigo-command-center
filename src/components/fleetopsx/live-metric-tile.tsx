@@ -52,7 +52,7 @@ export function LiveMetricTile({
     <Comp
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "group relative flex min-w-0 flex-col rounded-[10px] border bg-white p-[15px] text-left",
+        "group relative flex h-full min-w-0 flex-col rounded-[10px] border bg-white p-[15px] text-left",
         "shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.12),0px_4px_4px_-4px_rgba(12,12,13,0.06)]",
         onClick && "transition-shadow hover:shadow-[0px_8px_24px_-10px_rgba(12,12,13,0.22)]",
         className,
@@ -73,10 +73,10 @@ export function LiveMetricTile({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className="mt-2 flex items-baseline gap-2">
         <span
           className={cn(
-            "font-['Space_Grotesk',sans-serif] text-[34px] font-bold leading-none tracking-[-0.5px] text-[#1B2432]",
+            "shrink-0 font-['Space_Grotesk',sans-serif] text-[34px] font-bold leading-none tracking-[-0.5px] text-[#1B2432]",
             valueClass,
           )}
         >
@@ -84,7 +84,7 @@ export function LiveMetricTile({
         </span>
         {hint ? (
           <span
-            className="min-w-0 truncate text-[11px] font-medium leading-4"
+            className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] font-medium leading-4"
             style={{ color: TONE[hintTone].text }}
           >
             {hint}
@@ -95,10 +95,10 @@ export function LiveMetricTile({
         ) : null}
       </div>
 
-      <div className="mt-2.5 h-px w-full" style={{ backgroundColor: t.line }} />
+      <div className="mt-2 h-px w-full" style={{ backgroundColor: t.line }} />
 
       {split ? (
-        <div className="mt-2.5 grid grid-cols-2">
+        <div className="mt-2 grid grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-medium leading-4 text-[#5C6470]">{split.aLabel}</span>
             <span className="font-['Space_Grotesk',sans-serif] text-[15px] font-bold leading-none text-[#1B2432]">
@@ -117,7 +117,7 @@ export function LiveMetricTile({
         </div>
       ) : null}
 
-      {detail ? <div className="mt-2.5">{detail}</div> : null}
+      {detail ? <div className="mt-2">{detail}</div> : null}
     </Comp>
   );
 }
@@ -134,7 +134,7 @@ export function TileDetailRows({
         <div
           key={row.label}
           className={cn(
-            "flex items-center justify-between gap-3 py-[5px] text-[11px]",
+            "flex h-[17px] items-center justify-between gap-3 text-[11px]",
             i > 0 && "border-t border-[#EFF0F2]",
           )}
         >
@@ -155,21 +155,25 @@ export function TileCostColumns({
   columns: { label: string; value: string; sub?: string; tone: TileTone }[];
 }) {
   return (
-    <div className="grid grid-cols-3">
+    <div className="grid grid-cols-[1.05fr_1fr_1fr]">
       {columns.map((col, i) => (
         <div
           key={col.label}
-          className={cn("flex min-w-0 flex-col gap-0.5", i > 0 && "border-l border-[#EFF0F2] pl-2.5")}
+          className={cn("flex min-w-0 flex-col gap-0.5", i > 0 && "border-l border-[#EFF0F2] pl-2")}
         >
-          <span className="truncate text-[10px] font-normal leading-4 text-[#5C6470]">{col.label}</span>
+          <span className="truncate whitespace-nowrap text-[9px] font-normal leading-3 text-[#5C6470]">
+            {col.label}
+          </span>
           <span
-            className="font-['Space_Grotesk',sans-serif] truncate text-[13px] font-bold leading-4"
+            className="truncate whitespace-nowrap font-['Space_Grotesk',sans-serif] text-[12px] font-bold leading-4"
             style={{ color: TONE[col.tone].text }}
           >
             {col.value}
           </span>
           {col.sub ? (
-            <span className="truncate text-[10px] font-normal leading-4 text-[#8E95A1]">{col.sub}</span>
+            <span className="truncate whitespace-nowrap text-[9px] font-normal leading-3 text-[#8E95A1]">
+              {col.sub}
+            </span>
           ) : null}
           <span className="mt-1 h-px w-full" style={{ backgroundColor: TONE[col.tone].line }} />
         </div>

@@ -122,7 +122,7 @@ function SectionHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-[#D7DBE1] pb-3">
+    <div className="flex flex-col gap-3 border-b border-[#D7DBE1] pb-[3px]">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-[#E4E6EA]">
@@ -652,25 +652,29 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   /* ----------------------------------------------------------------- render */
 
   return (
-    <div className="flex w-full flex-col gap-6 bg-[#F1F2F4] p-4 pb-28 md:p-[30px] md:pb-[30px]">
-      {/* Live Operations band — the day this board reports on and the clock it moved at. */}
-      <section className={cn("rounded-[10px] bg-white px-5 py-4", CARD_SHADOW)}>
-        <h1 className="text-[18px] font-semibold leading-6 tracking-[0.2px] text-[#1B2432]">
+    <div className="flex w-full flex-col gap-14 bg-[#F1F2F4] p-4 pb-28 md:p-[30px] md:pb-[30px]">
+      {/*
+        Live Operations band — the day this board reports on and the clock it
+        moved at. Measured off the design rather than eyeballed: 68px tall, 12px
+        side padding, 19px title, 13px chips, chips in plain white with no pill
+        chrome of their own.
+      */}
+      <section className="rounded-[6px] bg-[#1B2432] px-3 py-[11px]">
+        <h1 className="text-[19px] font-semibold leading-[22px] text-white">
           Live Operations Dashboard
         </h1>
-        <div className="mt-2.5 h-px w-full bg-[#E2E5E9]" />
-        <div className="mt-3 flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#E2E5E9] bg-[#F7F8FA] px-2.5 py-1.5 text-[12px] font-medium leading-none text-[#3C4653]">
-            <Clock className="size-3.5 text-[#5C6470]" strokeWidth={1.8} />
+        <div className="mt-1.5 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+            <Clock className="size-[15px] text-white" strokeWidth={1.9} />
             {clock ? formatClockTime(clock) : "--:--"}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#E2E5E9] bg-[#F7F8FA] px-2.5 py-1.5 text-[12px] font-medium leading-none text-[#3C4653]">
-            <CalendarDays className="size-3.5 text-[#5C6470]" strokeWidth={1.8} />
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+            <CalendarDays className="size-[15px] text-white" strokeWidth={1.9} />
             {clock ? formatDayLabel(clock) : "—"}
           </span>
           {daily ? (
-            <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#E2E5E9] bg-[#F7F8FA] px-2.5 py-1.5 text-[12px] font-medium leading-none text-[#3C4653]">
-              <ClipboardList className="size-3.5 text-[#5C6470]" strokeWidth={1.8} />
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+              <ClipboardList className="size-[15px] text-white" strokeWidth={1.9} />
               Today: {daily.requests} raised · {daily.dispatched} dispatched · {daily.declined} declined
             </span>
           ) : null}
@@ -678,7 +682,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       </section>
 
       {/* ----------------------------------------------------- Partner Requests */}
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
         <SectionHeader
           icon={ClipboardList}
           title="Partner Requests"
@@ -687,7 +691,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <AuditButton onClick={() => setAudit("requests")} />
         </SectionHeader>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <div className="relative">
             <LiveMetricTile
               label="Total Requests"
@@ -874,7 +878,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       </section>
 
       {/* -------------------------------------------------------- Fleet Registry */}
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
         <SectionHeader
           icon={Navigation}
           title="Fleet Registry (Truck Head & Truck Tail)"
@@ -892,7 +896,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <AuditButton onClick={() => setAudit("fleet")} />
         </SectionHeader>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {fleetCards.map((card) => {
             const assets = fleetCardAssets(card.id);
             const tailValue: number | string = tailsKnown ? card.tail : "—";
@@ -1008,13 +1012,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       </section>
 
       {/* -------------------------------------------------------- Staff Registry */}
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
         <SectionHeader
           icon={Users}
           title="Staff Registry (Driver Roster)"
           subtitle="Active driver headcount, immediate dispatch availability, in-transit drivers & approved leave"
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <LiveMetricTile
             label="Total Number"
             value={stats.drivers.total}
@@ -1051,7 +1055,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       </section>
 
       {/* -------------------------------------------------- Dispatch Live Tracking */}
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
         <SectionHeader
           icon={MapPinned}
           title="Dispatch Live Tracking"

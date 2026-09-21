@@ -202,43 +202,87 @@ export function DashboardLiveMap({ trips }: { trips: Trip[] }) {
       `;
       document.head.appendChild(style);
 
-      const seen: [number, number][] = [];
-      const bounds: [number, number][] = [];
-
-      for (const { trip, point, where } of placed) {
-        const status = getTrackingDelayStatus(trip);
-        const color = TRACKING_DELAY_COLOR[status];
-        // Nudge coincident markers so two trucks in one city both stay visible.
-        const spread = seen.filter((p) => p[0] === point[0] && p[1] === point[1]).length;
-        const at: [number, number] = [point[0] + spread * 0.035, point[1] + spread * 0.035];
-        seen.push(point);
-        bounds.push(at);
-
-        L.marker(at, {
-          icon: L.divIcon({
-            className: "fleetopsx-map-marker",
-            html: truckBadge(color),
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-          }),
-        })
-          .addTo(layers)
-          .bindPopup(popupHtml(trip, status, color, where), {
-            className: "fleetopsx-dash-popup",
-            offset: [0, -12],
-          });
+      /**
+       * Trucks that share a city are gathered into a rosette around it.
+       *
+       * The ring is measured in PIXELS, not degrees. A degree offset is fixed
+       * geography: at country zoom it collapsed thirty-eight trucks into a
+       * handful of overlapping dots, so only the last one drawn was visible.
+       * Pixels stay legible at every zoom, which is why the markers are laid out
+       * on `zoomend` as well as on data change.
+       */
+      const groups = new Map<string, Placed[]>();
+      for (const entry of placed) {
+        const key = `${entry.point[0].toFixed(2)}:${entry.point[1].toFixed(2)}`;
+        const bucket = groups.get(key);
+        if (bucket) bucket.push(entry);
+        else groups.set(key, [entry]);
       }
 
-      if (bounds.length > 1) {
-        map.fitBounds(L.latLngBounds(bounds).pad(0.2), { maxZoom: 9 });
-      } else if (bounds.length === 1) {
-        map.setView(bounds[0]!, 9);
+      /**
+       * Sunflower spacing: a phyllotaxis spiral puts every badge ~34px from its
+       * neighbours at any count, so a city with thirty-eight trucks reads as a
+       * cluster you can count and click rather than one solid mound of pins.
+       */
+      const SPACING_PX = 34;
+      const GOLDEN_ANGLE = 2.39996;
+
+      const drawMarkers = () => {
+        const zoom = map.getZoom();
+        layers.clearLayers();
+
+        for (const group of groups.values()) {
+          for (const [index, { trip, point, where }] of group.entries()) {
+            const status = getTrackingDelayStatus(trip);
+            const color = TRACKING_DELAY_COLOR[status];
+            let at: [number, number] = point;
+            if (group.length > 1) {
+              const angle = index * GOLDEN_ANGLE;
+              const radius = SPACING_PX * Math.sqrt(index / Math.PI);
+              const center = map.project(L.latLng(point[0], point[1]), zoom);
+              const pixel = L.point(
+                center.x + Math.cos(angle) * radius,
+                center.y + Math.sin(angle) * radius,
+              );
+              const latlng = map.unproject(pixel, zoom);
+              at = [latlng.lat, latlng.lng];
+            }
+
+            L.marker(at, {
+              icon: L.divIcon({
+                className: "fleetopsx-map-marker",
+                html: truckBadge(color),
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+              }),
+            })
+              .addTo(layers)
+              .bindPopup(popupHtml(trip, status, color, where), {
+                className: "fleetopsx-dash-popup",
+                offset: [0, -12],
+              });
+          }
+        }
+      };
+
+      drawMarkers();
+      map.on("zoomend", drawMarkers);
+
+      // Fit the CITIES, not the rosettes, so one busy destination cannot zoom the
+      // map out to the whole country.
+      const cities = [...groups.values()].map((group) => group[0]!.point);
+      if (cities.length > 1) {
+        map.fitBounds(L.latLngBounds(cities).pad(0.08), { maxZoom: 11 });
+      } else if (cities.length === 1) {
+        map.setView(cities[0]!, 8);
       }
       requestAnimationFrame(() => map.invalidateSize());
+      drawMarkers();
     })();
 
     return () => {
       cancelled = true;
+      map.off("zoomend");
     };
   }, [mapReady, placed]);
 
