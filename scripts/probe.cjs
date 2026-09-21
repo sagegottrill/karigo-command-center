@@ -107,9 +107,6 @@ async function main() {
     mobile: false,
   });
 
-  await send("Page.navigate", { url });
-  await sleep(3500);
-
   const evaluate = async (expr) => {
     const r = await send("Runtime.evaluate", {
       expression: `(async () => { ${expr} })()`,
@@ -121,6 +118,35 @@ async function main() {
     }
     return r.result?.value;
   };
+
+  // `--seed` signs in through the same-origin API and writes the keys apiClient
+  // reads, so a probe can target a real authenticated page with no helper page
+  // shipped in `public/` (which would otherwise deploy to production).
+  if (rest.includes("--seed")) {
+    const origin = new URL(url).origin;
+    await send("Page.navigate", { url: `${origin}/` });
+    await sleep(2500);
+    const seeded = await evaluate(`
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "manager@petroline.ng", password: "Petroline@2026" }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.token) return "login failed: " + (body.error || res.status);
+      localStorage.setItem("fleetopsx_token", body.token);
+      localStorage.setItem("fleetopsx_user", JSON.stringify(body.user));
+      localStorage.setItem("fleetopsx_user_id", body.user.id);
+      localStorage.setItem("fleetopsx_roles", JSON.stringify(body.user.roles || []));
+      if (body.user.name) localStorage.setItem("fleetopsx_user_name", body.user.name);
+      if ((body.user.roles || [])[0]) localStorage.setItem("fleetopsx_active_role", body.user.roles[0]);
+      return "seeded";
+    `);
+    if (seeded !== "seeded") throw new Error(String(seeded));
+  }
+
+  await send("Page.navigate", { url });
+  await sleep(3500);
 
   const result = await evaluate(expression);
   console.log(typeof result === "string" ? result : JSON.stringify(result, null, 2));
