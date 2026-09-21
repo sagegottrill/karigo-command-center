@@ -31,7 +31,6 @@ import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/f
 import { formatMoney } from "@/lib/fleetopsx/lubricant";
 import { cn } from "@/lib/utils";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User, WorkOrder } from "@/lib/fleetopsx/types";
-import { TrackingUpdatesPanel } from "./tracking-updates-panel";
 import { DashboardLiveMap } from "./dashboard-live-map";
 import { LiveMetricTile, TileCostColumns, TileDetailRows } from "./live-metric-tile";
 import {
@@ -1166,10 +1165,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <DashboardLiveMap trips={mapTrips} />
           </div>
         </div>
-
-        {/* The Tracking department's own writes, under the map — the TM should not
-            have to open the bell to learn that a specific truck moved. */}
-        <TrackingUpdatesPanel trips={live.trips ?? []} />
       </section>
 
       {/* --------------------------------------------------------------- dialogs */}
