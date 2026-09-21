@@ -18,7 +18,20 @@ import {
   engineeringService,
   fleetService,
 } from "@/lib/fleetopsx/services";
-import { dailyActivity, formatClockTime, formatDayLabel, isCustomerRequest } from "@/lib/fleetopsx/daily-stats";
+import {
+  formatClockTime,
+  formatDayLabel,
+  isCustomerRequest,
+  localDayKey,
+} from "@/lib/fleetopsx/daily-stats";
+import {
+  PERIOD_TABS,
+  inPeriod,
+  parseDateInput,
+  periodActivity,
+  periodRange,
+  type PeriodKind,
+} from "@/lib/fleetopsx/period";
 import {
   ACTIVE_DISPATCH_BUCKETS,
   countBuckets,
@@ -178,6 +191,50 @@ function AuditButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** The window a section's numbers belong to, stated on the section itself. */
+function PeriodNote({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-[6px] border border-[#D3D7DE] bg-white px-3 py-2 text-[11px] font-medium leading-none text-[#5C6470]">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * One end of a custom window, on the navy band.
+ *
+ * `[color-scheme:dark]` is what keeps the native date picker's own icon legible
+ * against the dark band — without it Chrome draws a black calendar glyph on
+ * navy and the control reads as broken.
+ */
+function PeriodDateInput({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  max?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 rounded-[6px] bg-white/10 px-2.5 py-1.5 text-[11px] font-medium text-white/80">
+      {label}
+      <input
+        type="date"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-[4px] bg-white/10 px-1.5 py-1 text-[11px] font-semibold text-white [color-scheme:dark] focus:outline-none"
+      />
+    </label>
+  );
+}
+
 /** A right-aligned footer note inside a tile (driver roster). */
 function TileNote({ children, tone }: { children: React.ReactNode; tone: TileTone }) {
   return (
@@ -220,6 +277,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [users, setUsers] = useState<User[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clock, setClock] = useState<Date | null>(null);
+
+  /**
+   * The window this board reports on. It opens on TODAY — the daily capture is
+   * what an operator reads first — and Month / Custom widen it when someone
+   * needs a longer read. Every activity figure below belongs to this window.
+   */
+  const [periodKind, setPeriodKind] = useState<PeriodKind>("day");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const [segment, setSegment] = useState<FleetSegment>("all");
   const [audit, setAudit] = useState<"requests" | "fleet" | null>(null);
@@ -305,6 +371,36 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     };
   }, []);
 
+  /**
+   * The window every activity number on this board belongs to.
+   *
+   * Keyed on the local DAY, not on the ticking clock: the clock fires every
+   * second and would re-filter the whole trip list with it. `day` and `month`
+   * therefore roll over by themselves at midnight, and a custom range is read
+   * from local calendar dates rather than UTC, so no hour is lost at either end.
+   */
+  const dayKey = clock ? localDayKey(clock) : "";
+  const range = useMemo(
+    () => periodRange(periodKind, parseDateInput(dayKey) ?? new Date(), customFrom, customTo),
+    [periodKind, dayKey, customFrom, customTo],
+  );
+
+  /**
+   * A single day's money reads as "Daily …" (the design's own wording); anything
+   * wider is a total for the window, and calling a month "Daily" would be a lie.
+   */
+  const costWord = range.singleDay ? "Daily" : "Total";
+
+  /** From/To are local date strings (YYYY-MM-DD) from the picker's inputs. */
+  const selectPeriod = (next: PeriodKind) => {
+    if (next === "custom") {
+      const today = localDayKey(new Date());
+      if (!customFrom) setCustomFrom(today);
+      if (!customTo) setCustomTo(today);
+    }
+    setPeriodKind(next);
+  };
+
   /** Latest work order per truck registration — the check-up date on a card. */
   const checkUpByReg = useMemo(() => {
     const map = new Map<string, WorkOrder>();
@@ -339,7 +435,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const heads = live.trucks ?? [];
     const drivers = live.drivers ?? [];
 
-    const requests = trips.filter(isCustomerRequest);
+    // The request pool IS the window: a request belongs to the day it was raised,
+    // so the four cards break that pool down and always sum back to the total.
+    const requests = trips.filter(isCustomerRequest).filter((t) => inPeriod(t.createdAt, range));
     const counts = countBuckets(requests);
 
     const pending = requests.filter((t) => tripBucket(t) === "pending");
@@ -434,11 +532,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [live.trips, live.trucks, live.drivers, tails, users]);
+  }, [live.trips, live.trucks, live.drivers, tails, users, range]);
 
-  const daily = useMemo(
-    () => (clock ? dailyActivity(live.trips ?? [], clock) : null),
-    [live.trips, clock],
+  /** The window's own activity — raised / approved / dispatched / declined. */
+  const activity = useMemo(
+    () => (clock ? periodActivity(live.trips ?? [], range) : null),
+    [live.trips, clock, range],
   );
 
   /** The tail roster has been read at least once — otherwise its counts are unknown. */
@@ -638,7 +737,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       .join("");
     printSheet(
       "Total Partner Requests Breakdown",
-      "All historical and active dispatch requests from partners",
+      `Requests raised in the selected window · ${range.label}`,
       `<table><thead><tr><th>Request ID</th><th>Partner</th><th>Destination</th><th>Cargo</th><th>Request Date</th><th>Status</th><th>Direct Cost</th></tr></thead><tbody>${
         rows || `<tr><td colspan="7">No requests yet.</td></tr>`
       }</tbody></table>`,
@@ -683,24 +782,58 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         chrome of their own.
       */}
       <section className="rounded-[6px] bg-[#1B2432] px-3 py-[11px]">
-        <h1 className="text-[19px] font-semibold leading-[22px] text-white">
-          Live Operations Dashboard
-        </h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
-            <Clock className="size-[15px] text-white" strokeWidth={1.9} />
-            {clock ? formatClockTime(clock) : "--:--"}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
-            <CalendarDays className="size-[15px] text-white" strokeWidth={1.9} />
-            {clock ? formatDayLabel(clock) : "—"}
-          </span>
-          {daily ? (
-            <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
-              <ClipboardList className="size-[15px] text-white" strokeWidth={1.9} />
-              Today: {daily.requests} raised · {daily.dispatched} dispatched · {daily.declined} declined
-            </span>
-          ) : null}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[19px] font-semibold leading-[22px] text-white">
+              Live Operations Dashboard
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+                <Clock className="size-[15px] text-white" strokeWidth={1.9} />
+                {clock ? formatClockTime(clock) : "--:--"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+                <CalendarDays className="size-[15px] text-white" strokeWidth={1.9} />
+                {clock ? formatDayLabel(clock) : "—"}
+              </span>
+              {activity ? (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+                  <ClipboardList className="size-[15px] text-white" strokeWidth={1.9} />
+                  {range.prefix}: {activity.requests} raised · {activity.dispatched} dispatched ·{" "}
+                  {activity.declined} declined
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/*
+            The window picker. Every activity figure on this board belongs to the
+            window named here — Day opens on today, Month and Custom widen it.
+          */}
+          <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
+            <ToneTabs
+              tabs={PERIOD_TABS}
+              active={periodKind}
+              onChange={(kind) => selectPeriod(kind)}
+              variant="pill"
+            />
+            {periodKind === "custom" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <PeriodDateInput
+                  label="From"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={setCustomFrom}
+                />
+                <PeriodDateInput
+                  label="To"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={setCustomTo}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -711,6 +844,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           title="Partner Requests"
           subtitle="Dispatch demand pipeline, pending cost & lubricant commitments, dispatch and decline audit"
         >
+          <PeriodNote>{range.note}</PeriodNote>
           <AuditButton onClick={() => setAudit("requests")} />
         </SectionHeader>
 
@@ -719,7 +853,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <LiveMetricTile
               label="Total Requests"
               value={stats.requests.total}
-              hint="All Logged"
+              hint={range.hint}
               tone="grey"
               icon={ClipboardList}
               hasDrill
@@ -814,18 +948,18 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 <TileCostColumns
                   columns={[
                     {
-                      label: "Daily Direct Cost:",
+                      label: `${costWord} Direct Cost:`,
                       value: formatMoney(stats.spend.cost),
                       tone: "purple",
                     },
                     {
-                      label: "Daily Diesel:",
+                      label: `${costWord} Diesel:`,
                       value: `${stats.spend.dieselLitres}L`,
                       sub: `(${formatMoney(stats.spend.dieselCost)})`,
                       tone: "amber",
                     },
                     {
-                      label: "Daily Gas:",
+                      label: `${costWord} Gas:`,
                       value: `${stats.spend.gasKg}KG`,
                       sub: `(${formatMoney(stats.spend.gasCost)})`,
                       tone: "amber",
@@ -842,17 +976,17 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               footer={
                 <div className="w-full">
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Daily Cost Est.</span>
+                    <span>{costWord} Cost Est.</span>
                     <span className="font-semibold text-white">{formatMoney(stats.spend.cost)}</span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Daily Diesel Est.</span>
+                    <span>{costWord} Diesel Est.</span>
                     <span className="font-semibold text-white">
                       {stats.spend.dieselLitres}L ({formatMoney(stats.spend.dieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Daily Gas Est.</span>
+                    <span>{costWord} Gas Est.</span>
                     <span className="font-semibold text-white">
                       {stats.spend.gasKg}KG ({formatMoney(stats.spend.gasCost)})
                     </span>
@@ -905,7 +1039,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Navigation}
           title="Fleet Registry (Truck Head & Truck Tail)"
-          subtitle="Active personnel headcount, immediate dispatch availability, in-transit drivers & approved leave"
+          subtitle="Active personnel headcount, immediate dispatch availability, in-transit drivers & approved leave · live now, not the selected period"
         >
           <ToneTabs
             tabs={FLEET_SEGMENTS.map((s) => ({
@@ -1040,7 +1174,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Users}
           title="Staff Registry (Driver Roster)"
-          subtitle="Active driver headcount, immediate dispatch availability, in-transit drivers & approved leave"
+          subtitle="Active driver headcount, immediate dispatch availability, in-transit drivers & approved leave · live now, not the selected period"
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <LiveMetricTile
@@ -1172,11 +1306,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         open={audit === "requests"}
         onClose={() => setAudit(null)}
         title="Total Partner Requests Breakdown"
-        subtitle="All historical and active dispatch requests from partners"
+        subtitle={`Requests raised in the window below · ${range.label}`}
         onPrint={printRequestsAudit}
       >
         {stats.requests.lists.all.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[#8E95A1]">No partner request yet.</p>
+          <p className="py-8 text-center text-[13px] text-[#8E95A1]">
+            No partner request raised in this window.
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {stats.requests.lists.all.map((trip) => {
