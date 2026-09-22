@@ -138,8 +138,8 @@ function DispatchPage() {
         .filter(
           (t) => isInBucket(t, FO_QUEUE_BUCKETS) && t.status !== "Stopped" && t.status !== "Completed",
         )
-        // One queue, one ranking: oldest approval first, so the request that has
-        // been waiting longest is the one Fleet Ops assigns next.
+        // One queue, one ranking: the newest approval leads, so the request that
+        // has just come through is the one Fleet Ops sees first.
         .sort((a, b) =>
           queueOrder({ rank: 0, at: a.createdAt }, { rank: 0, at: b.createdAt }),
         ),

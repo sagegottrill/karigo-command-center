@@ -107,27 +107,25 @@ function sortTime(value: string | null | undefined): number {
 
 type QueueTrip = Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName" | "createdAt">;
 
-/** Any rank at or below this still has a person's name on it (act on me). */
-const ACTION_RANK_MAX = 1;
-
 /**
  * Shared "act-on-me first" ordering for every queue table.
  *
- * Lower rank rises to the top, so whatever is asking for a decision is the first
- * thing on screen instead of being scattered down the page. Inside one rank the
- * rows that still have someone's name on them run OLDEST FIRST (FIFO — whoever
- * has waited longest is served first) while settled rows run NEWEST FIRST, so the
- * approval or delivery you just made is the one you see. A bad date sinks to the
- * oldest end rather than poisoning the sort with NaN.
+ * Two rules, in this order:
+ *   1. lower rank rises to the top — whatever is asking for a decision leads the
+ *      table instead of being scattered down the page;
+ *   2. inside one rank, NEWEST FIRST. "First in goes down, the new ones come on
+ *      top" is the client's rule for every table, and a page holds 20 rows: with
+ *      an oldest-first sort the request that has just landed is pushed onto page
+ *      two, underneath everything already handled.
+ *
+ * A bad date sorts last rather than poisoning the comparison with NaN.
  */
 export function queueOrder(
   a: { rank: number; at?: string | null },
   b: { rank: number; at?: string | null },
 ): number {
   if (a.rank !== b.rank) return a.rank - b.rank;
-  const ta = sortTime(a.at);
-  const tb = sortTime(b.at);
-  return a.rank <= ACTION_RANK_MAX ? ta - tb : tb - ta;
+  return sortTime(b.at) - sortTime(a.at);
 }
 
 /**
@@ -140,8 +138,8 @@ export function queueOrder(
  * on it yet) follows, then the rest of the work in the same action group.
  *
  * Approved and In transit are simply running and belong below; Completed and
- * Declined are over and sit at the bottom, freshest first, so the queue the TM
- * reads top-to-bottom is also the order to work it.
+ * Declined are over and sit at the bottom. Every state runs newest first, so the
+ * request that has just arrived is the first row of its group.
  */
 export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
   Pending: 0,
@@ -153,9 +151,9 @@ export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
 };
 
 /**
- * Transport Manager's request queue: what needs him on top, oldest waiting first,
- * everything already moving or finished below it. Applied to the table AND the
- * CSV so what is exported matches what is on screen.
+ * Transport Manager's request queue: what needs him on top, newest first inside
+ * each state, everything already moving or finished below it. Applied to the
+ * table AND the CSV so what is exported matches what is on screen.
  */
 export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
   return queueOrder(
