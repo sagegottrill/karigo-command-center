@@ -49,6 +49,7 @@ import { Route as WorkspaceAppLubricantNotificationsRouteImport } from './routes
 import { Route as WorkspaceAppManageAccountRouteImport } from './routes/workspace.app.manage-account'
 import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspace.app.manage-partner'
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
+import { Route as WorkspaceAppNewRequestRouteImport } from './routes/workspace.app.new-request'
 import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
 import { Route as WorkspaceAppPartnerRequestsRouteImport } from './routes/workspace.app.partner-requests'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
@@ -279,6 +280,11 @@ const WorkspaceAppMessagesRoute = WorkspaceAppMessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppNewRequestRoute = WorkspaceAppNewRequestRouteImport.update({
+  id: '/new-request',
+  path: '/new-request',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppNotificationsRoute =
   WorkspaceAppNotificationsRouteImport.update({
     id: '/notifications',
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -480,6 +487,7 @@ export interface FileRoutesByTo {
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -540,6 +548,7 @@ export interface FileRoutesById {
   '/workspace/app/manage-account': typeof WorkspaceAppManageAccountRoute
   '/workspace/app/manage-partner': typeof WorkspaceAppManagePartnerRoute
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
+  '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -602,6 +611,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
+    | '/workspace/app/new-request'
     | '/workspace/app/notifications'
     | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
@@ -658,6 +668,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
+    | '/workspace/app/new-request'
     | '/workspace/app/notifications'
     | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
@@ -717,6 +728,7 @@ export interface FileRouteTypes {
     | '/workspace/app/manage-account'
     | '/workspace/app/manage-partner'
     | '/workspace/app/messages'
+    | '/workspace/app/new-request'
     | '/workspace/app/notifications'
     | '/workspace/app/partner-requests'
     | '/workspace/app/password-request'
@@ -1029,6 +1041,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppMessagesRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/new-request': {
+      id: '/workspace/app/new-request'
+      path: '/new-request'
+      fullPath: '/workspace/app/new-request'
+      preLoaderRoute: typeof WorkspaceAppNewRequestRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/notifications': {
       id: '/workspace/app/notifications'
       path: '/notifications'
@@ -1204,6 +1223,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppManageAccountRoute: typeof WorkspaceAppManageAccountRoute
   WorkspaceAppManagePartnerRoute: typeof WorkspaceAppManagePartnerRoute
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
+  WorkspaceAppNewRequestRoute: typeof WorkspaceAppNewRequestRoute
   WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
   WorkspaceAppPartnerRequestsRoute: typeof WorkspaceAppPartnerRequestsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
@@ -1246,6 +1266,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppManageAccountRoute: WorkspaceAppManageAccountRoute,
   WorkspaceAppManagePartnerRoute: WorkspaceAppManagePartnerRoute,
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
+  WorkspaceAppNewRequestRoute: WorkspaceAppNewRequestRoute,
   WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
   WorkspaceAppPartnerRequestsRoute: WorkspaceAppPartnerRequestsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,

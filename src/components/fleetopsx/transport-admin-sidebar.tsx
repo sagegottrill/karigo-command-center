@@ -5,6 +5,7 @@ import {
   CircleHelp,
   CirclePlus,
   Droplets,
+  FilePlus,
   Fuel,
   LayoutDashboard,
   List,
@@ -40,7 +41,12 @@ type AdminNavGroup = {
 /** Figma Admin sidebar — Central Dashboard + circle-outline plus for New Account */
 const ADMIN_GROUPS: AdminNavGroup[] = [
   {
-    items: [{ label: "Central Dashboard", to: "/workspace/app", icon: LayoutDashboard }],
+    items: [
+      { label: "Central Dashboard", to: "/workspace/app", icon: LayoutDashboard },
+      // Petroline's own haulage: a request raised here enters the same lifecycle
+      // as a partner's, which is what books the cost against the trip.
+      { label: "New Request", to: "/workspace/app/new-request", icon: FilePlus },
+    ],
   },
   {
     label: "PARTNER Account",

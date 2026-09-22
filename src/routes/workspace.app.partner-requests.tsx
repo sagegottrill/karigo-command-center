@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -462,6 +462,31 @@ function AdminPartnerRequests() {
             take action on partner requests
           </p>
         </div>
+
+        {/* Our own haulage is raised from here and lands in this same queue, which
+            is what gets its cost captured. */}
+        <div className="flex flex-wrap items-center gap-2 max-md:hidden">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/workspace/app/new-request" })}
+            className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+          >
+            <Plus className="size-4" />
+            New Request
+          </button>
+          <span className="text-[13px] text-[#5C6470]">
+            Raise a request for Petroline's own service — it follows the same approval, dispatch and cost capture.
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/workspace/app/new-request" })}
+          className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#ED351D] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white md:hidden"
+        >
+          <Plus className="size-4" />
+          New Request
+        </button>
 
         <button
           type="button"
