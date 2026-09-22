@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 
@@ -25,7 +25,7 @@ function headCell(trip: Trip) {
 }
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
-import type { Trip } from "@/lib/fleetopsx/types";
+import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/dispatch-history")({
@@ -177,7 +177,7 @@ function buildTimeline(status: Trip["status"]) {
   return TIMELINE_STEPS;
 }
 
-function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
+function DispatchDetail({ trip, driver, onBack }: { trip: Trip; driver?: Driver; onBack: () => void }) {
   const timeline = buildTimeline(trip.status);
   const displayStatus = toDisplayStatus(trip.status);
   // Fleet Ops configures litres, not price — the TM's fuel cost stays hidden.
@@ -246,8 +246,13 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
                     : trip.tailType || undefined
                 }
               />
-              <DetailRow label="Driver Assigned:" value={trip.driverName} />
-              <DetailRow label="Driver Contact Phone:" value={(trip as Trip & { driverPhone?: string }).driverPhone} />
+              {/* The trip record carries only the driver's name (and their roster
+                  id) — staff number and phone live on the roster. Until that
+                  lookup existed here the phone row silently printed nothing on
+                  every dispatch, assigned or not. */}
+              <DetailRow label="Driver Assigned:" value={driver?.name || trip.driverName} />
+              <DetailRow label="Driver ID:" value={driver?.employeeId} />
+              <DetailRow label="Driver Contact Phone:" value={driver?.phone} />
             </div>
 
             {(trip.directCosts || typeof trip.totalCosts === "number") && (
@@ -358,6 +363,7 @@ function DispatchDetail({ trip, onBack }: { trip: Trip; onBack: () => void }) {
 
 function DispatchHistoryPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -369,13 +375,41 @@ function DispatchHistoryPage() {
       .then(setTrips)
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load dispatch history"))
       .finally(() => setLoading(false));
+    void driverService.list().then(setDrivers).catch(() => {});
   }, []);
 
   // Near real-time: status changes (departed, returned, completed) appear live
   // on the history tables (10s poll + focus / tab-visible refresh).
   useAutoRefresh(() => {
     void tripService.list().then(setTrips).catch(() => {});
+    void driverService.list().then(setDrivers).catch(() => {});
   });
+
+  /**
+   * The driver behind a dispatch, resolved from the roster.
+   *
+   * A trip stores the driver's NAME plus the roster id, so everything else —
+   * staff number, phone, licence — has to be looked up. That lookup was missing
+   * here, which is why Fleet Ops could see "Driver Assigned: Unassigned" and an
+   * empty phone line and nothing else about who was driving.
+   */
+  const driverFor = useMemo(() => {
+    const key = (s: string | undefined | null) => (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    const byId = new Map<string, Driver>();
+    const byName = new Map<string, Driver>();
+    for (const d of drivers) {
+      byId.set(d.id, d);
+      const name = key(d.name);
+      if (name) byName.set(name, d);
+    }
+    // Dispatches store the driver's NAME — the id is not carried on the trip in
+    // practice — so the name is the real key, with the id tried first when a
+    // row happens to have one. A name that matches nobody (a bare "MUSA" typed
+    // onto an old dispatch) resolves to nothing rather than to another driver:
+    // a wrong phone number on a dispatch is worse than a blank one.
+    return (trip: Trip): Driver | undefined =>
+      (trip.driverId ? byId.get(trip.driverId) : undefined) ?? byName.get(key(trip.driverName));
+  }, [drivers]);
 
   const filteredTrips = useMemo(() => {
     const rows = trips.filter((t) => {
@@ -406,12 +440,13 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter]);
 
   const exportCSV = () => {
-    const headers = "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status\n";
+    const headers =
+      "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status,Driver,Driver ID,Driver Phone\n";
     const csv = filteredTrips
-      .map(
-        (t) =>
-          `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)}`,
-      )
+      .map((t) => {
+        const driver = driverFor(t);
+        return `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)},${driver?.name || t.driverName || ""},${driver?.employeeId ?? ""},${driver?.phone ?? ""}`;
+      })
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -423,7 +458,13 @@ function DispatchHistoryPage() {
   };
 
   if (selectedTrip) {
-    return <DispatchDetail trip={selectedTrip} onBack={() => setSelectedTrip(null)} />;
+    return (
+      <DispatchDetail
+        trip={selectedTrip}
+        driver={driverFor(selectedTrip)}
+        onBack={() => setSelectedTrip(null)}
+      />
+    );
   }
 
   if (loading) {
@@ -524,6 +565,13 @@ function DispatchHistoryPage() {
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Truck Head:</span>
                     <span className="flex-1 text-[#344256]">{headCell(trip)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-24 font-medium text-[#5C6470]">Driver:</span>
+                    <span className="flex-1 text-[#344256]">
+                      {driverFor(trip)?.name || trip.driverName || "—"}
+                      {driverFor(trip)?.phone ? ` · ${driverFor(trip)!.phone}` : ""}
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Drop-off Location:</span>
