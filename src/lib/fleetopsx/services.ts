@@ -534,31 +534,87 @@ export const fuelService = {
   }),
 };
 
-const WO_NEXT_STATUS: Record<string, string> = {
-  Reported: 'In Progress',
-  'In Progress': 'Repaired',
-  Repaired: 'Repaired',
-};
+/**
+ * The workshop pipeline, in the order a job actually moves through it.
+ *
+ * This used to be `Reported → In Progress → Repaired` — two states the workshop
+ * does not have, which is why every advance landed the row on a status the type
+ * never declared and the board could not read.
+ */
+export const WORK_ORDER_FLOW = ['Reported', 'Diagnosing', 'Awaiting Parts', 'Repairing', 'Testing', 'Completed'] as const;
+
+/** The next step in the pipeline, or null once the job is closed. */
+export function nextWorkOrderStatus(status: string): string | null {
+  const at = (WORK_ORDER_FLOW as readonly string[]).indexOf(status);
+  if (at < 0) return 'Diagnosing';
+  return at >= WORK_ORDER_FLOW.length - 1 ? null : (WORK_ORDER_FLOW[at + 1] ?? null);
+}
 
 export const engineeringService = {
-  // Backend routes are plain /work-orders (no /engineering prefix, no /advance or /repair).
-  listWorkOrders: () => fetchApi('/work-orders').then((res: any[]) => res.map(mapWorkOrder)),
-  createDefect: (input: any) => fetchApi('/work-orders', { method: 'POST', body: JSON.stringify({
-    truckReg: input.truckReg,
-    defect: input.defect,
-    priority: input.priority || 'Medium',
-    status: 'Reported',
-  }) }).then(res => {
-    const wo = mapWorkOrder(res);
-    notificationService.create({ title: 'New Work Order', body: `Defect reported for truck ${input.truckReg}.`, category: 'Engineering' });
-    return wo;
-  }),
-  advance: async (id: string) => {
-    const orders = await fetchApi('/work-orders').then((res: any[]) => res.map(mapWorkOrder)).catch(() => []);
-    const current = orders.find((w) => w.id === id);
-    const next = WO_NEXT_STATUS[current?.status ?? 'Reported'] ?? 'In Progress';
-    return fetchApi(`/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status: next }) }).then(mapWorkOrder);
+  // Backend routes are plain /work-orders (no /engineering prefix, no /advance).
+  listWorkOrders: () =>
+    fetchApi('/work-orders').then((res: any[]) => asList(res).map(mapWorkOrder)),
+
+  // Every column the workshop record actually holds. `truckReg` is the truck's
+  // PLATE, so the Transport Manager's fleet audit can match a check-up to the
+  // registry row it belongs to.
+  createWorkOrder: (input: any) =>
+    fetchApi('/work-orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        truckReg: input.truckReg,
+        defect: input.defect,
+        category: input.category || 'General',
+        priority: input.priority || 'Medium',
+        mechanic: input.mechanic || '',
+        reportedBy: input.reportedBy || '',
+        cost: Number(input.cost) || 0,
+        notes: input.notes || '',
+        status: 'Reported',
+      }),
+    }).then((res: any) => {
+      const wo = mapWorkOrder(res);
+      void notificationService
+        .create({
+          title: 'New Work Order',
+          body: `${wo.truckReg} reported to Engineering — ${wo.defect}.`,
+          category: 'Engineering',
+        })
+        .catch(() => {});
+      return wo;
+    }),
+
+  updateWorkOrder: (id: string, updates: Record<string, unknown>) =>
+    fetchApi(`/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then((res: any) =>
+      mapWorkOrder(res),
+    ),
+
+  /** Move one step down the pipeline, stamping the stage's own timestamp. */
+  advance: async (order: { id: string; status: string }) => {
+    const next = nextWorkOrderStatus(order.status);
+    if (!next) return null;
+    const stamp: Record<string, unknown> = { status: next };
+    if (next === 'Diagnosing') stamp.startedAt = new Date().toISOString();
+    if (next === 'Completed') stamp.completedAt = new Date().toISOString();
+    return engineeringService.updateWorkOrder(order.id, stamp);
   },
+
+  /** Close the job out — the truck's check-up date is this moment. */
+  complete: (id: string, cost?: number, mechanic?: string) =>
+    engineeringService.updateWorkOrder(id, {
+      status: 'Completed',
+      completedAt: new Date().toISOString(),
+      ...(cost === undefined ? {} : { cost: Number(cost) || 0 }),
+      ...(mechanic ? { mechanic } : {}),
+    }),
+
+  cancel: (id: string, reason?: string) =>
+    engineeringService.updateWorkOrder(id, {
+      status: 'Cancelled',
+      completedAt: new Date().toISOString(),
+      ...(reason ? { notes: reason } : {}),
+    }),
+
   logRepair: (truckReg: string, defect: string, category: string, amount: number) =>
     // Repairs are recorded as an expense row (server model has no repair ledger).
     fetchApi('/expenses', { method: 'POST', body: JSON.stringify({

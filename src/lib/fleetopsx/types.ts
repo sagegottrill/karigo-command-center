@@ -290,16 +290,26 @@ export interface FuelRequisition {
   cost: number;
 }
 
+/**
+ * The workshop pipeline, in the order a job actually moves through it.
+ *
+ * `Cancelled` is a job raised in error or withdrawn before any work started —
+ * it is not a repair that happened, so it never counts as a completed check-up.
+ */
 export type WorkOrderStatus =
   | "Reported"
   | "Diagnosing"
   | "Awaiting Parts"
   | "Repairing"
   | "Testing"
-  | "Completed";
+  | "Completed"
+  | "Cancelled";
 
 export interface WorkOrder {
   id: ID;
+  /** The truck the job is for. Written as the PLATE (registration) so the
+   *  Transport Manager's fleet audit can match it to a registry row; legacy
+   *  rows may still carry a cap label like "P073 (APP857YL)". */
   truckReg: string;
   defect: string;
   category: string;
@@ -309,6 +319,11 @@ export interface WorkOrder {
   reportedBy: string;
   reportedAt: string;
   cost: number;
+  notes: string;
+  /** When the job left the desk and actual work began. */
+  startedAt: string;
+  /** When the job was closed out — the truck's check-up date. */
+  completedAt: string;
 }
 
 export interface InventoryItem {

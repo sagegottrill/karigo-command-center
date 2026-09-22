@@ -310,6 +310,47 @@ export function mapExpense(e: Record<string, unknown>): Expense {
   };
 }
 
+export const WORK_ORDER_STATUSES: WorkOrderStatus[] = [
+  "Reported",
+  "Diagnosing",
+  "Awaiting Parts",
+  "Repairing",
+  "Testing",
+  "Completed",
+  "Cancelled",
+];
+
+/**
+ * A work order's status, healed.
+ *
+ * The old engineering service advanced jobs through `In Progress` and
+ * `Repaired`, neither of which is a state the workshop has — four live rows are
+ * still sitting on `Repaired` today. Anything unrecognised is read as the job it
+ * most nearly is rather than shown raw on the board.
+ */
+function workOrderStatus(raw: unknown): WorkOrderStatus {
+  const value = String(raw ?? "").trim();
+  if ((WORK_ORDER_STATUSES as string[]).includes(value)) return value as WorkOrderStatus;
+  switch (value.toLowerCase()) {
+    case "in progress":
+    case "repairing":
+      return "Repairing";
+    case "repair":
+    case "repaired":
+    case "done":
+    case "closed":
+      return "Completed";
+    case "open":
+    case "new":
+      return "Reported";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
+    default:
+      return "Reported";
+  }
+}
+
 export function mapWorkOrder(w: Record<string, unknown>): WorkOrder {
   return {
     id: String(w.id ?? ""),
@@ -318,10 +359,13 @@ export function mapWorkOrder(w: Record<string, unknown>): WorkOrder {
     category: String(w.category ?? "General"),
     priority: (w.priority as WorkOrder["priority"]) || "Medium",
     mechanic: String(w.mechanic ?? "Unassigned"),
-    status: (w.status as WorkOrderStatus) || "Reported",
+    status: workOrderStatus(w.status),
     reportedBy: String(w.reportedBy ?? "System"),
     reportedAt: String(w.reportedAt ?? w.createdAt ?? ""),
     cost: Number(w.cost ?? 0),
+    notes: String(w.notes ?? ""),
+    startedAt: String(w.startedAt ?? ""),
+    completedAt: String(w.completedAt ?? ""),
   };
 }
 

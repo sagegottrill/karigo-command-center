@@ -15,6 +15,7 @@ import {
   Navigation,
   Truck,
   Users,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
+      // The workshop: work orders, repair spend, and the verdict that decides
+      // whether a truck that came back through the gate is fit to dispatch.
+      { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into.
@@ -273,7 +277,12 @@ const ADMIN_MOBILE_NAV = [
     label: "Department",
     to: "/workspace/app/fleet",
     icon: List,
-    matchPrefixes: ["/workspace/app/fleet", "/workspace/app/hr", "/workspace/app/fuel-pricing"],
+    matchPrefixes: [
+      "/workspace/app/fleet",
+      "/workspace/app/hr",
+      "/workspace/app/engineering",
+      "/workspace/app/fuel-pricing",
+    ],
   },
   { label: "Notification", to: "/workspace/app/notifications", icon: Bell, matchPrefixes: ["/workspace/app/notifications"] },
   { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, matchPrefixes: ["/workspace/app/messages"] },
