@@ -29,6 +29,12 @@ import {
   TransportAdminMobileNav,
   TransportAdminSidebar,
 } from "@/components/fleetopsx/transport-admin-sidebar";
+import {
+  DepartmentMobileNav,
+  DepartmentSidebar,
+  shouldUseEngineeringShell,
+  shouldUseHrShell,
+} from "@/components/fleetopsx/department-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
 import { getToken, clearSession, allowMockFallback } from "@/lib/fleetopsx/apiClient";
@@ -101,6 +107,8 @@ function AppShell() {
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [useLoadingShell, setUseLoadingShell] = useState(false);
   const [useLubricantShell, setUseLubricantShell] = useState(false);
+  // HR and Engineering own their portals; the manager reads them as an audit.
+  const [departmentShell, setDepartmentShell] = useState<"hr" | "engineering" | null>(null);
   const [shellReady, setShellReady] = useState(false);
 
   const [activeRole, setActiveRoleState] = useState<string>("");
@@ -117,6 +125,9 @@ function AppShell() {
       setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
       setUseLoadingShell(shouldUseLoadingShell(scoped));
       setUseLubricantShell(shouldUseLubricantShell(scoped));
+      setDepartmentShell(
+        shouldUseHrShell(scoped) ? "hr" : shouldUseEngineeringShell(scoped) ? "engineering" : null,
+      );
       setActiveRoleState(active);
       setShellReady(true);
     };
@@ -156,7 +167,13 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      {useGateShell ? (
+      {departmentShell ? (
+        <DepartmentSidebar
+          department={departmentShell}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+        />
+      ) : useGateShell ? (
         <GateSecuritySidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useLoadingShell ? (
         <LoadingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
@@ -179,6 +196,7 @@ function AppShell() {
           forceGateSecurity={shellReady ? useGateShell : false}
           forceLoadingOps={shellReady ? useLoadingShell : false}
           forceLubricantOps={shellReady ? useLubricantShell : false}
+          forceDepartment={shellReady ? departmentShell : null}
         />
         <main
           className={cn(
@@ -190,7 +208,9 @@ function AppShell() {
             <Outlet />
           </div>
         </main>
-        {useGateShell ? (
+        {departmentShell ? (
+          <DepartmentMobileNav department={departmentShell} />
+        ) : useGateShell ? (
           <GateSecurityMobileNav />
         ) : useLoadingShell ? (
           <LoadingOperationsMobileNav />

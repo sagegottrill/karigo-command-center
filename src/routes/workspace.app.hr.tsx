@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +25,23 @@ export const Route = createFileRoute("/workspace/app/hr")({
 // Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
+
+/**
+ * Who maintains the staff record.
+ *
+ * HR & Personnel owns this desk. The Transport Manager (and everyone else) reads
+ * it as an audit: the same records, the same filters, no editing. Written the
+ * same way the other department portals decide their own shell.
+ */
+const HR_OWNER_ROLES = ["HR", "HR & Personnel", "HR and Personnel", "Platform Admin"];
+
+/** Who may open the register at all: the department, its supervisor and Fleet Ops. */
+const HR_ACCESS_ROLES = [...HR_OWNER_ROLES, "Transport Manager", "Fleet Operations"];
+
+function rolesCanMaintainStaff() {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => HR_OWNER_ROLES.includes(r));
+}
 
 /**
  * Every field HR can write on a staff record.
@@ -151,6 +168,21 @@ function statusPillClass(status: DriverStatus) {
 const licenseState = (driver: Driver) => licenseExpiry(driver.licenseExpiry);
 
 function HrStaffDirectory() {
+  const navigate = useNavigate();
+  // Decided after mount: the session lives in localStorage, so the server render
+  // cannot know the role, and a first-paint guess would hydrate mismatched.
+  const [canEdit, setCanEdit] = useState(false);
+
+  useEffect(() => {
+    // beforeLoad cannot see the session on a hard page load (it runs server-side),
+    // so the role is re-checked in the browser as well.
+    const roles = authService.getRoles();
+    setCanEdit(rolesCanMaintainStaff());
+    if (!roles.some((r: any) => HR_ACCESS_ROLES.includes(r))) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+    }
+  }, [navigate]);
+
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -444,8 +476,13 @@ function HrStaffDirectory() {
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage staff records and license status
             </p>
+            {!canEdit && (
+              <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                View only — HR &amp; Personnel maintains these records
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -595,13 +632,15 @@ function HrStaffDirectory() {
                     <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
                     <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(driver)}
-                    className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
-                  >
-                    {staffId === "—" ? "Add Driver ID" : "Edit Staff Details"}
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(driver)}
+                      className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
+                    >
+                      {staffId === "—" ? "Add Driver ID" : "Edit Staff Details"}
+                    </button>
+                  )}
                 </div>
 
                 <div className="hidden grid-cols-[180px_140px_140px_1fr_110px_120px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
@@ -643,15 +682,19 @@ function HrStaffDirectory() {
                   {/* The ID closes the row — the reference you quote once the
                       driver you were looking for is found. */}
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(driver)}
-                    className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
-                    aria-label={`Edit staff details for ${driver.name}`}
-                    title={staffId === "—" ? "Add Driver ID" : "Edit staff details"}
-                  >
-                    <Pencil className="size-4" />
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(driver)}
+                      className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
+                      aria-label={`Edit staff details for ${driver.name}`}
+                      title={staffId === "—" ? "Add Driver ID" : "Edit staff details"}
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-[#98A0AC]">View only</span>
+                  )}
                 </div>
               </div>
             );

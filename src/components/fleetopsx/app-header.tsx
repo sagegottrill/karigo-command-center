@@ -36,6 +36,7 @@ import { hardLogout } from "@/lib/fleetopsx/session";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
+import { departmentPortal } from "@/components/fleetopsx/department-sidebar";
 import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
 function isAdminPortalPath(pathname: string) {
@@ -71,6 +72,7 @@ export function AppHeader({
   forceGateSecurity = false,
   forceLoadingOps = false,
   forceLubricantOps = false,
+  forceDepartment = null,
 }: {
   onToggleSidebar: () => void;
   /** When Fleet Ops shell is active, use FO portal chrome on all app routes */
@@ -83,6 +85,8 @@ export function AppHeader({
   forceLoadingOps?: boolean;
   /** When the Lubricant shell is active, use the Lubricants portal chrome */
   forceLubricantOps?: boolean;
+  /** When a department shell (HR / Engineering) is active, use that portal's chrome */
+  forceDepartment?: "hr" | "engineering" | null;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -176,6 +180,49 @@ export function AppHeader({
       (forceFleetOps || isFleetOpsPortalPath(pathname));
     const initials = mounted && currentUser?.initials ? currentUser.initials : "";
 
+    /*
+     * One department portal chrome, reused by HR and Engineering.
+     *
+     * Their headers used to be the Transport Manager's — an HR login read
+     * "Transport Manager Portal" at the top of its own staff records.
+     */
+    const departmentHeader = (title: string, subtitle: string) => (
+      <>
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#344256] bg-[#1B2432] px-4 py-3.5 md:hidden">
+          <div className="flex flex-col gap-2">
+            <p className="text-[16px] font-semibold text-white">{title}</p>
+            <div className="flex items-center gap-[5px] text-[12px] tracking-[0.4px] text-white/70">
+              <span>{clock?.date}</span>
+              <span className="size-1.5 rounded-full bg-[#0ACF83]" />
+              <span>{clock?.time}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Account menu"
+            onClick={() => setMobileLogoutOpen((v) => !v)}
+            className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] tracking-[0.4px] text-white"
+          >
+            {initials}
+          </button>
+        </header>
+        {mobileLogoutBar}
+        <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
+          <div className="flex min-w-0 flex-col gap-[5px]">
+            <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">{title}</h1>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              {subtitle}
+            </p>
+          </div>
+          <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+            <span>{clock?.date}</span>
+            <span className="size-2 rounded-full bg-[#0ACF83]" />
+            <span>{clock?.time}</span>
+          </div>
+        </header>
+      </>
+    );
+
     const mobileLogoutBar = mobileLogoutOpen ? (
       <div className="sticky top-[60px] z-30 border-b border-[#344256] bg-white px-4 py-2 md:hidden">
         <button
@@ -188,6 +235,13 @@ export function AppHeader({
         </button>
       </div>
     ) : null;
+
+    // A department portal (HR / Engineering) replaces every other chrome — its
+    // own title, its own subtitle, nothing of the manager's.
+    if (forceDepartment) {
+      const portal = departmentPortal(forceDepartment);
+      return departmentHeader(portal.title, portal.subtitle);
+    }
 
     if (gateSecurity) {
       return (

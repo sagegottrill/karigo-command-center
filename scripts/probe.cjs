@@ -6,6 +6,7 @@
  * Usage:
  *   node scripts/probe.cjs <url> <expression-file|expression> [--w 1440] [--h 1000]
  *   node scripts/probe.cjs <url> --seed [<expr>]      # sign in first, then probe /workspace/app
+ *   node scripts/probe.cjs <url> --seed --user hr@petroline.ng   # sign in as another role
  *
  * Chromium's --screenshot fires on `load`, which is far too early for this app
  * (everything is client-rendered from live API calls), so both screenshotting
@@ -25,7 +26,18 @@ const rest = args.slice(1);
 const width = Number(rest.includes("--w") ? rest[rest.indexOf("--w") + 1] : 1440);
 const height = Number(rest.includes("--h") ? rest[rest.indexOf("--h") + 1] : 1000);
 const shotAt = rest.includes("--shot") ? rest[rest.indexOf("--shot") + 1] : null;
-let expression = rest.find((a) => !a.startsWith("--") && a !== String(width) && a !== String(height) && a !== shotAt);
+// The --user / --pass VALUES are not the expression — they belong to --seed.
+const seedUser = rest.includes("--user") ? rest[rest.indexOf("--user") + 1] : null;
+const seedPass = rest.includes("--pass") ? rest[rest.indexOf("--pass") + 1] : null;
+let expression = rest.find(
+  (a) =>
+    !a.startsWith("--") &&
+    a !== String(width) &&
+    a !== String(height) &&
+    a !== shotAt &&
+    a !== seedUser &&
+    a !== seedPass,
+);
 
 if (!url || !expression) {
   console.error("usage: node scripts/probe.cjs <url> '<expr>' [--w 1440] [--h 1000] [--shot out.png]");
@@ -124,13 +136,17 @@ async function main() {
   // shipped in `public/` (which would otherwise deploy to production).
   if (rest.includes("--seed")) {
     const origin = new URL(url).origin;
+    // --user / --pass let a probe open a DEPARTMENT's own portal (HR, Engineering
+    // …), which is the only way to check what that role actually lands on.
+    const user = seedUser || "manager@petroline.ng";
+    const pass = seedPass || "Petroline@2026";
     await send("Page.navigate", { url: `${origin}/` });
     await sleep(2500);
     const seeded = await evaluate(`
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "manager@petroline.ng", password: "Petroline@2026" }),
+        body: JSON.stringify({ username: ${JSON.stringify(user)}, password: ${JSON.stringify(pass)} }),
       });
       const body = await res.json();
       if (!res.ok || !body.token) return "login failed: " + (body.error || res.status);

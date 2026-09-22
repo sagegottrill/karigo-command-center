@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Download, Plus, Search, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -62,6 +62,28 @@ const CATEGORIES = [
 ] as const;
 
 const PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
+
+/**
+ * Who works this board.
+ *
+ * Engineering & Maintenance owns the workshop; the Transport Manager reads the
+ * same work orders, costs and truck verdicts as oversight — a glimpse of the
+ * department, not its desk.
+ */
+const ENGINEERING_OWNER_ROLES = [
+  "Engineering",
+  "Engineering & Maintenance",
+  "Engineering and Maintenance",
+  "Platform Admin",
+];
+
+/** Who may even open the board: the department itself plus its supervisor. */
+const ENGINEERING_ACCESS_ROLES = [...ENGINEERING_OWNER_ROLES, "Transport Manager"];
+
+function rolesCanWorkOnTrucks() {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => ENGINEERING_OWNER_ROLES.includes(r));
+}
 
 /** Status → its pill, in the portal's own tones. */
 function statusPillClass(status: WorkOrderStatus) {
@@ -214,6 +236,22 @@ const emptyDraft = (): OrderDraft => ({
 });
 
 function EngineeringWorkshop() {
+  const navigate = useNavigate();
+  // Read after mount: the session lives in localStorage, so a server-rendered
+  // guess at the role would hydrate mismatched.
+  const [canEdit, setCanEdit] = useState(false);
+
+  useEffect(() => {
+    // The route gate cannot see the session on a hard page load (beforeLoad runs
+    // server-side, where localStorage does not exist), so the role is re-checked
+    // in the browser — the same belt-and-braces the admin forms use.
+    const roles = authService.getRoles();
+    setCanEdit(rolesCanWorkOnTrucks());
+    if (!roles.some((r: any) => ENGINEERING_ACCESS_ROLES.includes(r))) {
+      navigate({ to: "/workspace/app/unauthorized", replace: true });
+    }
+  }, [navigate]);
+
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [heads, setHeads] = useState<TruckHead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -597,8 +635,13 @@ function EngineeringWorkshop() {
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               workshop work orders, truck check-up verdicts and repair spend
             </p>
+            {!canEdit && (
+              <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                View only — Engineering &amp; Maintenance works this board
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
             <button
               type="button"
               onClick={exportCSV}
@@ -744,12 +787,16 @@ function EngineeringWorkshop() {
                     >
                       {order.status}
                     </span>
-                    <RowActionMenu
-                      items={orderMenu(order)}
-                      open={menuFor === order.id}
-                      onOpenChange={(open) => setMenuFor(open ? order.id : null)}
-                      label={`Options for ${order.defect}`}
-                    />
+                    {canEdit ? (
+                      <RowActionMenu
+                        items={orderMenu(order)}
+                        open={menuFor === order.id}
+                        onOpenChange={(open) => setMenuFor(open ? order.id : null)}
+                        label={`Options for ${order.defect}`}
+                      />
+                    ) : (
+                      <span className="text-[11px] text-[#98A0AC]">View only</span>
+                    )}
                   </div>
                 );
               })}
@@ -897,12 +944,16 @@ function EngineeringWorkshop() {
                       )}
                     </span>
                     <span className="text-[13px] text-[#5C6470]">{head.make}</span>
-                    <RowActionMenu
-                      items={truckMenu(head)}
-                      open={truckMenuFor === head.id}
-                      onOpenChange={(open2) => setTruckMenuFor(open2 ? head.id : null)}
-                      label={`Options for ${truckLabel(head)}`}
-                    />
+                    {canEdit ? (
+                      <RowActionMenu
+                        items={truckMenu(head)}
+                        open={truckMenuFor === head.id}
+                        onOpenChange={(open2) => setTruckMenuFor(open2 ? head.id : null)}
+                        label={`Options for ${truckLabel(head)}`}
+                      />
+                    ) : (
+                      <span className="text-[11px] text-[#98A0AC]">View only</span>
+                    )}
                   </div>
                 );
               })}
