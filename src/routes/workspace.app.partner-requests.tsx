@@ -242,10 +242,11 @@ function AdminPartnerRequests() {
     void tripService.list().then(setTrips).catch(() => {});
   });
 
-  // Queue order, act-on-me first: Seen (opened, still no approval date on it) then
-  // Pending hold the top, oldest waiting first; Approved and in transit run below,
-  // and finished/rejected rows sit at the bottom. The CSV exports `filtered`, so
-  // the file matches the screen row for row.
+  // Queue order, act-on-me first: untouchable Pending rows lead — a request the
+  // partner raised and nobody has opened yet is the only one stopped dead on the
+  // TM — then Seen (opened, still no approval date on it), oldest waiting first.
+  // Approved and in transit run below, and finished/rejected rows sit at the
+  // bottom. The CSV exports `filtered`, so the file matches the screen row for row.
   const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
 
   // Every partner company that actually has a request on this board — the filter

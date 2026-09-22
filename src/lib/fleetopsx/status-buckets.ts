@@ -133,18 +133,19 @@ export function queueOrder(
 /**
  * Where each request state sits in the Transport Manager's queue.
  *
- * Seen sits ABOVE Pending, per the Transport Manager's own reading: a Seen row is
- * one he has opened and NOT yet approved (no dispatch date on it), and that is the
- * pile he works through. Pending — raised by a partner, never opened — waits
- * directly underneath, still amber and still in the same action group.
+ * Pending sits on TOP, at the TM's instruction: a Pending row is a request the
+ * partner has raised and nobody has actioned at all yet — it is the only row in
+ * this table that is stopped dead waiting on him, so it must never be buried
+ * under rows he has already opened. Seen (opened, first approval given, no truck
+ * on it yet) follows, then the rest of the work in the same action group.
  *
  * Approved and In transit are simply running and belong below; Completed and
  * Declined are over and sit at the bottom, freshest first, so the queue the TM
  * reads top-to-bottom is also the order to work it.
  */
 export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
-  Seen: 0,
-  Pending: 1,
+  Pending: 0,
+  Seen: 1,
   Approved: 2,
   "In transit": 3,
   Completed: 4,
