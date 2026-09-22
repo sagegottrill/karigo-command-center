@@ -3,9 +3,11 @@ import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
+import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService } from "@/lib/fleetopsx/services";
 import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
@@ -281,7 +283,7 @@ function HrStaffDirectory() {
         name: newStaff.name.trim(),
         phone: newStaff.phone.trim(),
         staffId,
-        status: newStaff.status,
+        status: dutyStatusForWrite(newStaff.status),
         licenseNumber: newStaff.licenseNumber.trim(),
         licenseExpiry: newStaff.licenseExpiry.trim(),
         category: newStaff.licenseCategory.trim(),
@@ -349,7 +351,7 @@ function HrStaffDirectory() {
         staffId,
         name,
         phone: draft.phone.trim(),
-        status: draft.status,
+        status: dutyStatusForWrite(draft.status),
         licenseNumber: draft.licenseNumber.trim(),
         licenseExpiry: draft.licenseExpiry.trim(),
         category: draft.licenseCategory.trim(),
@@ -413,11 +415,11 @@ function HrStaffDirectory() {
       const name = at(row, idx.name);
       if (!name) continue;
       const statusRaw = at(row, idx.status);
-      const status = (valid as string[]).includes(statusRaw)
-        ? (statusRaw as DriverStatus)
-        : statusRaw === ""
-          ? "Available"
-          : "Available";
+      // A blank or unknown Status column onboards the driver ready to work —
+      // which the column stores as "Active" (see dutyStatusForWrite).
+      const status = dutyStatusForWrite(
+        (valid as string[]).includes(statusRaw) ? (statusRaw as DriverStatus) : "Available",
+      );
       try {
         await driverService.create({
           name,
@@ -469,6 +471,7 @@ function HrStaffDirectory() {
 
   return (
     <>
+      <DepartmentTabs department="hr" />
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">

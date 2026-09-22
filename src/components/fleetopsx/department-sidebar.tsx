@@ -1,5 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, LogOut, MessageSquare, MoreVertical, Users, Wrench } from "lucide-react";
+import {
+  Bell,
+  CalendarClock,
+  LogOut,
+  MessageSquare,
+  MoreVertical,
+  Receipt,
+  ShieldCheck,
+  Truck,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -35,12 +46,16 @@ type DepartmentPortal = {
 };
 
 const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
+  // A department is more than one page: each module below is its own board, the
+  // way Fleet Operation splits dispatch, fleet and history.
   hr: {
     heading: "HR & PERSONNEL",
     title: "HR & Personnel Portal",
     subtitle: "Manage staff records, licences and driver availability",
     items: [
       { label: "Staff Records", to: "/workspace/app/hr", icon: Users },
+      { label: "Licence & Compliance", to: "/workspace/app/hr-compliance", icon: ShieldCheck },
+      { label: "Duty Roster", to: "/workspace/app/hr-roster", icon: CalendarClock },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
@@ -51,6 +66,8 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     subtitle: "Workshop work orders, check-up verdicts and repair spend",
     items: [
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
+      { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
+      { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
@@ -241,6 +258,46 @@ export function DepartmentSidebar({
         </div>
       </aside>
     </>
+  );
+}
+
+/**
+ * The department's modules as a tab strip, for the top of every module page.
+ *
+ * The department's own people find these in their sidebar; the Transport Manager
+ * (who borrows his own admin sidebar and holds no link to them) reaches the rest
+ * of the department here. Inbox items stay out — they are not a module.
+ */
+export function DepartmentTabs({ department }: { department: DepartmentKey }) {
+  const portal = DEPARTMENTS[department];
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const modules = portal.items.filter(
+    (item) => !item.to.includes("/notifications") && !item.to.includes("/messages"),
+  );
+  if (modules.length < 2) return null;
+
+  return (
+    <div className="flex w-full items-center gap-1 overflow-x-auto border-b border-[#E2E5E9] bg-white px-5 max-md:px-2">
+      {modules.map((item) => {
+        const active = isPathActive(pathname, item.to);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={cn(
+              "flex h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-[14px] tracking-[0.4px] transition-colors",
+              active
+                ? "border-[#ED351D] font-medium text-[#ED351D]"
+                : "border-transparent text-[#5C6470] hover:text-[#1B2432]",
+            )}
+          >
+            <Icon className="size-4 shrink-0" strokeWidth={1.5} />
+            <span className="whitespace-nowrap">{item.label}</span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
