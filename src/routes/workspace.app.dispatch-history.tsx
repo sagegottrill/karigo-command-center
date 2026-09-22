@@ -8,6 +8,17 @@ import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
+import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
+import {
+  listCheckpoints,
+  loadingSiteProgress,
+  normalizeLeg,
+  stageDots,
+  tripLoadingSites,
+  type LocationCheckpoint,
+  type TrackingLeg,
+} from "@/lib/fleetopsx/tracking-ops";
 
 /**
  * The assigned truck as the operators read it off the vehicle: cap code first,
@@ -145,43 +156,165 @@ function DetailRow({ label, value }: { label: string; value?: string | undefined
   );
 }
 
-const TIMELINE_STEPS = [
-  { label: "Request Approved", done: true },
-  { label: "Dispatch Created", done: true },
-  { label: "Driver Assigned", done: true },
-  { label: "Loading", done: true },
-  {
-    label: "In Transit",
-    done: true,
-    children: [
-      { label: "Location 1", done: true },
-      { label: "Location 2", done: true },
-      { label: "Location 3", done: true },
-      { label: "Location 4", done: true },
-    ],
-  },
-  { label: "At Destination", done: true, confirmable: true },
-  { label: "Offloaded", done: false },
-  { label: "Return Trip", done: false },
-  { label: "Arrival at Gate House", done: false, confirmable: true },
-];
+type StepState = "done" | "current" | "pending";
 
-function buildTimeline(status: Trip["status"]) {
-  if (status === "Completed") {
-    return TIMELINE_STEPS.map((s) => ({
-      ...s,
-      done: true,
-      children: s.children?.map((c) => ({ ...c, done: true })),
-    }));
-  }
-  return TIMELINE_STEPS;
+type TimelineStep = {
+  label: string;
+  state: StepState;
+  /** The REAL stamp for this step. Absent when the step has not happened — a
+   *  date under a step nobody reached reads as though it had happened. */
+  at?: string;
+  /** Tracking stage whose logged checkpoints hang under this step as sub-dots. */
+  stage?: TrackingLeg;
+  /** Plain-language note, e.g. the driver on the assignment step. */
+  meta?: string;
+};
+
+/** Newest checkpoint logged against a stage, or nothing if Tracking has not been there yet. */
+function newestCheckpoint(checkpoints: LocationCheckpoint[], stage: TrackingLeg): LocationCheckpoint | undefined {
+  return checkpoints
+    .filter((cp) => normalizeLeg(cp.leg) === stage)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+    .pop();
 }
 
-function DispatchDetail({ trip, driver, onBack }: { trip: Trip; driver?: Driver; onBack: () => void }) {
-  const timeline = buildTimeline(trip.status);
+/**
+ * The dispatch timeline, built from what actually happened.
+ *
+ * Every step is grounded in a real signal — the lifecycle stamps on the trip
+ * (created / approved / assigned / released by the gate), the status ladder, and
+ * the checkpoints the Tracking team logs — and a step only shows a date when
+ * that date exists. The page used to render a fixed nine-step ladder with the
+ * first six marked complete for every dispatch, so a request with no truck and
+ * no driver still claimed "Driver Assigned, Loading, In Transit" with invented
+ * Location 1–4 dots. Nothing here is invented: the steps ahead carry no date,
+ * the sub-dots are Tracking's own checkpoint names, and a request still waiting
+ * on the TM shows the approval it is waiting for.
+ */
+function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): TimelineStep[] {
+  // A declined request never went anywhere: stop at the decline rather than
+  // drawing the road it never travelled.
+  if (trip.status === "Stopped") {
+    return [
+      { label: "Request Submitted", state: "done", at: trip.createdAt },
+      { label: "Request Declined", state: "current", at: trip.updatedAt ?? undefined },
+    ];
+  }
+
+  const status = String(trip.status);
+  const assigned = hasAssignment(trip);
+  const leftYard = ["Loaded", "En Route", "Delayed", "Offloading", "Returning", "Completed"].includes(status);
+  const moving = ["En Route", "Delayed", "Offloading", "Returning", "Completed"].includes(status);
+  const arrived = ["Offloading", "Returning", "Completed"].includes(status);
+  const offloaded = ["Returning", "Completed"].includes(status);
+  const returned = status === "Completed";
+
+  const loading = newestCheckpoint(checkpoints, "Loading");
+  const transit = newestCheckpoint(checkpoints, "In Transit");
+  const destination = newestCheckpoint(checkpoints, "At Destination");
+  const offload = newestCheckpoint(checkpoints, "Offloaded");
+  const back = newestCheckpoint(checkpoints, "Return");
+
+  const steps: Array<Omit<TimelineStep, "state"> & { done: boolean }> = [
+    { label: "Request Submitted", done: true, at: trip.createdAt },
+    {
+      label: "Request Approved",
+      done: Boolean(trip.approvedAt) || assigned || leftYard,
+      at: trip.approvedAt ?? undefined,
+    },
+    {
+      label: "Truck & Driver Assigned",
+      done: assigned,
+      at: assigned ? (trip.assignedAt ?? undefined) : undefined,
+      meta: assigned ? (trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : undefined) : undefined,
+    },
+    {
+      label: "Left the Yard",
+      done: Boolean(trip.dispatchedAt) || leftYard,
+      at: trip.dispatchedAt ?? undefined,
+    },
+    { label: "Loading", done: leftYard || Boolean(loading), at: loading?.at, stage: "Loading" },
+    { label: "In Transit", done: moving || Boolean(transit), at: transit?.at, stage: "In Transit" },
+    {
+      label: "At Destination",
+      done: arrived || Boolean(destination),
+      at: destination?.at,
+      stage: "At Destination",
+    },
+    { label: "Offloaded", done: offloaded || Boolean(offload), at: offload?.at, stage: "Offloaded" },
+    { label: "Returned", done: returned || Boolean(back), at: back?.at, stage: "Return" },
+  ];
+
+  // The furthest step actually reached is the one that happened last; the step
+  // after it is the one being worked on, and everything beyond that is ahead.
+  const lastDone = steps.reduce((acc, s, i) => (s.done ? i : acc), 0);
+  return steps.map((step, i) => ({
+    ...step,
+    state: i <= lastDone ? ("done" as const) : i === lastDone + 1 ? ("current" as const) : ("pending" as const),
+  }));
+}
+
+function DispatchDetail({
+  trip,
+  driver,
+  checkpoints,
+  onBack,
+}: {
+  trip: Trip;
+  driver?: Driver;
+  checkpoints: LocationCheckpoint[];
+  onBack: () => void;
+}) {
   const displayStatus = toDisplayStatus(trip.status);
   // Fleet Ops configures litres, not price — the TM's fuel cost stays hidden.
   const showTmPricing = canSeeTmPricing(authService.getRoles());
+  const sites = tripLoadingSites(trip);
+  const timeline = fleetDispatchTimeline(trip, checkpoints);
+  const siteProgress = loadingSiteProgress(sites, checkpoints);
+
+  /**
+   * Export THIS dispatch — its details and the timeline as it actually stands,
+   * stamps and outstanding steps included. The button said "Import CSV" while
+   * raising an "Exported" toast and writing no file at all.
+   */
+  const exportDispatch = () => {
+    const rows: Array<[string, string]> = [
+      ["Dispatch ID", dispatchId(trip)],
+      ["Partner", companyName(trip)],
+      ["Customer", trip.customerConsignee ?? ""],
+      ["Product", trip.cargo],
+      ["Truck Head", headCell(trip)],
+      ["Body Type", trip.tailType ?? ""],
+      ["Driver", driver?.name || trip.driverName || ""],
+      ["Driver ID", driver?.employeeId ?? ""],
+      ["Driver Phone", driver?.phone ?? ""],
+      ["Loading Site(s)", sites.join(" • ")],
+      ["Drop-off Location", trip.dropoff],
+      ["Status", displayStatus],
+      ["", ""],
+      ["Step", "When"],
+    ];
+    for (const step of timeline) {
+      rows.push([
+        step.label,
+        step.at ? formatMovementStamp(step.at) : step.state === "done" ? "Done (no stamp)" : "Not yet",
+      ]);
+      for (const dot of step.stage ? stageDots(step.stage, sites, checkpoints) : []) {
+        rows.push([
+          `    ${dot.label}`,
+          dot.logged && dot.at ? formatMovementStamp(dot.at) : "outstanding",
+        ]);
+      }
+    }
+    const csv = rows.map(([k, v]) => `"${k}","${String(v).replace(/"/g, '""')}"`).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dispatch_${dispatchId(trip)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${dispatchId(trip)}.`);
+  };
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
@@ -198,11 +331,11 @@ function DispatchDetail({ trip, driver, onBack }: { trip: Trip; driver?: Driver;
         </button>
         <button
           type="button"
-          onClick={() => toast.success("Exported CSV successfully.")}
+          onClick={exportDispatch}
           className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
         >
           <Download className="size-[18px]" strokeWidth={1.75} />
-          Import CSV
+          Export CSV
         </button>
       </div>
 
@@ -304,55 +437,81 @@ function DispatchDetail({ trip, driver, onBack }: { trip: Trip; driver?: Driver;
           </div>
           <div className="p-4 md:p-5">
             <ol className="relative ml-2 space-y-0 border-l-2 border-[#E2E5E9] pl-6 md:ml-3 md:pl-7">
-              {timeline.map((step) => (
-                <li key={step.label} className="relative pb-4 last:pb-0 md:pb-6">
-                  <span
-                    className={cn(
-                      "absolute -left-[29px] top-0.5 size-3.5 rounded-full border-2 md:-left-[33px] md:size-4",
-                      step.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
-                    )}
-                  >
-                    {step.done ? (
-                      <span className="absolute inset-[3px] rounded-full bg-white md:inset-1" />
-                    ) : null}
-                  </span>
-                  <p className={cn("text-[13px] font-bold", step.done ? "text-[#ED351D]" : "text-[#9CA3AF]")}>
-                    {step.label}
-                  </p>
-                  {formatHistoryDate(trip) && (
-                    <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{formatHistoryDate(trip)}</p>
-                  )}
-                  {step.children && (
-                    <ol className="relative mt-2 ml-1 space-y-2 border-l border-[#E2E5E9] pl-4 md:mt-3 md:ml-2 md:space-y-3 md:pl-5">
-                      {step.children.map((child) => (
-                        <li key={child.label} className="relative">
-                          <span
-                            className={cn(
-                              "absolute -left-[21px] top-1 size-2 rounded-full border md:-left-[23px]",
-                              child.done ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
-                            )}
-                          />
-                          <p className={cn("text-[12px] font-medium", child.done ? "text-[#5C6470]" : "text-[#9CA3AF]")}>
-                            {child.label}
-                          </p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                  {step.confirmable && step.done && (
-                    <button
-                      type="button"
-                      className="mt-2 flex items-center gap-2"
-                      onClick={() => toast.success("Arrival confirmed", { description: "Timestamp and location logged." })}
+              {timeline.map((step) => {
+                const done = step.state === "done";
+                const current = step.state === "current";
+                // Sub-dots are Tracking's own checkpoints. Loading lists every
+                // site the request was raised with — the ones not yet collected
+                // stay visible (hollow) so "1 of 2 sites loaded" is countable
+                // instead of a site quietly disappearing.
+                const dots = step.stage ? stageDots(step.stage, sites, checkpoints) : [];
+                return (
+                  <li key={step.label} className="relative pb-4 last:pb-0 md:pb-6">
+                    <span
+                      className={cn(
+                        "absolute -left-[29px] top-0.5 size-3.5 rounded-full border-2 md:-left-[33px] md:size-4",
+                        done
+                          ? "border-[#ED351D] bg-[#ED351D]"
+                          : current
+                            ? "border-[#ED351D] bg-white"
+                            : "border-[#D1D5DB] bg-white",
+                      )}
                     >
-                      <span className="size-3 rounded-full bg-[#34C759]" />
-                      <span className="rounded-full bg-[#1B2432] px-3 py-1 text-[10px] font-semibold text-white">
-                        Arrival Confirmation
-                      </span>
-                    </button>
-                  )}
-                </li>
-              ))}
+                      {done ? <span className="absolute inset-[3px] rounded-full bg-white md:inset-1" /> : null}
+                      {current ? (
+                        <span className="absolute inset-[3px] rounded-full bg-[#ED351D] md:inset-1" />
+                      ) : null}
+                    </span>
+                    <p
+                      className={cn(
+                        "text-[13px] font-bold",
+                        done ? "text-[#ED351D]" : current ? "text-[#1B2432]" : "text-[#9CA3AF]",
+                      )}
+                    >
+                      {step.label}
+                      {current ? <span className="ml-2 text-[11px] font-medium text-[#5C6470]">in progress</span> : null}
+                    </p>
+                    {/* Only real stamps are printed: a step nobody reached carries
+                        no date at all. */}
+                    {step.at ? (
+                      <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{formatMovementStamp(step.at)}</p>
+                    ) : null}
+                    {step.meta ? (
+                      <p className="mt-0.5 text-[11px] font-medium text-[#5C6470]">{step.meta}</p>
+                    ) : null}
+                    {step.label === "Loading" && siteProgress ? (
+                      <p className="mt-0.5 text-[11px] text-[#5C6470]">
+                        {siteProgress.logged} of {siteProgress.total} site{siteProgress.total === 1 ? "" : "s"} loaded
+                      </p>
+                    ) : null}
+                    {dots.length > 0 ? (
+                      <ol className="relative mt-2 ml-1 space-y-2 border-l border-[#E2E5E9] pl-4 md:mt-3 md:ml-2 md:space-y-3 md:pl-5">
+                        {dots.map((dot) => (
+                          <li key={dot.key} className="relative">
+                            <span
+                              className={cn(
+                                "absolute -left-[21px] top-1 size-2 rounded-full border md:-left-[23px]",
+                                dot.logged ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
+                              )}
+                            />
+                            <p
+                              className={cn(
+                                "text-[12px] font-medium",
+                                dot.logged ? "text-[#5C6470]" : "text-[#9CA3AF]",
+                              )}
+                            >
+                              {dot.label}
+                            </p>
+                            {dot.at ? (
+                              <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{formatMovementStamp(dot.at)}</p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           </div>
         </div>
@@ -365,7 +524,14 @@ function DispatchHistoryPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  // The OPEN dispatch is held by id and re-read from the live list, so a truck
+  // assigned, a gate departure or a delivery landing while somebody has the
+  // detail open actually reaches the screen. It used to be a snapshot taken at
+  // the moment of the click: the 10s refresh updated the table underneath while
+  // the panel kept advertising "Unassigned" forever.
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [openedTrip, setOpenedTrip] = useState<Trip | null>(null);
+  const [checkpoints, setCheckpoints] = useState<LocationCheckpoint[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof HISTORY_STATUS_FILTERS)[number]>("All");
 
@@ -384,6 +550,39 @@ function DispatchHistoryPage() {
     void tripService.list().then(setTrips).catch(() => {});
     void driverService.list().then(setDrivers).catch(() => {});
   });
+
+  const openTrip = (trip: Trip) => {
+    setOpenedTrip(trip);
+    setSelectedTripId(trip.id);
+  };
+
+  const selectedTrip = useMemo(
+    () => (selectedTripId ? (trips.find((t) => t.id === selectedTripId) ?? openedTrip) : null),
+    [trips, selectedTripId, openedTrip],
+  );
+
+  // The Tracking team's checkpoints for the open dispatch. Polled, so a location
+  // they log while the panel is open appears as a new sub-dot without a reload.
+  useEffect(() => {
+    if (!selectedTripId) {
+      setCheckpoints([]);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      void listCheckpoints(selectedTripId)
+        .then((rows) => {
+          if (!cancelled) setCheckpoints(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [selectedTripId]);
 
   /**
    * The driver behind a dispatch, resolved from the roster.
@@ -462,7 +661,11 @@ function DispatchHistoryPage() {
       <DispatchDetail
         trip={selectedTrip}
         driver={driverFor(selectedTrip)}
-        onBack={() => setSelectedTrip(null)}
+        checkpoints={checkpoints}
+        onBack={() => {
+          setSelectedTripId(null);
+          setOpenedTrip(null);
+        }}
       />
     );
   }
@@ -543,7 +746,7 @@ function DispatchHistoryPage() {
               <button
                 key={`m-${trip.id}`}
                 type="button"
-                onClick={() => setSelectedTrip(trip)}
+                onClick={() => openTrip(trip)}
                 className="flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 text-left shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -594,7 +797,7 @@ function DispatchHistoryPage() {
               <button
                 key={trip.id}
                 type="button"
-                onClick={() => setSelectedTrip(trip)}
+                onClick={() => openTrip(trip)}
                 className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
                 <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
