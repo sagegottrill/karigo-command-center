@@ -36,12 +36,15 @@ import {
   ACTIVE_DISPATCH_BUCKETS,
   countBuckets,
   isInBucket,
+  toPartnerUiStatus,
   tripBucket,
+  type PartnerUiStatus,
 } from "@/lib/fleetopsx/status-buckets";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/fleetopsx/tracking-ops";
 import { formatMoney } from "@/lib/fleetopsx/lubricant";
+import { licenseExpiry } from "@/lib/fleetopsx/license";
 import { cn } from "@/lib/utils";
 import type { Driver, Expense, Trip, TruckHead, TruckTail, User, WorkOrder } from "@/lib/fleetopsx/types";
 import { DashboardLiveMap } from "./dashboard-live-map";
@@ -136,6 +139,23 @@ function tailLabel(tail: TruckTail) {
 function cleanAssetNumber(value: unknown) {
   const text = String(value ?? "").trim();
   return !text || /^none$/i.test(text) ? "" : text;
+}
+
+/**
+ * `KTU193XC / B078` — the head assigned to a dispatch.
+ *
+ * The column carries the plate and the tail code separated by a slash, and a
+ * dispatch whose tail was never paired arrives as `KTU193XC / None`. Drop the
+ * empty slots so the row reads `KTU193XC`, never `/ None`.
+ */
+function truckRegText(trip: Trip) {
+  const raw = String(trip.truckReg ?? "").trim();
+  if (!raw || raw === "Unassigned") return "";
+  return raw
+    .split("/")
+    .map((part) => part.trim())
+    .filter((part) => part && !/^none$/i.test(part))
+    .join(" / ");
 }
 
 /** `1 Head` / `2 Heads` — the design pluralises its group headers and footers. */
@@ -385,12 +405,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     [periodKind, dayKey, customFrom, customTo],
   );
 
-  /**
-   * A single day's money reads as "Daily …" (the design's own wording); anything
-   * wider is a total for the window, and calling a month "Daily" would be a lie.
-   */
-  const costWord = range.singleDay ? "Daily" : "Total";
-
   /** From/To are local date strings (YYYY-MM-DD) from the picker's inputs. */
   const selectPeriod = (next: PeriodKind) => {
     if (next === "custom") {
@@ -440,9 +454,20 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const requests = trips.filter(isCustomerRequest).filter((t) => inPeriod(t.createdAt, range));
     const counts = countBuckets(requests);
 
+    /**
+     * The trucks that are actually on the road right now — every request, every
+     * day, not only the ones raised inside the window.
+     *
+     * A moving truck is a LIVE fact, not a period fact: the request may have been
+     * raised three days ago and the truck is still out there today. Scoping it to
+     * the window is what made the In Transit card read 1 while forty trucks were
+     * on the road — so this card reports the fleet as it stands now, the same rule
+     * the Fleet Registry and Driver Roster sections already follow.
+     */
+    const liveOnRoad = trips.filter((t) => tripBucket(t) === "inTransit");
+
     const pending = requests.filter((t) => tripBucket(t) === "pending");
     const declined = requests.filter((t) => tripBucket(t) === "declined");
-    const inTransit = requests.filter((t) => tripBucket(t) === "inTransit");
     const completed = requests.filter((t) => tripBucket(t) === "completed");
 
     const active = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
@@ -454,7 +479,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     let dieselCost = 0;
     let gasKg = 0;
     let gasCost = 0;
-    for (const trip of inTransit) {
+    for (const trip of liveOnRoad) {
       cost += directCostOf(trip);
       const type = trip.directCosts?.lubricantType;
       const qty = Number(trip.directCosts?.lubricantQuantity ?? 0);
@@ -482,14 +507,21 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     return {
       requests: {
         total: requests.length,
+        /**
+         * The window's own breakdown, in the request queue's words — the Total
+         * card must capture EVERYTHING it holds (pending, seen, approved, on the
+         * road, completed, declined), so each state gets its own row and the rows
+         * always add back up to the total.
+         */
         pending: counts.pending,
-        declined: counts.declined,
-        dispatched: counts.inTransit,
+        seen: counts.approved + counts.awaiting,
+        onBoard: counts.scheduled,
+        inTransit: counts.inTransit,
         completed: counts.completed,
-        // Approved by the TM but not yet on the road. The breakdown must add up
-        // to the total, so these get their own row rather than disappearing.
-        approved: counts.approved + counts.awaiting + counts.scheduled,
-        lists: { pending, declined, inTransit, completed, all: requests },
+        declined: counts.declined,
+        /** Trucks on the road right now — live, all requests (the card). */
+        dispatched: liveOnRoad.length,
+        lists: { pending, declined, completed, all: requests, live: liveOnRoad },
       },
       spend: { cost, dieselLitres, dieselCost, gasKg, gasCost },
       dispatch: {
@@ -522,9 +554,23 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         available: drivers.filter((d) => d.status === "Available").length,
         onTrip: drivers.filter((d) => d.status === "On Trip").length,
         offDuty: drivers.filter((d) => d.status === "Off Duty").length,
+        /**
+         * Licence state comes from the DATE on the record, never from a stored
+         * flag. The live Driver row has no compliance column at all and
+         * `mapDriver` defaults it to "Valid", so reading that field made this
+         * tile claim "100% HR Verified" against a register where no driver
+         * carries a licence date — a number nobody could act on. Same rule the
+         * HR department's Licence & Compliance board uses.
+         */
         verified: drivers.length
-          ? Math.round((drivers.filter((d) => d.compliance === "Valid").length / drivers.length) * 100)
+          ? Math.round(
+              (drivers.filter((d) => licenseExpiry(d.licenseExpiry).tone === "valid").length /
+                drivers.length) *
+                100,
+            )
           : 0,
+        licenceMissing: drivers.filter((d) => licenseExpiry(d.licenseExpiry).tone === "missing")
+          .length,
       },
       staff: {
         total: staff.length,
@@ -650,13 +696,24 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     };
   };
 
+  /**
+   * The request queue's own words and tones, so a popover row on the dashboard
+   * reads exactly like the row in Partner Requests: Pending (amber), Seen (the
+   * TM's first approval), Approved (on the dispatch board), In transit,
+   * Completed and Declined.
+   */
+  const REQUEST_PILL_TONE: Record<PartnerUiStatus, TileTone> = {
+    Pending: "amber",
+    Seen: "teal",
+    Approved: "green",
+    "In transit": "purple",
+    Completed: "blue",
+    Declined: "red",
+  };
+
   const requestPill = (trip: Trip) => {
-    const bucket = tripBucket(trip);
-    if (bucket === "declined") return <StatusPill label="Declined" tone="red" />;
-    if (bucket === "inTransit") return <StatusPill label="Dispatched" tone="purple" />;
-    if (bucket === "completed") return <StatusPill label="Completed" tone="green" />;
-    if (bucket === "pending") return <StatusPill label="Pending Approval" tone="amber" />;
-    return <StatusPill label="Approved" tone="blue" />;
+    const status = toPartnerUiStatus(trip);
+    return <StatusPill label={status} tone={REQUEST_PILL_TONE[status]} />;
   };
 
   /** One request line inside a dark popover. */
@@ -676,12 +733,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         {displayRequestId(trip)} • {partnerOf(trip) || "—"}
       </p>
       <p className="truncate text-[10px] font-normal leading-4 text-white/60">
-        {[
-          String(trip.truckReg ?? "").trim() && trip.truckReg !== "Unassigned"
-            ? trip.truckReg
-            : "Truck TBD",
-          `→ ${trip.dropoff || "—"}`,
-        ].join(" · ")}
+        {[truckRegText(trip) || "Truck TBD", `→ ${trip.dropoff || "—"}`].join(" · ")}
       </p>
       <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5">
         <span className="text-[10px] text-white/60">
@@ -713,17 +765,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const printRequestsAudit = () => {
     const rows = stats.requests.lists.all
       .map((trip) => {
-        const bucket = tripBucket(trip);
-        const status =
-          bucket === "declined"
-            ? "Declined"
-            : bucket === "inTransit"
-              ? "Dispatched"
-              : bucket === "completed"
-                ? "Completed"
-                : bucket === "pending"
-                  ? "Pending Approval"
-                  : "Approved";
+        // The audit sheet and the screen must use one vocabulary.
+        const status = toPartnerUiStatus(trip);
         return `<tr>
           <td>${displayRequestId(trip)}</td>
           <td>${partnerOf(trip) || "—"}</td>
@@ -859,28 +902,19 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               hasDrill
               onClick={() => drill.toggle("req-total")}
               detail={
+                /*
+                 * EVERY state the window holds, always drawn — zeros included —
+                 * so the six rows visibly add back up to the Total above them and
+                 * nothing (Seen, Approved, Completed) can go missing from a number
+                 * that is supposed to capture all of it.
+                 */
                 <TileDetailRows
                   rows={[
                     { label: "Pending:", value: stats.requests.pending, tone: "amber" },
-                    ...(stats.requests.approved > 0
-                      ? [
-                          {
-                            label: "Approved:",
-                            value: stats.requests.approved,
-                            tone: "blue" as TileTone,
-                          },
-                        ]
-                      : []),
-                    { label: "Dispatched:", value: stats.requests.dispatched, tone: "purple" },
-                    ...(stats.requests.completed > 0
-                      ? [
-                          {
-                            label: "Completed:",
-                            value: stats.requests.completed,
-                            tone: "green" as TileTone,
-                          },
-                        ]
-                      : []),
+                    { label: "Seen:", value: stats.requests.seen, tone: "teal" },
+                    { label: "Approved:", value: stats.requests.onBoard, tone: "green" },
+                    { label: "In transit:", value: stats.requests.inTransit, tone: "purple" },
+                    { label: "Completed:", value: stats.requests.completed, tone: "blue" },
                     { label: "Declined:", value: stats.requests.declined, tone: "red" },
                   ]}
                 />
@@ -892,11 +926,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               title={`Total Requests (${stats.requests.total})`}
               footer={
                 <span>
-                  {stats.requests.pending} Pending
-                  {stats.requests.approved > 0 ? ` • ${stats.requests.approved} Approved` : ""}
-                  {` • ${stats.requests.dispatched} Dispatched`}
-                  {stats.requests.completed > 0 ? ` • ${stats.requests.completed} Completed` : ""}
-                  {` • ${stats.requests.declined} Declined`}
+                  {stats.requests.pending} Pending • {stats.requests.seen} Seen •{" "}
+                  {stats.requests.onBoard} Approved • {stats.requests.inTransit} In transit •{" "}
+                  {stats.requests.completed} Completed • {stats.requests.declined} Declined
                 </span>
               }
               width={340}
@@ -937,29 +969,30 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
           <div className="relative">
             <LiveMetricTile
-              label="Dispatched"
+              label="In Transit"
               value={stats.requests.dispatched}
-              hint="In Transit"
+              hint="On the road now"
               tone="purple"
               icon={Navigation}
               hasDrill
               onClick={() => drill.toggle("req-dispatched")}
               detail={
                 <TileCostColumns
+                  /* Committed on the loads that are on the road right now. */
                   columns={[
                     {
-                      label: `${costWord} Direct Cost:`,
+                      label: "Direct Cost:",
                       value: formatMoney(stats.spend.cost),
                       tone: "purple",
                     },
                     {
-                      label: `${costWord} Diesel:`,
+                      label: "Diesel:",
                       value: `${stats.spend.dieselLitres}L`,
                       sub: `(${formatMoney(stats.spend.dieselCost)})`,
                       tone: "amber",
                     },
                     {
-                      label: `${costWord} Gas:`,
+                      label: "Gas:",
                       value: `${stats.spend.gasKg}KG`,
                       sub: `(${formatMoney(stats.spend.gasCost)})`,
                       tone: "amber",
@@ -971,22 +1004,26 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <DrillPopover
               open={drill.isOpen("req-dispatched")}
               onClose={drill.close}
-              title={`Dispatched Requests (${stats.requests.dispatched})`}
+              title={`In Transit — trucks on the road (${stats.requests.dispatched})`}
               width={390}
               footer={
                 <div className="w-full">
+                  <div className="flex items-center justify-between py-0.5 text-white/70">
+                    <span>On the road now</span>
+                    <span className="font-semibold text-white">{stats.requests.dispatched} dispatches</span>
+                  </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>{costWord} Cost Est.</span>
+                    <span>Committed Direct Cost</span>
                     <span className="font-semibold text-white">{formatMoney(stats.spend.cost)}</span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>{costWord} Diesel Est.</span>
+                    <span>Committed Diesel</span>
                     <span className="font-semibold text-white">
                       {stats.spend.dieselLitres}L ({formatMoney(stats.spend.dieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>{costWord} Gas Est.</span>
+                    <span>Committed Gas</span>
                     <span className="font-semibold text-white">
                       {stats.spend.gasKg}KG ({formatMoney(stats.spend.gasCost)})
                     </span>
@@ -1000,10 +1037,16 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 </div>
               }
             >
-              {stats.requests.lists.inTransit.length === 0 ? (
-                <p className="py-3 text-[12px] text-white/60">No truck is in transit right now.</p>
+              {stats.requests.lists.live.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No truck is on the road right now.</p>
               ) : (
-                stats.requests.lists.inTransit.map(dispatchedRow)
+                <>
+                  <p className="pb-2 text-[10px] leading-4 text-white/50">
+                    Live fleet — every request, whenever it was raised. A truck on the road today
+                    is a live fact, not one that belongs to the selected window.
+                  </p>
+                  {stats.requests.lists.live.map(dispatchedRow)}
+                </>
               )}
             </DrillPopover>
           </div>
@@ -1183,7 +1226,21 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             hint="Employed Drivers"
             tone="grey"
             icon={Users}
-            detail={<TileNote tone="grey">{stats.drivers.verified}% HR Verified</TileNote>}
+            detail={
+              <div className="flex flex-col items-end gap-0.5">
+                <TileNote tone="grey">{stats.drivers.verified}% HR Verified</TileNote>
+                {/*
+                 * The gap behind the percentage, said out loud: a register where
+                 * nobody carries a licence date cannot be 100% verified, and HR
+                 * is the department that has to close it.
+                 */}
+                {stats.drivers.licenceMissing > 0 ? (
+                  <p className="text-right text-[10px] font-medium leading-4 text-[#8E95A1]">
+                    {stats.drivers.licenceMissing} with no licence date
+                  </p>
+                ) : null}
+              </div>
+            }
           />
           <LiveMetricTile
             label="Available Drivers"
