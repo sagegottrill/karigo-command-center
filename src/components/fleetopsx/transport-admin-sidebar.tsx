@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MoreVertical,
   Navigation,
+  ShieldCheck,
   Truck,
   Users,
   Wrench,
@@ -75,6 +76,10 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // Tracking Operations board: the TM watches every truck on the road here.
       { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
+      // The gate house: every departure and return Security logged. The TM reads
+      // this log — a truck that has not left, or never came back, is his problem —
+      // but the stamps themselves stay with Security.
+      { label: "Gate Security", to: "/workspace/app/gate", icon: ShieldCheck },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
       // The workshop: work orders, repair spend, and the verdict that decides
       // whether a truck that came back through the gate is fit to dispatch.

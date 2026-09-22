@@ -13,6 +13,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { rolesCanWorkTheGate } from "@/lib/fleetopsx/gate-helpers";
 import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -120,6 +121,21 @@ function SecurityLogPage() {
   });
   const [menuTripId, setMenuTripId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Who is looking at this page. The Transport Manager is allowed in — he needs
+   * to see what left the yard and what never came back — but the logging belongs
+   * to Security, so every writing control on this page disappears for him.
+   *
+   * Read after mount (the session lives in localStorage, so there is nothing to
+   * read while the server renders) and false until then, which keeps the log
+   * read-only for a beat rather than offering a button that would fail.
+   */
+  const [canWorkGate, setCanWorkGate] = useState(false);
+
+  useEffect(() => {
+    setCanWorkGate(rolesCanWorkTheGate());
+  }, []);
 
   const stampNow = () =>
     new Date().toLocaleString("en-GB", {
@@ -271,6 +287,11 @@ function SecurityLogPage() {
         <p className="text-[12px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
           Log departure and return timestamp for dispatch and vehicles
         </p>
+        {!canWorkGate ? (
+          <span className="w-fit rounded bg-[#E4E6EA] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+            View only — Security logs this gate
+          </span>
+        ) : null}
       </div>
 
       <div className="hidden items-start justify-between gap-4 md:flex">
@@ -279,11 +300,19 @@ function SecurityLogPage() {
           <p className="text-[11.4px] uppercase tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
             Log departure and return timestamp for dispatch and vehicles
           </p>
+          {!canWorkGate ? (
+            <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+              View only — Security logs this gate
+            </span>
+          ) : null}
         </div>
         <button
           type="button"
           onClick={() => openLogModal()}
-          className="flex h-9 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white",
+            !canWorkGate && "hidden",
+          )}
         >
           <Plus className="size-4" strokeWidth={2} />
           Log Vehicle departure
@@ -323,7 +352,10 @@ function SecurityLogPage() {
       </div>
 
       <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-        <div className="hidden grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_40px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+        {/* The action column is wide enough for the read-only label the Transport
+            Manager sees there instead of the 3-dots, so "View only" sits on one
+            line rather than stacking into "View / only". */}
+        <div className="hidden grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_62px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
           {["Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Dispatch ID"].map((h) => (
             <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
@@ -338,7 +370,7 @@ function SecurityLogPage() {
           return (
             <div
               key={trip.id}
-              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_40px] md:items-center md:gap-4 md:px-5"
+              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_62px] md:items-center md:gap-4 md:px-5"
             >
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.driverName || "—"}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
@@ -353,16 +385,20 @@ function SecurityLogPage() {
                 {dispatchId(trip)}
               </span>
               <div className="hidden justify-self-end md:block">
-                <RowActionMenu
-                  open={menuTripId === trip.id}
-                  onOpenChange={(o) => setMenuTripId(o ? trip.id : null)}
-                  label="Gate log options"
-                  width={176}
-                  items={[
-                    { label: "Log Departure", onSelect: () => openLogModal(trip) },
-                    { label: "Log Return", onSelect: () => void handleLogReturn(trip) },
-                  ]}
-                />
+                {canWorkGate ? (
+                  <RowActionMenu
+                    open={menuTripId === trip.id}
+                    onOpenChange={(o) => setMenuTripId(o ? trip.id : null)}
+                    label="Gate log options"
+                    width={176}
+                    items={[
+                      { label: "Log Departure", onSelect: () => openLogModal(trip) },
+                      { label: "Log Return", onSelect: () => void handleLogReturn(trip) },
+                    ]}
+                  />
+                ) : (
+                  <span className="whitespace-nowrap pr-1 text-[11px] text-[#98A0AC]">View only</span>
+                )}
               </div>
             </div>
           );
@@ -414,16 +450,18 @@ function SecurityLogPage() {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => openLogModal()}
-        className="fixed right-4 bottom-24 flex h-11 items-center gap-2 rounded-full bg-[#ED351D] hover:bg-[#d62e19] px-4 text-[14px] font-medium text-white shadow-lg md:hidden"
-      >
-        <Plus className="size-4" />
-        Log Vehicle
-      </button>
+      {canWorkGate ? (
+        <button
+          type="button"
+          onClick={() => openLogModal()}
+          className="fixed right-4 bottom-24 flex h-11 items-center gap-2 rounded-full bg-[#ED351D] hover:bg-[#d62e19] px-4 text-[14px] font-medium text-white shadow-lg md:hidden"
+        >
+          <Plus className="size-4" />
+          Log Vehicle
+        </button>
+      ) : null}
 
-      {logOpen && (
+      {canWorkGate && logOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
           <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Log Vehicle</h3>
