@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import {
   displayCapFromTrip,
@@ -132,10 +133,28 @@ function SecurityLogPage() {
    * read-only for a beat rather than offering a button that would fail.
    */
   const [canWorkGate, setCanWorkGate] = useState(false);
+  /** The movement the TM's read-only row menu opens. */
+  const [details, setDetails] = useState<Trip | null>(null);
 
   useEffect(() => {
     setCanWorkGate(rolesCanWorkTheGate());
   }, []);
+
+  /**
+   * One gate movement as the TM reads it: the truck, the driver, both stamps and
+   * the dispatch it belongs to. Security logs the movement; the TM's menu opens
+   * this and nothing else.
+   */
+  const movementFacts = (trip: Trip) => [
+    { label: "Dispatch ID", value: dispatchId(trip) },
+    { label: "Driver", value: trip.driverName || "—" },
+    { label: "Truck head", value: headOf(trip) },
+    { label: "Plate number", value: plateOf(trip) },
+    { label: "Tail number", value: tailOf(trip) },
+    { label: "Departure", value: departureStamp(trip) ? stampCsv(departureStamp(trip), "Not Departed") : "Not Departed" },
+    { label: "Return", value: returnStamp(trip) ? stampCsv(returnStamp(trip), "Not Returned") : "Not Returned" },
+    { label: "Route", value: trip.dropoff || "—" },
+  ];
 
   const stampNow = () =>
     new Date().toLocaleString("en-GB", {
@@ -397,7 +416,13 @@ function SecurityLogPage() {
                     ]}
                   />
                 ) : (
-                  <span className="whitespace-nowrap pr-1 text-[11px] text-[#98A0AC]">View only</span>
+                  <RowActionMenu
+                    items={[{ label: "View details", onSelect: () => setDetails(trip) }]}
+                    open={menuTripId === trip.id}
+                    onOpenChange={(o) => setMenuTripId(o ? trip.id : null)}
+                    label={`Details for ${dispatchId(trip)}`}
+                    width={180}
+                  />
                 )}
               </div>
             </div>
@@ -460,6 +485,23 @@ function SecurityLogPage() {
           Log Vehicle
         </button>
       ) : null}
+
+      {/* The TM's glimpse reads the movement through this, read-only. */}
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details ? `Dispatch ${dispatchId(details)}` : "Gate movement"}
+        subtitle="Gate log · read only"
+        badge={
+          details ? (
+            <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+              {returnStamp(details) ? "Returned" : departureStamp(details) ? "Departed" : "Not Departed"}
+            </span>
+          ) : null
+        }
+        facts={details ? movementFacts(details) : []}
+        note="Read-only view — Security logs this gate. A departure or a return can only be stamped by the gate house."
+      />
 
       {canWorkGate && logOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">

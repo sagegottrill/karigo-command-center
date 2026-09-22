@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu, type RowMenuItem } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
@@ -56,6 +57,38 @@ function TruckAvailability() {
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<{ head: TruckHead; status: TruckHead["status"] } | null>(null);
+  /** The truck the Transport Manager's read-only row menu opens. */
+  const [details, setDetails] = useState<TruckHead | null>(null);
+
+  /**
+   * One truck's record for the TM's glimpse: what it is, where it stands, and
+   * the last thing the workshop did to it. Engineering gives the verdict; the TM
+   * reads it — and can open the row instead of finding a grey "View only" where
+   * the 3-dots should be.
+   */
+  const truckFacts = (head: TruckHead) => {
+    const openOrder = orderForTruck(head);
+    const last = latestForTruck(head);
+    return [
+      { label: "Cap number", value: displayHeadCap(head) || head.number || "—" },
+      { label: "Plate number", value: head.registration || "—" },
+      { label: "Status", value: head.status },
+      { label: "Make / body", value: head.make || "—" },
+      {
+        label: "Open work order",
+        value: openOrder ? `${openOrder.defect} · ${openOrder.status}` : "None open",
+      },
+      { label: "Mechanic", value: openOrder?.mechanic || "Not assigned" },
+      {
+        label: "Last check-up",
+        value: last ? formatDateLines(last.reportedAt).date : "No check-up on record",
+      },
+      {
+        label: "Last job",
+        value: last ? `${last.defect} · ${last.status}` : "—",
+      },
+    ];
+  };
 
   useEffect(() => {
     void Promise.all([
@@ -334,7 +367,13 @@ function TruckAvailability() {
                         label={`Options for ${truckLabel(head)}`}
                       />
                     ) : (
-                      <span className="text-[11px] text-[#98A0AC]">View only</span>
+                      <RowActionMenu
+                        items={[{ label: "View truck details", onSelect: () => setDetails(head) }]}
+                        open={menuFor === head.id}
+                        onOpenChange={(o) => setMenuFor(o ? head.id : null)}
+                        label={`Details for ${truckLabel(head)}`}
+                        width={200}
+                      />
                     )}
                   </div>
                 );
@@ -436,6 +475,28 @@ function TruckAvailability() {
           </div>
         </div>
       )}
+
+      {/* The TM's glimpse reads the same truck through this, read-only. */}
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details ? truckLabel(details) : "Truck"}
+        subtitle="Truck availability · read only"
+        badge={
+          details ? (
+            <span
+              className={cn(
+                "w-fit rounded px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
+                truckStatusPillClass(details.status),
+              )}
+            >
+              {details.status}
+            </span>
+          ) : null
+        }
+        facts={details ? truckFacts(details) : []}
+        note="Read-only view — Engineering & Maintenance owns this verdict. Only the workshop can clear a truck back to Available, Maintenance or Accident."
+      />
     </>
   );
 }

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
@@ -52,6 +54,38 @@ function HrCompliance() {
     licenseExpiry: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Which row's 3-dots is open, and which licence the read-only dialog shows. */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [details, setDetails] = useState<Driver | null>(null);
+
+  /**
+   * The licence record the Transport Manager opens from his row menu: the same
+   * dates HR edits, plus how long is left on them. He can read it; only HR can
+   * change it.
+   */
+  const licenceFacts = (driver: Driver) => {
+    const state = licenseExpiry(driver.licenseExpiry);
+    return [
+      { label: "Staff ID", value: displayDriverSalary(driver) || driver.employeeId || "—" },
+      { label: "Name", value: driver.name || "—" },
+      { label: "Phone", value: driver.phone || "—" },
+      { label: "Licence number", value: driver.licenseNumber || "—" },
+      { label: "Licence class", value: driver.licenseCategory || "—" },
+      { label: "Licence expiry", value: formatLicenseDate(driver.licenseExpiry) },
+      {
+        label: "Time remaining",
+        value:
+          state.days === null
+            ? "No date on file"
+            : state.days >= 0
+              ? `${state.days} day(s) left`
+              : `Lapsed ${Math.abs(state.days)} day(s) ago`,
+      },
+      { label: "Duty status", value: driver.status },
+      { label: "Assigned truck head", value: driver.assignedTruck || "—" },
+      { label: "Assigned truck tail", value: driver.assignedTail || "—" },
+    ];
+  };
 
   useEffect(() => {
     const roles = authService.getRoles();
@@ -298,7 +332,15 @@ function HrCompliance() {
                         <Pencil className="size-4" />
                       </button>
                     ) : (
-                      <span className="text-[11px] text-[#98A0AC]">View only</span>
+                      <RowActionMenu
+                        items={[
+                          { label: "View licence details", onSelect: () => setDetails(driver) },
+                        ]}
+                        open={menuFor === driver.id}
+                        onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
+                        label={`Licence details for ${driver.name}`}
+                        width={200}
+                      />
                     )}
                   </div>
                 );
@@ -412,6 +454,23 @@ function HrCompliance() {
           </div>
         </div>
       )}
+
+      {/* The TM's glimpse reads the same record through this, read-only. */}
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details?.name || "Licence record"}
+        subtitle="Licence & compliance · read only"
+        badge={
+          details ? (
+            <span className={cn("text-[13px] font-semibold", licenseToneClass(licenseExpiry(details.licenseExpiry).tone))}>
+              {licenseExpiry(details.licenseExpiry).text}
+            </span>
+          ) : null
+        }
+        facts={details ? licenceFacts(details) : []}
+        note="Read-only view — HR & Personnel maintains these records. A licence date can only be changed from the Licence & Compliance board by HR."
+      />
     </>
   );
 }

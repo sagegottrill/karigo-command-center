@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
+import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
@@ -194,6 +197,39 @@ function HrStaffDirectory() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [newStaff, setNewStaff] = useState<StaffDraft>(() => emptyStaffDraft());
   const [idEdit, setIdEdit] = useState<{ driver: Driver; draft: StaffDraft } | null>(null);
+  /** Which row's 3-dots is open, and which record the read-only dialog shows. */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [details, setDetails] = useState<Driver | null>(null);
+
+  /**
+   * The read-only staff record the Transport Manager opens from his row menu.
+   *
+   * The glimpse boards used to print a grey "View only" where the 3-dots should
+   * be: he could see the row but could not open the record — no licence date, no
+   * phone, no truck pairing, nothing to read before he asks HR about it. These
+   * are the same fields HR edits, in the same words, with nothing to type in.
+   */
+  const staffFacts = (driver: Driver) => {
+    const licence = licenseState(driver);
+    return [
+      { label: "Staff ID", value: displayDriverSalary(driver) || driver.employeeId || "—" },
+      { label: "Name", value: driver.name || "—" },
+      { label: "Phone", value: driver.phone || "—" },
+      { label: "Duty status", value: driver.status },
+      { label: "Licence number", value: driver.licenseNumber || "—" },
+      { label: "Licence class", value: driver.licenseCategory || "—" },
+      {
+        label: "Licence expiry",
+        value: <span className={licenseToneClass(licence.tone)}>{licence.text}</span>,
+      },
+      { label: "Assigned truck head", value: driver.assignedTruck || "—" },
+      { label: "Assigned truck tail", value: driver.assignedTail || "—" },
+      {
+        label: "Date joined",
+        value: driver.dateJoined ? formatDateLines(driver.dateJoined).date : "—",
+      },
+    ];
+  };
 
   /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
   const nextStaffId = () => {
@@ -635,13 +671,21 @@ function HrStaffDirectory() {
                     <span className="w-20 font-medium text-[#5C6470]">Staff ID:</span>
                     <span className="flex-1 font-semibold text-[#ED351D]">ID:{staffId}</span>
                   </div>
-                  {canEdit && (
+                  {canEdit ? (
                     <button
                       type="button"
                       onClick={() => openEdit(driver)}
                       className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
                     >
                       {staffId === "—" ? "Add Driver ID" : "Edit Staff Details"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDetails(driver)}
+                      className="mt-1 inline-flex h-[22px] w-fit items-center rounded border border-[#E2E5E9] px-2.5 text-[10px] font-medium text-[#1B2432]"
+                    >
+                      View Staff Details
                     </button>
                   )}
                 </div>
@@ -696,7 +740,13 @@ function HrStaffDirectory() {
                       <Pencil className="size-4" />
                     </button>
                   ) : (
-                    <span className="text-[11px] text-[#98A0AC]">View only</span>
+                    <RowActionMenu
+                      items={[{ label: "View staff details", onSelect: () => setDetails(driver) }]}
+                      open={menuFor === driver.id}
+                      onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
+                      label={`Details for ${driver.name}`}
+                      width={190}
+                    />
                   )}
                 </div>
               </div>
@@ -749,6 +799,27 @@ function HrStaffDirectory() {
           )}
         </div>
       </div>
+
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details?.name || "Staff record"}
+        subtitle="Staff record · read only"
+        badge={
+          details ? (
+            <span
+              className={cn(
+                "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
+                statusPillClass(details.status),
+              )}
+            >
+              {details.status}
+            </span>
+          ) : null
+        }
+        facts={details ? staffFacts(details) : []}
+        note="Read-only view — HR & Personnel maintains this record. Ask them to change a licence, a phone number or the truck pairing."
+      />
 
       {isAddOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">

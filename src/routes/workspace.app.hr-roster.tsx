@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu, type RowMenuItem } from "@/components/fleetopsx/row-action-menu";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import {
@@ -50,6 +51,29 @@ function DutyRoster() {
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** The record the Transport Manager's read-only row menu opens. */
+  const [details, setDetails] = useState<Driver | null>(null);
+
+  /**
+   * Who this driver is and what they are paired with, for the TM's glimpse.
+   *
+   * The roster is HR's control — only HR moves a driver on or off duty — but the
+   * TM still has to be able to open the row and read the record instead of
+   * finding a grey "View only" where the 3-dots should be.
+   */
+  const driverFacts = (driver: Driver) => [
+    { label: "Staff ID", value: displayDriverSalary(driver) || driver.employeeId || "—" },
+    { label: "Name", value: driver.name || "—" },
+    { label: "Phone", value: driver.phone || "—" },
+    { label: "Duty status", value: driver.status },
+    { label: "Assigned truck head", value: driver.assignedTruck || "—" },
+    { label: "Assigned truck tail", value: driver.assignedTail || "—" },
+    { label: "Licence number", value: driver.licenseNumber || "—" },
+    {
+      label: "Licence expiry",
+      value: driver.licenseExpiry ? driver.licenseExpiry.slice(0, 10) : "No date on file",
+    },
+  ];
 
   useEffect(() => {
     const roles = authService.getRoles();
@@ -293,8 +317,7 @@ function DutyRoster() {
                     )}
                   >
                     {driver.status}
-                  </span>
-                  {canEdit ? (
+                  </span>                    {canEdit ? (
                     <RowActionMenu
                       items={rowMenu(driver)}
                       open={menuFor === driver.id}
@@ -302,7 +325,13 @@ function DutyRoster() {
                       label={`Actions for ${driver.name}`}
                     />
                   ) : (
-                    <span className="text-[11px] text-[#98A0AC]">View only</span>
+                    <RowActionMenu
+                      items={[{ label: "View driver details", onSelect: () => setDetails(driver) }]}
+                      open={menuFor === driver.id}
+                      onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
+                      label={`Details for ${driver.name}`}
+                      width={200}
+                    />
                   )}
                 </div>
               ))}
@@ -352,6 +381,27 @@ function DutyRoster() {
           )}
         </div>
       </div>
+
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details?.name || "Driver record"}
+        subtitle="Duty roster · read only"
+        badge={
+          details ? (
+            <span
+              className={cn(
+                "w-fit rounded px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
+                dutyPillClass(details.status),
+              )}
+            >
+              {details.status}
+            </span>
+          ) : null
+        }
+        facts={details ? driverFacts(details) : []}
+        note="Read-only view — HR & Personnel sets duty status. A driver can only be moved on or off duty from the Duty Roster by HR."
+      />
     </>
   );
 }

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu, type RowMenuItem } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
@@ -143,7 +144,19 @@ function EngineeringWorkOrders() {
   const [page, setPage] = useState(0);
 
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** The job the Transport Manager's read-only row menu opens. */
+  const [details, setDetails] = useState<WorkOrder | null>(null);
   const [draft, setDraft] = useState<OrderDraft | null>(null);
+
+  /**
+   * The truck as the registry names it, resolved from whatever the job stores
+   * (the plate today, a cap label on legacy rows) so the TM's dialog reads
+   * `P073 (APP857YL)` rather than a bare registration.
+   */
+  const truckLabelFor = (order: WorkOrder) => {
+    const head = resolveTruck(order, heads);
+    return head ? truckLabel(head) : String(order.truckReg ?? "").trim() || "—";
+  };
   /** Editing an existing job — keeps its id so the same form can patch it. */
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -549,7 +562,19 @@ function EngineeringWorkOrders() {
                         label={`Options for ${order.defect}`}
                       />
                     ) : (
-                      <span className="text-[11px] text-[#98A0AC]">View only</span>
+                      /*
+                       * The TM oversees the workshop without working it: his menu
+                       * opens the job and nothing else. Before this he got a grey
+                       * "View only" in place of the 3-dots and could not read the
+                       * one record he might need to question.
+                       */
+                      <RowActionMenu
+                        items={[{ label: "View work order", onSelect: () => setDetails(order) }]}
+                        open={menuFor === order.id}
+                        onOpenChange={(open) => setMenuFor(open ? order.id : null)}
+                        label={`Details for ${order.defect}`}
+                        width={190}
+                      />
                     )}
                   </div>
                 );
@@ -728,6 +753,62 @@ function EngineeringWorkOrders() {
           </div>
         </div>
       )}
+
+      {/* The TM's glimpse reads the same job through this, read-only. */}
+      <RecordDetailsModal
+        open={details !== null}
+        onClose={() => setDetails(null)}
+        title={details ? truckLabelFor(details) : "Work order"}
+        subtitle="Work order · read only"
+        badge={
+          details ? (
+            <>
+              <span
+                className={cn(
+                  "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
+                  statusPillClass(details.status),
+                )}
+              >
+                {details.status}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
+                  priorityPillClass(details.priority),
+                )}
+              >
+                {details.priority}
+              </span>
+            </>
+          ) : null
+        }
+        facts={
+          details
+            ? [
+                { label: "Truck", value: truckLabelFor(details) },
+                { label: "Fault reported", value: details.defect || "—" },
+                { label: "Category", value: details.category || "—" },
+                { label: "Mechanic", value: details.mechanic || "Not assigned yet" },
+                { label: "Repair cost", value: formatNairaFull(Number(details.cost) || 0) },
+                {
+                  label: "Reported",
+                  value: details.reportedAt ? formatDateLines(details.reportedAt).date : "—",
+                },
+                {
+                  label: "Work started",
+                  value: details.startedAt ? formatDateLines(details.startedAt).date : "Not started",
+                },
+                {
+                  label: "Completed",
+                  value: details.completedAt ? formatDateLines(details.completedAt).date : "Still open",
+                },
+                { label: "Reported by", value: details.reportedBy || "—" },
+                { label: "Notes", value: details.notes || "—" },
+              ]
+            : []
+        }
+        note="Read-only view — Engineering & Maintenance works this board. Only the workshop can change a stage, a mechanic or a cost."
+      />
     </>
   );
 }
