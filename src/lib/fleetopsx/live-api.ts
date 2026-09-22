@@ -136,6 +136,8 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     experienceYears: Number(d["experienceYears"] ?? 0),
     status,
     assignedTruck: d["truckReg"] || d["assignedTruck"] ? String(d["truckReg"] ?? d["assignedTruck"]) : null,
+    // The tail HR paired with the head — a separate live column (truckReg2).
+    assignedTail: d["truckReg2"] ? String(d["truckReg2"]) : null,
     currentTripId: d["currentTripId"] ? String(d["currentTripId"]) : null,
     tripsCompleted: Number(d["tripsCompleted"] ?? 0),
     safetyScore: Number(d["safetyScore"] ?? 100),

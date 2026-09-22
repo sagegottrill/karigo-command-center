@@ -148,6 +148,12 @@ export interface Driver {
   experienceYears: number;
   status: DriverStatus;
   assignedTruck: string | null;
+  /**
+   * The truck TAIL normally paired with this driver, when HR has recorded one.
+   * Stored in the live Driver row's `truckReg2` column; absent on most records,
+   * and only ever shown next to the head it belongs to.
+   */
+  assignedTail?: string | null;
   currentTripId: ID | null;
   tripsCompleted: number;
   safetyScore: number;

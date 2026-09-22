@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -25,6 +25,110 @@ export const Route = createFileRoute("/workspace/app/hr")({
 // Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
+
+/**
+ * Every field HR can write on a staff record.
+ *
+ * These are exactly the columns the live Driver row holds (the API whitelists
+ * the same list), so each one genuinely saves — the roster carries no department,
+ * date-joined or experience columns, and inventing inputs for them would only
+ * produce edits that silently vanish on reload.
+ */
+type StaffDraft = {
+  staffId: string;
+  name: string;
+  phone: string;
+  /** Licence class — "Professional", "Heavy Duty"… stored on the record as `category`. */
+  licenseCategory: string;
+  /** The truck normally paired with this driver: head (cap/plate) and tail. */
+  truckReg: string;
+  truckReg2: string;
+  status: DriverStatus;
+  licenseNumber: string;
+  licenseExpiry: string;
+};
+
+const emptyStaffDraft = (): StaffDraft => ({
+  staffId: "",
+  name: "",
+  phone: "",
+  licenseCategory: "",
+  truckReg: "",
+  truckReg2: "",
+  status: "Available",
+  licenseNumber: "",
+  licenseExpiry: "",
+});
+
+/** Label + control + optional hint — one shape for every field in both dialogs. */
+function StaffField({
+  label,
+  hint,
+  required,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+        {label}
+        {required ? <span className="text-[#ED351D]"> *</span> : null}
+      </span>
+      {children}
+      {hint ? <span className="text-[11px] text-[#5C6470]">{hint}</span> : null}
+    </label>
+  );
+}
+
+const staffInputClass =
+  "h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none";
+const staffSelectClass = `${staffInputClass} bg-white`;
+
+/**
+ * Minimal RFC-4180 reader for the bulk-onboard sheet: quoted fields, embedded
+ * commas, embedded newlines and CRLF — so a staff name containing a comma does
+ * not silently split the row and drop half a record.
+ */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else quoted = false;
+      } else field += ch;
+      continue;
+    }
+    if (ch === '"') {
+      quoted = true;
+    } else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else if (ch !== "\r") {
+      field += ch;
+    }
+  }
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
 
 function statusPillClass(status: DriverStatus) {
   switch (status) {
@@ -53,22 +157,9 @@ function HrStaffDirectory() {
   const [statusFilter, setStatusFilter] = useState<DriverStatus | "All">("All");
   const [page, setPage] = useState(0);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({
-    name: "",
-    phone: "",
-    staffId: "",
-    licenseNumber: "",
-    licenseExpiry: "",
-  });
-  const [idEdit, setIdEdit] = useState<{
-    driver: Driver;
-    staffId: string;
-    name: string;
-    phone: string;
-    status: DriverStatus;
-    licenseNumber: string;
-    licenseExpiry: string;
-  } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [newStaff, setNewStaff] = useState<StaffDraft>(() => emptyStaffDraft());
+  const [idEdit, setIdEdit] = useState<{ driver: Driver; draft: StaffDraft } | null>(null);
 
   /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
   const nextStaffId = () => {
@@ -96,12 +187,43 @@ function HrStaffDirectory() {
       if (statusFilter !== "All" && d.status !== statusFilter) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
-      // be found without knowing whose licence it is.
+      // be found without knowing whose licence it is; so are the truck pairing
+      // and licence class, which HR now records here.
       const hay =
-        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.status}`.toLowerCase();
+        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${d.status}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
   }, [drivers, query, statusFilter]);
+
+  /**
+   * The headcount the department is asked about, counted from the records on
+   * screen: how many can be put on a truck today, and how many licences need
+   * attention before they can.
+   */
+  const summary = useMemo(() => {
+    const by = (s: DriverStatus) => drivers.filter((d) => d.status === s).length;
+    let expiring = 0;
+    let expired = 0;
+    let notRecorded = 0;
+    for (const d of drivers) {
+      const state = licenseExpiry(d.licenseExpiry);
+      if (state.tone === "expired") expired += 1;
+      else if (state.tone === "soon") expiring += 1;
+      // A licence with no date on file is its own count. Rolling it in with
+      // "expiring" would report the whole roster as about to lapse.
+      else if (state.tone === "missing") notRecorded += 1;
+    }
+    return {
+      total: drivers.length,
+      available: by("Available"),
+      onTrip: by("On Trip"),
+      offDuty: by("Off Duty"),
+      suspended: by("Suspended"),
+      expiring,
+      expired,
+      notRecorded,
+    };
+  }, [drivers]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -120,49 +242,60 @@ function HrStaffDirectory() {
       return;
     }
     try {
-      // Live Driver columns only (staffId unique, name, phone + the licence
-      // fields) so Prisma never rejects the payload with an unknown field.
+      // Every field on the form is a live Driver column, so nothing typed here is
+      // quietly dropped. Blank optional fields are omitted rather than written as
+      // empty strings — a new record should read "not recorded", not "cleared".
       await driverService.create({
         name: newStaff.name.trim(),
         phone: newStaff.phone.trim(),
         staffId,
-        status: "Active",
+        status: newStaff.status,
         licenseNumber: newStaff.licenseNumber.trim(),
         licenseExpiry: newStaff.licenseExpiry.trim(),
-      });
-      toast.success("Staff added successfully.");
+        category: newStaff.licenseCategory.trim(),
+        truckReg: newStaff.truckReg.trim(),
+        truckReg2: newStaff.truckReg2.trim(),
+      } as never);
+      toast.success(`${newStaff.name.trim()} onboarded as ${staffId}.`);
       setIsAddOpen(false);
-      setNewStaff({ name: "", phone: "", staffId: "", licenseNumber: "", licenseExpiry: "" });
+      setNewStaff(emptyStaffDraft());
       await refreshDrivers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to add staff";
-      toast.error(/unique/i.test(msg) ? `Driver ID ${staffId} is already assigned to another driver.` : msg);
+      toast.error(/unique|409/i.test(msg) ? `Driver ID ${staffId} is already assigned to another driver.` : msg);
     }
   };
 
-  /** Open the pre-filled staff editor for an existing driver. */
+  /** Open the pre-filled staff editor for an existing driver — every writable field. */
   const openEdit = (driver: Driver) =>
     setIdEdit({
       driver,
-      staffId: displayDriverSalary(driver) || driver.employeeId || "",
-      name: driver.name,
-      phone: driver.phone ?? "",
-      status: driver.status,
-      licenseNumber: driver.licenseNumber ?? "",
-      // <input type="date"> needs yyyy-mm-dd; the API may return a full stamp.
-      licenseExpiry: (driver.licenseExpiry ?? "").slice(0, 10),
+      draft: {
+        staffId: displayDriverSalary(driver) || driver.employeeId || "",
+        name: driver.name,
+        phone: driver.phone ?? "",
+        licenseCategory: driver.licenseCategory ?? "",
+        truckReg: driver.assignedTruck ?? "",
+        truckReg2: driver.assignedTail ?? "",
+        status: driver.status,
+        licenseNumber: driver.licenseNumber ?? "",
+        // <input type="date"> needs yyyy-mm-dd; the API may return a full stamp.
+        licenseExpiry: (driver.licenseExpiry ?? "").slice(0, 10),
+      },
     });
 
   /**
-   * Save corrections to an existing staff record: Driver ID, name, phone, status
-   * and the licence itself (number + expiry). These are exactly the columns the
-   * API whitelists on PATCH, so HR can fix a misspelt name, a wrong phone or a
-   * licence that was renewed without deleting and re-onboarding.
+   * Save corrections to an existing staff record: ID, name, phone, status, the
+   * licence itself (number, class, expiry) and the truck the driver is paired
+   * with. These are exactly the columns the API whitelists on PATCH, so HR can
+   * fix a misspelt name, a wrong phone or a renewed licence without deleting and
+   * re-onboarding.
    */
   const handleSaveEdits = async () => {
     if (!idEdit) return;
-    const staffId = idEdit.staffId.trim().toUpperCase();
-    const name = idEdit.name.trim();
+    const { draft } = idEdit;
+    const staffId = draft.staffId.trim().toUpperCase();
+    const name = draft.name.trim();
     if (!name) {
       toast.error("Name is required.");
       return;
@@ -171,34 +304,126 @@ function HrStaffDirectory() {
       toast.error("Enter a Driver ID (e.g. P0123).");
       return;
     }
+    if (!draft.phone.trim()) {
+      toast.error("Phone is required — it is the number dispatchers and the tracking desk call.");
+      return;
+    }
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
-      // The licence may be CLEARED, so an emptied field is sent as "" (never left
-      // out, which would silently keep the old value).
+      // Anything HR empties is sent as "" (never left out, which would silently
+      // keep the old value) so a licence that was reassigned or a truck that was
+      // handed back can actually be cleared.
       await driverService.update(idEdit.driver.id, {
         staffId,
         name,
-        phone: idEdit.phone.trim(),
-        status: idEdit.status,
-        licenseNumber: idEdit.licenseNumber.trim(),
-        licenseExpiry: idEdit.licenseExpiry.trim(),
+        phone: draft.phone.trim(),
+        status: draft.status,
+        licenseNumber: draft.licenseNumber.trim(),
+        licenseExpiry: draft.licenseExpiry.trim(),
+        category: draft.licenseCategory.trim(),
+        truckReg: draft.truckReg.trim(),
+        truckReg2: draft.truckReg2.trim(),
       } as never);
       toast.success(`${name} updated.`);
       setIdEdit(null);
       await refreshDrivers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save staff details";
-      toast.error(/unique/i.test(msg) ? "That Driver ID is already assigned to another driver." : msg);
+      toast.error(/unique|409/i.test(msg) ? "That Driver ID is already assigned to another driver." : msg);
+    }
+  };
+
+  /**
+   * Bulk onboard from a CSV — the roster arrives as a spreadsheet, so retyping
+   * 100 drivers one dialog at a time is not an option.
+   *
+   * Same columns as the export (plus the two HR now records), read by header name
+   * so the order does not matter and a sheet missing a column still imports what
+   * it has. Each row is created on its own: one bad row never costs the good
+   * ones, and the toast names what failed.
+   */
+  const importCSV = async (file: File) => {
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length === 0) {
+      toast.error("That file has no rows. Expected a header row and one line per staff member.");
+      return;
+    }
+    const header = (rows[0] ?? []).map((h) => h.trim().toLowerCase());
+    const col = (...names: string[]) => {
+      for (const name of names) {
+        const i = header.indexOf(name);
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const idx = {
+      name: col("name", "staff name", "full name"),
+      phone: col("phone", "phone number", "staff phone number"),
+      staffId: col("staff id", "staff no", "staff no.", "driver id", "id"),
+      licence: col("license number", "licence number"),
+      licenceClass: col("license class", "licence class", "category"),
+      expiry: col("license expiry", "licence expiry", "expiry"),
+      head: col("truck head", "assigned truck", "truck", "cap number"),
+      tail: col("truck tail", "assigned tail", "tail"),
+      status: col("status"),
+    };
+    if (idx.name < 0) {
+      toast.error("No Name column found — the first row must name its columns.");
+      return;
+    }
+    const at = (row: string[], i: number) => (i >= 0 ? (row[i] ?? "").trim() : "");
+    const valid: DriverStatus[] = ["Available", "On Trip", "Off Duty", "Suspended"];
+    let created = 0;
+    const failed: string[] = [];
+    for (const row of rows.slice(1)) {
+      if (row.every((c) => !c.trim())) continue;
+      const name = at(row, idx.name);
+      if (!name) continue;
+      const statusRaw = at(row, idx.status);
+      const status = (valid as string[]).includes(statusRaw)
+        ? (statusRaw as DriverStatus)
+        : statusRaw === ""
+          ? "Available"
+          : "Available";
+      try {
+        await driverService.create({
+          name,
+          phone: at(row, idx.phone),
+          staffId: at(row, idx.staffId).toUpperCase(),
+          status,
+          licenseNumber: at(row, idx.licence),
+          licenseExpiry: at(row, idx.expiry),
+          category: at(row, idx.licenceClass),
+          truckReg: at(row, idx.head),
+          truckReg2: at(row, idx.tail),
+        } as never);
+        created += 1;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "failed";
+        failed.push(`${name}: ${/unique|409/i.test(msg) ? "that Staff ID is already taken" : msg}`);
+      }
+    }
+    await refreshDrivers();
+    if (failed.length === 0) {
+      toast.success(`${created} staff member${created === 1 ? "" : "s"} onboarded.`);
+    } else {
+      // Loud partial failure: what landed, and exactly which rows did not.
+      toast.error(`${created} onboarded, ${failed.length} failed.`, {
+        description: failed.slice(0, 4).join(" · "),
+      });
     }
   };
 
   const exportCSV = () => {
-    // Same order as the table — the Staff ID closes the row.
-    const headers = "Name,Phone,License Number,License Expiry,Assigned Truck,Status,Staff ID\n";
+    // Same order as the table — the Staff ID closes the row — with the two fields
+    // HR now records exposed for payroll and maintenance reports.
+    const headers =
+      "Name,Phone,License Number,License Class,License Expiry,Truck Head,Truck Tail,Status,Staff ID\n";
     const csv = filtered
       .map(
         (d) =>
-          `${d.name},${d.phone},${d.licenseNumber},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.status},${displayDriverSalary(d) || d.employeeId}`,
+          `${d.name},${d.phone},${d.licenseNumber},${d.licenseCategory},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.assignedTail ?? ""},${d.status},${displayDriverSalary(d) || d.employeeId}`,
       )
       .join("\n");
     const blob = new Blob([headers + csv], { type: "text/csv" });
@@ -223,12 +448,26 @@ function HrStaffDirectory() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => toast.message("Bulk upload", { description: "Connect your HR import endpoint to enable CSV/Excel upload." })}
+              onClick={() => fileRef.current?.click()}
               className="flex h-8 items-center gap-1.5 px-[7px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
             >
               <Upload className="size-[18px]" strokeWidth={1.75} />
               Import CSV
             </button>
+            {/* Bulk onboard — export first, fill it in, load it back. Columns are
+                matched by header name, so the order does not matter. */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importCSV(file);
+                // Reset so choosing the same file twice still fires a change.
+                e.target.value = "";
+              }}
+            />
             <button
               type="button"
               onClick={() => {
@@ -241,6 +480,32 @@ function HrStaffDirectory() {
               Onboard New Staff
             </button>
           </div>
+        </div>
+
+        {/* The headcount the department is asked for, before any filtering: how
+            many drivers can be put on a truck today and how many licences need
+            attention first. Counted from the roster itself, never a guess. */}
+        <div className="flex flex-wrap gap-3">
+          {[
+            { label: "Total Staff", value: summary.total, tone: "text-[#1B2432]" },
+            { label: "Available", value: summary.available, tone: "text-[#0A8F4D]" },
+            { label: "On Trip", value: summary.onTrip, tone: "text-[#B26A00]" },
+            { label: "Off Duty", value: summary.offDuty, tone: "text-[#5C6470]" },
+            { label: "Suspended", value: summary.suspended, tone: "text-[#ED351D]" },
+            { label: "Licence Expiring", value: summary.expiring, tone: "text-[#B26A00]" },
+            { label: "Licence Expired", value: summary.expired, tone: "text-[#ED351D]" },
+            { label: "No Expiry On File", value: summary.notRecorded, tone: "text-[#B26A00]" },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex min-w-[130px] flex-1 flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.05)]"
+            >
+              <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                {stat.label}
+              </span>
+              <span className={cn("text-[22px] font-semibold leading-7", stat.tone)}>{stat.value}</span>
+            </div>
+          ))}
         </div>
 
         <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
@@ -311,6 +576,14 @@ function HrStaffDirectory() {
                       <span className="w-20 font-medium text-[#5C6470]">Truck:</span>
                       <span className="flex-1 text-[#344256]">{driver.assignedTruck || "—"}</span>
                     </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Tail:</span>
+                      <span className="flex-1 text-[#344256]">{driver.assignedTail || "—"}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-20 font-medium text-[#5C6470]">Class:</span>
+                      <span className="flex-1 text-[#344256]">{driver.licenseCategory || "—"}</span>
+                    </div>
                   </div>
                   {driver.status !== "Suspended" && (
                     <span className={cn("mt-1 inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
@@ -355,7 +628,15 @@ function HrStaffDirectory() {
                       </span>
                     )}
                   </span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.assignedTruck || "—"}</span>
+                  {/* Head over tail — the pairing HR records and dispatch reads. */}
+                  <span className="flex flex-col gap-0.5 text-[14px] tracking-[0.4px]">
+                    <span className="text-[#5C6470]">{driver.assignedTruck || "—"}</span>
+                    {driver.assignedTail ? (
+                      <span className="text-[11px] leading-none text-[#5C6470]">
+                        Tail: {driver.assignedTail}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
                     {driver.status}
                   </span>
@@ -429,55 +710,92 @@ function HrStaffDirectory() {
             <div className="border-b border-[#E2E5E9] py-2">
               <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Onboard New Staff</h3>
             </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Name</span>
+            <StaffField label="Name" required>
               <input
                 value={newStaff.name}
                 onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
-                Driver ID <span className="text-[#ED351D]">*</span>
-              </span>
+            </StaffField>
+            <StaffField
+              label="Driver ID"
+              required
+              hint="Shown on dispatches, security logs and the driver roster. Pre-filled with the next free ID."
+            >
               <input
                 value={newStaff.staffId}
                 onChange={(e) => setNewStaff({ ...newStaff, staffId: e.target.value })}
                 placeholder="example: P0123"
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-              <span className="text-[11px] text-[#5C6470]">Shown on dispatches, security logs and the driver roster. Pre-filled with the next free ID.</span>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Phone</span>
+            </StaffField>
+            <StaffField label="Phone" required hint="Dispatchers and the tracking desk call this number.">
               <input
                 value={newStaff.phone}
                 onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                placeholder="example: 08031234567"
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Number</span>
+            </StaffField>
+            <StaffField label="License Number">
               <input
                 value={newStaff.licenseNumber}
                 onChange={(e) => setNewStaff({ ...newStaff, licenseNumber: e.target.value })}
                 placeholder="example: ABC-123456"
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Expiry</span>
+            </StaffField>
+            <StaffField label="License Class">
+              <input
+                value={newStaff.licenseCategory}
+                onChange={(e) => setNewStaff({ ...newStaff, licenseCategory: e.target.value })}
+                placeholder="example: Professional"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField
+              label="License Expiry"
+              hint="Staff Records flags the licence amber 60 days before this date, and red once it passes."
+            >
               <input
                 type="date"
                 value={newStaff.licenseExpiry}
                 onChange={(e) => setNewStaff({ ...newStaff, licenseExpiry: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-              <span className="text-[11px] text-[#5C6470]">
-                Staff Records flags the licence amber 60 days before this date, and red once it passes.
-              </span>
-            </label>
+            </StaffField>
+            <StaffField
+              label="Assigned Truck Head"
+              hint="The truck this driver normally drives — cap number or plate. Dispatch can still put them on another."
+            >
+              <input
+                value={newStaff.truckReg}
+                onChange={(e) => setNewStaff({ ...newStaff, truckReg: e.target.value })}
+                placeholder="example: P073 or GGE98YK"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField label="Assigned Truck Tail" hint="The tail normally paired with that head.">
+              <input
+                value={newStaff.truckReg2}
+                onChange={(e) => setNewStaff({ ...newStaff, truckReg2: e.target.value })}
+                placeholder="example: B056"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField label="Status" hint="Available means they can be put on a dispatch today.">
+              <select
+                value={newStaff.status}
+                onChange={(e) => setNewStaff({ ...newStaff, status: e.target.value as DriverStatus })}
+                className={staffSelectClass}
+              >
+                {DRIVER_STATUS_FILTERS.filter((s) => s !== "All").map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </StaffField>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={() => setIsAddOpen(false)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
                 Go Back
@@ -500,66 +818,92 @@ function HrStaffDirectory() {
             <div className="border-b border-[#E2E5E9] py-2">
               <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Edit Staff Details</h3>
             </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
-                Driver ID <span className="text-[#ED351D]">*</span>
-              </span>
+            <StaffField
+              label="Driver ID"
+              required
+              hint="This ID becomes the driver's identity across dispatch, security log and roster. It must be unique."
+            >
               <input
                 autoFocus
-                value={idEdit.staffId}
-                onChange={(e) => setIdEdit({ ...idEdit, staffId: e.target.value })}
+                value={idEdit.draft.staffId}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, staffId: e.target.value } })}
                 placeholder="example: P0123"
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-              <span className="text-[11px] text-[#5C6470]">
-                This ID becomes the driver's identity across dispatch, security log and roster. It must be unique.
-              </span>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Name</span>
+            </StaffField>
+            <StaffField label="Name" required>
               <input
-                value={idEdit.name}
-                onChange={(e) => setIdEdit({ ...idEdit, name: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                value={idEdit.draft.name}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, name: e.target.value } })}
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Phone</span>
+            </StaffField>
+            <StaffField label="Phone" required hint="Dispatchers and the tracking desk call this number.">
               <input
-                value={idEdit.phone}
-                onChange={(e) => setIdEdit({ ...idEdit, phone: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                value={idEdit.draft.phone}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, phone: e.target.value } })}
+                placeholder="example: 08031234567"
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Number</span>
+            </StaffField>
+            <StaffField label="License Number" hint="Leave blank to clear a number that was entered by mistake.">
               <input
-                value={idEdit.licenseNumber}
-                onChange={(e) => setIdEdit({ ...idEdit, licenseNumber: e.target.value })}
+                value={idEdit.draft.licenseNumber}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseNumber: e.target.value } })}
                 placeholder="example: ABC-123456"
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                className={staffInputClass}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">License Expiry</span>
+            </StaffField>
+            <StaffField label="License Class">
+              <input
+                value={idEdit.draft.licenseCategory}
+                onChange={(e) =>
+                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseCategory: e.target.value } })
+                }
+                placeholder="example: Professional"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField label="License Expiry">
               <input
                 type="date"
-                value={idEdit.licenseExpiry}
-                onChange={(e) => setIdEdit({ ...idEdit, licenseExpiry: e.target.value })}
-                className="h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                value={idEdit.draft.licenseExpiry}
+                onChange={(e) =>
+                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseExpiry: e.target.value } })
+                }
+                className={staffInputClass}
               />
-              {idEdit.licenseExpiry && (
-                <span className={cn("text-[11px]", licenseToneClass(licenseExpiry(idEdit.licenseExpiry).tone))}>
-                  {licenseExpiry(idEdit.licenseExpiry).text}
+              {idEdit.draft.licenseExpiry && (
+                <span
+                  className={cn("text-[11px]", licenseToneClass(licenseExpiry(idEdit.draft.licenseExpiry).tone))}
+                >
+                  {licenseExpiry(idEdit.draft.licenseExpiry).text}
                 </span>
               )}
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Status</span>
+            </StaffField>
+            <StaffField label="Assigned Truck Head" hint="Cap number or plate. Blank means no regular truck.">
+              <input
+                value={idEdit.draft.truckReg}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, truckReg: e.target.value } })}
+                placeholder="example: P073 or GGE98YK"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField label="Assigned Truck Tail">
+              <input
+                value={idEdit.draft.truckReg2}
+                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, truckReg2: e.target.value } })}
+                placeholder="example: B056"
+                className={staffInputClass}
+              />
+            </StaffField>
+            <StaffField label="Status" hint="Set to Suspended and the driver stops being offered for dispatch.">
               <select
-                value={idEdit.status}
-                onChange={(e) => setIdEdit({ ...idEdit, status: e.target.value as DriverStatus })}
-                className="h-10 rounded border border-[#1B2432] bg-white px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none"
+                value={idEdit.draft.status}
+                onChange={(e) =>
+                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, status: e.target.value as DriverStatus } })
+                }
+                className={staffSelectClass}
               >
                 {DRIVER_STATUS_FILTERS.filter((s) => s !== "All").map((s) => (
                   <option key={s} value={s}>
@@ -567,7 +911,7 @@ function HrStaffDirectory() {
                   </option>
                 ))}
               </select>
-            </label>
+            </StaffField>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={() => setIdEdit(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
                 Cancel
