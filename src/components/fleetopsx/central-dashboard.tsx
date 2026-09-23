@@ -1100,7 +1100,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       }
       toast.success(
         approve
-          ? `${request.part} approved for ${request.truck}${request.itemId ? " — released from the store" : ""}.`
+          ? `${request.part} approved for ${request.truck} — handed to the store floor${request.short ? " (shelf short: procurement will be needed)" : ""}.`
           : `${request.part} rejected for ${request.truck}.`,
       );
       drill.close();

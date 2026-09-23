@@ -16,6 +16,7 @@ export type NotificationModuleName =
   | "Gate Security"
   | "Tracking"
   | "Engineering"
+  | "Inventory"
   | "HR & Personnel"
   | "Accounts"
   | "Fuel & Lubricant"
@@ -57,6 +58,12 @@ export const NOTIFICATION_MODULES: Record<NotificationModuleName, ModuleShape> =
     boardLabel: "Engineering",
     short: "Engineering",
     blurb: "Work orders, repairs and parts",
+  },
+  Inventory: {
+    board: "/workspace/app/inventory-desk",
+    boardLabel: "Inventory desk",
+    short: "Inventory",
+    blurb: "Handoffs, inbound stock and store variances",
   },
   "HR & Personnel": {
     board: "/workspace/app/hr",

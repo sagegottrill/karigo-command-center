@@ -618,6 +618,7 @@ export function mapInventoryItem(i: Record<string, unknown>): InventoryItem {
     unitCost: Number(i.unitCost ?? 0),
     location: String(i.location ?? "Main Store"),
     supplier: String(i.supplier ?? ""),
+    vehicleCompatibility: String(i.vehicleCompatibility ?? ""),
     status: (i.status as InventoryItem["status"]) || "In Stock",
   };
 }
@@ -655,6 +656,11 @@ export function mapInventoryRequisition(r: Record<string, unknown>): InventoryRe
     decisionNote: String(r.decisionNote ?? ""),
     status: (r.status as InventoryRequisition["status"]) || "Pending",
     date: String(r.date ?? r.createdAt ?? ""),
+    handoffAt: r.handoffAt ? String(r.handoffAt) : null,
+    pickedBy: r.pickedBy ? String(r.pickedBy) : null,
+    signature: r.signature ? String(r.signature) : null,
+    releasedQty: r.releasedQty == null ? null : Number(r.releasedQty),
+    releasedValue: r.releasedValue == null ? null : Number(r.releasedValue),
   };
 }
 

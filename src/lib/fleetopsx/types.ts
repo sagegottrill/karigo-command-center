@@ -349,6 +349,8 @@ export interface InventoryItem {
   location: string;
   /** The vendor this line is normally bought from. */
   supplier: string;
+  /** Which vehicles this part fits — the catalog's compatibility column. */
+  vehicleCompatibility: string;
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
@@ -399,8 +401,24 @@ export interface InventoryRequisition {
   reason: string;
   /** Why the Transport Manager rejected it — empty while it is pending. */
   decisionNote: string;
-  status: "Pending" | "Released" | "Rejected";
+  /**
+   * The ticket's life: Pending (the TM's queue) → Awaiting Pickup (approved,
+   * store floor to hand over) or Awaiting Procurement (approved, shelf empty) →
+   * Released (the mechanic signed and the stock moved). Rejected is the fourth
+   * exit.
+   */
+  status: "Pending" | "Awaiting Pickup" | "Awaiting Procurement" | "Released" | "Rejected";
   date: string;
+  /** When the ticket was handed to the store floor / paused for procurement. */
+  handoffAt: string | null;
+  /** The attendant who confirmed the physical pick. */
+  pickedBy: string | null;
+  /** The mechanic's signature captured at handoff (data URL). */
+  signature: string | null;
+  /** Units actually released at sign-off (may differ from `quantity`). */
+  releasedQty: number | null;
+  /** releasedQty × weighted-average unit cost — posted to the truck's file. */
+  releasedValue: number | null;
 }
 
 export interface ProcurementRequest {

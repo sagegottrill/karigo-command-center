@@ -105,7 +105,13 @@ function PartsAndStore() {
 
   useEffect(() => {
     const roles = authService.getRoles();
-    setCanEdit(rolesCanWorkOnTrucks());
+    // The store is kept by Engineering AND by the Head of Inventory (the RBAC
+    // matrix gives that role full inbound/purchase/threshold access); the
+    // Transport Manager reads the board as an audit.
+    setCanEdit(
+      rolesCanWorkOnTrucks() ||
+        roles.some((r: string) => /head of inventory|inventory manager/i.test(r)),
+    );
     if (!roles.some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
     }

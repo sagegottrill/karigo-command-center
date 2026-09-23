@@ -426,6 +426,40 @@ export function buildEngineeringOversight(
     assetSpend.set(label, current);
   }
 
+  /**
+   * Parts handed over count against the truck they were drawn for: at sign-off
+   * the store posts releasedValue to this truck's file (weighted-average
+   * costed), so a truck's maintenance spend includes the parts physically
+   * fitted to it, not only the workshop's labour line.
+   */
+  const partsByKey = new Map<string, { value: number; jobs: number; label: string }>();
+  for (const requisition of requisitions) {
+    if (requisition.status !== "Released" || !requisition.releasedValue) continue;
+    const key = keyOf(requisition.truckReg);
+    if (!key) continue;
+    const current = partsByKey.get(key) ?? {
+      value: 0,
+      jobs: 0,
+      label: String(requisition.truckReg || key),
+    };
+    current.value += Number(requisition.releasedValue);
+    current.jobs += 1;
+    partsByKey.set(key, current);
+  }
+  for (const [key, entry] of partsByKey) {
+    const current = [...assetSpend.values()].find((a) => keyOf(a.label) === key);
+    if (current) {
+      current.spend += entry.value;
+      current.jobs += entry.jobs;
+    } else {
+      assetSpend.set(`parts-${key}`, {
+        label: entry.label,
+        spend: entry.value,
+        jobs: entry.jobs,
+      });
+    }
+  }
+
   const defectCounts = new Map<string, number>();
   for (const order of orders) {
     if (order.status === "Cancelled") continue;
@@ -539,6 +573,18 @@ export function buildEngineeringOversight(
     .map(readRequest)
     .sort((a, b) => (a.requestedAt < b.requestedAt ? -1 : a.requestedAt > b.requestedAt ? 1 : 0));
 
+  /**
+   * Approved and on the store floor: the ticket is his decision made, awaiting
+   * a physical handover the store performs (or paused because the shelf could
+   * not cover it). Counted as decided-in-window for the spend figure.
+   */
+  const approvedInWindow = requisitions.filter(
+    (request) =>
+      request.status !== "Pending" &&
+      request.status !== "Rejected" &&
+      inPeriod(request.date, range),
+  ).length;
+
   /* ------------------------------------------------------------ the store */
 
   const alerts: EngStockAlert[] = items
@@ -636,9 +682,7 @@ export function buildEngineeringOversight(
         blocked: pendingReqs.filter((request) => request.short).length,
         list: pendingReqs,
       },
-      decided: requisitions.filter(
-        (request) => request.status !== "Pending" && inPeriod(request.date, range),
-      ).length,
+      decided: approvedInWindow,
     },
     inventory: {
       items: items.length,

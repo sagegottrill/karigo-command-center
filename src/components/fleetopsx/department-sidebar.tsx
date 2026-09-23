@@ -6,6 +6,7 @@ import {
   MessageSquare,
   MoreVertical,
   Package,
+  PackageCheck,
   Receipt,
   ShieldCheck,
   Truck,
@@ -29,7 +30,7 @@ import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
  * the manager's account menus on screen. A department is its own department; the
  * TM gets a glimpse of the data, not the department's desk.
  */
-export type DepartmentKey = "hr" | "engineering";
+export type DepartmentKey = "hr" | "engineering" | "inventory";
 
 type DepartmentNavItem = {
   label: string;
@@ -61,6 +62,17 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
+  inventory: {
+    heading: "PARTS & INVENTORY",
+    title: "Inventory Portal",
+    subtitle: "Handoffs, inbound stock and shelf variances",
+    items: [
+      { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
+      { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
+      { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
+    ],
+  },
   engineering: {
     heading: "ENGINEERING",
     title: "Engineering & Maintenance Portal",
@@ -69,6 +81,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
       { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
+      { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
       { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
@@ -84,6 +97,8 @@ export function departmentPortal(key: DepartmentKey) {
 const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   hr: /^(hr|hr & personnel|hr and personnel|personnel)$/i,
   engineering: /^(engineering|engineering and maintenance|engineering & maintenance)$/i,
+  inventory:
+    /^(inventory|head of inventory|store floor attendant|inventory & store|parts & inventory)$/i,
 };
 
 /**
@@ -107,6 +122,10 @@ export function shouldUseHrShell(roles: string[]) {
 
 export function shouldUseEngineeringShell(roles: string[]) {
   return shouldUseDepartmentShell(roles, "engineering");
+}
+
+export function shouldUseInventoryShell(roles: string[]) {
+  return shouldUseDepartmentShell(roles, "inventory");
 }
 
 function isPathActive(pathname: string, to: string) {
@@ -146,7 +165,9 @@ export function DepartmentSidebar({
 
   return (
     <>
-      {!collapsed && <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onToggle} />}
+      {!collapsed && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onToggle} />
+      )}
 
       <aside
         className={cn(
@@ -156,7 +177,10 @@ export function DepartmentSidebar({
       >
         <Link
           to="/workspace/account-type"
-          className={cn("flex w-full items-end px-5 py-2", collapsed ? "justify-center px-2" : "justify-end")}
+          className={cn(
+            "flex w-full items-end px-5 py-2",
+            collapsed ? "justify-center px-2" : "justify-end",
+          )}
         >
           <img
             src={logoSrc}
@@ -166,7 +190,12 @@ export function DepartmentSidebar({
         </Link>
 
         <nav className="sleek-scrollbar flex flex-1 flex-col items-center overflow-y-auto py-5">
-          <div className={cn("flex w-full flex-col gap-[5px]", collapsed ? "items-center px-2" : "w-[224px]")}>
+          <div
+            className={cn(
+              "flex w-full flex-col gap-[5px]",
+              collapsed ? "items-center px-2" : "w-[224px]",
+            )}
+          >
             {!collapsed && (
               <span className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-white/70">
                 {portal.heading}
@@ -179,7 +208,11 @@ export function DepartmentSidebar({
               // advertised unread notifications and told the reader nothing.
               const isMessages = item.to.includes("messages");
               const isNotifications = item.to.includes("notifications");
-              const badgeCount = isMessages ? unreadMessages : isNotifications ? unreadNotifications : 0;
+              const badgeCount = isMessages
+                ? unreadMessages
+                : isNotifications
+                  ? unreadNotifications
+                  : 0;
               return (
                 <Link
                   key={item.to}
@@ -239,7 +272,9 @@ export function DepartmentSidebar({
             )}
           >
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
-              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">{userInitials}</span>
+              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+                {userInitials}
+              </span>
             </div>
             {!collapsed && (
               <>
@@ -334,7 +369,9 @@ export function DepartmentMobileNav({ department }: { department: DepartmentKey 
                 </span>
               )}
             </span>
-            <span className="w-full text-center text-[10px] font-medium leading-tight">{shortLabel}</span>
+            <span className="w-full text-center text-[10px] font-medium leading-tight">
+              {shortLabel}
+            </span>
           </Link>
         );
       })}

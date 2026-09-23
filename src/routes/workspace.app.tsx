@@ -34,6 +34,7 @@ import {
   DepartmentSidebar,
   shouldUseEngineeringShell,
   shouldUseHrShell,
+  shouldUseInventoryShell,
 } from "@/components/fleetopsx/department-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
@@ -107,8 +108,10 @@ function AppShell() {
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [useLoadingShell, setUseLoadingShell] = useState(false);
   const [useLubricantShell, setUseLubricantShell] = useState(false);
-  // HR and Engineering own their portals; the manager reads them as an audit.
-  const [departmentShell, setDepartmentShell] = useState<"hr" | "engineering" | null>(null);
+  // HR, Engineering and Inventory own their portals; the manager reads them as an audit.
+  const [departmentShell, setDepartmentShell] = useState<"hr" | "engineering" | "inventory" | null>(
+    null,
+  );
   const [shellReady, setShellReady] = useState(false);
 
   const [activeRole, setActiveRoleState] = useState<string>("");
@@ -126,7 +129,13 @@ function AppShell() {
       setUseLoadingShell(shouldUseLoadingShell(scoped));
       setUseLubricantShell(shouldUseLubricantShell(scoped));
       setDepartmentShell(
-        shouldUseHrShell(scoped) ? "hr" : shouldUseEngineeringShell(scoped) ? "engineering" : null,
+        shouldUseHrShell(scoped)
+          ? "hr"
+          : shouldUseEngineeringShell(scoped)
+            ? "engineering"
+            : shouldUseInventoryShell(scoped)
+              ? "inventory"
+              : null,
       );
       setActiveRoleState(active);
       setShellReady(true);
@@ -198,12 +207,7 @@ function AppShell() {
           forceLubricantOps={shellReady ? useLubricantShell : false}
           forceDepartment={shellReady ? departmentShell : null}
         />
-        <main
-          className={cn(
-            "scroll-edge min-w-0 flex-1 overflow-auto",
-            "pb-24 md:pb-0",
-          )}
-        >
+        <main className={cn("scroll-edge min-w-0 flex-1 overflow-auto", "pb-24 md:pb-0")}>
           <div className="mx-auto w-full max-w-[1920px]">
             <Outlet />
           </div>

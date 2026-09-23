@@ -86,7 +86,7 @@ export function AppHeader({
   /** When the Lubricant shell is active, use the Lubricants portal chrome */
   forceLubricantOps?: boolean;
   /** When a department shell (HR / Engineering) is active, use that portal's chrome */
-  forceDepartment?: "hr" | "engineering" | null;
+  forceDepartment?: "hr" | "engineering" | "inventory" | null;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

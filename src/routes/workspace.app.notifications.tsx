@@ -66,6 +66,7 @@ const MODULE_ICON: Record<NotificationModuleName, typeof Bell> = {
   "Gate Security": ShieldCheck,
   Tracking: Gauge,
   Engineering: Gauge,
+  Inventory: Inbox,
   "Fuel & Lubricant": Fuel,
   "HR & Personnel": UserRound,
   Accounts: Inbox,

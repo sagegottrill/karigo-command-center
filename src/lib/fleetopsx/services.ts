@@ -773,10 +773,10 @@ export const inventoryService = {
   /**
    * The Transport Manager's decision on a pending request.
    *
-   * Approving a request that names a store item also takes the stock out of the
-   * store (the server's release route, which is the only write that touches
-   * both the item and the requisition). A request raised for a part the store
-   * never held is simply marked Released — there is nothing to draw down.
+   * Approval hands the ticket to the store floor (Awaiting Pickup, or Awaiting
+   * Procurement when the shelf cannot cover it) — no stock moves here. The
+   * physical handover, the mechanic's signature and the deduction happen at
+   * Complete Handoff, on the inventory department's board.
    */
   approveRequisition: async (requisition: { id: string; itemId?: string; quantity: number }) => {
     if (requisition.itemId) {
@@ -791,6 +791,32 @@ export const inventoryService = {
       body: JSON.stringify({ status: 'Released' }),
     });
   },
+  /** The store floor's queue: approved tickets waiting for a physical handover. */
+  handoffs: () =>
+    fetchApi<unknown[]>('/inventory-handoffs').then((res) =>
+      asList(res as any).map(mapInventoryRequisition),
+    ),
+  /** The attendant confirming the physical pick — or flagging the bin empty. */
+  pickHandoff: (id: string, picked: boolean) =>
+    fetchApi<unknown>(`/inventory-handoffs/${id}/pick`, {
+      method: 'POST',
+      body: JSON.stringify({ picked }),
+    }).then((res) => mapInventoryRequisition(res as any)),
+  /**
+   * The mechanic signs; the store releases. The signature is a data URL drawn
+   * on the sign-off pad; the deduction and the truck's cost are server-side.
+   */
+  completeHandoff: (id: string, signature: string, qty?: number) =>
+    fetchApi<{ releasedValue: number }>(`/inventory-handoffs/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ signature, qty }),
+    }),
+  /** A physical count that disagrees with the book, filed as a variance. */
+  reconcile: (id: string, observed: number, reason?: string) =>
+    fetchApi<unknown>(`/inventory/${id}/reconcile`, {
+      method: 'POST',
+      body: JSON.stringify({ observed, reason }),
+    }).then((res) => mapInventoryItem(res as any)),
   rejectRequisition: (id: string, decisionNote: string) =>
     fetchApi(`/inventory-requisitions/${id}`, {
       method: 'PATCH',
