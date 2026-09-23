@@ -7,7 +7,7 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi, mapFuel, mapInventoryItem, mapInventoryRequisition } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi, mapFuel, mapInventoryItem, mapInventoryRequisition, mapInventoryMovement } from "./live-api";
 import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
 import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
@@ -718,6 +718,32 @@ export const inventoryService = {
     fetchApi<unknown>(`/inventory/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then((res) =>
       mapInventoryItem(res as any),
     ),
+  /**
+   * Stock in from a vendor, at a price.
+   *
+   * The purchase replaces the line's book price — the shelf is valued at the
+   * most recent thing actually paid for it, the same rule the diesel tank uses —
+   * and the vendor is remembered for the next reorder.
+   */
+  purchase: (id: string, input: { qty: number; unitPrice: number; vendor?: string; reference?: string; note?: string }) =>
+    fetchApi<unknown>(`/inventory/${id}/purchase`, { method: 'POST', body: JSON.stringify(input) }).then((res) =>
+      mapInventoryItem(res as any),
+    ),
+  /** A signed correction that is neither a purchase nor an issue. */
+  adjust: (id: string, input: { delta: number; note?: string; reference?: string }) =>
+    fetchApi<unknown>(`/inventory/${id}/adjust`, { method: 'POST', body: JSON.stringify(input) }).then((res) =>
+      mapInventoryItem(res as any),
+    ),
+  /** The movement ledger — a line's history, or the whole store's. */
+  movements: (itemId?: string) =>
+    fetchApi<unknown[]>(`/inventory-movements${itemId ? `?itemId=${encodeURIComponent(itemId)}` : ''}`)
+      .then((res) => asList(res as any).map(mapInventoryMovement)),
+  /** The shelf, in bulk, upserted by SKU. */
+  importItems: (items: Array<Record<string, unknown>>) =>
+    fetchApi<{ created: number; updated: number; skipped: string[] }>('/inventory/import', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    }),
   // Backend route is /inventory-requisitions (hyphenated).
   requisitions: () =>
     fetchApi<unknown[]>('/inventory-requisitions').then((res) =>

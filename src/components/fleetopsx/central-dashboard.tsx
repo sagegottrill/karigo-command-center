@@ -12,6 +12,7 @@ import {
   History,
   MapPinned,
   Navigation,
+  Package,
   Route as RouteIcon,
   ShieldAlert,
   ShieldCheck,
@@ -72,6 +73,11 @@ import {
   type FuelLedgerRow,
 } from "@/lib/fleetopsx/dashboard-fuel";
 import {
+  buildPartsOversight,
+  type MovementRow,
+  type StoreLineRow,
+} from "@/lib/fleetopsx/dashboard-parts";
+import {
   getTrackingDelayStatus,
   partnerOf,
   TRACKING_DELAY_COLOR,
@@ -91,6 +97,7 @@ import type {
   Expense,
   FuelRequisition,
   InventoryItem,
+  InventoryMovement,
   InventoryRequisition,
   Trip,
   TruckHead,
@@ -369,6 +376,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [storeItems, setStoreItems] = useState<InventoryItem[]>([]);
   const [fuelRecords, setFuelRecords] = useState<FuelRequisition[]>([]);
   /**
+   * The store's movement ledger — purchases, issues, adjustments. The whole
+   * Parts & Inventory view is a read of this book; until it lands the shelf's
+   * numbers are stock-table only.
+   */
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [movementsRead, setMovementsRead] = useState(false);
+  /**
    * The diesel side: the tank, its deliveries, what was pumped, and the
    * dispatches still waiting for the Transport Manager to release litres.
    */
@@ -390,6 +404,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [asksRead, setAsksRead] = useState(false);
   const [pumpRead, setPumpRead] = useState(false);
   const [fuelRecordsRead, setFuelRecordsRead] = useState(false);
+  void fuelRecordsRead;
   const [clock, setClock] = useState<Date | null>(null);
   /**
    * A handle on the board's own reload, so an approval made from a drill can
@@ -409,7 +424,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
   const [segment, setSegment] = useState<FleetSegment>("all");
   const [audit, setAudit] = useState<
-    "requests" | "fleet" | "engineering" | "security" | "fuel" | null
+    "requests" | "fleet" | "engineering" | "parts" | "security" | "fuel" | null
   >(null);
   const [fleetAuditTab, setFleetAuditTab] = useState<"head" | "tail">("head");
   /** Which ledger the gate audit opens on — the yard is the first question. */
@@ -481,6 +496,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         .list()
         .then((i) => {
           if (!cancelled) setStoreItems(i);
+        })
+        .catch(() => {});
+      void inventoryService
+        .movements()
+        .then((rows) => {
+          if (cancelled) return;
+          setMovements(rows ?? []);
+          setMovementsRead(true);
         })
         .catch(() => {});
       void fuelService
@@ -797,6 +820,29 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           })
         : null,
     [live.trips, tanks, restocks, disbursals, fuelAsks, fuelPrices, fuelRecords, clock, range],
+  );
+
+  /**
+   * Parts & Inventory, as the Transport Manager reconciles it: what the shelf is
+   * worth and what that value rests on, what the workshop drew and for which
+   * trucks, who the parts money is paid to, and what has to be bought before the
+   * workshop stops.
+   *
+   * Built from the store's own ledger — the same book the purchase and issue
+   * forms write — so his figures and the shelf can never tell two stories.
+   */
+  const parts = useMemo(
+    () =>
+      clock
+        ? buildPartsOversight({
+            items: storeItems,
+            movements,
+            openJobs: workOrders,
+            range,
+            now: clock,
+          })
+        : null,
+    [storeItems, movements, workOrders, clock, range],
   );
 
   /**
@@ -1503,6 +1549,98 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
        <h2>Diesel per destination</h2>
        <table><thead><tr><th>Destination</th><th>Dispatches</th><th>Average asked</th><th>Largest ask</th><th>Average pumped</th></tr></thead><tbody>${
          routeRows || `<tr><td colspan="5">No dispatch has requested diesel.</td></tr>`
+       }</tbody></table>`,
+    );
+  };
+
+  const printPartsAudit = () => {
+    if (!parts) return;
+    const ledgerRows = [...parts.purchases.list, ...parts.consumption.list]
+      .sort((a, b) => (a.actedAt < b.actedAt ? 1 : -1))
+      .map(
+        (m: MovementRow) =>
+          `<tr><td>${formatTableDate(m.actedAt)}</td><td>${m.kind}</td><td>${m.item}</td><td>${
+            m.sku
+          }</td><td>${m.quantity}</td><td>${
+            m.unitCost === null ? "—" : formatMoney(m.unitCost)
+          }</td><td>${m.value === null ? "—" : formatMoney(m.value)}</td><td>${
+            m.truckReg || m.vendor || "—"
+          }</td><td>${m.actedBy || "—"}</td></tr>`,
+      )
+      .join("");
+    const reorderRows = parts.reorder.list
+      .map(
+        (row) =>
+          `<tr><td>${row.item}</td><td>${row.sku}</td><td>${row.stock}</td><td>${
+            row.reorderLevel
+          }</td><td>${row.toBuy}</td><td>${formatMoney(row.estimatedCost)}</td><td>${
+            row.supplier || "no supplier on file"
+          }</td></tr>`,
+      )
+      .join("");
+    const unpricedRows = parts.valuation.unpricedLines
+      .map(
+        (line) =>
+          `<tr><td>${line.name}</td><td>${line.sku}</td><td>${line.stock}</td><td>${formatMoney(
+            line.unitCost,
+          )}</td><td>${formatMoney(line.value)}</td></tr>`,
+      )
+      .join("");
+    const vendorRows = parts.purchases.byVendor
+      .map(
+        (row) =>
+          `<tr><td>${row.vendor}</td><td>${row.units}</td><td>${row.lines}</td><td>${formatMoney(
+            row.value,
+          )}</td></tr>`,
+      )
+      .join("");
+    const truckRows = parts.consumption.byTruck
+      .map(
+        (row) =>
+          `<tr><td>${row.truck}</td><td>${row.units}</td><td>${formatMoney(row.value)}</td></tr>`,
+      )
+      .join("");
+    printSheet(
+      "Parts & Inventory: Store Oversight",
+      `Store activity in the selected window · ${range.label}`,
+      `<p><strong>Store valuation:</strong> ${formatMoney(parts.valuation.total)} across ${
+        parts.valuation.lines
+      } line(s) · ${formatMoney(parts.valuation.priced)} of it priced from actual purchases</p>
+       <p><strong>Idle capital:</strong> ${formatMoney(parts.idle.value)} across ${
+         parts.idle.lines
+       } line(s) that issued nothing in this window</p>
+       <p><strong>Consumption:</strong> ${parts.consumption.units} unit(s) issued across ${
+         parts.consumption.events
+       } issue(s), worth ${formatMoney(parts.consumption.value)}</p>
+       <p><strong>Purchases:</strong> ${parts.purchases.units} unit(s) bought across ${
+         parts.purchases.events
+       } purchase(s), worth ${formatMoney(parts.purchases.value)}</p>
+       <p><strong>Stock health:</strong> ${parts.health.ok} healthy · ${parts.health.low} low · ${
+         parts.health.out
+       } out of stock</p>
+       <p><strong>Reorder:</strong> ${parts.reorder.count} line(s) to buy, ≈ ${formatMoney(
+         parts.reorder.estimatedCost,
+       )} · ${parts.reorder.addressed} addressed to a supplier</p>
+       <h2>Reorder list (${parts.reorder.count})</h2>
+       <table><thead><tr><th>Part</th><th>SKU</th><th>Held</th><th>Reorder at</th><th>To buy</th><th>Est. cost</th><th>Supplier</th></tr></thead><tbody>${
+         reorderRows || `<tr><td colspan="7">Every line is above its reorder level.</td></tr>`
+       }</tbody></table>
+       <h2>Vendor spend (${parts.purchases.byVendor.length})</h2>
+       <table><thead><tr><th>Vendor</th><th>Units</th><th>Lines</th><th>Spend</th></tr></thead><tbody>${
+         vendorRows || `<tr><td colspan="4">No vendor was paid in this window.</td></tr>`
+       }</tbody></table>
+       <h2>Consumption by truck (${parts.consumption.byTruck.length})</h2>
+       <table><thead><tr><th>Truck</th><th>Units</th><th>Value</th></tr></thead><tbody>${
+         truckRows || `<tr><td colspan="3">No part was issued in this window.</td></tr>`
+       }</tbody></table>
+       <h2>Movement ledger (${[...parts.purchases.list, ...parts.consumption.list].length})</h2>
+       <table><thead><tr><th>When</th><th>Kind</th><th>Part</th><th>SKU</th><th>Qty</th><th>Unit</th><th>Value</th><th>Truck / Vendor</th><th>Recorded by</th></tr></thead><tbody>${
+         ledgerRows || `<tr><td colspan="9">No movement was recorded in this window.</td></tr>`
+       }</tbody></table>
+       <h2>Value on typed-in prices (${parts.valuation.unpricedLines.length})</h2>
+       <table><thead><tr><th>Part</th><th>SKU</th><th>Stock</th><th>Unit price</th><th>Line value</th></tr></thead><tbody>${
+         unpricedRows ||
+         `<tr><td colspan="5">Every valued line rests on a recorded purchase.</td></tr>`
        }</tbody></table>`,
     );
   };
@@ -2800,6 +2938,389 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         </div>
       </section>
 
+      {/* ------------------------------------------------- Parts & Inventory oversight */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          icon={Package}
+          title="Parts & Inventory (Store Oversight)"
+          subtitle="What the shelf is worth and what that value rests on, what the workshop drew and for which trucks, who the parts money is paid to, and what has to be bought before the workshop stops · Engineering keeps the store, the Transport Manager audits it"
+        >
+          <PeriodNote>{range.note}</PeriodNote>
+          <AuditButton onClick={() => setAudit("parts")} />
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {/* 1 — what the shelf is worth, and what that rests on. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Store Valuation"
+              value={money(parts?.valuation.total)}
+              hint={
+                parts && parts.valuation.lines > 0
+                  ? `${countLabel(parts.valuation.lines, "line")} · ${countLabel(parts.valuation.units, "unit")}`
+                  : "The store is empty"
+              }
+              tone="green"
+              icon={Package}
+              hasDrill
+              onClick={() => drill.toggle("inv-valuation")}
+              valueClass="text-[24px]"
+              detail={
+                <TileNote tone="grey">
+                  {parts && parts.valuation.priced > 0
+                    ? `${money(parts.valuation.priced)} at purchase prices`
+                    : "No purchase has ever been recorded"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-valuation")}
+              onClose={drill.close}
+              title={`Store Valuation (${money(parts?.valuation.total)})`}
+              width={400}
+              footer={
+                <span>
+                  {parts?.valuation.lines ?? 0} line(s) · valued at each line's last purchase price
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                The shelf is worth what was last paid for it. A line never purchased rests on the
+                price typed into it — those are named, not blended in.
+              </p>
+              {!parts || parts.valuation.unpricedLines.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Every valued line rests on an actual purchase price.
+                </p>
+              ) : (
+                parts.valuation.unpricedLines
+                  .slice(0, 10)
+                  .map((line) => (
+                    <DrillRow
+                      key={`unpriced-${line.id}`}
+                      title={line.name}
+                      meta={[line.sku, line.category].filter(Boolean).join(" · ")}
+                      right={
+                        <span className="shrink-0 text-[11px] font-semibold text-white">
+                          {money(line.value)}
+                        </span>
+                      }
+                    />
+                  ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 2 — money sitting still. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Idle Capital"
+              value={
+                !movementsRead
+                  ? "—"
+                  : parts && parts.idle.list.length > 0
+                    ? money(parts.idle.value)
+                    : movements.length === 0
+                      ? "—"
+                      : money(0)
+              }
+              hint={
+                !movementsRead
+                  ? "Reading the store ledger…"
+                  : parts && parts.idle.lines > 0
+                    ? `${countLabel(parts.idle.lines, "line")} issued nothing in ${range.prefix.toLowerCase()}`
+                    : movements.length === 0
+                      ? "No ledger yet — record a purchase or issue"
+                      : "Everything moved this window"
+              }
+              tone={parts && parts.idle.value > 0 ? "amber" : "grey"}
+              icon={History}
+              hasDrill
+              onClick={() => drill.toggle("inv-idle")}
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-idle")}
+              onClose={drill.close}
+              title={`Idle Capital (${money(parts?.idle.value)})`}
+              width={400}
+              footer={<span>Stock that issued nothing in the window</span>}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Money on a shelf. Some idleness is deliberate — spares kept for breakdowns — but a
+                line idle for every window it has existed is capital doing nothing.
+              </p>
+              {!parts || parts.idle.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  {movements.length === 0
+                    ? "The ledger has no movements yet, so nothing can be called idle."
+                    : "Every line with stock issued something in this window."}
+                </p>
+              ) : (
+                parts.idle.list
+                  .slice(0, 10)
+                  .map((line) => (
+                    <DrillRow
+                      key={`idle-${line.id}`}
+                      title={line.name}
+                      meta={`${countLabel(line.stock, "unit")} · ${money(line.value)}`}
+                      right={
+                        <span className="shrink-0 text-[11px] font-semibold text-white">
+                          {money(line.value)}
+                        </span>
+                      }
+                    />
+                  ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 3 — what the workshop drew, and for which trucks. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Parts Consumption"
+              value={
+                !movementsRead
+                  ? "—"
+                  : parts && parts.consumption.events > 0
+                    ? money(parts.consumption.value)
+                    : money(0)
+              }
+              hint={
+                !movementsRead
+                  ? "Reading the store ledger…"
+                  : parts && parts.consumption.units > 0
+                    ? `${countLabel(parts.consumption.units, "unit")} · ${countLabel(parts.consumption.events, "issue")}`
+                    : "Nothing issued in this window"
+              }
+              tone="blue"
+              icon={Wrench}
+              hasDrill
+              onClick={() => drill.toggle("inv-consumption")}
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-consumption")}
+              onClose={drill.close}
+              title={`Parts Consumption (${money(parts?.consumption.value)})`}
+              width={420}
+              footer={
+                <span>
+                  {countLabel(parts?.consumption.units ?? 0, "unit")} issued across{" "}
+                  {countLabel(parts?.consumption.byTruck.length ?? 0, "truck")}
+                </span>
+              }
+            >
+              {!parts || parts.consumption.byTruck.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No part has been issued to a truck in this window.
+                </p>
+              ) : (
+                <>
+                  <p className="pb-1 text-[10px] uppercase tracking-[0.4px] text-white/50">
+                    By truck
+                  </p>
+                  {parts.consumption.byTruck.slice(0, 6).map((row) => (
+                    <DrillRow
+                      key={`ct-${row.truck}`}
+                      title={row.truck}
+                      meta={`${countLabel(row.units, "unit")} issued`}
+                      right={
+                        <span className="shrink-0 text-[11px] font-semibold text-white">
+                          {money(row.value)}
+                        </span>
+                      }
+                    />
+                  ))}
+                  <p className="pt-2 pb-1 text-[10px] uppercase tracking-[0.4px] text-white/50">
+                    By part
+                  </p>
+                  {parts.consumption.byPart.slice(0, 6).map((row) => (
+                    <DrillRow
+                      key={`cp-${row.part}`}
+                      title={row.part}
+                      meta={`${countLabel(row.units, "unit")} drawn`}
+                      right={
+                        <span className="shrink-0 text-[11px] font-semibold text-white">
+                          {money(row.value)}
+                        </span>
+                      }
+                    />
+                  ))}
+                </>
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 4 — who the parts money is paid to. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Vendor Spend"
+              value={
+                !movementsRead
+                  ? "—"
+                  : parts && parts.purchases.events > 0
+                    ? money(parts.purchases.value)
+                    : money(0)
+              }
+              hint={
+                !movementsRead
+                  ? "Reading the store ledger…"
+                  : parts && parts.purchases.units > 0
+                    ? `${countLabel(parts.purchases.units, "unit")} in · ${countLabel(parts.purchases.events, "purchase")}`
+                    : "No purchase in this window"
+              }
+              tone="green"
+              icon={Package}
+              hasDrill
+              onClick={() => drill.toggle("inv-vendors")}
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-vendors")}
+              onClose={drill.close}
+              title={`Vendor Spend (${money(parts?.purchases.value)})`}
+              width={400}
+              footer={
+                <span>
+                  {countLabel(parts?.purchases.byVendor.length ?? 0, "vendor")} paid in this window
+                </span>
+              }
+            >
+              {!parts || parts.purchases.byVendor.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No vendor was paid in this window.</p>
+              ) : (
+                parts.purchases.byVendor.map((row) => (
+                  <DrillRow
+                    key={`vd-${row.vendor}`}
+                    title={row.vendor}
+                    meta={`${countLabel(row.units, "unit")} · ${countLabel(row.lines, "line")}`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {money(row.value)}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 5 — stock health, the tile the store's board already shows. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Stock Health"
+              value={parts?.health.out ?? "—"}
+              hint="Out of stock"
+              tone={parts && parts.health.out > 0 ? "red" : "green"}
+              icon={CircleAlert}
+              hasDrill
+              onClick={() => drill.toggle("inv-health")}
+              split={{
+                aLabel: "Low",
+                aValue: parts?.health.low ?? "—",
+                bLabel: "Healthy",
+                bValue: parts?.health.ok ?? "—",
+              }}
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-health")}
+              onClose={drill.close}
+              title={`Stock Health (${parts?.health.out ?? 0} out · ${parts?.health.low ?? 0} low)`}
+              width={400}
+              footer={<span>{parts?.valuation.lines ?? 0} line(s) on the shelf</span>}
+            >
+              {!parts || parts.reorder.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No line is at or below its reorder level.
+                </p>
+              ) : (
+                parts.reorder.list.slice(0, 12).map((row) => (
+                  <DrillRow
+                    key={`ro-${row.id}`}
+                    title={row.item}
+                    variant="status"
+                    tone={row.stock <= 0 ? "red" : "amber"}
+                    meta={`${countLabel(row.stock, "unit")} on shelf · reorder at ${row.reorderLevel}`}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span className="block text-white">buy {row.toBuy}</span>
+                        <span className="block text-[10px] font-normal text-white/60">
+                          {money(row.estimatedCost)}
+                        </span>
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 6 — the reorder list, addressed where a supplier is known. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Reorder List"
+              value={parts?.reorder.count ?? "—"}
+              hint={
+                parts && parts.reorder.count > 0
+                  ? `${money(parts.reorder.estimatedCost)} to cover`
+                  : "Nothing to buy"
+              }
+              tone={parts && parts.reorder.count > 0 ? "amber" : "green"}
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("inv-reorder")}
+              detail={
+                <TileNote tone="grey">
+                  {parts && parts.reorder.count > 0
+                    ? `${parts.reorder.addressed} of ${parts.reorder.count} addressed to a supplier`
+                    : "The shelf is above its reorder levels"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-reorder")}
+              onClose={drill.close}
+              title={`Reorder List (${parts?.reorder.count ?? 0})`}
+              width={420}
+              footer={
+                <span>
+                  Covering every shortfall to twice its reorder level ·{" "}
+                  {money(parts?.reorder.estimatedCost)}
+                </span>
+              }
+            >
+              {!parts || parts.reorder.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Every line is above its reorder level.
+                </p>
+              ) : (
+                parts.reorder.list.map((row) => (
+                  <DrillRow
+                    key={`rl-${row.id}`}
+                    title={row.item}
+                    variant="status"
+                    tone={row.stock <= 0 ? "red" : "amber"}
+                    meta={[
+                      row.sku,
+                      row.supplier || "no supplier on file",
+                      `${countLabel(row.stock, "unit")} held`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span className="block text-white">{row.toBuy} to buy</span>
+                        <span className="block text-[10px] font-normal text-white/60">
+                          ≈ {money(row.estimatedCost)}
+                        </span>
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+        </div>
+      </section>
+
       {/* ---------------------------------------------------- Security oversight */}
       <section className="flex flex-col gap-3">
         <SectionHeader
@@ -3451,6 +3972,214 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 </div>
               </div>
             ) : null}
+          </div>
+        )}
+      </AuditDialog>
+
+      {/* ------------------------------------ parts & inventory audit — the TM's own sheet */}
+      <AuditDialog
+        open={audit === "parts"}
+        onClose={() => setAudit(null)}
+        title="Parts & Inventory: Store Oversight"
+        subtitle={`Store activity in the window below · ${range.label}`}
+        onPrint={printPartsAudit}
+      >
+        {!parts ? (
+          <p className="py-8 text-center text-[13px] text-[#8E95A1]">Reading the store…</p>
+        ) : (
+          <div className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <AuditFactGrid
+                facts={[
+                  { label: "Store Valuation", value: formatMoney(parts.valuation.total) },
+                  { label: "At Purchase Prices", value: formatMoney(parts.valuation.priced) },
+                  { label: "Store Lines", value: String(parts.valuation.lines) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Idle Capital", value: formatMoney(parts.idle.value) },
+                  { label: "Idle Lines", value: String(parts.idle.lines) },
+                  { label: "Ledger Movements", value: String(movements.length) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Issued In Window", value: formatMoney(parts.consumption.value) },
+                  { label: "Units Issued", value: String(parts.consumption.units) },
+                  { label: "Issues", value: String(parts.consumption.events) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Purchased In Window", value: formatMoney(parts.purchases.value) },
+                  { label: "Units Bought", value: String(parts.purchases.units) },
+                  { label: "Purchases", value: String(parts.purchases.events) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Healthy", value: String(parts.health.ok) },
+                  { label: "Low", value: String(parts.health.low) },
+                  { label: "Out Of Stock", value: String(parts.health.out) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "To Reorder", value: String(parts.reorder.count) },
+                  { label: "Est. Reorder Cost", value: formatMoney(parts.reorder.estimatedCost) },
+                  { label: "Addressed To Supplier", value: String(parts.reorder.addressed) },
+                ]}
+              />
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                Reorder list ({parts.reorder.count})
+              </p>
+              {parts.reorder.list.length === 0 ? (
+                <p className="text-[13px] text-[#8E95A1]">Every line is above its reorder level.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[12px]">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-[0.4px] text-[#8E95A1]">
+                        <th className="py-1.5 pr-3">Part</th>
+                        <th className="py-1.5 pr-3">SKU</th>
+                        <th className="py-1.5 pr-3">Held</th>
+                        <th className="py-1.5 pr-3">Reorder at</th>
+                        <th className="py-1.5 pr-3">To buy</th>
+                        <th className="py-1.5 pr-3">Est. cost</th>
+                        <th className="py-1.5 pr-3">Supplier</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parts.reorder.list.map((row) => (
+                        <tr
+                          key={`ar-${row.id}`}
+                          className="border-t border-[#E2E5E9] text-[#344256]"
+                        >
+                          <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.item}</td>
+                          <td className="py-1.5 pr-3">{row.sku}</td>
+                          <td className="py-1.5 pr-3">{row.stock}</td>
+                          <td className="py-1.5 pr-3">{row.reorderLevel}</td>
+                          <td className="py-1.5 pr-3">{row.toBuy}</td>
+                          <td className="py-1.5 pr-3">{formatMoney(row.estimatedCost)}</td>
+                          <td className="py-1.5 pr-3">{row.supplier || "no supplier on file"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                Consumption by truck ({parts.consumption.byTruck.length})
+              </p>
+              {parts.consumption.byTruck.length === 0 ? (
+                <p className="text-[13px] text-[#8E95A1]">No part was issued in this window.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[12px]">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-[0.4px] text-[#8E95A1]">
+                        <th className="py-1.5 pr-3">Truck</th>
+                        <th className="py-1.5 pr-3">Units</th>
+                        <th className="py-1.5 pr-3">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parts.consumption.byTruck.map((row) => (
+                        <tr
+                          key={`at-${row.truck}`}
+                          className="border-t border-[#E2E5E9] text-[#344256]"
+                        >
+                          <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.truck}</td>
+                          <td className="py-1.5 pr-3">{row.units}</td>
+                          <td className="py-1.5 pr-3">{formatMoney(row.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                Vendor spend ({parts.purchases.byVendor.length})
+              </p>
+              {parts.purchases.byVendor.length === 0 ? (
+                <p className="text-[13px] text-[#8E95A1]">No vendor was paid in this window.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[12px]">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-[0.4px] text-[#8E95A1]">
+                        <th className="py-1.5 pr-3">Vendor</th>
+                        <th className="py-1.5 pr-3">Units</th>
+                        <th className="py-1.5 pr-3">Lines</th>
+                        <th className="py-1.5 pr-3">Spend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parts.purchases.byVendor.map((row) => (
+                        <tr
+                          key={`av-${row.vendor}`}
+                          className="border-t border-[#E2E5E9] text-[#344256]"
+                        >
+                          <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.vendor}</td>
+                          <td className="py-1.5 pr-3">{row.units}</td>
+                          <td className="py-1.5 pr-3">{row.lines}</td>
+                          <td className="py-1.5 pr-3">{formatMoney(row.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                Value on typed-in prices ({parts.valuation.unpricedLines.length})
+              </p>
+              {parts.valuation.unpricedLines.length === 0 ? (
+                <p className="text-[13px] text-[#8E95A1]">
+                  Every valued line rests on a recorded purchase.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[12px]">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-[0.4px] text-[#8E95A1]">
+                        <th className="py-1.5 pr-3">Part</th>
+                        <th className="py-1.5 pr-3">SKU</th>
+                        <th className="py-1.5 pr-3">Stock</th>
+                        <th className="py-1.5 pr-3">Unit price</th>
+                        <th className="py-1.5 pr-3">Line value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parts.valuation.unpricedLines.map((line) => (
+                        <tr
+                          key={`au-${line.id}`}
+                          className="border-t border-[#E2E5E9] text-[#344256]"
+                        >
+                          <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{line.name}</td>
+                          <td className="py-1.5 pr-3">{line.sku}</td>
+                          <td className="py-1.5 pr-3">{line.stock}</td>
+                          <td className="py-1.5 pr-3">{formatMoney(line.unitCost)}</td>
+                          <td className="py-1.5 pr-3">{formatMoney(line.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </AuditDialog>

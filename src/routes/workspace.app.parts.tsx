@@ -24,6 +24,7 @@ import {
 } from "@/lib/fleetopsx/services";
 import type {
   InventoryItem,
+  InventoryMovement,
   InventoryRequisition,
   TruckHead,
   WorkOrder,
@@ -88,6 +89,19 @@ function PartsAndStore() {
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseJob, setRaiseJob] = useState<WorkOrder | null>(null);
+  /**
+   * Buying stock, and reading a line's story.
+   *
+   * A purchase is the only honest way stock enters the store: it moves the
+   * number, re-prices the line at what was actually paid, names the vendor, and
+   * writes the ledger row the Transport Manager's dashboard is built from. The
+   * history is that ledger read back for one line — where every unit came from
+   * and which truck took it out.
+   */
+  const [purchasing, setPurchasing] = useState<InventoryItem | null>(null);
+  const [purchaseDraft, setPurchaseDraft] = useState<Record<string, string> | null>(null);
+  const [historyFor, setHistoryFor] = useState<InventoryItem | null>(null);
+  const [historyRows, setHistoryRows] = useState<InventoryMovement[] | null>(null);
 
   useEffect(() => {
     const roles = authService.getRoles();
@@ -187,7 +201,54 @@ function PartsAndStore() {
     stock: "",
     reorderLevel: "",
     location: "Main Store",
+    supplier: "",
   });
+
+  const emptyPurchaseDraft = (item: InventoryItem) => ({
+    qty: "",
+    unitPrice: String(item.unitCost || ""),
+    vendor: item.supplier || "",
+    reference: "",
+    note: "",
+  });
+
+  const savePurchase = async () => {
+    if (!purchasing || !purchaseDraft) return;
+    const qty = Math.floor(Number(purchaseDraft.qty) || 0);
+    if (qty <= 0) {
+      toast.error("A purchase needs a quantity.");
+      return;
+    }
+    try {
+      const updated = await inventoryService.purchase(purchasing.id, {
+        qty,
+        unitPrice: Number(purchaseDraft.unitPrice) || purchasing.unitCost,
+        vendor: (purchaseDraft.vendor ?? "").trim(),
+        reference: (purchaseDraft.reference ?? "").trim(),
+        note: (purchaseDraft.note ?? "").trim(),
+      });
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      toast.success(
+        `${qty} × ${updated.name} received — stock now ${updated.stock}, priced at ${formatNairaFull(updated.unitCost)}.`,
+      );
+      setPurchasing(null);
+      setPurchaseDraft(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The purchase was not recorded.");
+    }
+  };
+
+  const openHistory = async (item: InventoryItem) => {
+    setHistoryFor(item);
+    setHistoryRows(null);
+    try {
+      const rows = await inventoryService.movements(item.id);
+      setHistoryRows(rows);
+    } catch {
+      setHistoryRows([]);
+      toast.error("The movement history could not be read.");
+    }
+  };
 
   const savePart = async () => {
     if (!draft) return;
@@ -523,7 +584,21 @@ function PartsAndStore() {
                                 stock: String(item.stock ?? ""),
                                 reorderLevel: String(item.reorderLevel ?? ""),
                                 location: item.location,
+                                supplier: item.supplier ?? "",
                               });
+                            },
+                          },
+                          {
+                            label: "Record purchase",
+                            onSelect: () => {
+                              setPurchasing(item);
+                              setPurchaseDraft(emptyPurchaseDraft(item));
+                            },
+                          },
+                          {
+                            label: "Movement history",
+                            onSelect: () => {
+                              void openHistory(item);
                             },
                           },
                           {
@@ -615,6 +690,7 @@ function PartsAndStore() {
                   ["stock", "Stock on hand", "0", false],
                   ["reorderLevel", "Reorder at", "0", false],
                   ["location", "Store location", "Main Store", false],
+                  ["supplier", "Supplier", "eg: Nibo Metals", false],
                 ] as const
               ).map(([key, label, placeholder, required]) => (
                 <label key={key} className="flex flex-col gap-1.5">
@@ -649,6 +725,240 @@ function PartsAndStore() {
                 className="h-9 rounded bg-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-white"
               >
                 {editing ? "Save part" : "Add to store"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ----------------------------------------------- record a purchase */}
+      {purchasing && purchaseDraft ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Record purchase"
+          onClick={() => {
+            setPurchasing(null);
+            setPurchaseDraft(null);
+          }}
+        >
+          <div
+            className="flex max-h-[90vh] w-[520px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-[#E2E5E9] pb-3">
+              <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
+                Record purchase — {purchasing.name}
+              </h3>
+              <p className="mt-1 text-[12px] text-[#5C6470]">
+                Stock in from a vendor. The price you enter becomes the line's unit cost, and the
+                vendor is remembered for the next reorder.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded bg-[#F1F2F4] px-3 py-2 text-[13px] text-[#5C6470]">
+              <span>
+                On shelf now: <strong className="text-[#1B2432]">{purchasing.stock}</strong>
+              </span>
+              <span>
+                Reorder at: <strong className="text-[#1B2432]">{purchasing.reorderLevel}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Quantity received <span className="text-[#ED351D]">*</span>
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={purchaseDraft.qty}
+                  onChange={(event) =>
+                    setPurchaseDraft({ ...purchaseDraft, qty: event.target.value })
+                  }
+                  placeholder="eg: 10"
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Unit price paid (₦)
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={purchaseDraft.unitPrice}
+                  onChange={(event) =>
+                    setPurchaseDraft({ ...purchaseDraft, unitPrice: event.target.value })
+                  }
+                  placeholder="0"
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Vendor
+                </span>
+                <input
+                  value={purchaseDraft.vendor}
+                  onChange={(event) =>
+                    setPurchaseDraft({ ...purchaseDraft, vendor: event.target.value })
+                  }
+                  placeholder="eg: Nibo Metals Ltd"
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Reference
+                </span>
+                <input
+                  value={purchaseDraft.reference}
+                  onChange={(event) =>
+                    setPurchaseDraft({ ...purchaseDraft, reference: event.target.value })
+                  }
+                  placeholder="eg: PO-2214 / delivery note"
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 sm:col-span-2">
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Note
+                </span>
+                <input
+                  value={purchaseDraft.note}
+                  onChange={(event) =>
+                    setPurchaseDraft({ ...purchaseDraft, note: event.target.value })
+                  }
+                  placeholder="anything the record should carry"
+                  className={inputClass}
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPurchasing(null);
+                  setPurchaseDraft(null);
+                }}
+                className="h-9 rounded border border-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void savePurchase()}
+                className="h-9 rounded bg-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-white"
+              >
+                Record purchase
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* --------------------------------------------- a line's movement history */}
+      {historyFor ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Movement history"
+          onClick={() => setHistoryFor(null)}
+        >
+          <div
+            className="flex max-h-[85vh] w-[760px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-[#E2E5E9] pb-3">
+              <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
+                {historyFor.name} — movement history
+              </h3>
+              <p className="mt-1 text-[12px] text-[#5C6470]">
+                Every recorded movement of this line: where each unit came from, what was paid for
+                it, and which truck drew it out.
+              </p>
+            </div>
+
+            {historyRows === null ? (
+              <p className="py-6 text-center text-[13px] text-[#8E95A1]">Reading the ledger…</p>
+            ) : historyRows.length === 0 ? (
+              <FigmaEmptyState
+                title="No movement recorded"
+                body="This line has no ledger history yet — record a purchase, or issue it against a requisition, and every movement will appear here."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[640px]">
+                  <div className="grid grid-cols-[120px_90px_70px_110px_110px_1fr_130px] items-center gap-3 border-b border-[#E2E5E9] py-2">
+                    {[
+                      "When",
+                      "Kind",
+                      "Qty",
+                      "Unit",
+                      "Value",
+                      "Truck / Vendor · note",
+                      "Recorded by",
+                    ].map((heading) => (
+                      <span
+                        key={heading}
+                        className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]"
+                      >
+                        {heading}
+                      </span>
+                    ))}
+                  </div>
+                  {historyRows.map((row, index) => (
+                    <div
+                      key={row.id}
+                      className={cn(
+                        "grid grid-cols-[120px_90px_70px_110px_110px_1fr_130px] items-center gap-3 py-2 text-[13px]",
+                        index < historyRows.length - 1 && "border-b border-[#E2E5E9]",
+                      )}
+                    >
+                      <span className="text-[#5C6470]">{formatDateLines(row.actedAt).date}</span>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          row.kind === "Purchase"
+                            ? "text-[#1F7A33]"
+                            : row.kind === "Issue"
+                              ? "text-[#1B5FBF]"
+                              : row.kind === "Write-off"
+                                ? "text-[#D0331B]"
+                                : "text-[#5C6470]",
+                        )}
+                      >
+                        {row.kind}
+                      </span>
+                      <span className="font-semibold text-[#1B2432]">{row.quantity}</span>
+                      <span className="text-[#5C6470]">
+                        {row.unitCost === null ? "—" : formatNairaFull(row.unitCost)}
+                      </span>
+                      <span className="text-[#344256]">
+                        {row.value === null ? "—" : formatNairaFull(row.value)}
+                      </span>
+                      <span className="truncate text-[#5C6470]">
+                        {[row.truckReg || row.vendor || "—", row.note].filter(Boolean).join(" · ")}
+                      </span>
+                      <span className="truncate text-[#5C6470]">{row.actedBy || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setHistoryFor(null)}
+                className="h-9 rounded border border-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
+              >
+                Close
               </button>
             </div>
           </div>

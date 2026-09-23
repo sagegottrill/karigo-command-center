@@ -12,6 +12,7 @@ import type {
   FuelRequisition,
   GateEntry,
   InventoryItem,
+  InventoryMovement,
   InventoryRequisition,
   LoginReport,
   Notification,
@@ -616,7 +617,27 @@ export function mapInventoryItem(i: Record<string, unknown>): InventoryItem {
     reorderLevel: Number(i.reorderLevel ?? 0),
     unitCost: Number(i.unitCost ?? 0),
     location: String(i.location ?? "Main Store"),
+    supplier: String(i.supplier ?? ""),
     status: (i.status as InventoryItem["status"]) || "In Stock",
+  };
+}
+
+export function mapInventoryMovement(m: Record<string, unknown>): InventoryMovement {
+  return {
+    id: String(m.id ?? ""),
+    itemId: String(m.itemId ?? ""),
+    itemName: String(m.itemName ?? ""),
+    sku: String(m.sku ?? ""),
+    kind: (m.kind as InventoryMovement["kind"]) || "Adjustment",
+    quantity: Number(m.quantity ?? 0),
+    unitCost: m.unitCost == null ? null : Number(m.unitCost),
+    value: m.value == null ? null : Number(m.value),
+    vendor: String(m.vendor ?? ""),
+    reference: String(m.reference ?? ""),
+    truckReg: String(m.truckReg ?? ""),
+    note: String(m.note ?? ""),
+    actedBy: String(m.actedBy ?? ""),
+    actedAt: String(m.actedAt ?? m.createdAt ?? ""),
   };
 }
 

@@ -347,7 +347,39 @@ export interface InventoryItem {
   reorderLevel: number;
   unitCost: number;
   location: string;
+  /** The vendor this line is normally bought from. */
+  supplier: string;
   status: "In Stock" | "Low Stock" | "Out of Stock";
+}
+
+/**
+ * One physical movement of a store line, as the ledger records it.
+ *
+ * The ledger is what turns a stock number into an auditable story: where the
+ * unit came from, what was paid for it, which truck drew it out, and who
+ * recorded the change.
+ */
+export type InventoryMovementKind = "Purchase" | "Issue" | "Adjustment" | "Write-off";
+
+export interface InventoryMovement {
+  id: ID;
+  itemId: ID;
+  /** Copied onto the row, so history survives a rename or deletion. */
+  itemName: string;
+  sku: string;
+  kind: InventoryMovementKind;
+  /** Signed: positive in from a vendor, negative drawn against a truck. */
+  quantity: number;
+  /** Price per unit at the moment of the movement. */
+  unitCost: number | null;
+  /** The movement's total: quantity × unit cost. */
+  value: number | null;
+  vendor: string;
+  reference: string;
+  truckReg: string;
+  note: string;
+  actedBy: string;
+  actedAt: string;
 }
 
 export interface InventoryRequisition {
