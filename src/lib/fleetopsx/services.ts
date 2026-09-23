@@ -41,8 +41,30 @@ export const lubricantService = {
     fetchApi<import('./lubricant').LubricantOverview>('/lubricant/overview'),
   restocks: () =>
     fetchApi<import('./lubricant').LubricantRestock[]>('/lubricant/restocks').then((res) => asList(res as any) as any),
-  restock: (input: { fuelType: "Diesel" | "Gas"; quantity: number; loggedBy: string }) =>
+  /**
+   * A delivery into the tank. `unitCost` is what it actually cost per litre —
+   * the tank's value is measured from the last delivery that carried one, so a
+   * restock without a price leaves the tank valued at the TM's own rate.
+   */
+  restock: (input: { fuelType: "Diesel" | "Gas"; quantity: number; loggedBy: string; unitCost?: number }) =>
     fetchApi<{ reference: string; stock?: any }>('/lubricant/restocks', { method: 'POST', body: JSON.stringify(input) }),
+  /**
+   * The Transport Manager releasing litres to a dispatch.
+   *
+   * This is the authorization the pump enforces: the department cannot dispense
+   * more than he released, and a dispatch he has not released shows on his board
+   * as awaiting his decision.
+   */
+  authorize: (tripId: string, litres: number, by: string) =>
+    fetchApi<{ ok: boolean }>('/lubricant/approvals', {
+      method: 'POST',
+      body: JSON.stringify({ tripId, litres, by }),
+    }),
+  revokeApproval: (tripId: string) =>
+    fetchApi<{ ok: boolean }>('/lubricant/approvals', {
+      method: 'POST',
+      body: JSON.stringify({ tripId, revoke: true }),
+    }),
   requests: () =>
     fetchApi<import('./lubricant').LubricantRequestRow[]>('/lubricant/requests').then((res) => asList(res as any) as any),
   disbursals: () =>

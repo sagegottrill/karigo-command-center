@@ -217,6 +217,15 @@ export interface Trip {
     lubricantType: "Diesel" | "Gas";
     lubricantQuantity?: number;
     lubricantCost?: number;
+    /**
+     * The litres the Transport Manager released for this dispatch, written
+     * beside the figure Fleet Ops asked for. Absent means he has not authorized
+     * it yet — which is a different thing from authorizing zero litres, and the
+     * pump treats a missing authorization as a cap of nothing to enforce.
+     */
+    lubricantApprovedLitres?: number;
+    lubricantApprovedBy?: string;
+    lubricantApprovedAt?: string;
   };
   status: TripStatus;
   /** When the request was submitted (backend createdAt). */

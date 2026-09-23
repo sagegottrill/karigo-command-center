@@ -51,7 +51,21 @@ export interface LubricantRestock {
   fuelType: LubricantFuel;
   quantity: number;
   loggedBy: string;
+  /** What the delivery cost per litre, when the buyer recorded it. */
+  unitCost?: number | null;
   createdAt: string;
+}
+
+/**
+ * The Transport Manager's release of litres to one dispatch.
+ *
+ * Stored on the trip's own directCosts beside the request it answers, so an
+ * authorization can never drift from the litre figure it caps.
+ */
+export interface LubricantApproval {
+  litres: number;
+  by: string;
+  at: string;
 }
 
 export interface LubricantOverview {
@@ -89,6 +103,8 @@ export interface LubricantRequestRow extends LubricantTripRow {
   request: { fuelType: LubricantFuel; quantity: number };
   unitPrice: number;
   estimatedAmount: number;
+  /** Present once the Transport Manager has released litres for it. */
+  approval?: LubricantApproval | null;
 }
 
 export interface LubricantDisbursalRow extends LubricantTripRow {
@@ -103,6 +119,8 @@ export interface LubricantDisbursalRow extends LubricantTripRow {
   destination?: string | null;
   createdAt: string;
   trip?: LubricantTripRow | null;
+  /** The authority in force when it was pumped, if there was one. */
+  approval?: LubricantApproval | null;
 }
 
 export interface LubricantFeedItem {

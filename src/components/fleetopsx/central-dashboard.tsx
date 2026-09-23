@@ -6,9 +6,14 @@ import {
   CircleCheck,
   ClipboardList,
   Clock,
+  Droplet,
+  Fuel,
+  Gauge,
   History,
   MapPinned,
   Navigation,
+  Route as RouteIcon,
+  ShieldAlert,
   ShieldCheck,
   Users,
   Wrench,
@@ -21,6 +26,7 @@ import {
   fleetService,
   fuelService,
   inventoryService,
+  lubricantService,
 } from "@/lib/fleetopsx/services";
 import {
   formatClockTime,
@@ -46,7 +52,11 @@ import {
 } from "@/lib/fleetopsx/status-buckets";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { displayCapPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import {
+  formatDateLines,
+  formatDateTimeStamp,
+  formatTableDate,
+} from "@/lib/fleetopsx/display-dates";
 import {
   DOWNTIME_FLAG_DAYS,
   buildEngineeringOversight,
@@ -56,8 +66,24 @@ import {
   type EngPartRequest,
   type SecTrip,
 } from "@/lib/fleetopsx/dashboard-departments";
-import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/fleetopsx/tracking-ops";
-import { formatMoney } from "@/lib/fleetopsx/lubricant";
+import {
+  buildFuelOversight,
+  type FuelAsk,
+  type FuelLedgerRow,
+} from "@/lib/fleetopsx/dashboard-fuel";
+import {
+  getTrackingDelayStatus,
+  partnerOf,
+  TRACKING_DELAY_COLOR,
+} from "@/lib/fleetopsx/tracking-ops";
+import {
+  formatMoney,
+  formatQuantity,
+  type LubricantDisbursalRow,
+  type LubricantRequestRow,
+  type LubricantRestock,
+  type LubricantStock,
+} from "@/lib/fleetopsx/lubricant";
 import { licenseExpiry } from "@/lib/fleetopsx/license";
 import { cn } from "@/lib/utils";
 import type {
@@ -190,8 +216,13 @@ function truckRegText(trip: Trip) {
 }
 
 /** `1 Head` / `2 Heads` — the design pluralises its group headers and footers. */
-function countLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+/**
+ * "1 dispatch" / "9 dispatches". The default plural is a plain "s", which is
+ * wrong for the one word this board counts most, so those get named explicitly.
+ */
+function countLabel(count: number, singular: string, plural?: string) {
+  const word = plural ?? (singular === "dispatch" ? "dispatches" : `${singular}s`);
+  return `${count} ${count === 1 ? singular : word}`;
 }
 
 /* ------------------------------------------------------------- presentation */
@@ -224,7 +255,9 @@ function SectionHeader({
             </p>
           </div>
         </div>
-        {children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
+        {children ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -335,6 +368,28 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [partRequests, setPartRequests] = useState<InventoryRequisition[]>([]);
   const [storeItems, setStoreItems] = useState<InventoryItem[]>([]);
   const [fuelRecords, setFuelRecords] = useState<FuelRequisition[]>([]);
+  /**
+   * The diesel side: the tank, its deliveries, what was pumped, and the
+   * dispatches still waiting for the Transport Manager to release litres.
+   */
+  const [tanks, setTanks] = useState<LubricantStock[]>([]);
+  const [restocks, setRestocks] = useState<LubricantRestock[]>([]);
+  const [disbursals, setDisbursals] = useState<LubricantDisbursalRow[]>([]);
+  const [fuelAsks, setFuelAsks] = useState<LubricantRequestRow[]>([]);
+  const [fuelPrices, setFuelPrices] = useState<Record<string, number>>({});
+  /**
+   * Whether each half of the department's ledger has actually been read.
+   *
+   * The pump and the request book load in parallel with everything else, and a
+   * dropped read used to arrive here as an empty array — which the tiles then
+   * reported as a confident all-clear ("No dispatch is waiting on you", "Every
+   * litre was inside the release") against a book nobody had opened. A zero is
+   * only a fact once the read has landed, so each half keeps its own flag and
+   * every tile that would otherwise claim "nothing" waits for it.
+   */
+  const [asksRead, setAsksRead] = useState(false);
+  const [pumpRead, setPumpRead] = useState(false);
+  const [fuelRecordsRead, setFuelRecordsRead] = useState(false);
   const [clock, setClock] = useState<Date | null>(null);
   /**
    * A handle on the board's own reload, so an approval made from a drill can
@@ -353,9 +408,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [customTo, setCustomTo] = useState("");
 
   const [segment, setSegment] = useState<FleetSegment>("all");
-  const [audit, setAudit] = useState<"requests" | "fleet" | "engineering" | "security" | null>(
-    null,
-  );
+  const [audit, setAudit] = useState<
+    "requests" | "fleet" | "engineering" | "security" | "fuel" | null
+  >(null);
   const [fleetAuditTab, setFleetAuditTab] = useState<"head" | "tail">("head");
   /** Which ledger the gate audit opens on — the yard is the first question. */
   const [gateAuditTab, setGateAuditTab] = useState<"out" | "exit" | "tat">("out");
@@ -431,7 +486,41 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       void fuelService
         .list()
         .then((f) => {
-          if (!cancelled) setFuelRecords(f);
+          if (cancelled) return;
+          setFuelRecords(f);
+          setFuelRecordsRead(true);
+        })
+        .catch(() => {});
+      // The tank, its deliveries and the pump are the department's records — the
+      // TM audits them rather than keeping a second copy of the litres.
+      void lubricantService
+        .overview()
+        .then((o) => {
+          if (cancelled) return;
+          setTanks(o.stocks ?? []);
+          setFuelPrices(o.prices ?? {});
+        })
+        .catch(() => {});
+      void lubricantService
+        .restocks()
+        .then((rows) => {
+          if (!cancelled) setRestocks(rows ?? []);
+        })
+        .catch(() => {});
+      void lubricantService
+        .disbursals()
+        .then((rows) => {
+          if (cancelled) return;
+          setDisbursals(rows ?? []);
+          setPumpRead(true);
+        })
+        .catch(() => {});
+      void lubricantService
+        .requests()
+        .then((rows) => {
+          if (cancelled) return;
+          setFuelAsks(rows ?? []);
+          setAsksRead(true);
         })
         .catch(() => {});
       if (canListUsers) {
@@ -489,7 +578,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const checkUpByReg = useMemo(() => {
     const map = new Map<string, WorkOrder>();
     for (const wo of workOrders) {
-      const key = String(wo.truckReg ?? "").trim().toLowerCase();
+      const key = String(wo.truckReg ?? "")
+        .trim()
+        .toLowerCase();
       if (!key) continue;
       const current = map.get(key);
       const at = new Date(wo.reportedAt || 0).getTime();
@@ -504,7 +595,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
    * honest "no check-up on record" when Engineering has never touched it.
    */
   const checkUpText = (registration: string, passedWord?: string) => {
-    const wo = checkUpByReg.get(String(registration ?? "").trim().toLowerCase());
+    const wo = checkUpByReg.get(
+      String(registration ?? "")
+        .trim()
+        .toLowerCase(),
+    );
     if (!wo) return { text: "No check-up on record", passed: false };
     const passed = wo.status === "Completed";
     const date = formatDateLines(wo.reportedAt).date;
@@ -678,12 +773,40 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   );
 
   /**
+   * Diesel and lubricant, as the Transport Manager reconciles them: what is
+   * physically in the tank, what he has released that the yard has not pumped,
+   * how much went out today, and where the pump disagreed with his authority.
+   *
+   * Reads the department's own records — the stock row, the deliveries, the
+   * disbursals and the requests — so his figure and the tank gauge can never
+   * tell two different stories.
+   */
+  const fuel = useMemo(
+    () =>
+      clock
+        ? buildFuelOversight({
+            trips: live.trips ?? [],
+            stocks: tanks,
+            restocks,
+            disbursals,
+            requests: fuelAsks,
+            prices: fuelPrices,
+            fuelRecords,
+            range,
+            now: clock,
+          })
+        : null,
+    [live.trips, tanks, restocks, disbursals, fuelAsks, fuelPrices, fuelRecords, clock, range],
+  );
+
+  /**
    * The Gate House, as the Transport Manager audits it: what is physically in
    * the yard, what the gate was released but never logged out, which trucks are
    * past their expected return, and how long a trip really took gate to gate.
    */
   const sec = useMemo(
-    () => (clock ? buildSecurityOversight(live.trips ?? [], live.trucks ?? [], range, clock) : null),
+    () =>
+      clock ? buildSecurityOversight(live.trips ?? [], live.trucks ?? [], range, clock) : null,
     [live.trips, live.trucks, clock, range],
   );
 
@@ -878,7 +1001,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         .filter(Boolean)
         .join(" · ")}
       right={
-        <span className="shrink-0 text-[11px] font-semibold text-white">{formatMoney(job.cost)}</span>
+        <span className="shrink-0 text-[11px] font-semibold text-white">
+          {formatMoney(job.cost)}
+        </span>
       }
     />
   );
@@ -911,8 +1036,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     let note = "";
     if (!approve) {
       note = (
-        window.prompt(`Why is "${request.part}" for ${request.truck} rejected? Attached to the record.`) ??
-        ""
+        window.prompt(
+          `Why is "${request.part}" for ${request.truck} rejected? Attached to the record.`,
+        ) ?? ""
       ).trim();
       if (!note) return;
     }
@@ -978,6 +1104,127 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         ) : null}
       </div>
     </div>
+  );
+
+  /**
+   * The Transport Manager releasing litres to a dispatch.
+   *
+   * Fleet Ops' figure is what the trip needs; this is what the yard may pump,
+   * and the pump refuses to exceed it. He may release a different number — a
+   * shortfall is a decision, and releasing it here is what makes the department
+   * able to draw from a controlled tank at all.
+   */
+  const releaseFuel = async (ask: FuelAsk) => {
+    const answer = window.prompt(
+      `How many ${ask.unit.toLowerCase()} of ${ask.fuelType} for ${ask.truck} (${ask.reference})?\nFleet Ops asked for ${formatQuantity(ask.litres)}. The pump cannot exceed what you release.`,
+      String(ask.litres),
+    );
+    if (answer === null) return;
+    const litres = Number(answer.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(litres) || litres <= 0) {
+      toast.error("Enter a positive number of litres.");
+      return;
+    }
+    try {
+      await lubricantService.authorize(
+        ask.tripId,
+        litres,
+        authService.getCurrentUser()?.name || "Transport Manager",
+      );
+      toast.success(
+        `${formatQuantity(litres)} ${ask.unit.toLowerCase()} released to ${ask.truck}.`,
+      );
+      refreshRef.current();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The release was not saved.");
+    }
+  };
+
+  /** Withdraw a release the yard has not pumped yet. */
+  const withdrawFuel = async (ask: FuelAsk) => {
+    try {
+      await lubricantService.revokeApproval(ask.tripId);
+      toast.success(`Release withdrawn for ${ask.truck}.`);
+      refreshRef.current();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The release was not withdrawn.");
+    }
+  };
+
+  /** One dispatch waiting on diesel: what it asked for, and his release on it. */
+  const fuelAskRow = (ask: FuelAsk, awaitingRelease: boolean) => (
+    <div
+      key={`${ask.tripId}-${awaitingRelease}`}
+      className="border-b border-white/10 last:border-b-0"
+    >
+      <DrillRow
+        title={`${ask.reference} • ${ask.truck}`}
+        meta={[
+          `${formatQuantity(ask.litres)} ${ask.unit.toLowerCase()} of ${ask.fuelType}`,
+          formatMoney(ask.cost),
+          ask.route,
+          ask.driver,
+          ask.waitingHours === null ? null : `${formatDuration(ask.waitingHours)} waiting`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        right={
+          <StatusPill
+            label={awaitingRelease ? "Awaiting you" : "Released"}
+            tone={awaitingRelease ? "grey" : "amber"}
+          />
+        }
+      />
+      <div className="flex items-center gap-2 pb-2">
+        {awaitingRelease ? (
+          <button
+            type="button"
+            onClick={() => void releaseFuel(ask)}
+            className="h-7 rounded bg-[#34C759] px-2.5 text-[11px] font-semibold text-white hover:bg-[#2fae50]"
+          >
+            Release litres
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void withdrawFuel(ask)}
+            className="h-7 rounded border border-white/30 px-2.5 text-[11px] font-semibold text-white/80 hover:bg-white/10"
+          >
+            Withdraw
+          </button>
+        )}
+        {!awaitingRelease && ask.authorizedBy ? (
+          <span className="truncate text-[10px] text-white/50">released by {ask.authorizedBy}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  /** One pumped handover, as the dispensing ledger reads it. */
+  const fuelLedgerRow = (row: FuelLedgerRow) => (
+    <DrillRow
+      key={`${row.tripId}-${row.at}`}
+      title={`${row.reference} • ${row.truck}`}
+      meta={[
+        `${formatQuantity(row.litres)} ${row.unit.toLowerCase()} of ${row.fuelType}`,
+        formatMoney(row.value),
+        `pumped by ${row.attendant}`,
+        row.authorizedLitres !== null
+          ? `released ${formatQuantity(row.authorizedLitres)}`
+          : row.requestedLitres !== null
+            ? `asked ${formatQuantity(row.requestedLitres)}`
+            : "no request on the dispatch",
+        row.overLitres > 0 ? `${formatQuantity(row.overLitres)} over` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      right={
+        <StatusPill
+          label={row.overLitres > 0 ? "Over" : row.unauthorized ? "Unauthorized" : "Matched"}
+          tone={row.tone}
+        />
+      }
+    />
   );
 
   /** One truck the workshop is holding, as the TM reads it. */
@@ -1088,7 +1335,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           `<tr><td>${job.truck}</td><td>${job.defect}</td><td>${job.status}</td><td>${job.mechanic}</td><td>${
             job.estimatedReadyAt || "—"
           }</td><td>${
-            job.rtsDays === null ? "—" : job.rtsDays < 0 ? `late by ${Math.abs(job.rtsDays)}d` : `${job.rtsDays}d left`
+            job.rtsDays === null
+              ? "—"
+              : job.rtsDays < 0
+                ? `late by ${Math.abs(job.rtsDays)}d`
+                : `${job.rtsDays}d left`
           }</td></tr>`,
       )
       .join("");
@@ -1138,9 +1389,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
            ? `${formatMoney(eng.cpk.unmeasuredSpend)} of spend unmeasured`
            : "all spend measured"
        })</p>
-       <p><strong>Store:</strong> ${eng.inventory.items} line(s) worth ${
-         formatMoney(eng.inventory.value)
-       } · ${eng.inventory.outOfStock} out of stock · ${eng.inventory.low} low</p>
+       <p><strong>Store:</strong> ${eng.inventory.items} line(s) worth ${formatMoney(
+         eng.inventory.value,
+       )} · ${eng.inventory.outOfStock} out of stock · ${eng.inventory.low} low</p>
        <h2>Parts awaiting your approval (${eng.requisitions.pending.count})</h2>
        <table><thead><tr><th>Truck</th><th>Defect</th><th>Part</th><th>Qty</th><th>Unit</th><th>Value</th><th>Store</th><th>Mechanic</th></tr></thead><tbody>${
          requestRows || `<tr><td colspan="8">Nothing awaiting a decision.</td></tr>`
@@ -1164,6 +1415,94 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
        <h2>Repair spend per asset</h2>
        <table><thead><tr><th>Truck</th><th>Jobs</th><th>Spend</th></tr></thead><tbody>${
          assetRows || `<tr><td colspan="3">No job on record.</td></tr>`
+       }</tbody></table>`,
+    );
+  };
+
+  /**
+   * The diesel sheet: the tank, his releases, and every litre that left the pump
+   * with the attendant's own name against it.
+   */
+  const printFuelAudit = () => {
+    if (!fuel) return;
+    const ledgerRows = fuel.ledger.list
+      .map(
+        (row) =>
+          `<tr><td>${row.reference}</td><td>${row.truck}</td><td>${row.driver}</td><td>${
+            row.route
+          }</td><td>${formatQuantity(row.litres)} ${row.unit.toLowerCase()}</td><td>${formatMoney(
+            row.value,
+          )}</td><td>${
+            row.authorizedLitres !== null ? formatQuantity(row.authorizedLitres) : "not released"
+          }</td><td>${
+            row.overLitres > 0
+              ? `${formatQuantity(row.overLitres)} over`
+              : row.unauthorized
+                ? "unauthorized"
+                : "within release"
+          }</td><td>${row.attendant}</td><td>${formatDateTimeStamp(row.at)}</td></tr>`,
+      )
+      .join("");
+    const askRows = fuel.approvals.list
+      .map(
+        (ask) =>
+          `<tr><td>${ask.reference}</td><td>${ask.truck}</td><td>${ask.driver}</td><td>${
+            ask.route
+          }</td><td>${formatQuantity(ask.litres)} ${ask.unit.toLowerCase()} of ${
+            ask.fuelType
+          }</td><td>${formatMoney(ask.cost)}</td><td>${ask.status}</td><td>${
+            ask.waitingHours === null ? "—" : formatDuration(ask.waitingHours)
+          }</td></tr>`,
+      )
+      .join("");
+    const routeRows = fuel.routes.list
+      .map(
+        (row) =>
+          `<tr><td>${row.route}</td><td>${row.trips}</td><td>${formatQuantity(
+            row.avgAsked,
+          )} L</td><td>${formatQuantity(row.maxAsked)} L</td><td>${
+            row.avgPumped === null ? "—" : `${formatQuantity(row.avgPumped)} L`
+          }</td></tr>`,
+      )
+      .join("");
+    printSheet(
+      "Diesel & Lubricant: Fuel Oversight",
+      `The tank, the releases and every litre pumped · ${range.label}`,
+      `<p><strong>Tank balance:</strong> Diesel ${
+        dieselTank ? `${formatQuantity(dieselTank.quantity)} ${unitWord(dieselTank.unit)}` : "—"
+      } · Gas ${gasTank ? `${formatQuantity(gasTank.quantity)} ${unitWord(gasTank.unit)}` : "—"} ·
+        worth ${formatMoney(fuel.tanks.value)}${tankBasisWord ? ` at ${tankBasisWord}` : ""}</p>
+       <p><strong>Below safety level:</strong> ${fuel.tanks.low} tank(s)</p>
+       <p><strong>Awaiting your release:</strong> ${fuel.approvals.count} dispatch(es) · ${formatQuantity(
+         fuel.approvals.litres,
+       )} L · ${formatMoney(fuel.approvals.value)}</p>
+       <p><strong>Released, not yet pumped:</strong> ${fuel.pickups.count} · ${formatQuantity(
+         fuel.pickups.litres,
+       )} L</p>
+       <p><strong>Pumped today:</strong> ${formatQuantity(fuel.spend.todayLitres)} L worth ${formatMoney(
+         fuel.spend.todayValue,
+       )} across ${fuel.spend.todayTrucks} truck(s)</p>
+       <p><strong>Over-pump flags:</strong> ${fuel.variance.count} · ${formatQuantity(
+         fuel.variance.overLitres,
+       )} L over · ${formatMoney(fuel.variance.overValue)} · ${
+         fuel.variance.unauthorized
+       } pumped with no release</p>
+       <p><strong>Fuel efficiency:</strong> ${
+         worstEfficiency
+           ? `worst ${worstEfficiency.kmPerLitre} km/L (${worstEfficiency.truck})`
+           : "not measurable — no odometer reading on any fuel record"
+       }</p>
+       <h2>Dispensing ledger (${fuel.ledger.count})</h2>
+       <table><thead><tr><th>Dispatch</th><th>Truck</th><th>Driver</th><th>Route</th><th>Litres</th><th>Value</th><th>Released</th><th>Variance</th><th>Attendant</th><th>Pumped</th></tr></thead><tbody>${
+         ledgerRows || `<tr><td colspan="10">Nothing has been pumped from the tank.</td></tr>`
+       }</tbody></table>
+       <h2>Awaiting your release (${fuel.approvals.count})</h2>
+       <table><thead><tr><th>Dispatch</th><th>Truck</th><th>Driver</th><th>Route</th><th>Requested</th><th>Value</th><th>Status</th><th>Waiting</th></tr></thead><tbody>${
+         askRows || `<tr><td colspan="8">Nothing is waiting on your decision.</td></tr>`
+       }</tbody></table>
+       <h2>Diesel per destination</h2>
+       <table><thead><tr><th>Destination</th><th>Dispatches</th><th>Average asked</th><th>Largest ask</th><th>Average pumped</th></tr></thead><tbody>${
+         routeRows || `<tr><td colspan="5">No dispatch has requested diesel.</td></tr>`
        }</tbody></table>`,
     );
   };
@@ -1195,9 +1534,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const tatRows = sec.tat.list
       .map(
         (t) =>
-          `<tr><td>${t.label}</td><td>${t.truck}</td><td>${t.partner}</td><td>${
-            gateStamp(t.departedAt, "—")
-          }</td><td>${gateStamp(t.returnedAt, "—")}</td><td>${
+          `<tr><td>${t.label}</td><td>${t.truck}</td><td>${t.partner}</td><td>${gateStamp(
+            t.departedAt,
+            "—",
+          )}</td><td>${gateStamp(t.returnedAt, "—")}</td><td>${
             t.hoursOut === null ? "—" : formatDuration(t.hoursOut)
           }</td></tr>`,
       )
@@ -1241,6 +1581,33 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const text = formatDateTimeStamp(value);
     return text === "—" ? fallback : text;
   };
+
+  /**
+   * A tank's unit as the yard says it — litres for diesel, kilograms for gas.
+   * Two tanks of different commodities must never be summed into one figure.
+   */
+  const unitWord = (unit: string | null | undefined) => {
+    const text = String(unit ?? "").toUpperCase();
+    if (text.startsWith("L")) return "L";
+    if (text.startsWith("K")) return "kg";
+    return text ? text.toLowerCase() : "units";
+  };
+
+  const dieselTank = fuel?.tanks.lines.find((line) => line.fuelType === "Diesel");
+  const gasTank = fuel?.tanks.lines.find((line) => line.fuelType === "Gas");
+  /**
+   * What the tank's money is measured from — named on the board, because
+   * "what we paid" and "what we charge" are different numbers and the difference
+   * is the whole reason a supervisor looks.
+   */
+  const tankBasisWord =
+    fuel?.tanks.basis === "inbound"
+      ? "last inbound purchase price"
+      : fuel?.tanks.basis === "price"
+        ? "the TM's price per litre"
+        : null;
+  const worstEfficiency = fuel?.efficiency.worst ?? null;
+  const busiestRoute = fuel?.routes.list[0] ?? null;
 
   const downtimeTone: TileTone = (eng?.downtime.flagged ?? 0) > 0 ? "red" : "green";
   const topAsset = eng?.costPerAsset[0];
@@ -1445,11 +1812,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 <div className="w-full">
                   <div className="flex items-center justify-between py-0.5 text-white/70">
                     <span>On the road now</span>
-                    <span className="font-semibold text-white">{stats.requests.dispatched} dispatches</span>
+                    <span className="font-semibold text-white">
+                      {stats.requests.dispatched} dispatches
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span>Committed Direct Cost</span>
-                    <span className="font-semibold text-white">{formatMoney(stats.spend.cost)}</span>
+                    <span className="font-semibold text-white">
+                      {formatMoney(stats.spend.cost)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span>Committed Diesel</span>
@@ -1477,8 +1848,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               ) : (
                 <>
                   <p className="pb-2 text-[10px] leading-4 text-white/50">
-                    Live fleet — every request, whenever it was raised. A truck on the road today
-                    is a live fact, not one that belongs to the selected window.
+                    Live fleet — every request, whenever it was raised. A truck on the road today is
+                    a live fact, not one that belongs to the selected window.
                   </p>
                   {stats.requests.lists.live.map(dispatchedRow)}
                 </>
@@ -1522,8 +1893,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <ToneTabs
             tabs={FLEET_SEGMENTS.map((s) => ({
               id: s.id as string,
-              label:
-                segmentCounts[s.id] === "—" ? s.label : `${s.label} (${segmentCounts[s.id]})`,
+              label: segmentCounts[s.id] === "—" ? s.label : `${s.label} (${segmentCounts[s.id]})`,
             }))}
             active={segment as string}
             onChange={(id) => setSegment(id as FleetSegment)}
@@ -1536,7 +1906,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             const assets = fleetCardAssets(card.id);
             const tailValue: number | string = tailsKnown ? card.tail : "—";
             const totalValue: number | string = tailsKnown ? card.head + card.tail : card.head;
-            const value = segment === "all" ? totalValue : segment === "tail" ? tailValue : card.head;
+            const value =
+              segment === "all" ? totalValue : segment === "tail" ? tailValue : card.head;
             const passedWord = card.id === "available" ? "Passed engineering inspection" : "";
             return (
               <div key={card.id} className="relative">
@@ -1581,8 +1952,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     <div className="flex flex-col gap-2">
                       {assets.heads.length > 0 ? (
                         <p className="text-[10px] font-semibold uppercase tracking-[0.5px] text-white/70">
-                          {countLabel(assets.heads.length, "Truck Head")} (
-                          {assets.heads.length})
+                          {countLabel(assets.heads.length, "Truck Head")} ({assets.heads.length})
                         </p>
                       ) : null}
                       {assets.heads.map((head) => {
@@ -1611,8 +1981,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
                       {assets.tails.length > 0 ? (
                         <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.5px] text-white/70">
-                          {countLabel(assets.tails.length, "Truck Tail")} (
-                          {assets.tails.length})
+                          {countLabel(assets.tails.length, "Truck Tail")} ({assets.tails.length})
                         </p>
                       ) : null}
                       {assets.tails.map((tail) => {
@@ -1715,7 +2084,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <div className={cn("rounded-[10px] bg-white p-4 md:p-5", CARD_SHADOW)}>
           <div className="flex flex-col gap-3 border-b border-[#E2E5E9] pb-3.5 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-[18px] font-semibold leading-6 text-[#1B2432]">Active Dispatch</h3>
+              <h3 className="text-[18px] font-semibold leading-6 text-[#1B2432]">
+                Active Dispatch
+              </h3>
               <span className="grid h-6 min-w-6 place-items-center rounded-[4px] bg-[#ED351D] px-1.5 text-[12px] font-bold leading-none text-white tabular-nums">
                 {mapTrips.length}
               </span>
@@ -1832,8 +2203,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               }
             >
               <p className="pb-2 text-[10px] leading-4 text-white/50">
-                Jobs raised or closed inside the selected window — what the workshop committed in that
-                window, whether or not the money has been spent yet.
+                Jobs raised or closed inside the selected window — what the workshop committed in
+                that window, whether or not the money has been spent yet.
               </p>
               {!eng || eng.spend.list.length === 0 ? (
                 <p className="py-3 text-[12px] text-white/60">
@@ -1872,15 +2243,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               width={380}
               footer={
                 <span>
-                  {countLabel(eng?.partsQueue.count ?? 0, "job")} · open work is worth {" "}
+                  {countLabel(eng?.partsQueue.count ?? 0, "job")} · open work is worth{" "}
                   {money(eng?.open.value)}
                 </span>
               }
             >
               {eng && eng.unpricedInQueue > 0 ? (
                 <p className="pb-2 text-[10px] leading-4 text-white/50">
-                  {countLabel(eng.unpricedInQueue, "job")} in this queue carries no cost yet, so this
-                  figure is a floor, not a total.
+                  {countLabel(eng.unpricedInQueue, "job")} in this queue carries no cost yet, so
+                  this figure is a floor, not a total.
                 </p>
               ) : null}
               {!eng || eng.partsQueue.list.length === 0 ? (
@@ -1921,8 +2292,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               }
             >
               {!eng ||
-              eng.shop.maintenanceList.length + eng.shop.checkUpList.length + eng.shop.accidentList.length === 0 ? (
-                <p className="py-3 text-[12px] text-white/60">No truck is sitting in the workshop.</p>
+              eng.shop.maintenanceList.length +
+                eng.shop.checkUpList.length +
+                eng.shop.accidentList.length ===
+                0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No truck is sitting in the workshop.
+                </p>
               ) : (
                 <>
                   {eng.shop.maintenanceList.map(shopTruckRow)}
@@ -1968,7 +2344,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 the yard.
               </p>
               {!eng || eng.downtime.list.length === 0 ? (
-                <p className="py-3 text-[12px] text-white/60">No open job — nothing is in the shop.</p>
+                <p className="py-3 text-[12px] text-white/60">
+                  No open job — nothing is in the shop.
+                </p>
               ) : (
                 eng.downtime.list.map(engJobRow)
               )}
@@ -1979,7 +2357,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <div className="relative">
             <LiveMetricTile
               label="Avg Repair Turnaround"
-              value={eng?.turnaround.avgDays === null || eng?.turnaround.avgDays === undefined ? "—" : `${eng.turnaround.avgDays}d`}
+              value={
+                eng?.turnaround.avgDays === null || eng?.turnaround.avgDays === undefined
+                  ? "—"
+                  : `${eng.turnaround.avgDays}d`
+              }
               hint={countLabel(eng?.turnaround.completed ?? 0, "job") + " closed"}
               tone="blue"
               icon={Clock}
@@ -2097,7 +2479,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <div className="relative">
             <LiveMetricTile
               label="Mechanic Efficiency"
-              value={topMechanic?.avgDays === null || topMechanic?.avgDays === undefined ? "—" : `${topMechanic.avgDays}d`}
+              value={
+                topMechanic?.avgDays === null || topMechanic?.avgDays === undefined
+                  ? "—"
+                  : `${topMechanic.avgDays}d`
+              }
               hint={topMechanic?.mechanic ?? "No finished job yet"}
               tone="teal"
               icon={Users}
@@ -2175,7 +2561,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               width={420}
               footer={
                 <span>
-                  {money(eng?.requisitions.pending.value)} in requests · {" "}
+                  {money(eng?.requisitions.pending.value)} in requests ·{" "}
                   {countLabel(eng?.requisitions.decided ?? 0, "request")} decided in {range.label}
                 </span>
               }
@@ -2186,8 +2572,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               </p>
               {eng && eng.requisitions.pending.unpriced > 0 ? (
                 <p className="pb-2 text-[10px] leading-4 text-white/50">
-                  {countLabel(eng.requisitions.pending.unpriced, "request")} carries no price, so the
-                  value above is a floor, not a total.
+                  {countLabel(eng.requisitions.pending.unpriced, "request")} carries no price, so
+                  the value above is a floor, not a total.
                 </p>
               ) : null}
               {!eng || eng.requisitions.pending.list.length === 0 ? (
@@ -2215,9 +2601,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               icon={CircleAlert}
               hasDrill
               onClick={() => drill.toggle("eng-store")}
-              detail={
-                <TileNote tone="grey">Store value {money(eng?.inventory.value)}</TileNote>
-              }
+              detail={<TileNote tone="grey">Store value {money(eng?.inventory.value)}</TileNote>}
             />
             <DrillPopover
               open={drill.isOpen("eng-store")}
@@ -2226,8 +2610,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               width={400}
               footer={
                 <span>
-                  {countLabel(eng?.inventory.items ?? 0, "part")} on file · {money(eng?.inventory.value)}{" "}
-                  on the shelf
+                  {countLabel(eng?.inventory.items ?? 0, "part")} on file ·{" "}
+                  {money(eng?.inventory.value)} on the shelf
                 </span>
               }
             >
@@ -2258,9 +2642,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     right={
                       <span className="shrink-0 text-right text-[11px] font-semibold">
                         <span
-                          className={cn(
-                            alert.stock <= 0 ? "text-[#FF6B57]" : "text-[#FFC46B]",
-                          )}
+                          className={cn(alert.stock <= 0 ? "text-[#FF6B57]" : "text-[#FFC46B]")}
                         >
                           {alert.status}
                         </span>
@@ -2282,9 +2664,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <LiveMetricTile
               label="Cost Per KM"
               value={
-                eng?.cpk.value === null || eng?.cpk.value === undefined
-                  ? "—"
-                  : money(eng.cpk.value)
+                eng?.cpk.value === null || eng?.cpk.value === undefined ? "—" : money(eng.cpk.value)
               }
               hint={
                 eng && eng.cpk.trucks > 0
@@ -2403,9 +2783,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     right={
                       <span className="shrink-0 text-right text-[11px] font-semibold">
                         <span
-                          className={cn(
-                            (job.rtsDays ?? 0) < 0 ? "text-[#FF6B57]" : "text-white",
-                          )}
+                          className={cn((job.rtsDays ?? 0) < 0 ? "text-[#FF6B57]" : "text-white")}
                         >
                           {formatTableDate(job.estimatedReadyAt)}
                         </span>
@@ -2481,7 +2859,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               label="Pending Exits"
               value={sec?.pendingExits.count ?? "—"}
               hint={
-                sec?.pendingExits.longestHours === null || sec?.pendingExits.longestHours === undefined
+                sec?.pendingExits.longestHours === null ||
+                sec?.pendingExits.longestHours === undefined
                   ? "The gate is clear"
                   : `Longest wait ${formatDuration(sec.pendingExits.longestHours)}`
               }
@@ -2523,7 +2902,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               onClose={drill.close}
               title={`Trucks Out of the Yard (${sec?.awaitingReturn.count ?? 0})`}
               width={400}
-              footer={<span>Expected return = gate departure + the turnaround set at approval</span>}
+              footer={
+                <span>Expected return = gate departure + the turnaround set at approval</span>
+              }
             >
               <p className="pb-2 text-[10px] leading-4 text-white/50">
                 Without a turnaround on the ticket there is no expectation to miss — that is why the
@@ -2634,7 +3015,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               detail={
                 <TileDetailRows
                   rows={[
-                    { label: "Logged out:", value: sec?.movements.departures ?? "—", tone: "purple" },
+                    {
+                      label: "Logged out:",
+                      value: sec?.movements.departures ?? "—",
+                      tone: "purple",
+                    },
                     { label: "Logged in:", value: sec?.movements.returns ?? "—", tone: "green" },
                   ]}
                 />
@@ -2648,7 +3033,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               footer={
                 <span>
                   {sec?.movements.departures ?? 0} out · {sec?.movements.returns ?? 0} in ·{" "}
-                  {longestTrip ? `longest ${formatDuration(longestTrip.hoursOut)}` : "no measured trip"}
+                  {longestTrip
+                    ? `longest ${formatDuration(longestTrip.hoursOut)}`
+                    : "no measured trip"}
                 </span>
               }
             >
@@ -2724,7 +3111,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                             ["Bonus", c?.bonus ?? 0],
                           ] as const
                         )
-                          .map(([label, value]) => `${label}: ${Number(value ?? 0).toLocaleString("en-NG")}`)
+                          .map(
+                            ([label, value]) =>
+                              `${label}: ${Number(value ?? 0).toLocaleString("en-NG")}`,
+                          )
                           .join("  •  ")}
                       </p>
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2738,7 +3128,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                         </span>
                         <span className="text-[11px] font-semibold text-[#5C6470]">
                           Total:{" "}
-                          <span className="text-[12px] font-bold" style={{ color: TONE.green.text }}>
+                          <span
+                            className="text-[12px] font-bold"
+                            style={{ color: TONE.green.text }}
+                          >
                             {formatMoney(total)}
                           </span>
                         </span>
@@ -2797,7 +3190,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               );
             })}
             {stats.fleet.allHeads.length === 0 ? (
-              <p className="py-8 text-center text-[13px] text-[#8E95A1]">No truck head on record.</p>
+              <p className="py-8 text-center text-[13px] text-[#8E95A1]">
+                No truck head on record.
+              </p>
             ) : null}
           </div>
         ) : (
@@ -2822,7 +3217,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                       <span className="text-[10px] font-semibold uppercase tracking-[0.5px] text-[#8E95A1]">
                         Tail Type
                       </span>
-                      <span className="text-[13px] font-medium text-[#1B2432]">{tail.type || "—"}</span>
+                      <span className="text-[13px] font-medium text-[#1B2432]">
+                        {tail.type || "—"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.5px] text-[#8E95A1]">
@@ -2840,7 +3237,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               );
             })}
             {stats.fleet.allTails.length === 0 ? (
-              <p className="py-8 text-center text-[13px] text-[#8E95A1]">No truck tail on record.</p>
+              <p className="py-8 text-center text-[13px] text-[#8E95A1]">
+                No truck tail on record.
+              </p>
             ) : null}
           </div>
         )}
@@ -2882,7 +3281,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               />
               <AuditFactGrid
                 facts={[
-                  { label: "Longest Downtime", value: formatDuration(eng.downtime.longestDays * 24) },
+                  {
+                    label: "Longest Downtime",
+                    value: formatDuration(eng.downtime.longestDays * 24),
+                  },
                   { label: "Past 5 Days", value: String(eng.downtime.flagged) },
                   { label: "Open Jobs", value: String(eng.open.count) },
                 ]}
@@ -3028,7 +3430,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
             {eng.turnaround.byMechanic.length > 0 ? (
               <div>
-                <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">Mechanic Efficiency</h3>
+                <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">
+                  Mechanic Efficiency
+                </h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {eng.turnaround.byMechanic.map((row) => (
                     <div
@@ -3047,6 +3451,636 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 </div>
               </div>
             ) : null}
+          </div>
+        )}
+      </AuditDialog>
+
+      {/* ------------------------------------- Diesel & lubricant oversight --- */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          icon={Fuel}
+          title="Diesel & Lubricant (Fuel Oversight)"
+          subtitle="What is in the tank and what it is worth, the litres waiting on your release, what the yard actually pumped today, and every litre that went over what you authorized · the department draws from the tank, the Transport Manager authorizes it"
+        >
+          <PeriodNote>{range.note}</PeriodNote>
+          <AuditButton onClick={() => setAudit("fuel")} />
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* 1 — the physical tank, and what it is worth. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Tank Balance"
+              value={dieselTank ? `${formatQuantity(dieselTank.quantity)} L` : "—"}
+              hint={
+                dieselTank
+                  ? `Diesel · safety level ${formatQuantity(dieselTank.minLevel)} L`
+                  : "No diesel stock row on file"
+              }
+              hintTone={dieselTank?.low ? "red" : "grey"}
+              tone={fuel?.tanks.basis === "unpriced" ? "grey" : "green"}
+              icon={Droplet}
+              hasDrill
+              onClick={() => drill.toggle("fuel-tank")}
+              valueClass="text-[24px]"
+              split={{
+                aLabel: "Diesel",
+                aValue: dieselTank ? formatQuantity(dieselTank.quantity) : "—",
+                bLabel: "Gas",
+                bValue: gasTank ? formatQuantity(gasTank.quantity) : "—",
+              }}
+              detail={
+                <TileNote tone={fuel?.tanks.basis === "unpriced" ? "grey" : "green"}>
+                  {tankBasisWord
+                    ? `Worth ${money(fuel?.tanks.value)} at ${tankBasisWord}`
+                    : "Not valued — no price on file"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-tank")}
+              onClose={drill.close}
+              title={`Tank Balance (${money(fuel?.tanks.value)})`}
+              width={400}
+              footer={
+                <span>
+                  {fuel?.tanks.low ?? 0} of {fuel?.tanks.lines.length ?? 0} tanks below the safety
+                  level
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                The same balance the lubricant department dispenses against — one tank, one figure.
+                Value is measured{" "}
+                {fuel?.tanks.basis === "inbound"
+                  ? `from the last delivery that recorded a purchase price (${
+                      fuel?.tanks.lastInboundAt
+                        ? formatTableDate(fuel?.tanks.lastInboundAt)
+                        : "date not recorded"
+                    }).`
+                  : fuel?.tanks.basis === "price"
+                    ? "at the price per litre you set — no delivery has recorded what it cost yet."
+                    : "nowhere yet: no price per litre is set and no delivery recorded a purchase price."}
+              </p>
+              {!fuel || fuel.tanks.lines.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No tank row has been created yet.</p>
+              ) : (
+                fuel.tanks.lines.map((line) => (
+                  <DrillRow
+                    key={line.fuelType}
+                    title={`${line.fuelType} tank`}
+                    meta={`${formatQuantity(line.quantity)} ${line.unit.toLowerCase()} on hand · safety level ${formatQuantity(
+                      line.minLevel,
+                    )}${line.low ? ` · ${formatQuantity(line.shortfall)} below it` : ""}`}
+                    right={
+                      <StatusPill
+                        label={line.low ? "Low" : "Healthy"}
+                        tone={line.low ? "red" : "green"}
+                      />
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 2 — the reorder the tank is asking for. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Below Safety Level"
+              value={fuel?.tanks.low ?? "—"}
+              hint={
+                (fuel?.tanks.low ?? 0) > 0
+                  ? (fuel?.tanks.lines ?? [])
+                      .filter((line) => line.low)
+                      .map(
+                        (line) =>
+                          `${line.fuelType} ${formatQuantity(line.shortfall)} ${unitWord(
+                            line.unit,
+                          )} short`,
+                      )
+                      .join(" · ")
+                  : "Every tank is above its safety level"
+              }
+              tone={(fuel?.tanks.low ?? 0) > 0 ? "red" : "green"}
+              icon={ShieldAlert}
+              hasDrill
+              onClick={() => drill.toggle("fuel-low")}
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-low")}
+              onClose={drill.close}
+              title="Reorder Warnings"
+              width={380}
+              footer={<span>A bulk purchase is a procurement decision, not a tank figure</span>}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Triggered the moment a tank drops under the level the department set, so a reorder
+                starts before the yard is forced to halt.
+              </p>
+              {!fuel || fuel.tanks.low === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No tank is below its safety level.</p>
+              ) : (
+                fuel.tanks.lines
+                  .filter((line) => line.low)
+                  .map((line) => (
+                    <DrillRow
+                      key={`low-${line.fuelType}`}
+                      title={line.fuelType}
+                      meta={`${formatQuantity(line.quantity)} ${line.unit.toLowerCase()} left · minimum ${formatQuantity(
+                        line.minLevel,
+                      )}`}
+                      right={
+                        <span className="shrink-0 text-[11px] font-semibold text-[#FF6B57]">
+                          short {formatQuantity(line.shortfall)}
+                        </span>
+                      }
+                    />
+                  ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 3 — his own desk: the allocations waiting on his click. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Awaiting Your Approval"
+              value={asksRead ? (fuel?.approvals.count ?? 0) : "—"}
+              hint={
+                !asksRead
+                  ? "Reading the request book…"
+                  : (fuel?.approvals.count ?? 0) > 0
+                    ? `${formatQuantity(fuel?.approvals.litres)} L · ${money(fuel?.approvals.value)} requested`
+                    : "No dispatch is waiting on you"
+              }
+              hintTone={asksRead && (fuel?.approvals.count ?? 0) > 0 ? "amber" : "grey"}
+              tone="amber"
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("fuel-approvals")}
+              valueClass="text-[24px]"
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-approvals")}
+              onClose={drill.close}
+              title={`Diesel Awaiting Your Release (${fuel?.approvals.count ?? 0})`}
+              width={460}
+              footer={
+                <span>
+                  {formatQuantity(fuel?.approvals.litres)} L · {money(fuel?.approvals.value)} —
+                  fleet Ops' figure, priced at your rate
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Fleet Ops has worked out what each dispatch needs. Nothing can be pumped against the
+                tank until you release the litres, and the pump refuses to exceed what you release.
+              </p>
+              {!fuel || fuel.approvals.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Every dispatch that asked for diesel has been released.
+                </p>
+              ) : (
+                fuel.approvals.list.map((ask) => fuelAskRow(ask, true))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 4 — released by him, never collected by the driver. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Awaiting Pump Pickup"
+              value={pumpRead ? (fuel?.pickups.count ?? 0) : "—"}
+              hint={
+                !pumpRead
+                  ? "Reading the pump ledger…"
+                  : fuel?.pickups.longestHours != null && fuel.pickups.longestHours > 0
+                    ? `longest waiting ${formatDuration(fuel.pickups.longestHours)}`
+                    : "Released and collected"
+              }
+              hintTone={pumpRead && (fuel?.pickups.longestHours ?? 0) > 8 ? "amber" : "grey"}
+              tone={pumpRead && (fuel?.pickups.count ?? 0) > 0 ? "amber" : "green"}
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("fuel-pickups")}
+              detail={
+                <TileNote tone="grey">
+                  {pumpRead
+                    ? `${formatQuantity(fuel?.pickups.litres)} L released, not pumped`
+                    : "Waiting for the pump ledger"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-pickups")}
+              onClose={drill.close}
+              title={`Released, Not Yet Pumped (${fuel?.pickups.count ?? 0})`}
+              width={460}
+              footer={<span>Waiting is measured from the moment you released the litres</span>}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Trucks you have already authorized whose drivers have not been to the pump. These
+                are the departures being delayed by the yard, not by the road.
+              </p>
+              {!fuel || fuel.pickups.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing is waiting at the pump — every released dispatch has been collected.
+                </p>
+              ) : (
+                fuel.pickups.list.map((ask) => fuelAskRow(ask, false))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 5 — what actually went out today. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Disbursed Today"
+              value={pumpRead && fuel ? `${formatQuantity(fuel.spend.todayLitres)} L` : "—"}
+              hint={
+                pumpRead
+                  ? `${money(fuel?.spend.todayValue)} · ${countLabel(fuel?.spend.todayTrucks ?? 0, "truck")}`
+                  : "Reading the pump ledger…"
+              }
+              tone="green"
+              icon={Fuel}
+              hasDrill
+              onClick={() => drill.toggle("fuel-today")}
+              valueClass="text-[24px]"
+              detail={<TileNote tone="grey">Today only — reset at midnight</TileNote>}
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-today")}
+              onClose={drill.close}
+              title="Pumped Today"
+              width={420}
+              footer={
+                <span>
+                  {formatQuantity(fuel?.spend.todayLitres)} L worth {money(fuel?.spend.todayValue)}{" "}
+                  out of the tank today
+                </span>
+              }
+            >
+              {!fuel || fuel.spend.todayTrucks === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing has been pumped out of the tank today.
+                </p>
+              ) : (
+                fuel.ledger.list
+                  .filter((row) => new Date(row.at) >= new Date(new Date().setHours(0, 0, 0, 0)))
+                  .map(fuelLedgerRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 6 — the control that makes the rest of it worth reading. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Over-Pump Flags"
+              value={pumpRead ? (fuel?.variance.count ?? 0) : "—"}
+              hint={
+                !pumpRead
+                  ? "Reading the pump ledger…"
+                  : (fuel?.variance.count ?? 0) > 0
+                    ? `${formatQuantity(fuel?.variance.overLitres)} L over · ${money(fuel?.variance.overValue)}`
+                    : "Every litre was inside the release"
+              }
+              tone={pumpRead && (fuel?.variance.count ?? 0) > 0 ? "red" : "green"}
+              icon={CircleAlert}
+              hasDrill
+              onClick={() => drill.toggle("fuel-variance")}
+              detail={
+                <TileNote
+                  tone={pumpRead && (fuel?.variance.unauthorized ?? 0) > 0 ? "amber" : "grey"}
+                >
+                  {pumpRead
+                    ? `${countLabel(fuel?.variance.unauthorized ?? 0, "dispatch")} pumped with no release`
+                    : "Waiting for the pump ledger"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-variance")}
+              onClose={drill.close}
+              title="Variance &amp; Theft Flags"
+              width={460}
+              footer={<span>Measured against the litres you released for each dispatch</span>}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                A disbursal over what was released for that trip, or pumped with no release at all.
+                The pump now refuses to exceed a release, so a flag here is either a release with no
+                cap or a handover recorded before the control was switched on.
+              </p>
+              {!fuel || fuel.variance.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing has been pumped outside its release.
+                </p>
+              ) : (
+                fuel.variance.list.map(fuelLedgerRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 7 — kilometres per litre, or an honest refusal to guess. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Fuel Efficiency"
+              value={
+                fuelRecordsRead && worstEfficiency ? `${worstEfficiency.kmPerLitre} km/L` : "—"
+              }
+              hint={
+                !fuelRecordsRead
+                  ? "Reading the fuel records…"
+                  : worstEfficiency
+                    ? `${worstEfficiency.truck} · ${worstEfficiency.km.toLocaleString()} km on ${formatQuantity(
+                        worstEfficiency.litres,
+                      )} L`
+                    : "No odometer reading on any fuel record"
+              }
+              tone={worstEfficiency ? "purple" : "grey"}
+              icon={Gauge}
+              hasDrill
+              onClick={() => drill.toggle("fuel-kmpl")}
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-kmpl")}
+              onClose={drill.close}
+              title="Fuel Efficiency Per Truck"
+              width={420}
+              footer={
+                <span>
+                  {countLabel(fuel?.efficiency.measured ?? 0, "truck")} with both a distance and a
+                  litre figure
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Distance comes from the odometer readings on the fuel records — the only mileage the
+                platform captures. A dispatch carries no distance of its own, so a truck with no
+                reading is left out rather than given an estimate.
+              </p>
+              {!fuel || fuel.efficiency.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No fuel record carries an odometer reading, so no truck has a distance to divide
+                  by its litres yet.
+                </p>
+              ) : (
+                fuel.efficiency.list.map((row) => (
+                  <DrillRow
+                    key={row.truck}
+                    title={row.truck}
+                    meta={`${row.km.toLocaleString()} km on ${formatQuantity(row.litres)} L`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {row.kmPerLitre} km/L
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 8 — what a route normally costs in diesel. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Route Fuel Averages"
+              value={asksRead && busiestRoute ? `${formatQuantity(busiestRoute.avgAsked)} L` : "—"}
+              hint={
+                !asksRead
+                  ? "Reading the request book…"
+                  : busiestRoute
+                    ? `${busiestRoute.route} · ${countLabel(busiestRoute.trips, "dispatch")}`
+                    : "No dispatch has asked for fuel yet"
+              }
+              tone="teal"
+              icon={RouteIcon}
+              hasDrill
+              onClick={() => drill.toggle("fuel-routes")}
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-routes")}
+              onClose={drill.close}
+              title="Diesel Per Destination"
+              width={440}
+              footer={
+                <span>
+                  A destination asking for far more than its own average is the audit this table is
+                  for
+                </span>
+              }
+            >
+              {!fuel || fuel.routes.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No dispatch has requested diesel yet.
+                </p>
+              ) : (
+                fuel.routes.list.map((row) => (
+                  <DrillRow
+                    key={row.route}
+                    title={row.route}
+                    meta={`${countLabel(row.trips, "dispatch")} · avg ${formatQuantity(
+                      row.avgAsked,
+                    )} L asked${row.avgPumped !== null ? ` · ${formatQuantity(row.avgPumped)} L pumped` : ""}`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        max {formatQuantity(row.maxAsked)} L
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------- fuel audit — the TM's own sheet */}
+      <AuditDialog
+        open={audit === "fuel"}
+        onClose={() => setAudit(null)}
+        title="Diesel & Lubricant: Fuel Oversight"
+        subtitle={`The tank, the releases and every litre pumped · ${range.label}`}
+        onPrint={printFuelAudit}
+      >
+        {!fuel ? (
+          <p className="py-8 text-center text-[13px] text-[#8E95A1]">Reading the tank…</p>
+        ) : (
+          <div className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <AuditFactGrid
+                facts={[
+                  {
+                    label: "Diesel In Tank",
+                    value: dieselTank ? `${formatQuantity(dieselTank.quantity)} L` : "—",
+                  },
+                  {
+                    label: "Gas In Tank",
+                    value: gasTank
+                      ? `${formatQuantity(gasTank.quantity)} ${unitWord(gasTank.unit)}`
+                      : "—",
+                  },
+                  {
+                    label: "Safety Level",
+                    value: dieselTank ? `${formatQuantity(dieselTank.minLevel)} L` : "—",
+                  },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Tank Value", value: formatMoney(fuel.tanks.value) },
+                  { label: "Valued At", value: tankBasisWord ?? "Not valued" },
+                  { label: "Below Safety", value: String(fuel.tanks.low) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Awaiting You", value: String(fuel.approvals.count) },
+                  { label: "Litres Requested", value: formatQuantity(fuel.approvals.litres) },
+                  { label: "Their Value", value: formatMoney(fuel.approvals.value) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Released, Not Pumped", value: String(fuel.pickups.count) },
+                  { label: "Litres Held", value: formatQuantity(fuel.pickups.litres) },
+                  {
+                    label: "Longest Wait",
+                    value:
+                      fuel.pickups.longestHours === null
+                        ? "—"
+                        : formatDuration(fuel.pickups.longestHours),
+                  },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Pumped Today", value: `${formatQuantity(fuel.spend.todayLitres)} L` },
+                  { label: "Today's Value", value: formatMoney(fuel.spend.todayValue) },
+                  { label: "Trucks Served", value: String(fuel.spend.todayTrucks) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Over-Pump Flags", value: String(fuel.variance.count) },
+                  { label: "Litres Over", value: formatQuantity(fuel.variance.overLitres) },
+                  { label: "Value Over", value: formatMoney(fuel.variance.overValue) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "No Release At All", value: String(fuel.variance.unauthorized) },
+                  { label: "All-Time Litres", value: formatQuantity(fuel.spend.totalLitres) },
+                  { label: "All-Time Value", value: formatMoney(fuel.spend.totalValue) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  {
+                    label: "Worst km/L",
+                    value: worstEfficiency ? `${worstEfficiency.kmPerLitre}` : "—",
+                  },
+                  { label: "Trucks Measured", value: String(fuel.efficiency.measured) },
+                  { label: "Destinations", value: String(fuel.routes.measured) },
+                ]}
+              />
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">
+                Dispensing Ledger ({fuel.ledger.count})
+              </h3>
+              {fuel.ledger.list.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                  {pumpRead
+                    ? "Nothing has been pumped from the tank yet."
+                    : "The pump ledger has not been read — this is not yet an all-clear."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {fuel.ledger.list.map((row) => (
+                    <div
+                      key={`${row.tripId}-${row.at}`}
+                      className="flex flex-col gap-2.5 rounded-[8px] border p-3.5"
+                      style={{ borderColor: TONE[row.tone].border }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                          {row.reference} • {row.truck}
+                        </p>
+                        <StatusPill
+                          label={
+                            row.overLitres > 0
+                              ? "Over"
+                              : row.unauthorized
+                                ? "No release"
+                                : "Matched"
+                          }
+                          tone={row.tone}
+                        />
+                      </div>
+                      <AuditFactGrid
+                        facts={[
+                          {
+                            label: "Pumped",
+                            value: `${formatQuantity(row.litres)} ${row.unit.toLowerCase()}`,
+                          },
+                          { label: "Value", value: formatMoney(row.value) },
+                          {
+                            label: "Released",
+                            value:
+                              row.authorizedLitres !== null
+                                ? formatQuantity(row.authorizedLitres)
+                                : row.requestedLitres !== null
+                                  ? `asked ${formatQuantity(row.requestedLitres)}`
+                                  : "nothing",
+                          },
+                          {
+                            label: "Variance",
+                            value:
+                              row.overLitres > 0 ? `${formatQuantity(row.overLitres)} over` : "—",
+                          },
+                          { label: "Attendant", value: row.attendant },
+                          { label: "Pumped at", value: formatDateTimeStamp(row.at) },
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">
+                Diesel Per Destination
+              </h3>
+              {fuel.routes.list.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                  {asksRead
+                    ? "No dispatch has requested diesel yet."
+                    : "The request book has not been read yet."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {fuel.routes.list.map((row) => (
+                    <div
+                      key={row.route}
+                      className="flex items-center justify-between rounded-[6px] bg-[#F1F2F4] px-3.5 py-2.5"
+                    >
+                      <span className="min-w-0 truncate text-[13px] font-medium text-[#1B2432]">
+                        {row.route}
+                      </span>
+                      <span className="shrink-0 text-[12px] text-[#5C6470]">
+                        {countLabel(row.trips, "trip")} · avg {formatQuantity(row.avgAsked)} L · max{" "}
+                        <span className="font-semibold text-[#1B2432]">
+                          {formatQuantity(row.maxAsked)} L
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </AuditDialog>
