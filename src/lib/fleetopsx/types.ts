@@ -124,12 +124,7 @@ export interface TruckTail {
   lng: number;
 }
 
-
-export type DriverStatus =
-  | "Available"
-  | "On Trip"
-  | "Off Duty"
-  | "Suspended";
+export type DriverStatus = "Available" | "On Trip" | "Off Duty" | "Suspended";
 
 export type ComplianceStatus = "Valid" | "Expiring Soon" | "Expired";
 
@@ -385,12 +380,7 @@ export interface ProcurementRequest {
   date: string;
 }
 
-export type ExpenseStatus =
-  | "Pending"
-  | "Approved"
-  | "Disbursed"
-  | "Rejected"
-  | "Clarification";
+export type ExpenseStatus = "Pending" | "Approved" | "Disbursed" | "Rejected" | "Clarification";
 
 export interface Expense {
   id: ID;
@@ -424,10 +414,47 @@ export interface Notification {
   title: string;
   body: string;
   time: string;
+  /** Read state is THIS reader's, resolved per user by the API. */
   read: boolean;
   severity: "info" | "warning" | "critical" | "success";
   /** Backend audience targeting: null/absent = broadcast, otherwise comma-separated roles. */
   audience?: string | null;
+  /**
+   * The department that produced the alert — the axis the Transport Manager's
+   * control panel is read by, instead of one pile of 900 rows.
+   */
+  module?: string | null;
+  /** The catalogue key behind it (dispatch.departed, fuel.released…). */
+  eventKey?: string | null;
+  /** The record it is about, so a row can open that record rather than a list. */
+  refId?: string | null;
+  refLabel?: string | null;
+  /** True only when ONE OF THE READER'S OWN ROLES must act on this row. */
+  actionRequired?: boolean;
+  /** The roles that must act — the server's own record of who owns the row. */
+  actionRoles?: string[];
+  /** When it landed. `time` is the human word the API writes, this is the fact. */
+  createdAt?: string;
+}
+
+/**
+ * What the notification API answers when asked for the "what needs me" summary:
+ * totals plus one row per department that has sent something.
+ */
+export interface NotificationSummary {
+  total: number;
+  unread: number;
+  /** Unread rows whose action roles include one of the reader's own. */
+  action: number;
+  /** Every row whose action roles include one of the reader's own, read or not. */
+  actionAll?: number;
+  modules: Array<{
+    module: string;
+    total: number;
+    unread: number;
+    action: number;
+    actionAll?: number;
+  }>;
 }
 
 export interface Message {

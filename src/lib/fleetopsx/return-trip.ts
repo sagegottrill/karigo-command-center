@@ -57,7 +57,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         : undefined) ??
       heads.find((h) => cap && cap !== "—" && (displayHeadCap(h) === cap || h.number === cap));
     if (head) {
-      await fleetService.updateHeadStatus(head.id, "Check Up");
+      await fleetService.updateHeadStatus(head.id, "Check Up", displayHeadCap(head) || head.registration);
       marked = true;
     }
     // The TAIL came back with the truck — and it was set to Assigned when the
@@ -71,7 +71,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
           t.number.replace(/\s/g, "").toUpperCase() === tailCode.replace(/\s/g, "").toUpperCase(),
       );
       if (tail && (tail.status === "Assigned" || tail.status === "Out of Yard")) {
-        await fleetService.updateTailStatus(tail.id, "Check Up");
+        await fleetService.updateTailStatus(tail.id, "Check Up", tail.number);
         marked = true;
       }
     }

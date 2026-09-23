@@ -139,7 +139,7 @@ function TruckAvailability() {
 
   const setTruckStatus = async (head: TruckHead, status: TruckHead["status"], note?: string) => {
     try {
-      await fleetService.updateHeadStatus(head.id, status);
+      await fleetService.updateHeadStatus(head.id, status, truckLabel(head));
       setHeads((prev) => prev.map((h) => (h.id === head.id ? { ...h, status } : h)));
       toast.success(`${truckLabel(head)} → ${status}${note ? ` · ${note}` : ""}`);
     } catch (err) {

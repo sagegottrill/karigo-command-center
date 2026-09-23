@@ -297,7 +297,7 @@ function EngineeringWorkOrders() {
         });
         setOrders((prev) => [created, ...prev]);
         if (draft.sendToMaintenance && truck && truck.status !== "Maintenance") {
-          await fleetService.updateHeadStatus(truck.id, "Maintenance").catch(() => {});
+          await fleetService.updateHeadStatus(truck.id, "Maintenance", truckReg).catch(() => {});
           setHeads((prev) => prev.map((h) => (h.id === truck.id ? { ...h, status: "Maintenance" } : h)));
         }
         toast.success(`Work order raised for ${truckReg}.`);

@@ -142,6 +142,14 @@ function TransportManagerNewRequest() {
           title: "New Internal Request",
           body: `Petroline request for ${customerConsignee.trim()} — ${product.trim()} to ${destination.trim()}.`,
           category: "Approvals",
+          // Internal means internal: with no audience this row went to EVERY user,
+          // partner companies included, who then read Petroline's own request. It
+          // is the Transport Manager's to approve, and Fleet Ops' to work after.
+          module: "Fleet Operations",
+          audience: "Transport Manager,Fleet Operations,Platform Admin",
+          actionRoles: ["Transport Manager"],
+          eventKey: "request.internal",
+          refLabel: customerConsignee.trim(),
         })
         .catch(() => {});
 

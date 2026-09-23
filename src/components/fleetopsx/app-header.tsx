@@ -214,10 +214,21 @@ export function AppHeader({
               {subtitle}
             </p>
           </div>
-          <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            <span>{clock?.date}</span>
-            <span className="size-2 rounded-full bg-[#0ACF83]" />
-            <span>{clock?.time}</span>
+          <div className="flex items-center gap-3">
+            {/*
+              The bell belongs on EVERY department's header. It used to exist
+              only on the manager's chrome, so a department working its own
+              portal had no way to see what had just arrived without walking to
+              the notification page.
+            */}
+            <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+              <Bell className="h-4 w-4" strokeWidth={1.75} />
+            </NotificationPopover>
+            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              <span>{clock?.date}</span>
+              <span className="size-2 rounded-full bg-[#0ACF83]" />
+              <span>{clock?.time}</span>
+            </div>
           </div>
         </header>
       </>
@@ -272,10 +283,15 @@ export function AppHeader({
                 Log and access dispatch and vehicle movements
               </p>
             </div>
-            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock?.date}</span>
-              <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock?.time}</span>
+            <div className="flex items-center gap-3">
+              <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </NotificationPopover>
+              <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                <span>{clock?.date}</span>
+                <span className="size-2 rounded-full bg-[#0ACF83]" />
+                <span>{clock?.time}</span>
+              </div>
             </div>
           </header>
         </>
@@ -311,10 +327,15 @@ export function AppHeader({
                 Log and track diesel and gas disbursement
               </p>
             </div>
-            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock?.date}</span>
-              <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock?.time}</span>
+            <div className="flex items-center gap-3">
+              <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </NotificationPopover>
+              <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                <span>{clock?.date}</span>
+                <span className="size-2 rounded-full bg-[#0ACF83]" />
+                <span>{clock?.time}</span>
+              </div>
             </div>
           </header>
         </>
@@ -350,10 +371,15 @@ export function AppHeader({
                 Collect every load and mark each site loaded as it happens
               </p>
             </div>
-            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock?.date}</span>
-              <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock?.time}</span>
+            <div className="flex items-center gap-3">
+              <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </NotificationPopover>
+              <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                <span>{clock?.date}</span>
+                <span className="size-2 rounded-full bg-[#0ACF83]" />
+                <span>{clock?.time}</span>
+              </div>
             </div>
           </header>
         </>
@@ -389,10 +415,15 @@ export function AppHeader({
                 Monitor active dispatches and manually log location checkpoints
               </p>
             </div>
-            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              <span>{clock?.date}</span>
-              <span className="size-2 rounded-full bg-[#0ACF83]" />
-              <span>{clock?.time}</span>
+            <div className="flex items-center gap-3">
+              <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </NotificationPopover>
+              <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                <span>{clock?.date}</span>
+                <span className="size-2 rounded-full bg-[#0ACF83]" />
+                <span>{clock?.time}</span>
+              </div>
             </div>
           </header>
         </>
@@ -416,12 +447,22 @@ export function AppHeader({
           </header>
           {mobileLogoutBar}
           {/* Desktop FO portal title */}
-          <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
+          <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
             <div className="flex min-w-0 flex-col gap-[5px]">
               <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Fleet Operations Portal</h1>
               <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
                 Manage the lifecycle of every dispatch within the company
               </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </NotificationPopover>
+              <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                <span>{clock?.date}</span>
+                <span className="size-2 rounded-full bg-[#0ACF83]" />
+                <span>{clock?.time}</span>
+              </div>
             </div>
           </header>
         </>
@@ -442,12 +483,23 @@ export function AppHeader({
           </button>
         </header>
         {mobileLogoutBar}
-        <header className="sticky top-0 z-30 hidden w-full flex-col bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
+        <header className="sticky top-0 z-30 hidden w-full items-end justify-between bg-white px-5 pb-2.5 pt-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] md:flex">
           <div className="flex min-w-0 flex-col gap-[5px]">
             <h1 className="text-[24px] font-medium leading-8 text-[#1B2432]">Transport Manager Portal</h1>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               Manage the lifecycle of every account within the company to maintain data integrity.
             </p>
+          </div>
+          {/* The manager's own portal had neither the bell nor the clock. */}
+          <div className="flex items-center gap-3">
+            <NotificationPopover triggerClassName="relative grid h-9 w-9 place-items-center rounded-full bg-white text-[#141a1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[#e2e5e9] transition-colors hover:bg-black/[0.03] active:scale-[0.97]">
+              <Bell className="h-4 w-4" strokeWidth={1.75} />
+            </NotificationPopover>
+            <div className="flex items-center gap-[5px] text-[14px] font-semibold tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              <span>{clock?.date}</span>
+              <span className="size-2 rounded-full bg-[#0ACF83]" />
+              <span>{clock?.time}</span>
+            </div>
           </div>
         </header>
       </>

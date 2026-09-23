@@ -1,6 +1,9 @@
 import type {
   Driver, Expense, ExpenseStatus, GateEntry, InventoryItem,
-  ProcurementRequest, Trip, TimelineStep, TruckHead, TruckTail, Company, PlatformTenant, User
+  ProcurementRequest, Trip, TimelineStep, TruckHead, TruckTail, Company, PlatformTenant, User,
+  // Named: the DOM has a global `Notification` too, and an unqualified reference
+  // silently resolves to the browser's constructor instead of our model.
+  Notification as NotificationRecord, NotificationSummary as NotificationSummaryRecord,
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
@@ -108,31 +111,62 @@ export const fleetService = {
   listHeads: () => fetchApi('/trucks').then((res: any[]) => res.map(mapTruckHead)),
   listTails: (): Promise<TruckTail[]> => fetchApi('/tails').then((res: any[]) => asList(res).map(mapTail)),
   createHead: (input: any) => fetchApi('/trucks', { method: 'POST', body: JSON.stringify(input) }).then(res => {
-    notificationService.create({ title: 'New Asset Added', body: `Truck ${input.registration} has been added to the fleet.`, category: 'Operations' });
-    return res;
-  }),
-  createTail: (input: any) => fetchApi('/tails', { method: 'POST', body: JSON.stringify(input) }).then(res => {
-    notificationService.create({ title: 'New Asset Added', body: `Tail ${input.number} has been added to the fleet.`, category: 'Operations' });
-    return res;
-  }),
-  // Fleet-asset bookkeeping is INTERNAL. The notification is deliberately scoped
-  // to staff roles: a partner must never be told that a truck is "Out of Yard"
-  // (that is not the customer's dispatch state — the dispatch lifecycle is).
-  updateHeadStatus: (id: string, status: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    // Scoped to staff: a partner has never been told the yard owns a new truck,
+    // and an unaddressed row goes to every user on the platform.
     notificationService.create({
-      title: 'Asset Status Changed',
-      body: `Truck ${id.substring(0,6)} status changed to ${status}.`,
+      title: 'New Asset Added',
+      body: `Truck ${input.registration} has been added to the fleet.`,
       category: 'Operations',
-      audience: 'Transport Manager,Fleet Operations,Platform Admin',
+      module: 'Fleet Operations',
+      audience: 'Fleet Operations,Transport Manager,Platform Admin',
+      refLabel: input.registration,
     });
     return res;
   }),
-  updateTailStatus: (id: string, status: string) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+  createTail: (input: any) => fetchApi('/tails', { method: 'POST', body: JSON.stringify(input) }).then(res => {
+    notificationService.create({
+      title: 'New Asset Added',
+      body: `Tail ${input.number} has been added to the fleet.`,
+      category: 'Operations',
+      module: 'Fleet Operations',
+      audience: 'Fleet Operations,Transport Manager,Platform Admin',
+      refLabel: input.number,
+    });
+    return res;
+  }),
+  /**
+   * Fleet-asset bookkeeping is INTERNAL, and it is the registry's own record.
+   *
+   * Two things were wrong with what this used to send: the body named the asset
+   * by a fragment of its database id ("Truck 5f28ca status changed") that no
+   * human can read, and the Transport Manager was copied on every flip — 455 of
+   * his rows were this one event, burying the queues he actually works. The
+   * registry board already shows him asset state, so the row now goes to the
+   * department that keeps the register, and it names the plate or tail code.
+   */
+  updateHeadStatus: (id: string, status: string, label?: string) => fetchApi(`/trucks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
     notificationService.create({
       title: 'Asset Status Changed',
-      body: `Tail status changed to ${status}.`,
+      body: `Truck ${label || 'asset'} status changed to ${status}.`,
       category: 'Operations',
-      audience: 'Transport Manager,Fleet Operations,Platform Admin',
+      module: 'Fleet Operations',
+      audience: 'Fleet Operations,Platform Admin',
+      refId: id,
+      refLabel: label,
+      eventKey: 'fleet.head_status',
+    });
+    return res;
+  }),
+  updateTailStatus: (id: string, status: string, label?: string) => fetchApi(`/tails/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(res => {
+    notificationService.create({
+      title: 'Asset Status Changed',
+      body: `Tail ${label || 'asset'} status changed to ${status}.`,
+      category: 'Operations',
+      module: 'Fleet Operations',
+      audience: 'Fleet Operations,Platform Admin',
+      refId: id,
+      refLabel: label,
+      eventKey: 'fleet.tail_status',
     });
     return res;
   }),
@@ -552,11 +586,11 @@ export const fuelService = {
   // Backend exposes PATCH /fuel/:id only — status transitions go through it
   // (server auto-creates the expense row on Approved).
   approve: (id: string) => fetchApi(`/fuel/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }).then(res => {
-    notificationService.create({ title: 'Fuel Requisition Approved', body: `Requisition ${id.substring(0,6)} has been approved.`, category: 'Approvals' });
+    notificationService.create({ title: 'Fuel Requisition Approved', body: `Requisition ${id.substring(0,6)} has been approved.`, category: 'Approvals', module: 'Fuel & Lubricant', audience: 'Fleet Operations,Transport Manager,Platform Admin' });
     return res;
   }),
   reject: (id: string) => fetchApi(`/fuel/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Rejected' }) }).then(res => {
-    notificationService.create({ title: 'Fuel Requisition Rejected', body: `Requisition ${id.substring(0,6)} was rejected.`, category: 'Operations' });
+    notificationService.create({ title: 'Fuel Requisition Rejected', body: `Requisition ${id.substring(0,6)} was rejected.`, category: 'Operations', module: 'Fuel & Lubricant', audience: 'Fleet Operations,Transport Manager,Platform Admin' });
     return res;
   }),
 };
@@ -606,6 +640,13 @@ export const engineeringService = {
           title: 'New Work Order',
           body: `${wo.truckReg} reported to Engineering — ${wo.defect}.`,
           category: 'Engineering',
+          // Without an audience the row went to every user on the platform —
+          // partners were told which truck was in the workshop and why.
+          module: 'Engineering',
+          audience: 'Engineering,Parts & Store,Transport Manager,Platform Admin',
+          eventKey: 'engineering.work_order_raised',
+          refId: wo.id,
+          refLabel: wo.truckReg,
         })
         .catch(() => {});
       return wo;
@@ -653,7 +694,7 @@ export const engineeringService = {
       description: `Repair — ${truckReg}: ${defect}`,
       status: 'Approved',
     }) }).then(res => {
-      notificationService.create({ title: 'Repair Logged', body: `Repair logged for ${truckReg} (${defect}).`, category: 'Engineering' });
+      notificationService.create({ title: 'Repair Logged', body: `Repair logged for ${truckReg} (${defect}).`, category: 'Engineering', module: 'Engineering', audience: 'Engineering,Transport Manager,Platform Admin', refLabel: truckReg, eventKey: 'engineering.repair_logged' });
       return res;
     })
 };
@@ -730,7 +771,7 @@ export const inventoryService = {
       body: JSON.stringify({ status: 'Rejected', decisionNote }),
     }),
   release: (itemId: string, qty: number, reqId?: string) => fetchApi(`/inventory/${itemId}/release`, { method: 'POST', body: JSON.stringify({ qty, reqId }) }).then(res => {
-    notificationService.create({ title: 'Parts Released', body: `${qty} units released from inventory.`, category: 'Engineering' });
+    notificationService.create({ title: 'Parts Released', body: `${qty} units released from inventory.`, category: 'Engineering', module: 'Engineering', audience: 'Engineering,Parts & Store,Transport Manager,Platform Admin' });
     return res;
   }),
   // No /reorder sub-route — reorderLevel is a plain field on PATCH /inventory/:id.
@@ -741,7 +782,7 @@ export const procurementService = {
   list: () => fetchApi('/procurement'),
   // Backend expects PATCH /procurement/:id { status: 'Procured' } (no /procure sub-route).
   markProcured: (id: string) => fetchApi(`/procurement/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Procured' }) }).then(res => {
-    notificationService.create({ title: 'Items Procured', body: `Procurement request ${id.substring(0,6)} fulfilled.`, category: 'Compliance' });
+    notificationService.create({ title: 'Items Procured', body: `Procurement request ${id.substring(0,6)} fulfilled.`, category: 'Compliance', module: 'Engineering', audience: 'Engineering,Parts & Store,Transport Manager,Platform Admin' });
     return res;
   })
 };
@@ -781,9 +822,26 @@ export const messageService = {
 };
 
 export const notificationService = {
-  list: () => fetchApi('/notifications'),
+  /**
+   * The feed. `module` narrows it to one department's alerts, `action` to the
+   * reader's own queue, `unread` to what they have not read. Read state comes
+   * back per user, so two people looking at one row are told their own truth.
+   */
+  list: (options: { module?: string; action?: boolean; unread?: boolean; limit?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (options.module) query.set('module', options.module);
+    if (options.action) query.set('action', '1');
+    if (options.unread) query.set('unread', '1');
+    if (options.limit) query.set('limit', String(options.limit));
+    const suffix = query.toString();
+    return fetchApi<NotificationRecord[]>(`/notifications${suffix ? `?${suffix}` : ''}`);
+  },
+  /** Counts by department: what the badge and the control panel both read. */
+  summary: () => fetchApi<NotificationSummaryRecord>('/notifications/summary'),
   getUnreadCount: async () => { const res = await fetchApi('/notifications/unread').catch(() => ({ count: 0 })); return res.count || 0; },
-  markAllRead: () => fetchApi('/notifications/mark-all-read', { method: 'POST' }),
+  /** Marks everything read FOR THE CALLER, optionally one department at a time. */
+  markAllRead: (module?: string) =>
+    fetchApi('/notifications/mark-all-read', { method: 'POST', body: JSON.stringify(module ? { module } : {}) }),
   /**
    * Removes a notification from THIS user's center only. Notifications are shared
    * (a broadcast, or every holder of a role), so the server records a per-user
@@ -796,12 +854,39 @@ export const notificationService = {
       method: 'POST',
       body: JSON.stringify({ ids: options.ids, read: options.readOnly === true }),
     }),
-  toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }), // Simplify toggle to mark read
+  /**
+   * Reading is recorded against THIS user on the server; marking unread again is
+   * the same call with `read: false`, so one person's reading never clears a
+   * colleague's badge.
+   */
+  markRead: (id: string, read = true) =>
+    fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read }) }),
+  toggleRead: (id: string) => fetchApi(`/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read: true }) }),
   // `audience` (comma-separated roles / 'Partner:<Company>') scopes who receives
   // it. Omitted = broadcast to EVERY user, partners included — only use that for
   // genuinely company-wide news.
-  create: (payload: { title: string; body: string; category: string; severity?: string; audience?: string }) => 
-    fetchApi('/notifications', { method: 'POST', body: JSON.stringify({ ...payload, severity: payload.severity || 'info' }) }).catch(() => {})
+  create: (payload: {
+    title: string;
+    body: string;
+    category: string;
+    severity?: string;
+    audience?: string;
+    /** The department this alert came from — the axis the TM reads by. */
+    module?: string;
+    eventKey?: string;
+    refId?: string;
+    refLabel?: string;
+    /** The roles that must act. Empty/omitted = news, nobody has to do anything. */
+    actionRoles?: string[];
+  }) =>
+    fetchApi('/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        severity: payload.severity || 'info',
+        actionRequired: (payload.actionRoles?.length ?? 0) > 0,
+      }),
+    }).catch(() => {})
 };
 
 export const auditService = { list: () => fetchApi('/audit') };

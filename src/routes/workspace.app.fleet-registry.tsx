@@ -315,10 +315,14 @@ function FleetRegistryPage() {
       .catch(() => toast.error("Could not refresh fleet list"));
   };
 
+  /** The plate or tail code — what the alert names, never a database id. */
+  const assetLabel = (item: TruckHead | TruckTail) =>
+    tab === "head" ? (item as TruckHead).registration : (item as TruckTail).number;
+
   const handleStatusChange = async (item: TruckHead | TruckTail, status: TruckStatus) => {
     try {
-      if (tab === "head") await fleetService.updateHeadStatus(item.id, status);
-      else await fleetService.updateTailStatus(item.id, status);
+      if (tab === "head") await fleetService.updateHeadStatus(item.id, status, assetLabel(item));
+      else await fleetService.updateTailStatus(item.id, status, assetLabel(item));
       toast.success(`Status updated to ${status}`);
       refresh();
     } catch (err) {
@@ -407,8 +411,10 @@ function FleetRegistryPage() {
   /** Blocked / un-blocked: the number stays, it simply cannot be assigned. */
   const setBlocked = async (item: TruckHead | TruckTail, blocked: boolean) => {
     try {
-      if (tab === "head") await fleetService.updateHeadStatus(item.id, blocked ? "Blocked" : "Available");
-      else await fleetService.updateTailStatus(item.id, blocked ? "Blocked" : "Available");
+      if (tab === "head")
+        await fleetService.updateHeadStatus(item.id, blocked ? "Blocked" : "Available", assetLabel(item));
+      else
+        await fleetService.updateTailStatus(item.id, blocked ? "Blocked" : "Available", assetLabel(item));
       toast.success(blocked ? "Blocked — this number can no longer be assigned." : "Unblocked — available for assignment again.");
       refresh();
     } catch (err) {
