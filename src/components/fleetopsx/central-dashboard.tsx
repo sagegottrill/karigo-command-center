@@ -42,6 +42,7 @@ import {
   type PartnerUiStatus,
 } from "@/lib/fleetopsx/status-buckets";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { displayCapPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import {
   DOWNTIME_FLAG_DAYS,
@@ -151,20 +152,26 @@ function cleanAssetNumber(value: unknown) {
 }
 
 /**
- * `KTU193XC / B078` — the head assigned to a dispatch.
+ * `P053 (GGE97YK) / B039` — the truck on a dispatch, **cap number first**.
  *
- * The column carries the plate and the tail code separated by a slash, and a
- * dispatch whose tail was never paired arrives as `KTU193XC / None`. Drop the
- * empty slots so the row reads `KTU193XC`, never `/ None`.
+ * `trip.truckReg` carries only `PLATE / TAILCODE`, and a dispatch whose tail
+ * was never paired arrives as `KTU193XC / None`. The cap is resolved from the
+ * roster pairing the rest of the app uses, so the Transport Manager reads the
+ * same truck the gate and the workshop read; the empty slots are dropped so a
+ * row reads `KTU193XC`, never `/ None`.
  */
 function truckRegText(trip: Trip) {
+  const head = displayCapPlateFromTrip(trip);
   const raw = String(trip.truckReg ?? "").trim();
-  if (!raw || raw === "Unassigned") return "";
-  return raw
+  if (raw === "Unassigned") return "";
+  const tail = raw
     .split("/")
+    .slice(1)
     .map((part) => part.trim())
     .filter((part) => part && !/^none$/i.test(part))
     .join(" / ");
+  if (!head) return tail ? `Truck TBD / ${tail}` : "";
+  return tail ? `${head} / ${tail}` : head;
 }
 
 /** `1 Head` / `2 Heads` — the design pluralises its group headers and footers. */

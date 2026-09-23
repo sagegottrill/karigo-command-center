@@ -7,7 +7,11 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
-import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import {
+  displayCapFromTrip,
+  displayCapPlateFromTrip,
+  displayPlateFromTrip,
+} from "@/lib/fleetopsx/display-ids";
 import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import {
@@ -26,13 +30,13 @@ import {
  * Manager's board and every printout use. Empty while nothing is assigned, so
  * a request still sitting with the TM never advertises a truck it does not
  * have.
+ *
+ * The pairing itself lives in `displayCapPlateFromTrip` — the gate log, the
+ * Transport Manager's boards and this history all read the one rule, so the
+ * same truck cannot be labelled two ways on two screens.
  */
 function headCell(trip: Trip) {
-  const cap = displayCapFromTrip(trip);
-  const plate = displayPlateFromTrip(trip);
-  const realPlate = plate && !/^unassigned$/i.test(plate) ? plate : "";
-  if (cap && realPlate) return `${cap} (${realPlate})`;
-  return cap || realPlate || "—";
+  return displayCapPlateFromTrip(trip) || "—";
 }
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";

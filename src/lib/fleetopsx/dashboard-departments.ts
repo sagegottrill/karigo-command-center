@@ -10,6 +10,7 @@ import {
   isOutOfYard,
   parseGateStamp,
 } from "./gate-helpers";
+import { displayCapPlateFromTrip } from "./display-ids";
 import { resolveTruck, truckLabel } from "./engineering-helpers";
 import type { TruckHead, Trip, WorkOrder, WorkOrderStatus } from "./types";
 
@@ -92,6 +93,7 @@ export type SecTrip = {
   label: string;
   partner: string;
   route: string;
+  /** `P053 (GGE97YK) / B039` — cap number first, never the plate on its own. */
   truck: string;
   driver: string;
   departedAt: string | null;
@@ -132,12 +134,37 @@ export const DOWNTIME_FLAG_DAYS = 5;
 /** Past this many hours, a released dispatch is a gate bottleneck, not a queue. */
 const EXIT_WAIT_FLAG_HOURS = 4;
 
-/** The truck a movement belongs to — the plate before the tail, lower-cased. */
+/**
+ * The truck a movement belongs to — the head (cap + plate) before the tail,
+ * lower-cased.
+ *
+ * Keyed on the HEAD, never on the tail: a truck can carry two open dispatches
+ * whose tails differ, and those are still one truck standing in one place.
+ */
 const truckKey = (trip: SecTrip) =>
   String(trip.truck ?? "")
     .split("/")[0]
     ?.trim()
     .toLowerCase() ?? "";
+
+/**
+ * `P053 (GGE97YK) / B039` — the movement's truck, cap number first.
+ *
+ * The cap is the number the gate house checks off against the cab and the one
+ * the Transport Manager audits the movement by, so it can never be dropped
+ * from a security row; the tail code follows the head it was paired with.
+ */
+function movementTruck(trip: Trip): string {
+  const head = displayCapPlateFromTrip(trip);
+  const tail = String(trip.truckReg ?? "")
+    .split("/")
+    .slice(1)
+    .join("/")
+    .trim();
+  const realTail = tail && !/^none$/i.test(tail) ? tail : "";
+  if (!head) return realTail ? `Truck TBD / ${realTail}` : "Truck TBD";
+  return realTail ? `${head} / ${realTail}` : head;
+}
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -351,7 +378,7 @@ export function buildSecurityOversight(
       label: displayRequestId(trip),
       partner: partnerOf(trip) || "—",
       route: trip.dropoff || "—",
-      truck: trip.truckReg || "Truck TBD",
+      truck: movementTruck(trip),
       driver: trip.driverName || "Unassigned",
       departedAt,
       returnedAt,

@@ -265,6 +265,31 @@ export function displayPlateFromTrip(
 }
 
 /**
+ * The truck on a trip as Security and the Transport Manager read it off the
+ * vehicle: the **cap number first**, its plate in brackets — `P053 (GGE97YK)`.
+ *
+ * The cap is the number painted on the cab, and it is what the gate house, the
+ * workshop and the Transport Manager actually identify a truck head by; a row
+ * that names only the plate (`GGE97YK`) tells none of them which head it is.
+ * `trip.truckReg` stores only `PLATE / TAILCODE`, so the cap is resolved from
+ * the same roster pairing (`NEW CAB` ↔ `REG.`) every other screen uses — one
+ * rule, so the same truck cannot be labelled two ways on two boards.
+ *
+ * Returns "" while nothing is assigned: an unassigned trip stores the literal
+ * "Unassigned" in `truckReg`, which is neither a cap nor a plate.
+ */
+export function displayCapPlateFromTrip(trip: {
+  headId?: string | null;
+  truckReg?: string | null;
+}): string {
+  const plate = displayPlateFromTrip(trip);
+  const realPlate = plate && !/^unassigned$/i.test(plate) ? plate : "";
+  const cap = displayCapFromTrip(trip);
+  if (cap && realPlate && cap !== realPlate) return `${cap} (${realPlate})`;
+  return cap || realPlate;
+}
+
+/**
  * The truck on a request as ONE string: the cap code beside the plate they are
  * painted next to — husband and wife, never separated.
  *
