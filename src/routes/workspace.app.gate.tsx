@@ -14,7 +14,12 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, tripService } from "@/lib/fleetopsx/services";
-import { rolesCanWorkTheGate } from "@/lib/fleetopsx/gate-helpers";
+import {
+  gateDepartureStamp,
+  gateReturnStamp,
+  rolesCanWorkTheGate,
+  splitGateStamp,
+} from "@/lib/fleetopsx/gate-helpers";
 import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -53,34 +58,14 @@ function tailOf(trip: Trip) {
 
 const GATE_STATUS_FILTERS = ["All", "Not Departed", "Departed", "Returned"] as const;
 
-/** Actual gate stamp (date+time) when the truck has departed — null shows the placeholder. */
-function departureStamp(trip: Trip): string | null {
-  if (["En Route", "Loaded", "Offloading", "Returning", "Completed"].includes(trip.status)) {
-    if (trip.startTime && trip.startTime !== "—" && trip.startTime !== "-") return trip.startTime;
-    return "Departed";
-  }
-  return null;
-}
-
-/** Actual gate stamp (date+time) when the truck has returned — null shows the placeholder. */
-function returnStamp(trip: Trip): string | null {
-  if (trip.status === "Completed" || trip.status === "Returning") {
-    if (trip.eta && trip.eta !== "—" && trip.eta !== "-") return trip.eta;
-    return "Returned";
-  }
-  return null;
-}
-
-/** Parse any stored stamp (ISO or "15 Sept 2026, 08:51") into two lines; null when unparseable. */
-function parseStamp(value: string): { date: string; time: string } | null {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-  };
-}
+/**
+ * Both stamps come from the shared movement helpers — the Transport Manager's
+ * Security Oversight section reads the same two functions, so "has this truck
+ * left?" can never be answered differently on the two boards.
+ */
+const departureStamp = gateDepartureStamp;
+const returnStamp = gateReturnStamp;
+const parseStamp = splitGateStamp;
 
 /** Departure/Return cell: real date with time underneath, green; italic placeholder when pending. */
 function StampCell({ value, fallback }: { value: string | null; fallback: string }) {

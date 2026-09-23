@@ -8,6 +8,7 @@ import {
   History,
   MapPinned,
   Navigation,
+  ShieldCheck,
   Users,
   Wrench,
 } from "lucide-react";
@@ -42,6 +43,14 @@ import {
 } from "@/lib/fleetopsx/status-buckets";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import {
+  DOWNTIME_FLAG_DAYS,
+  buildEngineeringOversight,
+  buildSecurityOversight,
+  formatDuration,
+  type EngJob,
+  type SecTrip,
+} from "@/lib/fleetopsx/dashboard-departments";
 import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/fleetopsx/tracking-ops";
 import { formatMoney } from "@/lib/fleetopsx/lubricant";
 import { licenseExpiry } from "@/lib/fleetopsx/license";
@@ -308,8 +317,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [customTo, setCustomTo] = useState("");
 
   const [segment, setSegment] = useState<FleetSegment>("all");
-  const [audit, setAudit] = useState<"requests" | "fleet" | null>(null);
+  const [audit, setAudit] = useState<"requests" | "fleet" | "engineering" | "security" | null>(
+    null,
+  );
   const [fleetAuditTab, setFleetAuditTab] = useState<"head" | "tail">("head");
+  /** Which ledger the gate audit opens on — the yard is the first question. */
+  const [gateAuditTab, setGateAuditTab] = useState<"out" | "exit" | "tat">("out");
   const [partnerFilter, setPartnerFilter] = useState<string>("all");
   const [partnerMenuOpen, setPartnerMenuOpen] = useState(false);
   const drill = useDrill();
@@ -586,6 +599,30 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     [live.trips, clock, range],
   );
 
+  /**
+   * Engineering & Maintenance, as the Transport Manager audits it: the money
+   * spent in the window, the parts queue, the trucks sitting in the shop and the
+   * faults that keep coming back.
+   *
+   * Derived entirely from the work orders the workshop writes and the registry
+   * rows Fleet Ops keeps — no second copy of the truth, so the TM's figure and
+   * the workshop's own board can never disagree.
+   */
+  const eng = useMemo(
+    () => (clock ? buildEngineeringOversight(workOrders, live.trucks ?? [], range, clock) : null),
+    [workOrders, live.trucks, clock, range],
+  );
+
+  /**
+   * The Gate House, as the Transport Manager audits it: what is physically in
+   * the yard, what the gate was released but never logged out, which trucks are
+   * past their expected return, and how long a trip really took gate to gate.
+   */
+  const sec = useMemo(
+    () => (clock ? buildSecurityOversight(live.trips ?? [], live.trucks ?? [], range, clock) : null),
+    [live.trips, live.trucks, clock, range],
+  );
+
   /** The tail roster has been read at least once — otherwise its counts are unknown. */
   const tailsKnown = tails !== null;
 
@@ -760,6 +797,51 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     </div>
   );
 
+  /** One workshop job inside a dark popover — the truck, the fault, the money. */
+  const engJobRow = (job: EngJob) => (
+    <DrillRow
+      key={job.id}
+      title={`${job.truck} • ${job.status}`}
+      meta={[
+        job.defect,
+        job.mechanic,
+        job.days !== null
+          ? job.status === "Completed"
+            ? `Took ${formatDuration(job.days * 24)}`
+            : `${formatDuration(job.days * 24)} in shop`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      right={
+        <span className="shrink-0 text-[11px] font-semibold text-white">{formatMoney(job.cost)}</span>
+      }
+    />
+  );
+
+  /** One truck the workshop is holding, as the TM reads it. */
+  const shopTruckRow = (head: TruckHead) => {
+    const status = fleetStatusWord(head.status);
+    return (
+      <DrillRow
+        key={head.id}
+        title={headLabel(head)}
+        meta={checkUpText(head.registration).text}
+        right={<StatusPill label={status.word} tone={status.tone} />}
+      />
+    );
+  };
+
+  /** One gate movement inside a dark popover — the truck, the route, the verb. */
+  const gateTripRow = (t: SecTrip, word: string) => (
+    <DrillRow
+      key={`${word}-${t.id}-${t.tone}`}
+      title={`${t.label} • ${t.truck}`}
+      meta={[t.driver, t.partner, t.route].filter(Boolean).join(" · ")}
+      right={<StatusPill label={word} tone={t.tone} />}
+    />
+  );
+
   /* --------------------------------------------------------------- printing */
 
   const printRequestsAudit = () => {
@@ -813,6 +895,128 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
        }</tbody></table>`,
     );
   };
+
+  const printEngineeringAudit = () => {
+    if (!eng) return;
+    const rows = eng.open.list
+      .map(
+        (job) =>
+          `<tr><td>${job.truck}</td><td>${job.defect}</td><td>${job.category}</td><td>${
+            job.status
+          }</td><td>${job.mechanic}</td><td>${
+            job.days === null ? "—" : formatDuration(job.days * 24)
+          }</td><td>${formatMoney(job.cost)}</td></tr>`,
+      )
+      .join("");
+    const assetRows = eng.costPerAsset
+      .map((a) => `<tr><td>${a.label}</td><td>${a.jobs}</td><td>${formatMoney(a.spend)}</td></tr>`)
+      .join("");
+    printSheet(
+      "Engineering & Maintenance: Workshop Oversight",
+      `Maintenance spend in the selected window · ${range.label}`,
+      `<p><strong>Maintenance spend:</strong> ${formatMoney(eng.spend.total)} across ${
+        eng.spend.jobs
+      } job(s)</p>
+       <p><strong>Parts value in queue:</strong> ${formatMoney(eng.partsQueue.value)} across ${
+         eng.partsQueue.count
+       } job(s)</p>
+       <p><strong>Under maintenance:</strong> ${eng.shop.maintenance} · Under check-up: ${
+         eng.shop.checkUp
+       } · Accident: ${eng.shop.accident}</p>
+       <p><strong>Longest downtime:</strong> ${formatDuration(
+         eng.downtime.longestDays * 24,
+       )} (${eng.downtime.flagged} past ${DOWNTIME_FLAG_DAYS} days)</p>
+       <h2>Open work orders (${eng.open.count})</h2>
+       <table><thead><tr><th>Truck</th><th>Defect</th><th>Category</th><th>Status</th><th>Mechanic</th><th>In shop</th><th>Cost</th></tr></thead><tbody>${
+         rows || `<tr><td colspan="7">No open work order.</td></tr>`
+       }</tbody></table>
+       <h2>Repair spend per asset</h2>
+       <table><thead><tr><th>Truck</th><th>Jobs</th><th>Spend</th></tr></thead><tbody>${
+         assetRows || `<tr><td colspan="3">No job on record.</td></tr>`
+       }</tbody></table>`,
+    );
+  };
+
+  const printSecurityAudit = () => {
+    if (!sec) return;
+    const outRows = sec.yard.list
+      .map(
+        (t) =>
+          `<tr><td>${t.label}</td><td>${t.truck}</td><td>${t.driver}</td><td>${t.partner}</td><td>${
+            t.route
+          }</td><td>${gateStamp(t.departedAt, "Not Departed")}</td><td>${
+            t.hoursOut === null ? "—" : formatDuration(t.hoursOut)
+          }</td><td>${
+            t.overdueHours !== null ? `Overdue ${formatDuration(t.overdueHours)}` : "On time"
+          }</td></tr>`,
+      )
+      .join("");
+    const exitRows = sec.pendingExits.list
+      .map(
+        (t) =>
+          `<tr><td>${t.label}</td><td>${t.truck}</td><td>${t.partner}</td><td>${
+            t.route
+          }</td><td>${t.driver}</td><td>${
+            t.waitHours === null ? "—" : formatDuration(t.waitHours)
+          }</td></tr>`,
+      )
+      .join("");
+    const tatRows = sec.tat.list
+      .map(
+        (t) =>
+          `<tr><td>${t.label}</td><td>${t.truck}</td><td>${t.partner}</td><td>${
+            gateStamp(t.departedAt, "—")
+          }</td><td>${gateStamp(t.returnedAt, "—")}</td><td>${
+            t.hoursOut === null ? "—" : formatDuration(t.hoursOut)
+          }</td></tr>`,
+      )
+      .join("");
+    printSheet(
+      "Gate Security: Yard & Movement Oversight",
+      `Movements logged in the selected window · ${range.label}`,
+      `<p><strong>Trucks in the yard:</strong> ${sec.yard.inYard} of ${
+        sec.yard.totalHeads
+      } heads · out: ${sec.yard.out}</p>
+       <p><strong>Released, not yet logged out:</strong> ${sec.pendingExits.count}</p>
+       <p><strong>Awaiting return:</strong> ${sec.awaitingReturn.count} (${
+         sec.awaitingReturn.expectedKnown
+       } with an expected return) · overdue: ${sec.overdue.count}</p>
+       <p><strong>Average gate turnaround:</strong> ${formatDuration(
+         sec.tat.avgHours,
+       )} across ${sec.tat.measured} measured trip(s)</p>
+       <h2>Out of the yard now (${sec.yard.out})</h2>
+       <table><thead><tr><th>Dispatch</th><th>Truck</th><th>Driver</th><th>Partner</th><th>Route</th><th>Departed</th><th>Out</th><th>Delay</th></tr></thead><tbody>${
+         outRows || `<tr><td colspan="8">No truck is out of the yard.</td></tr>`
+       }</tbody></table>
+       <h2>Released, not yet logged out (${sec.pendingExits.count})</h2>
+       <table><thead><tr><th>Dispatch</th><th>Truck</th><th>Partner</th><th>Route</th><th>Driver</th><th>Waiting</th></tr></thead><tbody>${
+         exitRows || `<tr><td colspan="6">The gate has nothing waiting.</td></tr>`
+       }</tbody></table>
+       <h2>Gate-to-gate turnaround (${sec.tat.measured})</h2>
+       <table><thead><tr><th>Dispatch</th><th>Truck</th><th>Partner</th><th>Out</th><th>Back</th><th>Duration</th></tr></thead><tbody>${
+         tatRows || `<tr><td colspan="6">No completed gate-to-gate trip in this window.</td></tr>`
+       }</tbody></table>`,
+    );
+  };
+
+  /* ------------------------------------------- department oversight (TM view) */
+
+  /** A money value the board may not know yet is drawn as "—", never as ₦0. */
+  const money = (value: number | null | undefined) =>
+    value === null || value === undefined ? "—" : formatMoney(value);
+
+  /** A gate stamp reads as a stamp, never as the ISO string the API stores. */
+  const gateStamp = (value: string | null | undefined, fallback: string) => {
+    const text = formatDateTimeStamp(value);
+    return text === "—" ? fallback : text;
+  };
+
+  const downtimeTone: TileTone = (eng?.downtime.flagged ?? 0) > 0 ? "red" : "green";
+  const topAsset = eng?.costPerAsset[0];
+  const topDefect = eng?.defects[0];
+  const topMechanic = eng?.turnaround.byMechanic[0];
+  const longestTrip = sec?.tat.list[0];
+  const exitTone: TileTone = (sec?.pendingExits.count ?? 0) > 0 ? "amber" : "green";
 
   /* ----------------------------------------------------------------- render */
 
@@ -1358,6 +1562,591 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         </div>
       </section>
 
+      {/* ------------------------------------ Engineering & Maintenance oversight */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          icon={Wrench}
+          title="Engineering & Maintenance (Workshop Oversight)"
+          subtitle="Maintenance spend, the parts queue, trucks sitting in the shop and the faults that keep coming back · the department works this board, the Transport Manager audits it"
+        >
+          <PeriodNote>{range.note}</PeriodNote>
+          <AuditButton onClick={() => setAudit("engineering")} />
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* 1 — the money committed in the window. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Maintenance Spend"
+              value={money(eng?.spend.total)}
+              hint={countLabel(eng?.spend.jobs ?? 0, "job")}
+              tone="green"
+              icon={Wrench}
+              hasDrill
+              onClick={() => drill.toggle("eng-spend")}
+              valueClass="text-[24px]"
+              detail={
+                <TileNote tone="grey">{countLabel(eng?.totalJobs ?? 0, "job")} on file</TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-spend")}
+              onClose={drill.close}
+              title={`Maintenance Spend (${money(eng?.spend.total)})`}
+              width={380}
+              footer={
+                <span>
+                  {countLabel(eng?.spend.jobs ?? 0, "job")} · {range.label}
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Jobs raised or closed inside the selected window — what the workshop committed in that
+                window, whether or not the money has been spent yet.
+              </p>
+              {!eng || eng.spend.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No maintenance spend in this window.
+                </p>
+              ) : (
+                eng.spend.list.map(engJobRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 2 — money not yet spent: the parts queue. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Parts Value in Queue"
+              value={money(eng?.partsQueue.value)}
+              hint={countLabel(eng?.partsQueue.count ?? 0, "job")}
+              tone="amber"
+              icon={History}
+              hasDrill
+              onClick={() => drill.toggle("eng-parts")}
+              valueClass="text-[24px]"
+              detail={
+                <TileDetailRows
+                  rows={[
+                    { label: "Open jobs:", value: eng?.open.count ?? "—", tone: "blue" },
+                    { label: "Open value:", value: money(eng?.open.value), tone: "amber" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-parts")}
+              onClose={drill.close}
+              title={`Awaiting Parts (${money(eng?.partsQueue.value)})`}
+              width={380}
+              footer={
+                <span>
+                  {countLabel(eng?.partsQueue.count ?? 0, "job")} · open work is worth {" "}
+                  {money(eng?.open.value)}
+                </span>
+              }
+            >
+              {eng && eng.unpricedInQueue > 0 ? (
+                <p className="pb-2 text-[10px] leading-4 text-white/50">
+                  {countLabel(eng.unpricedInQueue, "job")} in this queue carries no cost yet, so this
+                  figure is a floor, not a total.
+                </p>
+              ) : null}
+              {!eng || eng.partsQueue.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">Nothing is waiting on parts.</p>
+              ) : (
+                eng.partsQueue.list.map(engJobRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 3 — the live fleet states Engineering owns. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Under Maintenance"
+              value={eng?.shop.maintenance ?? "—"}
+              hint="Under Repair"
+              tone="amber"
+              icon={Wrench}
+              hasDrill
+              onClick={() => drill.toggle("eng-shop")}
+              split={{
+                aLabel: "Under Check-up",
+                aValue: eng?.shop.checkUp ?? "—",
+                bLabel: "Accident",
+                bValue: eng?.shop.accident ?? "—",
+              }}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-shop")}
+              onClose={drill.close}
+              title={`Trucks in Engineering (${(eng?.shop.maintenance ?? 0) + (eng?.shop.checkUp ?? 0) + (eng?.shop.accident ?? 0)})`}
+              width={360}
+              footer={
+                <span>
+                  {eng?.shop.maintenance ?? 0} Maintenance · {eng?.shop.checkUp ?? 0} Check-up ·{" "}
+                  {eng?.shop.accident ?? 0} Accident
+                </span>
+              }
+            >
+              {!eng ||
+              eng.shop.maintenanceList.length + eng.shop.checkUpList.length + eng.shop.accidentList.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No truck is sitting in the workshop.</p>
+              ) : (
+                <>
+                  {eng.shop.maintenanceList.map(shopTruckRow)}
+                  {eng.shop.checkUpList.map(shopTruckRow)}
+                  {eng.shop.accidentList.map(shopTruckRow)}
+                </>
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 4 — the truck the workshop has held longest. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Longest Downtime"
+              value={
+                eng && eng.downtime.list.length > 0
+                  ? formatDuration(eng.downtime.longestDays * 24)
+                  : "—"
+              }
+              hint={
+                (eng?.downtime.flagged ?? 0) > 0
+                  ? `${countLabel(eng?.downtime.flagged ?? 0, "truck")} past ${DOWNTIME_FLAG_DAYS} days`
+                  : "Inside the 5-day line"
+              }
+              tone={downtimeTone}
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("eng-downtime")}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-downtime")}
+              onClose={drill.close}
+              title={`Time in the Shop (${eng?.open.count ?? 0} open)`}
+              width={380}
+              footer={
+                <span>
+                  Flags red past {DOWNTIME_FLAG_DAYS} days · {eng?.downtime.flagged ?? 0} flagged
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Measured from the moment the workshop began the job, not from when the truck entered
+                the yard.
+              </p>
+              {!eng || eng.downtime.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No open job — nothing is in the shop.</p>
+              ) : (
+                eng.downtime.list.map(engJobRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 5 — how long the workshop actually takes. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Avg Repair Turnaround"
+              value={eng?.turnaround.avgDays === null || eng?.turnaround.avgDays === undefined ? "—" : `${eng.turnaround.avgDays}d`}
+              hint={countLabel(eng?.turnaround.completed ?? 0, "job") + " closed"}
+              tone="blue"
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("eng-tat")}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-tat")}
+              onClose={drill.close}
+              title="Repair Turnaround by Mechanic"
+              width={360}
+              footer={
+                <span>
+                  {eng?.turnaround.completed ?? 0} finished job(s) measured from start to close
+                </span>
+              }
+            >
+              {!eng || eng.turnaround.byMechanic.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No job has both a start and a completion stamp yet, so there is nothing honest to
+                  average.
+                </p>
+              ) : (
+                eng.turnaround.byMechanic.map((row) => (
+                  <DrillRow
+                    key={row.mechanic}
+                    title={row.mechanic}
+                    meta={countLabel(row.jobs, "job")}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {row.avgDays === null ? "—" : `${row.avgDays}d avg`}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 6 — which truck is eating the budget. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Cost Per Asset"
+              value={money(topAsset?.spend)}
+              hint={topAsset?.label ?? "No job on record"}
+              tone="purple"
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("eng-assets")}
+              valueClass="text-[24px]"
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-assets")}
+              onClose={drill.close}
+              title="Repair Spend Per Truck"
+              width={380}
+              footer={<span>All-time workshop spend, worst first</span>}
+            >
+              {!eng || eng.costPerAsset.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No work order has been raised yet.</p>
+              ) : (
+                eng.costPerAsset.map((asset) => (
+                  <DrillRow
+                    key={asset.label}
+                    title={asset.label}
+                    meta={countLabel(asset.jobs, "job")}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {formatMoney(asset.spend)}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 7 — the faults that keep coming back. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Frequent Defects"
+              value={topDefect?.count ?? "—"}
+              hint={topDefect?.label ?? "No job on record"}
+              tone="grey"
+              icon={CircleAlert}
+              hasDrill
+              onClick={() => drill.toggle("eng-defects")}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-defects")}
+              onClose={drill.close}
+              title="Most Frequent Defects"
+              width={340}
+              footer={<span>Every job on file, by fault category</span>}
+            >
+              {!eng || eng.defects.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No work order has been raised yet.</p>
+              ) : (
+                eng.defects.map((defect) => (
+                  <DrillRow
+                    key={defect.label}
+                    title={defect.label}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {countLabel(defect.count, "job")}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 8 — who the workshop is least quick with. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Mechanic Efficiency"
+              value={topMechanic?.avgDays === null || topMechanic?.avgDays === undefined ? "—" : `${topMechanic.avgDays}d`}
+              hint={topMechanic?.mechanic ?? "No finished job yet"}
+              tone="teal"
+              icon={Users}
+              hasDrill
+              onClick={() => drill.toggle("eng-mechanics")}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-mechanics")}
+              onClose={drill.close}
+              title="Mechanic Efficiency"
+              width={360}
+              footer={<span>Average days from job start to close, quickest first</span>}
+            >
+              {!eng || eng.turnaround.byMechanic.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No job has both a start and a completion stamp yet.
+                </p>
+              ) : (
+                eng.turnaround.byMechanic.map((row) => (
+                  <DrillRow
+                    key={row.mechanic}
+                    title={row.mechanic}
+                    meta={countLabel(row.jobs, "job")}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {row.avgDays === null ? "—" : `${row.avgDays}d avg`}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------- Security oversight */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          icon={ShieldCheck}
+          title="Gate Security (Yard & Movement Oversight)"
+          subtitle="What is physically in the yard, what the gate was released but never logged out, which trucks are past their expected return and how long a trip really took · Security logs the gate, the Transport Manager audits it"
+        >
+          <PeriodNote>{range.note}</PeriodNote>
+          <AuditButton onClick={() => setAudit("security")} />
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* 1 — the digital roster, told by the gate. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Trucks In Yard"
+              value={sec?.yard.inYard ?? "—"}
+              hint={`of ${sec?.yard.totalHeads ?? "—"} heads`}
+              tone="green"
+              icon={ShieldCheck}
+              hasDrill
+              onClick={() => drill.toggle("sec-yard")}
+              split={{
+                aLabel: "In Yard",
+                aValue: sec?.yard.inYard ?? "—",
+                bLabel: "Out of Yard",
+                bValue: sec?.yard.out ?? "—",
+              }}
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-yard")}
+              onClose={drill.close}
+              title={`Out of the Yard (${sec?.yard.out ?? 0})`}
+              width={380}
+              footer={
+                <span>
+                  {sec?.yard.inYard ?? 0} in the yard · {sec?.yard.out ?? 0} out ·{" "}
+                  {sec?.yard.totalHeads ?? 0} heads on record
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                A truck is out because the gate logged it out and has not logged it back in — not
+                because a status field says so.
+              </p>
+              {!sec || sec.yard.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">Every truck is inside the yard.</p>
+              ) : (
+                sec.yard.list.map((t) => gateTripRow(t, "OUT"))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 2 — the internal bottleneck the gate exposes. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Pending Exits"
+              value={sec?.pendingExits.count ?? "—"}
+              hint={
+                sec?.pendingExits.longestHours === null || sec?.pendingExits.longestHours === undefined
+                  ? "The gate is clear"
+                  : `Longest wait ${formatDuration(sec.pendingExits.longestHours)}`
+              }
+              tone={exitTone}
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("sec-exits")}
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-exits")}
+              onClose={drill.close}
+              title={`Released, Not Yet Logged Out (${sec?.pendingExits.count ?? 0})`}
+              width={380}
+              footer={<span>Waiting is measured from the Transport Manager's release</span>}
+            >
+              {!sec || sec.pendingExits.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Every released dispatch has been logged out.
+                </p>
+              ) : (
+                sec.pendingExits.list.map((t) => gateTripRow(t, "WAITING"))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 3 — what is still out. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Expected Returns"
+              value={sec?.awaitingReturn.expectedKnown ?? "—"}
+              hint={`of ${sec?.awaitingReturn.count ?? 0} trucks out`}
+              tone="purple"
+              icon={Navigation}
+              hasDrill
+              onClick={() => drill.toggle("sec-return")}
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-return")}
+              onClose={drill.close}
+              title={`Trucks Out of the Yard (${sec?.awaitingReturn.count ?? 0})`}
+              width={400}
+              footer={<span>Expected return = gate departure + the turnaround set at approval</span>}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Without a turnaround on the ticket there is no expectation to miss — that is why the
+                overdue count can be zero while dozens of trucks are away.
+              </p>
+              {!sec || sec.awaitingReturn.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No truck is out of the yard.</p>
+              ) : (
+                sec.awaitingReturn.list.map((t) =>
+                  gateTripRow(t, t.overdueHours !== null ? "OVERDUE" : "OUT"),
+                )
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 4 — the red flags. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Overdue Trips"
+              value={sec?.overdue.count ?? "—"}
+              hint="Past expected return"
+              tone="red"
+              icon={CircleAlert}
+              hasDrill
+              onClick={() => drill.toggle("sec-overdue")}
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-overdue")}
+              onClose={drill.close}
+              title={`Overdue Trips (${sec?.overdue.count ?? 0})`}
+              width={400}
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Only dispatches with a turnaround set at approval can go overdue — without one there
+                is no expectation to miss.
+              </p>
+              {!sec || sec.overdue.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing is past its expected return.
+                </p>
+              ) : (
+                sec.overdue.list.map((t) => gateTripRow(t, "OVERDUE"))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 5 — the gate's own measure of a trip. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Avg Gate Turnaround"
+              value={formatDuration(sec?.tat.avgHours)}
+              hint={countLabel(sec?.tat.measured ?? 0, "trip") + " measured"}
+              tone="blue"
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("sec-tat")}
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-tat")}
+              onClose={drill.close}
+              title="Gate-to-Gate Turnaround"
+              width={400}
+              footer={
+                <span>
+                  Median {formatDuration(sec?.tat.medianHours)} · longest{" "}
+                  {formatDuration(sec?.tat.longestHours)}
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                From Security's Log Out stamp to its Log In stamp — the true duration of the trip,
+                independent of what the driver reports.
+              </p>
+              {!sec || sec.tat.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No trip has both a gate departure and a gate return in this window.
+                </p>
+              ) : (
+                sec.tat.list.map((t) => (
+                  <DrillRow
+                    key={`${t.id}-tat`}
+                    title={`${t.label} • ${t.truck}`}
+                    meta={`${t.partner} · out ${gateStamp(t.departedAt, "—")} → back ${gateStamp(
+                      t.returnedAt,
+                      "—",
+                    )}`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {formatDuration(t.hoursOut)}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 6 — the ledger for the window. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Gate Movements"
+              value={sec?.movements.departures ?? "—"}
+              hint={`${sec?.movements.returns ?? 0} returns`}
+              tone="grey"
+              icon={MapPinned}
+              hasDrill
+              onClick={() => drill.toggle("sec-movements")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    { label: "Logged out:", value: sec?.movements.departures ?? "—", tone: "purple" },
+                    { label: "Logged in:", value: sec?.movements.returns ?? "—", tone: "green" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-movements")}
+              onClose={drill.close}
+              title={`Movements Logged · ${range.prefix}`}
+              width={380}
+              footer={
+                <span>
+                  {sec?.movements.departures ?? 0} out · {sec?.movements.returns ?? 0} in ·{" "}
+                  {longestTrip ? `longest ${formatDuration(longestTrip.hoursOut)}` : "no measured trip"}
+                </span>
+              }
+            >
+              {!sec || sec.movements.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  The gate logged no movement in this window.
+                </p>
+              ) : (
+                sec.movements.list.map((t) =>
+                  gateTripRow(t, t.returnedAt ? "RETURNED" : "DEPARTED"),
+                )
+              )}
+            </DrillPopover>
+          </div>
+        </div>
+      </section>
+
       {/* --------------------------------------------------------------- dialogs */}
       <AuditDialog
         open={audit === "requests"}
@@ -1534,6 +2323,297 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             {stats.fleet.allTails.length === 0 ? (
               <p className="py-8 text-center text-[13px] text-[#8E95A1]">No truck tail on record.</p>
             ) : null}
+          </div>
+        )}
+      </AuditDialog>
+
+      {/* --------------------------------- engineering audit — the TM's own sheet */}
+      <AuditDialog
+        open={audit === "engineering"}
+        onClose={() => setAudit(null)}
+        title="Engineering & Maintenance: Workshop Oversight"
+        subtitle={`Maintenance spend in the window below · ${range.label}`}
+        onPrint={printEngineeringAudit}
+      >
+        {!eng ? (
+          <p className="py-8 text-center text-[13px] text-[#8E95A1]">Reading the workshop…</p>
+        ) : (
+          <div className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <AuditFactGrid
+                facts={[
+                  { label: "Maintenance Spend", value: formatMoney(eng.spend.total) },
+                  { label: "Jobs In Window", value: String(eng.spend.jobs) },
+                  { label: "Jobs On File", value: String(eng.totalJobs) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Parts Value In Queue", value: formatMoney(eng.partsQueue.value) },
+                  { label: "Awaiting Parts", value: String(eng.partsQueue.count) },
+                  { label: "Open Job Value", value: formatMoney(eng.open.value) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Under Maintenance", value: String(eng.shop.maintenance) },
+                  { label: "Under Check-up", value: String(eng.shop.checkUp) },
+                  { label: "Accident", value: String(eng.shop.accident) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Longest Downtime", value: formatDuration(eng.downtime.longestDays * 24) },
+                  { label: "Past 5 Days", value: String(eng.downtime.flagged) },
+                  { label: "Open Jobs", value: String(eng.open.count) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  {
+                    label: "Avg Turnaround",
+                    value: eng.turnaround.avgDays === null ? "—" : `${eng.turnaround.avgDays}d`,
+                  },
+                  { label: "Jobs Measured", value: String(eng.turnaround.completed) },
+                  { label: "Fault Categories", value: String(eng.defects.length) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Top Cost Asset", value: topAsset?.label ?? "—" },
+                  { label: "Its Spend", value: topAsset ? formatMoney(topAsset.spend) : "—" },
+                  { label: "Its Jobs", value: topAsset ? String(topAsset.jobs) : "—" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">
+                Open Work Orders ({eng.open.count})
+              </h3>
+              {eng.open.list.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                  No truck is sitting in the workshop.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {eng.open.list.map((job) => (
+                    <div
+                      key={job.id}
+                      className="flex flex-col gap-2.5 rounded-[8px] border p-3.5"
+                      style={{ borderColor: TONE[job.tone].border }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                          {job.truck}
+                        </p>
+                        <StatusPill label={job.status} tone={job.tone} />
+                      </div>
+                      <AuditFactGrid
+                        facts={[
+                          { label: "Defect", value: job.defect },
+                          { label: "Category", value: job.category },
+                          { label: "Mechanic", value: job.mechanic },
+                          {
+                            label: "In Shop",
+                            value: job.days === null ? "—" : formatDuration(job.days * 24),
+                          },
+                          { label: "Cost", value: formatMoney(job.cost) },
+                          { label: "Reported", value: formatDateLines(job.reportedAt).date },
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {eng.turnaround.byMechanic.length > 0 ? (
+              <div>
+                <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">Mechanic Efficiency</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {eng.turnaround.byMechanic.map((row) => (
+                    <div
+                      key={row.mechanic}
+                      className="flex items-center justify-between rounded-[6px] bg-[#F1F2F4] px-3.5 py-2.5"
+                    >
+                      <span className="text-[13px] font-medium text-[#1B2432]">{row.mechanic}</span>
+                      <span className="text-[12px] text-[#5C6470]">
+                        {countLabel(row.jobs, "job")} ·{" "}
+                        <span className="font-semibold text-[#1B2432]">
+                          {row.avgDays === null ? "—" : `${row.avgDays}d avg`}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </AuditDialog>
+
+      {/* ------------------------------------ security audit — the TM's own sheet */}
+      <AuditDialog
+        open={audit === "security"}
+        onClose={() => setAudit(null)}
+        title="Gate Security: Yard & Movement Oversight"
+        subtitle={`Movements logged in the window below · ${range.label}`}
+        onPrint={printSecurityAudit}
+        tabs={[
+          { id: "out", label: `Out of Yard (${sec?.yard.out ?? 0})` },
+          { id: "exit", label: `Pending Exits (${sec?.pendingExits.count ?? 0})` },
+          { id: "tat", label: `Turnaround (${sec?.tat.measured ?? 0})` },
+        ]}
+        activeTab={gateAuditTab}
+        onTabChange={(id) => setGateAuditTab(id as "out" | "exit" | "tat")}
+      >
+        {!sec ? (
+          <p className="py-8 text-center text-[13px] text-[#8E95A1]">Reading the gate log…</p>
+        ) : gateAuditTab === "out" ? (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <AuditFactGrid
+                facts={[
+                  { label: "In Yard", value: String(sec.yard.inYard) },
+                  { label: "Out of Yard", value: String(sec.yard.out) },
+                  { label: "Heads On Record", value: String(sec.yard.totalHeads) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Awaiting Return", value: String(sec.awaitingReturn.count) },
+                  { label: "Expected Known", value: String(sec.awaitingReturn.expectedKnown) },
+                  { label: "Overdue", value: String(sec.overdue.count) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Logged Out", value: String(sec.movements.departures) },
+                  { label: "Logged In", value: String(sec.movements.returns) },
+                  { label: "Avg Turnaround", value: formatDuration(sec.tat.avgHours) },
+                ]}
+              />
+            </div>
+            {sec.yard.list.length === 0 ? (
+              <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                Every truck is inside the yard.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {sec.yard.list.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-col gap-2.5 rounded-[8px] border border-[#E2E5E9] p-3.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                        {t.label} • {t.truck}
+                      </p>
+                      <StatusPill
+                        label={t.overdueHours !== null ? "OVERDUE" : "OUT"}
+                        tone={t.overdueHours !== null ? "red" : "purple"}
+                      />
+                    </div>
+                    <AuditFactGrid
+                      facts={[
+                        { label: "Driver", value: t.driver },
+                        { label: "Partner", value: t.partner },
+                        { label: "Route", value: t.route },
+                        { label: "Departed", value: gateStamp(t.departedAt, "Not Departed") },
+                        { label: "Out For", value: formatDuration(t.hoursOut) },
+                        {
+                          label: "Expected Return",
+                          value: t.expectedReturn
+                            ? formatDateLines(t.expectedReturn.toISOString()).date
+                            : "Not set",
+                        },
+                      ]}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : gateAuditTab === "exit" ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] text-[#5C6470]">
+              Dispatches the Transport Manager has released but the gate has not logged out. Waiting
+              is measured from the moment of release, so the queue cannot be mistaken for a delay
+              caused by dispatch.
+            </p>
+            {sec.pendingExits.list.length === 0 ? (
+              <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                Every released dispatch has been logged out.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {sec.pendingExits.list.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-col gap-2.5 rounded-[8px] border border-[#E2E5E9] p-3.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                        {t.label} • {t.truck}
+                      </p>
+                      <StatusPill label={`WAITING ${formatDuration(t.waitHours)}`} tone={t.tone} />
+                    </div>
+                    <AuditFactGrid
+                      facts={[
+                        { label: "Partner", value: t.partner },
+                        { label: "Route", value: t.route },
+                        { label: "Driver", value: t.driver },
+                      ]}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <AuditFactGrid
+                facts={[
+                  { label: "Average", value: formatDuration(sec.tat.avgHours) },
+                  { label: "Median", value: formatDuration(sec.tat.medianHours) },
+                  { label: "Longest", value: formatDuration(sec.tat.longestHours) },
+                ]}
+              />
+            </div>
+            {sec.tat.list.length === 0 ? (
+              <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                No trip has both a gate departure and a gate return in this window.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {sec.tat.list.map((t) => (
+                  <div
+                    key={`${t.id}-tat-card`}
+                    className="flex flex-col gap-2.5 rounded-[8px] border p-3.5"
+                    style={{ borderColor: TONE[t.tone].border }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                        {t.label} • {t.truck}
+                      </p>
+                      <StatusPill label={formatDuration(t.hoursOut)} tone="green" />
+                    </div>
+                    <AuditFactGrid
+                      facts={[
+                        { label: "Partner", value: t.partner },
+                        { label: "Logged Out", value: gateStamp(t.departedAt, "—") },
+                        { label: "Logged In", value: gateStamp(t.returnedAt, "—") },
+                        { label: "Driver", value: t.driver },
+                        { label: "Route", value: t.route },
+                        { label: "Gate-to-Gate", value: formatDuration(t.hoursOut) },
+                      ]}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </AuditDialog>
