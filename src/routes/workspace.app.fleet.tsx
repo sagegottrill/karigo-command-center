@@ -1067,6 +1067,7 @@ function FleetDispatchRequests() {
           heads={heads}
           tails={tails}
           drivers={drivers}
+          trips={trips}
           onClose={() => setEditing(null)}
           onSaved={() => {
             void tripService.list().then(setTrips);

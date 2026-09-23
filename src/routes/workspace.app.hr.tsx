@@ -12,8 +12,9 @@ import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
-import { authService, driverService } from "@/lib/fleetopsx/services";
-import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/hr")({
@@ -189,6 +190,8 @@ function HrStaffDirectory() {
   }, [navigate]);
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  /** Every dispatch — read only to tell a stale duty word from a real one. */
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DriverStatus | "All">("All");
@@ -242,8 +245,17 @@ function HrStaffDirectory() {
   };
 
   const refreshDrivers = async () => {
-    const list = await driverService.list();
+    /*
+     * The roster AND the dispatch list: the duty status alone cannot say whether
+     * a driver is really on the road, and that mismatch is what makes a free
+     * driver look unavailable to the fleet desk (lib/fleetopsx/driver-duty.ts).
+     */
+    const [list, live] = await Promise.all([
+      driverService.list(),
+      tripService.list().catch(() => [] as Trip[]),
+    ]);
     setDrivers(list);
+    setTrips(live);
   };
 
   useEffect(() => {
@@ -723,8 +735,18 @@ function HrStaffDirectory() {
                       </span>
                     ) : null}
                   </span>
-                  <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
-                    {driver.status}
+                  <span className="flex flex-col items-start gap-0.5">
+                    <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
+                      {driver.status}
+                    </span>
+                    {/* The duty word against the live dispatch list — the row
+                        HR has to correct so the fleet desk can use him. */}
+                    {staleDutyStatus(driver, trips) === "should-be-free" ? (
+                      <span className="text-[11px] leading-none text-[#B26A00]">No live dispatch</span>
+                    ) : null}
+                    {staleDutyStatus(driver, trips) === "should-be-on-trip" ? (
+                      <span className="text-[11px] leading-none text-[#B26A00]">On a live dispatch</span>
+                    ) : null}
                   </span>
                   {/* The ID closes the row — the reference you quote once the
                       driver you were looking for is found. */}

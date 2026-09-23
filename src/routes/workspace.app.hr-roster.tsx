@@ -15,10 +15,11 @@ import {
   dutyStatusForWrite,
   rolesCanMaintainStaff,
 } from "@/lib/fleetopsx/hr-helpers";
+import { driverIsOnLiveTrip, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
 import { licenseToneClass } from "@/lib/fleetopsx/license";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { authService, driverService } from "@/lib/fleetopsx/services";
-import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,6 +46,12 @@ function DutyRoster() {
   const navigate = useNavigate();
   const [canEdit, setCanEdit] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  /**
+   * Every dispatch — the roster needs it to tell a driver who is genuinely out
+   * on the road from one whose duty word is simply out of date. The stored
+   * status alone cannot answer that (see lib/fleetopsx/driver-duty.ts).
+   */
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof ROSTER_FILTERS)[number]>("All");
@@ -82,9 +89,11 @@ function DutyRoster() {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;
     }
-    void driverService
-      .list()
-      .then(setDrivers)
+    void Promise.all([driverService.list(), tripService.list().catch(() => [] as Trip[])])
+      .then(([nextDrivers, nextTrips]) => {
+        setDrivers(nextDrivers);
+        setTrips(nextTrips);
+      })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load the roster"))
       .finally(() => setLoading(false));
   }, [navigate]);
@@ -136,7 +145,13 @@ function DutyRoster() {
       setMenuFor(null);
       return;
     }
-    if (status === "Available" && driver.currentTripId) {
+    /*
+     * The refusal is decided by the DISPATCH, not by the duty word: a driver
+     * whose record still says "On Trip" but who holds no live dispatch must be
+     * releasable here, or a stale record can never be corrected by the only
+     * department that owns it.
+     */
+    if (status === "Available" && driverIsOnLiveTrip(driver, trips)) {
       toast.error(`${driver.name} is on a live dispatch — end the trip before making them available.`);
       setMenuFor(null);
       return;
@@ -190,7 +205,7 @@ function DutyRoster() {
   const rowMenu = (driver: Driver): RowMenuItem[] => [
     {
       label: "Mark Available",
-      disabled: !!driver.currentTripId || driver.status === "On Trip",
+      disabled: driverIsOnLiveTrip(driver, trips),
       onSelect: () => void setDuty(driver, "Available"),
     },
     { label: "Mark On Trip", onSelect: () => void setDuty(driver, "On Trip") },
@@ -310,14 +325,30 @@ function DutyRoster() {
                   </span>
                   <span className="text-[14px] text-[#344256]">{driver.assignedTruck || "—"}</span>
                   <span className="text-[14px] text-[#344256]">{driver.assignedTail || "—"}</span>
-                  <span
-                    className={cn(
-                      "w-fit rounded px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
-                      dutyPillClass(driver.status),
-                    )}
-                  >
-                    {driver.status}
-                  </span>                    {canEdit ? (
+                  <span className="flex flex-col gap-0.5">
+                    <span
+                      className={cn(
+                        "w-fit rounded px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
+                        dutyPillClass(driver.status),
+                      )}
+                    >
+                      {driver.status}
+                    </span>
+                    {/*
+                     * The duty word against the dispatch list. A driver parked
+                     * on "On Trip" with no job is invisible to the fleet desk,
+                     * and a driver who is out on one is the opposite danger —
+                     * both are HR's to fix, so both are named here.
+                     */}
+                    {staleDutyStatus(driver, trips) === "should-be-free" ? (
+                      <span className="text-[11px] text-[#B26A00]">No live dispatch</span>
+                    ) : null}
+                    {staleDutyStatus(driver, trips) === "should-be-on-trip" ? (
+                      <span className="text-[11px] text-[#B26A00]">On a live dispatch</span>
+                    ) : null}
+                  </span>
+
+                  {canEdit ? (
                     <RowActionMenu
                       items={rowMenu(driver)}
                       open={menuFor === driver.id}

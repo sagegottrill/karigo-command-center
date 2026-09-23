@@ -16,6 +16,7 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
+import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
 import {
   assignmentReleaseService,
   authService,
@@ -117,6 +118,12 @@ function DispatchPage() {
   const [TRUCK_TAILS, setTails] = useState<TruckTail[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [pendingOrders, setPendingOrders] = useState<Trip[]>([]);
+  /**
+   * Every dispatch, not just the queue — the driver list needs to know who is
+   * actually out on the road, which the driver record's duty word cannot say.
+   * See lib/fleetopsx/driver-duty.ts.
+   */
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshQueue = async () => {
@@ -129,6 +136,7 @@ function DispatchPage() {
     setHeads(heads);
     setTails(tails);
     setDrivers(nextDrivers);
+    setAllTrips(trips);
     // Queue = TM-approved only (canonical bucket semantics, so the count here
     // always matches the sidebar dot and the FO dashboard card). A closed request
     // (declined / withdrawn / finished) is filtered out explicitly: it must never
@@ -661,7 +669,13 @@ function DispatchPage() {
                 value={driverId}
                 onChange={setDriverId}
                 placeholder="eg: P00851"
-                options={drivers.filter(d => d.status === "Available" || d.id === driverId).map(d => ({
+                /*
+                 * Any driver the live dispatch list says is free — NOT only the
+                 * ones whose stored duty word happens to read "Available". A
+                 * driver marked On Trip with no job is selectable; a driver who
+                 * is genuinely out on one is not (see driver-duty).
+                 */
+                options={assignableDrivers(drivers, allTrips, selectedOrder?.id).map((d) => ({
                   value: d.id,
                   label: displayDriverOption(d),
                   hint: d.name,

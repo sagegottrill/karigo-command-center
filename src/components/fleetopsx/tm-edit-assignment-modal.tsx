@@ -8,6 +8,7 @@ import {
   truckTailChoice,
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
+import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
@@ -45,6 +46,7 @@ export function TmEditAssignmentModal({
   heads,
   tails,
   drivers,
+  trips = [],
   onClose,
   onSaved,
 }: {
@@ -52,6 +54,12 @@ export function TmEditAssignmentModal({
   heads: TruckHead[];
   tails: TruckTail[];
   drivers: Driver[];
+  /**
+   * Every dispatch, so the driver list knows who is genuinely out on the road.
+   * Without it the list would fall back to the duty word on the record, which
+   * hides free drivers and offers busy ones (see lib/fleetopsx/driver-duty.ts).
+   */
+  trips?: Trip[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -364,8 +372,7 @@ export function TmEditAssignmentModal({
                 }}
               >
                 <option value="">Select driver</option>
-                {drivers
-                  .filter((d) => d.status === "Available" || d.id === driverId)
+                {assignableDrivers(drivers, trips, trip.id)
                   .map((d) => (
                     <option key={d.id} value={d.id}>
                       {displayDriverOption(d)}
