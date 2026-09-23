@@ -14,6 +14,7 @@ import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -33,21 +34,12 @@ export const Route = createFileRoute("/workspace/app/hr")({
 const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
 
 /**
- * Who maintains the staff record.
+ * Who maintains the staff record, and who may only read it.
  *
- * HR & Personnel owns this desk. The Transport Manager (and everyone else) reads
- * it as an audit: the same records, the same filters, no editing. Written the
- * same way the other department portals decide their own shell.
+ * The rule lives in ONE place (lib/fleetopsx/hr-helpers.ts) and is imported here,
+ * because this file and Licence & Compliance each used to carry their own copy of
+ * the same role list — which is how one page keeps a control the other drops.
  */
-const HR_OWNER_ROLES = ["HR", "HR & Personnel", "HR and Personnel", "Platform Admin"];
-
-/** Who may open the register at all: the department, its supervisor and Fleet Ops. */
-const HR_ACCESS_ROLES = [...HR_OWNER_ROLES, "Transport Manager", "Fleet Operations"];
-
-function rolesCanMaintainStaff() {
-  if (typeof window === "undefined") return false;
-  return authService.getRoles().some((r: any) => HR_OWNER_ROLES.includes(r));
-}
 
 /**
  * Every field HR can write on a staff record.

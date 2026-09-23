@@ -10,11 +10,22 @@ import type { DriverStatus } from "@/lib/fleetopsx/types";
 /**
  * Who works the department's boards, and who may only read them.
  *
- * HR & Personnel owns the register; the Transport Manager reads the same records
- * as oversight — a glimpse of the department, not its desk. Same rule the
- * Engineering & Maintenance workshop uses on its own boards.
+ * HR & Personnel runs the register day to day, and the **Transport Manager has
+ * the same controls**: he is the one who has to onboard a driver mid-shift or
+ * release one whose duty status has gone stale, and routing that through a
+ * second department is how a dispatch sits unassigned. Everywhere else the TM
+ * supervises rather than acts; on staff records he is a second pair of hands on
+ * the same desk.
+ *
+ * Fleet Operations may open the boards to read them, and nothing more.
  */
-export const HR_OWNER_ROLES = ["HR", "HR & Personnel", "HR and Personnel", "Platform Admin"];
+export const HR_OWNER_ROLES = [
+  "HR",
+  "HR & Personnel",
+  "HR and Personnel",
+  "Transport Manager",
+  "Platform Admin",
+];
 
 /** Who may open the boards at all: the department itself, its supervisor, Fleet Ops. */
 export const HR_ACCESS_ROLES = [...HR_OWNER_ROLES, "Transport Manager", "Fleet Operations"];

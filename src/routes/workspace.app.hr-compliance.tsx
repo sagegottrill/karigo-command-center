@@ -8,6 +8,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
+import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, driverService } from "@/lib/fleetopsx/services";
@@ -31,8 +32,11 @@ export const Route = createFileRoute("/workspace/app/hr-compliance")({
   component: HrCompliance,
 });
 
-const HR_OWNER_ROLES = ["HR", "HR & Personnel", "HR and Personnel", "Platform Admin"];
-const HR_ACCESS_ROLES = [...HR_OWNER_ROLES, "Transport Manager", "Fleet Operations"];
+/*
+ * The role rule is imported, not restated: this page and Staff Records used to
+ * keep separate copies of the same list, which is how one board ends up with an
+ * edit control the other quietly dropped. See lib/fleetopsx/hr-helpers.ts.
+ */
 
 const FILTERS = ["All", "Valid", "Expiring", "Expired", "No date on file"] as const;
 
@@ -89,7 +93,7 @@ function HrCompliance() {
 
   useEffect(() => {
     const roles = authService.getRoles();
-    setCanEdit(roles.some((r: any) => HR_OWNER_ROLES.includes(r)));
+    setCanEdit(rolesCanMaintainStaff());
     if (!roles.some((r: any) => HR_ACCESS_ROLES.includes(r))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;
