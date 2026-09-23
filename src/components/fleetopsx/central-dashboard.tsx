@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   CalendarDays,
   CircleAlert,
@@ -18,6 +19,8 @@ import {
   dashboardService,
   engineeringService,
   fleetService,
+  fuelService,
+  inventoryService,
 } from "@/lib/fleetopsx/services";
 import {
   formatClockTime,
@@ -50,13 +53,25 @@ import {
   buildSecurityOversight,
   formatDuration,
   type EngJob,
+  type EngPartRequest,
   type SecTrip,
 } from "@/lib/fleetopsx/dashboard-departments";
 import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/fleetopsx/tracking-ops";
 import { formatMoney } from "@/lib/fleetopsx/lubricant";
 import { licenseExpiry } from "@/lib/fleetopsx/license";
 import { cn } from "@/lib/utils";
-import type { Driver, Expense, Trip, TruckHead, TruckTail, User, WorkOrder } from "@/lib/fleetopsx/types";
+import type {
+  Driver,
+  Expense,
+  FuelRequisition,
+  InventoryItem,
+  InventoryRequisition,
+  Trip,
+  TruckHead,
+  TruckTail,
+  User,
+  WorkOrder,
+} from "@/lib/fleetopsx/types";
 import { DashboardLiveMap } from "./dashboard-live-map";
 import { LiveMetricTile, TileCostColumns, TileDetailRows } from "./live-metric-tile";
 import {
@@ -312,7 +327,21 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [tails, setTails] = useState<TruckTail[] | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  /**
+   * The store side of Engineering: what the workshop has asked for, what the
+   * store holds, and the fuel records whose odometer readings are the only
+   * mileage the platform captures.
+   */
+  const [partRequests, setPartRequests] = useState<InventoryRequisition[]>([]);
+  const [storeItems, setStoreItems] = useState<InventoryItem[]>([]);
+  const [fuelRecords, setFuelRecords] = useState<FuelRequisition[]>([]);
   const [clock, setClock] = useState<Date | null>(null);
+  /**
+   * A handle on the board's own reload, so an approval made from a drill can
+   * refresh the figures instead of leaving the TM looking at the row he just
+   * decided until the 10-second poll catches up.
+   */
+  const refreshRef = useRef<() => void>(() => {});
 
   /**
    * The window this board reports on. It opens on TODAY — the daily capture is
@@ -385,6 +414,26 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           if (!cancelled) setWorkOrders(w);
         })
         .catch(() => {});
+      // The approval desk reads the requests the workshop raised, the store they
+      // are drawn from, and the odometer trail the cost per km is measured on.
+      void inventoryService
+        .requisitions()
+        .then((r) => {
+          if (!cancelled) setPartRequests(r);
+        })
+        .catch(() => {});
+      void inventoryService
+        .list()
+        .then((i) => {
+          if (!cancelled) setStoreItems(i);
+        })
+        .catch(() => {});
+      void fuelService
+        .list()
+        .then((f) => {
+          if (!cancelled) setFuelRecords(f);
+        })
+        .catch(() => {});
       if (canListUsers) {
         void adminService
           .users()
@@ -395,6 +444,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       }
     };
 
+    refreshRef.current = refresh;
     refresh();
     const id = window.setInterval(refresh, 10_000);
     const onVisible = () => {
@@ -616,8 +666,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
    * the workshop's own board can never disagree.
    */
   const eng = useMemo(
-    () => (clock ? buildEngineeringOversight(workOrders, live.trucks ?? [], range, clock) : null),
-    [workOrders, live.trucks, clock, range],
+    () =>
+      clock
+        ? buildEngineeringOversight(workOrders, live.trucks ?? [], range, clock, {
+            requisitions: partRequests,
+            items: storeItems,
+            fuel: fuelRecords,
+          })
+        : null,
+    [workOrders, live.trucks, clock, range, partRequests, storeItems, fuelRecords],
   );
 
   /**
@@ -826,6 +883,103 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     />
   );
 
+  /**
+   * `2d 6h left` / `due today` / `late by 1d 4h` — a promise in plain words.
+   *
+   * Days carry fractions, so the hours are shown: "1.4 days late" reads as a
+   * rounding artefact, "late by 1d 9h" reads as a truck that is somewhere it
+   * should not be.
+   */
+  const promiseWord = (days: number | null) => {
+    if (days === null) return "no date";
+    if (days < 0) return `late by ${formatDuration(Math.abs(days) * 24)}`;
+    if (days === 0) return "due today";
+    return `${formatDuration(days * 24)} left`;
+  };
+
+  /**
+   * The Transport Manager's decision on a part request.
+   *
+   * This is the one write his oversight board performs, because approving a
+   * requisition IS the approval the spec describes — the workshop asks, he
+   * decides. Approving a request that names a store item also releases the
+   * stock (one server route touches both). A rejection has to carry a reason:
+   * a queue that turns requests down silently leaves the workshop guessing why
+   * a truck is still standing.
+   */
+  const decidePartRequest = async (request: EngPartRequest, approve: boolean) => {
+    let note = "";
+    if (!approve) {
+      note = (
+        window.prompt(`Why is "${request.part}" for ${request.truck} rejected? Attached to the record.`) ??
+        ""
+      ).trim();
+      if (!note) return;
+    }
+    try {
+      if (approve) {
+        await inventoryService.approveRequisition({
+          id: request.id,
+          itemId: request.itemId,
+          quantity: request.quantity,
+        });
+      } else {
+        await inventoryService.rejectRequisition(request.id, note);
+      }
+      toast.success(
+        approve
+          ? `${request.part} approved for ${request.truck}${request.itemId ? " — released from the store" : ""}.`
+          : `${request.part} rejected for ${request.truck}.`,
+      );
+      drill.close();
+      refreshRef.current();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The decision was not saved.");
+    }
+  };
+
+  /** One part the workshop has asked for, with the TM's two decisions on it. */
+  const partRequestRow = (request: EngPartRequest) => (
+    <div key={request.id} className="border-b border-white/10 last:border-b-0">
+      <DrillRow
+        title={`${request.truck} • ${request.part}`}
+        meta={[
+          `${request.quantity} × ${formatMoney(request.unitCost)}`,
+          request.defect || null,
+          request.mechanic,
+          request.stock === null ? "not from the store" : `store ${request.stock}`,
+          request.short ? "short — cannot be released" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        right={
+          <span className="shrink-0 text-[11px] font-semibold text-white">
+            {formatMoney(request.cost)}
+          </span>
+        }
+      />
+      <div className="flex items-center gap-2 pb-2">
+        <button
+          type="button"
+          onClick={() => void decidePartRequest(request, true)}
+          className="h-7 rounded bg-[#34C759] px-2.5 text-[11px] font-semibold text-white hover:bg-[#2fae50]"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          onClick={() => void decidePartRequest(request, false)}
+          className="h-7 rounded bg-[#ED351D] px-2.5 text-[11px] font-semibold text-white hover:bg-[#d62e19]"
+        >
+          Reject
+        </button>
+        {request.reason ? (
+          <span className="truncate text-[10px] text-white/50">{request.reason}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+
   /** One truck the workshop is holding, as the TM reads it. */
   const shopTruckRow = (head: TruckHead) => {
     const status = fleetStatusWord(head.status);
@@ -918,6 +1072,42 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const assetRows = eng.costPerAsset
       .map((a) => `<tr><td>${a.label}</td><td>${a.jobs}</td><td>${formatMoney(a.spend)}</td></tr>`)
       .join("");
+    const requestRows = eng.requisitions.pending.list
+      .map(
+        (r) =>
+          `<tr><td>${r.truck}</td><td>${r.defect || "—"}</td><td>${r.part}</td><td>${
+            r.quantity
+          }</td><td>${formatMoney(r.unitCost)}</td><td>${formatMoney(r.cost)}</td><td>${
+            r.stock === null ? "not from the store" : `store ${r.stock}${r.short ? " (short)" : ""}`
+          }</td><td>${r.mechanic}</td></tr>`,
+      )
+      .join("");
+    const rtsRows = eng.rts.list
+      .map(
+        (job) =>
+          `<tr><td>${job.truck}</td><td>${job.defect}</td><td>${job.status}</td><td>${job.mechanic}</td><td>${
+            job.estimatedReadyAt || "—"
+          }</td><td>${
+            job.rtsDays === null ? "—" : job.rtsDays < 0 ? `late by ${Math.abs(job.rtsDays)}d` : `${job.rtsDays}d left`
+          }</td></tr>`,
+      )
+      .join("");
+    const stockRows = eng.inventory.list
+      .map(
+        (a) =>
+          `<tr><td>${a.name}</td><td>${a.sku}</td><td>${a.stock}</td><td>${a.reorderLevel}</td><td>${
+            a.waiting
+          }</td><td>${a.status}</td></tr>`,
+      )
+      .join("");
+    const cpkRows = eng.cpk.list
+      .map(
+        (row) =>
+          `<tr><td>${row.label}</td><td>${row.km.toLocaleString()} km</td><td>${formatMoney(
+            row.spend,
+          )}</td><td>${row.cpk === null ? "—" : `${formatMoney(row.cpk)}/km`}</td></tr>`,
+      )
+      .join("");
     printSheet(
       "Engineering & Maintenance: Workshop Oversight",
       `Maintenance spend in the selected window · ${range.label}`,
@@ -933,6 +1123,40 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
        <p><strong>Longest downtime:</strong> ${formatDuration(
          eng.downtime.longestDays * 24,
        )} (${eng.downtime.flagged} past ${DOWNTIME_FLAG_DAYS} days)</p>
+       <p><strong>Awaiting your approval:</strong> ${
+         eng.requisitions.pending.count
+       } request(s) worth ${formatMoney(eng.requisitions.pending.value)} (${
+         eng.requisitions.pending.blocked
+       } blocked by stock) · ${eng.requisitions.decided} decided in this ${range.label.toLowerCase()}</p>
+       <p><strong>Return to service:</strong> ${eng.rts.promised} promised · ${
+         eng.rts.overdue.count
+       } past its own date · ${eng.rts.missing} open with no date</p>
+       <p><strong>Cost per km:</strong> ${
+         eng.cpk.value === null ? "not measurable" : `${formatMoney(eng.cpk.value)}/km`
+       } over ${eng.cpk.km.toLocaleString()} km measured (${
+         eng.cpk.unmeasuredSpend > 0
+           ? `${formatMoney(eng.cpk.unmeasuredSpend)} of spend unmeasured`
+           : "all spend measured"
+       })</p>
+       <p><strong>Store:</strong> ${eng.inventory.items} line(s) worth ${
+         formatMoney(eng.inventory.value)
+       } · ${eng.inventory.outOfStock} out of stock · ${eng.inventory.low} low</p>
+       <h2>Parts awaiting your approval (${eng.requisitions.pending.count})</h2>
+       <table><thead><tr><th>Truck</th><th>Defect</th><th>Part</th><th>Qty</th><th>Unit</th><th>Value</th><th>Store</th><th>Mechanic</th></tr></thead><tbody>${
+         requestRows || `<tr><td colspan="8">Nothing awaiting a decision.</td></tr>`
+       }</tbody></table>
+       <h2>Return to service (${eng.rts.promised})</h2>
+       <table><thead><tr><th>Truck</th><th>Defect</th><th>Status</th><th>Mechanic</th><th>Promised</th><th>Remaining</th></tr></thead><tbody>${
+         rtsRows || `<tr><td colspan="6">No open job carries a date.</td></tr>`
+       }</tbody></table>
+       <h2>Inventory alerts (${eng.inventory.list.length})</h2>
+       <table><thead><tr><th>Part</th><th>SKU</th><th>Stock</th><th>Reorder at</th><th>Requested</th><th>Status</th></tr></thead><tbody>${
+         stockRows || `<tr><td colspan="6">No line is at or below its reorder level.</td></tr>`
+       }</tbody></table>
+       <h2>Cost per kilometre</h2>
+       <table><thead><tr><th>Truck</th><th>Distance</th><th>Spend</th><th>Per km</th></tr></thead><tbody>${
+         cpkRows || `<tr><td colspan="4">No odometer reading on file.</td></tr>`
+       }</tbody></table>
        <h2>Open work orders (${eng.open.count})</h2>
        <table><thead><tr><th>Truck</th><th>Defect</th><th>Category</th><th>Status</th><th>Mechanic</th><th>In shop</th><th>Cost</th></tr></thead><tbody>${
          rows || `<tr><td colspan="7">No open work order.</td></tr>`
@@ -1574,7 +1798,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Wrench}
           title="Engineering & Maintenance (Workshop Oversight)"
-          subtitle="Maintenance spend, the parts queue, trucks sitting in the shop and the faults that keep coming back · the department works this board, the Transport Manager audits it"
+          subtitle="Maintenance spend and cost per km, the parts the workshop has asked you to approve, when each truck is promised back, and the faults that keep coming back · the department works this board, the Transport Manager audits it and decides the parts queue"
         >
           <PeriodNote>{range.note}</PeriodNote>
           <AuditButton onClick={() => setAudit("engineering")} />
@@ -1900,6 +2124,294 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     right={
                       <span className="shrink-0 text-[11px] font-semibold text-white">
                         {row.avgDays === null ? "—" : `${row.avgDays}d avg`}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 9 — the TM's own desk: the parts the workshop has asked for. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Parts Requisitions"
+              value={eng?.requisitions.pending.count ?? "—"}
+              hint={
+                (eng?.requisitions.pending.count ?? 0) > 0
+                  ? `${money(eng?.requisitions.pending.value)} awaiting your decision`
+                  : "Nothing awaiting a decision"
+              }
+              hintTone={(eng?.requisitions.pending.count ?? 0) > 0 ? "amber" : "grey"}
+              tone={(eng?.requisitions.pending.blocked ?? 0) > 0 ? "red" : "amber"}
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("eng-reqs")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    {
+                      label: "Store can cover:",
+                      value: Math.max(
+                        0,
+                        (eng?.requisitions.pending.count ?? 0) -
+                          (eng?.requisitions.pending.blocked ?? 0),
+                      ),
+                      tone: "green",
+                    },
+                    {
+                      label: "Blocked by stock:",
+                      value: eng?.requisitions.pending.blocked ?? 0,
+                      tone: "red",
+                    },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-reqs")}
+              onClose={drill.close}
+              title={`Parts Awaiting Approval (${eng?.requisitions.pending.count ?? 0})`}
+              width={420}
+              footer={
+                <span>
+                  {money(eng?.requisitions.pending.value)} in requests · {" "}
+                  {countLabel(eng?.requisitions.decided ?? 0, "request")} decided in {range.label}
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Raised by the workshop against a job, oldest first. Approving releases the part from
+                the store; rejecting records your reason for the shop floor.
+              </p>
+              {eng && eng.requisitions.pending.unpriced > 0 ? (
+                <p className="pb-2 text-[10px] leading-4 text-white/50">
+                  {countLabel(eng.requisitions.pending.unpriced, "request")} carries no price, so the
+                  value above is a floor, not a total.
+                </p>
+              ) : null}
+              {!eng || eng.requisitions.pending.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing is waiting on your approval. The workshop raises parts requests from a job
+                  on its Work Orders board.
+                </p>
+              ) : (
+                eng.requisitions.pending.list.map(partRequestRow)
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 10 — the store the requests are drawn from, and what is short. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Parts Alerts"
+              value={eng && eng.inventory.items > 0 ? eng.inventory.outOfStock : "—"}
+              hint={
+                eng && eng.inventory.items > 0
+                  ? `${countLabel(eng.inventory.low, "line")} low · ${countLabel(eng.inventory.items, "line")} in the store`
+                  : "The store has no parts on file"
+              }
+              tone={(eng?.inventory.outOfStock ?? 0) > 0 ? "red" : "grey"}
+              icon={CircleAlert}
+              hasDrill
+              onClick={() => drill.toggle("eng-store")}
+              detail={
+                <TileNote tone="grey">Store value {money(eng?.inventory.value)}</TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-store")}
+              onClose={drill.close}
+              title="Inventory Alerts"
+              width={400}
+              footer={
+                <span>
+                  {countLabel(eng?.inventory.items ?? 0, "part")} on file · {money(eng?.inventory.value)}{" "}
+                  on the shelf
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Lines at or below their reorder level, with the units the workshop has already asked
+                for and not yet been given.
+              </p>
+              {!eng || eng.inventory.items === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  The store holds no parts yet, so there is nothing that can run short. Parts are
+                  added on the workshop's Parts &amp; Store board.
+                </p>
+              ) : eng.inventory.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Every line in the store is above its reorder level.
+                </p>
+              ) : (
+                eng.inventory.list.map((alert) => (
+                  <DrillRow
+                    key={`${alert.sku}-${alert.name}`}
+                    title={`${alert.name}${alert.sku && alert.sku !== "—" ? ` (${alert.sku})` : ""}`}
+                    meta={[
+                      `stock ${alert.stock} · reorder at ${alert.reorderLevel}`,
+                      alert.waiting > 0 ? `${alert.waiting} requested by the shop` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span
+                          className={cn(
+                            alert.stock <= 0 ? "text-[#FF6B57]" : "text-[#FFC46B]",
+                          )}
+                        >
+                          {alert.status}
+                        </span>
+                        {alert.shortBy > 0 ? (
+                          <span className="block text-[10px] font-normal text-white/60">
+                            short {alert.shortBy}
+                          </span>
+                        ) : null}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 11 — repair spend against distance actually driven. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Cost Per KM"
+              value={
+                eng?.cpk.value === null || eng?.cpk.value === undefined
+                  ? "—"
+                  : money(eng.cpk.value)
+              }
+              hint={
+                eng && eng.cpk.trucks > 0
+                  ? `${eng.cpk.km.toLocaleString()} km over ${countLabel(eng.cpk.trucks, "truck")}`
+                  : "No odometer reading on file"
+              }
+              tone="blue"
+              icon={Navigation}
+              hasDrill
+              onClick={() => drill.toggle("eng-cpk")}
+              valueClass="text-[24px]"
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-cpk")}
+              onClose={drill.close}
+              title="Maintenance Cost Per Kilometre"
+              width={420}
+              footer={
+                <span>
+                  {money(eng?.cpk.spend)} of repairs over {eng?.cpk.km.toLocaleString() ?? 0} km
+                  measured
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Distance comes from the odometer readings on the fuel records — the only mileage the
+                platform captures. Repairs on a truck with no readings are left out of the ratio
+                rather than assumed to have travelled nothing.
+              </p>
+              {eng && eng.cpk.unmeasuredSpend > 0 ? (
+                <p className="pb-2 text-[10px] leading-4 text-white/50">
+                  {money(eng.cpk.unmeasuredSpend)} of spend is not covered by any reading, so it is
+                  outside this figure.
+                </p>
+              ) : null}
+              {!eng || eng.cpk.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No fuel record carries an odometer reading in this window, so distance is unknown
+                  and a cost per km cannot be stated.
+                </p>
+              ) : (
+                eng.cpk.list.map((row) => (
+                  <DrillRow
+                    key={row.label}
+                    title={row.label}
+                    meta={`${row.km.toLocaleString()} km · ${countLabel(row.readings, "reading")} · ${money(
+                      row.spend,
+                    )} spent`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {row.cpk === null ? "—" : `${money(row.cpk)}/km`}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 12 — when the workshop says each truck is coming back. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Next Return to Service"
+              value={eng?.rts.next ? formatTableDate(eng.rts.next.date) : "—"}
+              hint={
+                eng?.rts.next
+                  ? `${eng.rts.next.label} · ${promiseWord(eng.rts.next.days)}`
+                  : "No truck has a promised date"
+              }
+              hintTone={
+                !eng?.rts.next
+                  ? "grey"
+                  : (eng.rts.next.days ?? 0) < 0
+                    ? "red"
+                    : (eng.rts.next.days ?? 0) <= 1
+                      ? "amber"
+                      : "green"
+              }
+              tone={(eng?.rts.overdue.count ?? 0) > 0 ? "red" : "purple"}
+              icon={Clock}
+              hasDrill
+              onClick={() => drill.toggle("eng-rts")}
+              split={{
+                aLabel: "Promised",
+                aValue: eng?.rts.promised ?? "—",
+                bLabel: "Overdue",
+                bValue: eng?.rts.overdue.count ?? "—",
+              }}
+            />
+            <DrillPopover
+              open={drill.isOpen("eng-rts")}
+              onClose={drill.close}
+              title={`Return to Service (${eng?.rts.promised ?? 0} promised)`}
+              width={400}
+              footer={
+                <span>
+                  {eng?.rts.overdue.count ?? 0} past its own date · {eng?.rts.missing ?? 0} with no
+                  date at all
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                The date the workshop set when it took the truck in. A job without one has no
+                promise to hold the shop to.
+              </p>
+              {!eng || eng.rts.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No open job carries a return-to-service date, so no truck can be late.
+                </p>
+              ) : (
+                eng.rts.list.map((job) => (
+                  <DrillRow
+                    key={`rts-${job.id}`}
+                    title={job.truck}
+                    meta={[job.defect, job.mechanic, job.status].filter(Boolean).join(" · ")}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span
+                          className={cn(
+                            (job.rtsDays ?? 0) < 0 ? "text-[#FF6B57]" : "text-white",
+                          )}
+                        >
+                          {formatTableDate(job.estimatedReadyAt)}
+                        </span>
+                        <span className="block text-[10px] font-normal text-white/60">
+                          {promiseWord(job.rtsDays)}
+                        </span>
                       </span>
                     }
                   />
@@ -2392,6 +2904,79 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   { label: "Its Jobs", value: topAsset ? String(topAsset.jobs) : "—" },
                 ]}
               />
+              <AuditFactGrid
+                facts={[
+                  { label: "Awaiting Approval", value: String(eng.requisitions.pending.count) },
+                  { label: "Requests Value", value: formatMoney(eng.requisitions.pending.value) },
+                  { label: "Blocked By Stock", value: String(eng.requisitions.pending.blocked) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  { label: "Promised Back", value: String(eng.rts.promised) },
+                  { label: "Past Its Date", value: String(eng.rts.overdue.count) },
+                  { label: "No Date At All", value: String(eng.rts.missing) },
+                ]}
+              />
+              <AuditFactGrid
+                facts={[
+                  {
+                    label: "Cost Per KM",
+                    value: eng.cpk.value === null ? "—" : `${formatMoney(eng.cpk.value)}/km`,
+                  },
+                  { label: "KM Measured", value: eng.cpk.km.toLocaleString() },
+                  {
+                    label: "Store Value",
+                    value: `${formatMoney(eng.inventory.value)} · ${eng.inventory.outOfStock} out`,
+                  },
+                ]}
+              />
+            </div>
+
+            {/* The one queue on this board the TM acts on. */}
+            <div>
+              <h3 className="mb-2 text-[15px] font-semibold text-[#1B2432]">
+                Parts Awaiting Your Approval ({eng.requisitions.pending.count})
+              </h3>
+              {eng.requisitions.pending.list.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-[#8E95A1]">
+                  Nothing is waiting on your decision.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {eng.requisitions.pending.list.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex flex-col gap-2.5 rounded-[8px] border border-[#E2E5E9] p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 truncate text-[15px] font-semibold leading-5 text-[#1B2432]">
+                          {request.truck} • {request.part}
+                        </p>
+                        <span className="shrink-0 text-[13px] font-semibold text-[#1B2432]">
+                          {formatMoney(request.cost)}
+                        </span>
+                      </div>
+                      <AuditFactGrid
+                        facts={[
+                          { label: "Defect", value: request.defect || "—" },
+                          { label: "Quantity", value: String(request.quantity) },
+                          { label: "Unit Price", value: formatMoney(request.unitCost) },
+                          {
+                            label: "Store",
+                            value:
+                              request.stock === null
+                                ? "Not a store part"
+                                : `${request.stock} on the shelf${request.short ? " — short" : ""}`,
+                          },
+                          { label: "Mechanic", value: request.mechanic },
+                          { label: "Raised", value: formatDateLines(request.requestedAt).date },
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -2427,6 +3012,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                           },
                           { label: "Cost", value: formatMoney(job.cost) },
                           { label: "Reported", value: formatDateLines(job.reportedAt).date },
+                          {
+                            label: "Return to service",
+                            value: job.estimatedReadyAt
+                              ? `${formatDateLines(job.estimatedReadyAt).date} · ${promiseWord(job.rtsDays)}`
+                              : "No date promised",
+                          },
                         ]}
                       />
                     </div>

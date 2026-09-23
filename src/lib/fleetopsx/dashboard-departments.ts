@@ -11,8 +11,16 @@ import {
   parseGateStamp,
 } from "./gate-helpers";
 import { displayCapPlateFromTrip } from "./display-ids";
-import { resolveTruck, truckLabel } from "./engineering-helpers";
-import type { TruckHead, Trip, WorkOrder, WorkOrderStatus } from "./types";
+import { headKeys, resolveTruck, truckLabel, workOrderKeys } from "./engineering-helpers";
+import type {
+  FuelRequisition,
+  InventoryItem,
+  InventoryRequisition,
+  TruckHead,
+  Trip,
+  WorkOrder,
+  WorkOrderStatus,
+} from "./types";
 
 /**
  * The Transport Manager's oversight figures for Engineering & Maintenance and
@@ -51,7 +59,58 @@ export type EngJob = {
   completedAt: string;
   /** Days in the shop and counting (open jobs), or days it took (closed jobs). */
   days: number | null;
+  /** The workshop's promised return-to-service date ("" when none was given). */
+  estimatedReadyAt: string;
+  /** Days until that promise (negative = already late), null when there is none. */
+  rtsDays: number | null;
   tone: DeptTone;
+};
+
+/** A parts request as the Transport Manager's approval queue reads it. */
+export type EngPartRequest = {
+  id: string;
+  /** The truck as every other board names it — cap number first. */
+  truck: string;
+  truckReg: string;
+  /** The defect on the job the part was asked for ("" if the job is gone). */
+  defect: string;
+  part: string;
+  quantity: number;
+  unitCost: number;
+  /** quantity × unit cost. 0 means the request carried no price at all. */
+  cost: number;
+  mechanic: string;
+  reason: string;
+  requestedAt: string;
+  itemId: string;
+  /** Stock behind the line in the store, or null when no item was named. */
+  stock: number | null;
+  /** The store cannot cover the request — approving it cannot be fulfilled. */
+  short: boolean;
+};
+
+/** One truck's maintenance spend against the distance it was actually driven. */
+export type EngCpkRow = {
+  label: string;
+  km: number;
+  spend: number;
+  cpk: number | null;
+  /** Odometer readings the distance was measured from. */
+  readings: number;
+};
+
+/** A part the store is short of, and how much of it is already promised out. */
+export type EngStockAlert = {
+  name: string;
+  sku: string;
+  stock: number;
+  reorderLevel: number;
+  status: string;
+  unitCost: number;
+  /** Units already requested by the workshop and not yet decided. */
+  waiting: number;
+  /** Units the store is short of to cover what is already waiting. */
+  shortBy: number;
 };
 
 export type EngineeringOversight = {
@@ -85,6 +144,57 @@ export type EngineeringOversight = {
   totalJobs: number;
   /** Jobs in the parts queue with no cost recorded — the value is incomplete. */
   unpricedInQueue: number;
+  /**
+   * Maintenance cost per kilometre: the window's repair spend against the
+   * distance the trucks were actually driven in it.
+   *
+   * Distance is measured from the odometer readings on the fuel records — the
+   * only mileage the platform captures. A truck whose spend is known but whose
+   * mileage is not is left out of the ratio and counted in `unmeasuredSpend`,
+   * so the figure shown is never a blend of measured and invented distance.
+   */
+  cpk: {
+    value: number | null;
+    km: number;
+    spend: number;
+    readings: number;
+    trucks: number;
+    unmeasuredSpend: number;
+    list: EngCpkRow[];
+  };
+  /** When the workshop says each open truck is coming back, and who is late. */
+  rts: {
+    /** Open jobs carrying a promised return-to-service date. */
+    promised: number;
+    /** Open jobs with no date at all — the gap no estimate can be read from. */
+    missing: number;
+    next: { truck: string; label: string; date: string; days: number | null; tone: DeptTone } | null;
+    overdue: { count: number; worstDays: number; list: EngJob[] };
+    list: EngJob[];
+  };
+  /** The approval desk: parts the workshop has asked the store for. */
+  requisitions: {
+    pending: {
+      count: number;
+      value: number;
+      /** Requests carrying no price — the value is a floor, not a total. */
+      unpriced: number;
+      /** Pending requests the store cannot cover. */
+      blocked: number;
+      list: EngPartRequest[];
+    };
+    /** Movements the TM has already decided inside the window. */
+    decided: number;
+  };
+  /** The store those requests are drawn from. */
+  inventory: {
+    items: number;
+    outOfStock: number;
+    low: number;
+    /** Stock on hand valued at its own unit cost. */
+    value: number;
+    list: EngStockAlert[];
+  };
 };
 
 /** A gate movement as the Security oversight board reads it. */
@@ -212,7 +322,24 @@ export function buildEngineeringOversight(
   heads: TruckHead[],
   range: PeriodRange,
   now: Date,
+  /**
+   * The store side of the workshop: what has been asked for, what the store
+   * holds, and the odometer readings that turn spend into a cost per km. All
+   * optional so a caller with only work orders still gets a valid board.
+   */
+  extras: {
+    requisitions?: InventoryRequisition[];
+    items?: InventoryItem[];
+    fuel?: FuelRequisition[];
+  } = {},
 ): EngineeringOversight {
+  /** Days to a promised date; negative once the promise has passed. */
+  const rtsDays = (stamp: string): number | null => {
+    const at = parseGateStamp(stamp);
+    if (!at) return null;
+    return round1((at.getTime() - now.getTime()) / 86_400_000);
+  };
+
   const readJob = (order: WorkOrder, days: number | null): EngJob => {
     const resolved = resolveTruck(order, heads);
     return {
@@ -228,9 +355,25 @@ export function buildEngineeringOversight(
       startedAt: order.startedAt,
       completedAt: order.completedAt,
       days,
+      estimatedReadyAt: String(order.estimatedReadyAt || ""),
+      rtsDays: rtsDays(String(order.estimatedReadyAt || "")),
       tone: jobTone(order.status, days),
     };
   };
+
+  /**
+   * A truck key from any free-text truck column (a work order's plate, a
+   * requisition's plate, a fuel record's plate): the plate if there is one,
+   * otherwise the cap number. One key per truck, whichever board wrote it.
+   */
+  const keyOf = (raw: unknown): string => {
+    const keys = workOrderKeys({ truckReg: String(raw ?? "") } as WorkOrder);
+    return keys.plate || keys.head;
+  };
+
+  const requisitions = extras.requisitions ?? [];
+  const items = extras.items ?? [];
+  const fuel = extras.fuel ?? [];
 
   const openOrders = orders.filter(isOpenJob);
 
@@ -293,6 +436,130 @@ export function buildEngineeringOversight(
   const sum = (list: EngJob[]) => list.reduce((total, job) => total + job.cost, 0);
   const longestDays = openList[0]?.days ?? 0;
 
+  /* --------------------------------------- return to service (RTS) ------- */
+
+  /** Open jobs the workshop has promised a date for, soonest promise first. */
+  const rtsList = openList
+    .filter((job) => job.rtsDays !== null)
+    .sort((a, b) => (a.rtsDays ?? 0) - (b.rtsDays ?? 0));
+  const lateList = rtsList.filter((job) => (job.rtsDays ?? 0) < 0);
+  const nextPromise = rtsList[0];
+
+  /* ------------------------------------------- cost per kilometre --------- */
+
+  /**
+   * The odometer trail per truck: readings from the fuel records inside the
+   * window, oldest first. Distance is last reading − first reading, which is the
+   * only mileage figure the platform actually records.
+   */
+  const odometerTrail = new Map<string, { at: number; value: number }[]>();
+  for (const record of fuel) {
+    const value = Number(record.odometer ?? 0);
+    const at = parseGateStamp(record.date);
+    if (value <= 0 || !at || !inPeriod(record.date, range)) continue;
+    const key = keyOf(record.truckReg);
+    if (!key) continue;
+    odometerTrail.set(key, [...(odometerTrail.get(key) ?? []), { at: at.getTime(), value }]);
+  }
+
+  const spendByKey = new Map<string, number>();
+  for (const order of orders) {
+    if (order.status === "Cancelled" || !inPeriod(jobMoment(order), range)) continue;
+    const key = keyOf(order.truckReg);
+    if (!key) continue;
+    spendByKey.set(key, (spendByKey.get(key) ?? 0) + Number(order.cost ?? 0));
+  }
+
+  const cpkRows: EngCpkRow[] = [];
+  let measuredKm = 0;
+  let measuredSpend = 0;
+  let measuredReadings = 0;
+  for (const [key, trail] of odometerTrail) {
+    const sorted = [...trail].sort((a, b) => a.at - b.at);
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    if (!first || !last || sorted.length < 2 || last.value <= first.value) continue;
+    const km = Math.round(last.value - first.value);
+    const spend = spendByKey.get(key) ?? 0;
+    const head = heads.find((h) => {
+      const hk = headKeys(h);
+      return hk.plate === key || hk.head.includes(key);
+    });
+    measuredKm += km;
+    measuredSpend += spend;
+    measuredReadings += sorted.length;
+    cpkRows.push({
+      label: head ? truckLabel(head) : key.toUpperCase(),
+      km,
+      spend,
+      cpk: km > 0 ? spend / km : null,
+      readings: sorted.length,
+    });
+  }
+  cpkRows.sort((a, b) => (b.cpk ?? 0) - (a.cpk ?? 0));
+  const windowSpend = sum(spendList);
+
+  /* ------------------------------------------- the parts approval desk --- */
+
+  const itemById = new Map(items.map((item) => [String(item.id), item]));
+  const jobByKey = new Map<string, WorkOrder>();
+  for (const order of orders) {
+    const key = keyOf(order.truckReg);
+    if (key && !jobByKey.has(key)) jobByKey.set(key, order);
+  }
+
+  const readRequest = (request: InventoryRequisition): EngPartRequest => {
+    const resolved = resolveTruck({ truckReg: request.truckReg } as WorkOrder, heads);
+    const job = jobByKey.get(keyOf(request.truckReg));
+    const item = request.itemId ? itemById.get(String(request.itemId)) : undefined;
+    // The request's own snapshot wins; the store price only fills a blank.
+    const unitCost = Number(request.unitCost ?? 0) || Number(item?.unitCost ?? 0);
+    const quantity = Number(request.quantity ?? 0);
+    return {
+      id: String(request.id),
+      truck: resolved ? truckLabel(resolved) : String(request.truckReg || "—"),
+      truckReg: String(request.truckReg || ""),
+      defect: job?.defect ?? "",
+      part: request.part || "Part not named",
+      quantity,
+      unitCost,
+      cost: unitCost * quantity,
+      mechanic: request.mechanic || "Unassigned",
+      reason: request.reason || "",
+      requestedAt: String(request.date || ""),
+      itemId: String(request.itemId || ""),
+      stock: item ? Number(item.stock) : null,
+      short: item ? Number(item.stock) < quantity : false,
+    };
+  };
+
+  /** Oldest first: a request queue is worked in the order it was raised. */
+  const pendingReqs = requisitions
+    .filter((request) => request.status === "Pending")
+    .map(readRequest)
+    .sort((a, b) => (a.requestedAt < b.requestedAt ? -1 : a.requestedAt > b.requestedAt ? 1 : 0));
+
+  /* ------------------------------------------------------------ the store */
+
+  const alerts: EngStockAlert[] = items
+    .filter((item) => item.status !== "In Stock" || item.stock <= item.reorderLevel)
+    .map((item) => {
+      const waiting = pendingReqs
+        .filter((request) => request.itemId === String(item.id))
+        .reduce((total, request) => total + request.quantity, 0);
+      return {
+        name: item.name || item.sku || "Unnamed part",
+        sku: item.sku || "—",
+        stock: Number(item.stock),
+        reorderLevel: Number(item.reorderLevel),
+        status: item.status,
+        unitCost: Number(item.unitCost),
+        waiting,
+        shortBy: Math.max(0, waiting - Number(item.stock)),
+      };
+    })
+    .sort((a, b) => b.shortBy - a.shortBy || a.stock - b.stock);
+
   return {
     spend: { total: sum(spendList), jobs: spendList.length, list: spendList },
     partsQueue: {
@@ -333,6 +600,56 @@ export function buildEngineeringOversight(
       .sort((a, b) => b.count - a.count),
     totalJobs: orders.filter((o) => o.status !== "Cancelled").length,
     unpricedInQueue: partsList.filter((job) => job.cost <= 0).length,
+    cpk: {
+      value: measuredKm > 0 ? measuredSpend / measuredKm : null,
+      km: measuredKm,
+      spend: measuredSpend,
+      readings: measuredReadings,
+      trucks: cpkRows.length,
+      unmeasuredSpend: Math.max(0, windowSpend - measuredSpend),
+      list: cpkRows,
+    },
+    rts: {
+      promised: rtsList.length,
+      missing: openList.length - rtsList.length,
+      next: nextPromise
+        ? {
+            truck: nextPromise.truckReg,
+            label: nextPromise.truck,
+            date: nextPromise.estimatedReadyAt,
+            days: nextPromise.rtsDays,
+            tone: (nextPromise.rtsDays ?? 0) < 0 ? "red" : (nextPromise.rtsDays ?? 0) <= 1 ? "amber" : "green",
+          }
+        : null,
+      overdue: {
+        count: lateList.length,
+        worstDays: lateList.length ? Math.abs(Math.min(...lateList.map((job) => job.rtsDays ?? 0))) : 0,
+        list: lateList,
+      },
+      list: rtsList,
+    },
+    requisitions: {
+      pending: {
+        count: pendingReqs.length,
+        value: pendingReqs.reduce((total, request) => total + request.cost, 0),
+        unpriced: pendingReqs.filter((request) => request.cost <= 0).length,
+        blocked: pendingReqs.filter((request) => request.short).length,
+        list: pendingReqs,
+      },
+      decided: requisitions.filter(
+        (request) => request.status !== "Pending" && inPeriod(request.date, range),
+      ).length,
+    },
+    inventory: {
+      items: items.length,
+      outOfStock: items.filter((item) => item.status === "Out of Stock" || Number(item.stock) <= 0)
+        .length,
+      low: items.filter(
+        (item) => Number(item.stock) > 0 && Number(item.stock) <= Number(item.reorderLevel),
+      ).length,
+      value: items.reduce((total, item) => total + Number(item.stock) * Number(item.unitCost), 0),
+      list: alerts,
+    },
   };
 }
 

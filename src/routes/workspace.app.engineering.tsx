@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { RaisePartsRequestModal } from "@/components/fleetopsx/raise-parts-request-modal";
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu, type RowMenuItem } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
@@ -23,9 +24,10 @@ import {
   engineeringService,
   fleetService,
   formatNairaFull,
+  inventoryService,
   nextWorkOrderStatus,
 } from "@/lib/fleetopsx/services";
-import type { TruckHead, WorkOrder, WorkOrderStatus } from "@/lib/fleetopsx/types";
+import type { InventoryItem, TruckHead, WorkOrder, WorkOrderStatus } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/engineering")({
@@ -136,8 +138,12 @@ function EngineeringWorkOrders() {
 
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [heads, setHeads] = useState<TruckHead[]>([]);
+  /** The store lines a parts request can be priced against. */
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** The job a parts request is being raised for. */
+  const [partsFor, setPartsFor] = useState<WorkOrder | null>(null);
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof WORK_ORDER_FILTERS)[number]>("All");
@@ -161,12 +167,14 @@ function EngineeringWorkOrders() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = async () => {
-    const [wos, fleet] = await Promise.all([
+    const [wos, fleet, store] = await Promise.all([
       engineeringService.listWorkOrders(),
       fleetService.listHeads().catch(() => [] as TruckHead[]),
+      inventoryService.list().catch(() => [] as InventoryItem[]),
     ]);
     setOrders(wos);
     setHeads(fleet);
+    setItems(store);
   };
 
   useEffect(() => {
@@ -337,6 +345,32 @@ function EngineeringWorkOrders() {
     toast.success("Exported CSV successfully.");
   };
 
+  /**
+   * The workshop's promise for when a truck comes back into service.
+   *
+   * It is the one date the Transport Manager audits the shop against — a job
+   * still open past its own estimate is late by the workshop's own word, not by
+   * a deadline someone else invented.
+   */
+  const setReadyDate = async (order: WorkOrder) => {
+    const current = order.estimatedReadyAt ? String(order.estimatedReadyAt).slice(0, 10) : "";
+    const answer = window.prompt(
+      `When will ${truckLabelFor(order)} be ready to return to service? (YYYY-MM-DD)\nLeave it blank to clear the estimate.`,
+      current,
+    );
+    if (answer === null) return;
+    const value = answer.trim();
+    if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      toast.error("Use YYYY-MM-DD, eg 2026-09-24.");
+      return;
+    }
+    await patchOrder(
+      order,
+      { estimatedReadyAt: value ? new Date(`${value}T00:00:00`).toISOString() : null },
+      value ? `Promised back on ${value}.` : "Return-to-service estimate cleared.",
+    );
+  };
+
   const orderMenu = (order: WorkOrder): RowMenuItem[] => {
     const next = nextWorkOrderStatus(order.status);
     return [
@@ -375,6 +409,16 @@ function EngineeringWorkOrders() {
         hidden: order.status === "Completed",
         onSelect: () =>
           void patchOrder(order, { status: "Completed", completedAt: new Date().toISOString() }, "Job closed."),
+      },
+      {
+        label: "Request parts…",
+        onSelect: () => setPartsFor(order),
+      },
+      {
+        label: order.estimatedReadyAt
+          ? "Change return-to-service date…"
+          : "Set return-to-service date…",
+        onSelect: () => void setReadyDate(order),
       },
       {
         label: "Reopen job",
@@ -802,12 +846,37 @@ function EngineeringWorkOrders() {
                   label: "Completed",
                   value: details.completedAt ? formatDateLines(details.completedAt).date : "Still open",
                 },
+                {
+                  label: "Return to service",
+                  value: details.estimatedReadyAt
+                    ? `${formatDateLines(details.estimatedReadyAt).date}${
+                        details.status === "Completed" || details.status === "Cancelled"
+                          ? " (closed)"
+                          : new Date(details.estimatedReadyAt).getTime() < Date.now()
+                            ? " — past its own date"
+                            : ""
+                      }`
+                    : "No date promised",
+                },
                 { label: "Reported by", value: details.reportedBy || "—" },
                 { label: "Notes", value: details.notes || "—" },
               ]
             : []
         }
         note="Read-only view — Engineering & Maintenance works this board. Only the workshop can change a stage, a mechanic or a cost."
+      />
+
+      {/* The first half of the parts loop the TM approves on his dashboard. */}
+      <RaisePartsRequestModal
+        open={partsFor !== null}
+        onClose={() => setPartsFor(null)}
+        jobs={openOrders}
+        heads={heads}
+        items={items}
+        initialJob={partsFor}
+        onCreated={() => {
+          void refresh().catch(() => {});
+        }}
       />
     </>
   );

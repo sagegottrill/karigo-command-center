@@ -5,6 +5,7 @@ import {
   LogOut,
   MessageSquare,
   MoreVertical,
+  Package,
   Receipt,
   ShieldCheck,
   Truck,
@@ -67,6 +68,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     items: [
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
+      { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
       { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },

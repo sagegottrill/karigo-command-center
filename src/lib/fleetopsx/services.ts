@@ -4,7 +4,7 @@ import type {
 } from "./types";
 import { getTenantSlug } from "./hostname";
 import { fetchApi, setToken, setStoredUser, clearSession, getStoredUser } from "./apiClient";
-import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi } from "./live-api";
+import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, asList, tripToApi, mapFuel, mapInventoryItem, mapInventoryRequisition } from "./live-api";
 import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
 import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
@@ -521,7 +521,12 @@ export const partnerSiteService = {
 };
 
 export const fuelService = {
-  list: () => fetchApi('/fuel'),
+  /**
+   * Mapped, not raw: the odometer reading on a fuel record is what turns
+   * maintenance spend into a cost per kilometre, and the raw row is untyped
+   * (every column a string). Reading it untyped is how a distance becomes NaN.
+   */
+  list: () => fetchApi<unknown[]>('/fuel').then((res) => asList(res as any).map(mapFuel)),
   // Backend exposes PATCH /fuel/:id only — status transitions go through it
   // (server auto-creates the expense row on Approved).
   approve: (id: string) => fetchApi(`/fuel/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }).then(res => {
@@ -632,9 +637,76 @@ export const engineeringService = {
 };
 
 export const inventoryService = {
-  list: () => fetchApi('/inventory'),
+  list: () => fetchApi<unknown[]>('/inventory').then((res) => asList(res as any).map(mapInventoryItem)),
+  createItem: (input: any) =>
+    fetchApi<unknown>('/inventory', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: input.name,
+        sku: input.sku,
+        category: input.category || 'General',
+        stock: Number(input.stock) || 0,
+        reorderLevel: Number(input.reorderLevel) || 0,
+        unitCost: Number(input.unitCost) || 0,
+        location: input.location || 'Main Store',
+      }),
+    }).then((res) => mapInventoryItem(res as any)),
+  updateItem: (id: string, updates: Record<string, unknown>) =>
+    fetchApi<unknown>(`/inventory/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then((res) =>
+      mapInventoryItem(res as any),
+    ),
   // Backend route is /inventory-requisitions (hyphenated).
-  requisitions: () => fetchApi('/inventory-requisitions'),
+  requisitions: () =>
+    fetchApi<unknown[]>('/inventory-requisitions').then((res) =>
+      asList(res as any).map(mapInventoryRequisition),
+    ),
+  /**
+   * The workshop asking the store for a part against a job.
+   *
+   * `unitCost` is snapshotted onto the request, so the approval queue keeps the
+   * price the request was raised at even if the store item is re-priced later.
+   */
+  createRequisition: (input: any) =>
+    fetchApi<unknown>('/inventory-requisitions', {
+      method: 'POST',
+      body: JSON.stringify({
+        workOrder: input.workOrder || '',
+        truckReg: input.truckReg || '',
+        mechanic: input.mechanic || '',
+        part: input.part,
+        itemId: input.itemId || null,
+        quantity: Number(input.quantity) || 0,
+        unitCost: Number(input.unitCost) || 0,
+        reason: input.reason || '',
+        status: 'Pending',
+      }),
+    }).then((res) => mapInventoryRequisition(res as any)),
+  /**
+   * The Transport Manager's decision on a pending request.
+   *
+   * Approving a request that names a store item also takes the stock out of the
+   * store (the server's release route, which is the only write that touches
+   * both the item and the requisition). A request raised for a part the store
+   * never held is simply marked Released — there is nothing to draw down.
+   */
+  approveRequisition: async (requisition: { id: string; itemId?: string; quantity: number }) => {
+    if (requisition.itemId) {
+      await fetchApi(`/inventory/${requisition.itemId}/release`, {
+        method: 'POST',
+        body: JSON.stringify({ qty: requisition.quantity, reqId: requisition.id }),
+      });
+      return;
+    }
+    await fetchApi(`/inventory-requisitions/${requisition.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'Released' }),
+    });
+  },
+  rejectRequisition: (id: string, decisionNote: string) =>
+    fetchApi(`/inventory-requisitions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'Rejected', decisionNote }),
+    }),
   release: (itemId: string, qty: number, reqId?: string) => fetchApi(`/inventory/${itemId}/release`, { method: 'POST', body: JSON.stringify({ qty, reqId }) }).then(res => {
     notificationService.create({ title: 'Parts Released', body: `${qty} units released from inventory.`, category: 'Engineering' });
     return res;

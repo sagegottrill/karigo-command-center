@@ -324,6 +324,14 @@ export interface WorkOrder {
   startedAt: string;
   /** When the job was closed out — the truck's check-up date. */
   completedAt: string;
+  /**
+   * The workshop's projected RETURN TO SERVICE date (YYYY-MM-DD).
+   *
+   * This is the promise the Transport Manager audits against: a truck still open
+   * past its own estimate is the answer to "when is this coming back?", which no
+   * other field on the job can give.
+   */
+  estimatedReadyAt: string;
 }
 
 export interface InventoryItem {
@@ -344,8 +352,17 @@ export interface InventoryRequisition {
   truckReg: string;
   mechanic: string;
   part: string;
+  /** The store item this part is drawn from, when the request named one. */
+  itemId: string;
   quantity: number;
+  /**
+   * The part's price at REQUEST time. Snapshotted rather than looked up, so a
+   * re-priced or deleted store item cannot rewrite what a past request cost.
+   */
+  unitCost: number;
   reason: string;
+  /** Why the Transport Manager rejected it — empty while it is pending. */
+  decisionNote: string;
   status: "Pending" | "Released" | "Rejected";
   date: string;
 }

@@ -366,6 +366,9 @@ export function mapWorkOrder(w: Record<string, unknown>): WorkOrder {
     notes: String(w.notes ?? ""),
     startedAt: String(w.startedAt ?? ""),
     completedAt: String(w.completedAt ?? ""),
+    // Preserved verbatim (an ISO stamp or a YYYY-MM-DD date) — the oversight
+    // board parses it, so trimming it here would lose the promised day.
+    estimatedReadyAt: String(w.estimatedReadyAt ?? ""),
   };
 }
 
@@ -624,8 +627,11 @@ export function mapInventoryRequisition(r: Record<string, unknown>): InventoryRe
     truckReg: String(r.truckReg ?? ""),
     mechanic: String(r.mechanic ?? ""),
     part: String(r.part ?? ""),
+    itemId: String(r.itemId ?? ""),
     quantity: Number(r.quantity ?? 0),
+    unitCost: Number(r.unitCost ?? 0),
     reason: String(r.reason ?? ""),
+    decisionNote: String(r.decisionNote ?? ""),
     status: (r.status as InventoryRequisition["status"]) || "Pending",
     date: String(r.date ?? r.createdAt ?? ""),
   };
@@ -717,6 +723,12 @@ export async function liveCreateInventoryRequisition(body: Record<string, unknow
 }
 export async function liveReleaseInventory(itemId: string, qty: number, reqId: string): Promise<void> {
   await api.post(`/inventory/${itemId}/release`, { qty, reqId });
+}
+export async function liveUpdateInventoryRequisition(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<InventoryRequisition> {
+  return mapInventoryRequisition(await api.patch(`/inventory-requisitions/${id}`, body));
 }
 
 export async function liveListProcurement(): Promise<ProcurementRequest[]> {
