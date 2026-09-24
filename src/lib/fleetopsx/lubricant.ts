@@ -123,6 +123,15 @@ export interface LubricantDisbursalRow extends LubricantTripRow {
   trip?: LubricantTripRow | null;
   /** The authority in force when it was pumped, if there was one. */
   approval?: LubricantApproval | null;
+  /**
+   * The Transport Manager's review of this entry — carried on the SAME `status`
+   * the base row already declares (the trip's status is on `trip`): Pending
+   * until he endorses it, Declined when he flags it. The department's ledger
+   * records the pour; this records whether the money's owner accepted it.
+   */
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewNote?: string | null;
 }
 
 export interface LubricantFeedItem {

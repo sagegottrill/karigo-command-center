@@ -20,6 +20,7 @@ import {
 } from "@/lib/fleetopsx/lubricant";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { exportCsv, LubricantSearch, LubricantTableFooter } from "@/components/fleetopsx/lubricant-ui";
+import { TmLubricant } from "@/components/fleetopsx/tm-lubricant";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { cn } from "@/lib/utils";
 
@@ -237,6 +238,17 @@ function LubricantReportPage() {
   const diesel = overview?.stocks.find((s) => s.fuelType === "Diesel");
   const gas = overview?.stocks.find((s) => s.fuelType === "Gas");
   const dayLitres = (overview?.daily.litres.Diesel ?? 0) + (overview?.daily.litres.Gas ?? 0);
+
+  /*
+   * THE TRANSPORT MANAGER GETS HIS OWN TWO SCREENS.
+   *
+   * The board below is the department's: it asks what was pumped and hands
+   * litres out. He needs the other side of the counter — what each tank holds,
+   * what it was bought for and drawn against, and every litre the department
+   * logged for him to endorse or flag. Same route, same data, different job:
+   * placed after every hook so the hook order never depends on the role.
+   */
+  if (isTm) return <TmLubricant />;
 
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">

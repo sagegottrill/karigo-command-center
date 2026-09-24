@@ -1,23 +1,25 @@
 /**
- * Upload a local file to the API box. The base64-over-argv route the earlier
- * patches used breaks once a script grows past the command-line limit, so large
- * patches go over SFTP instead.
+ * Uploads a file to the API box and optionally runs a command there.
  *
- * Usage: node scripts/ssh_put.mjs <local-path> <remote-path>
+ *   node scripts/ssh_put.mjs <localPath> <remotePath> [command]
  */
 import { NodeSSH } from "node-ssh";
 
-const [local, remote] = process.argv.slice(2);
-if (!local || !remote) {
-  console.error("Usage: node scripts/ssh_put.mjs <local-path> <remote-path>");
+const [, , localPath, remotePath, command] = process.argv;
+if (!localPath || !remotePath) {
+  console.error("Usage: node scripts/ssh_put.mjs <localPath> <remotePath> [command]");
   process.exit(1);
 }
 
 const ssh = new NodeSSH();
 await ssh.connect({ host: "2.28.45.216", username: "root", password: "FleetOpsx2026!" });
-try {
-  await ssh.putFile(local, remote);
-  console.log(`uploaded ${local} -> ${remote}`);
-} finally {
-  await ssh.dispose();
+await ssh.putFile(localPath, remotePath);
+console.log("uploaded:", localPath, "->", remotePath);
+
+if (command) {
+  const r = await ssh.execCommand(command, { cwd: "/var/www/fleetopsx-api" });
+  if (r.stdout) console.log(r.stdout);
+  if (r.stderr) console.error(r.stderr);
+  console.log("exit:", r.code);
 }
+await ssh.dispose();

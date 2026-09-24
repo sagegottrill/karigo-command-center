@@ -72,6 +72,18 @@ export const lubricantService = {
     fetchApi<import('./lubricant').LubricantRequestRow[]>('/lubricant/requests').then((res) => asList(res as any) as any),
   disbursals: () =>
     fetchApi<import('./lubricant').LubricantDisbursalRow[]>('/lubricant/disbursals').then((res) => asList(res as any) as any),
+  /**
+   * The Transport Manager endorsing (or flagging) one logged dispense.
+   *
+   * The department's entry is a fact the moment it is pumped; this is the
+   * owner of the money accepting it — so a wrong figure is corrected by a
+   * decision on the record, never by quietly editing history.
+   */
+  reviewDisbursal: (id: string, status: "Pending" | "Approved" | "Declined", note?: string) =>
+    fetchApi<import('./lubricant').LubricantDisbursalRow>(`/lubricant/disbursals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, note }),
+    }),
   disburse: (input: { tripId: string; fuelType: "Diesel" | "Gas"; quantity: number; dispensedBy: string; signature?: string }) =>
     fetchApi<{ reference: string; amount: number; quantity: number; stock?: any }>('/lubricant/disbursals', {
       method: 'POST',
