@@ -15,6 +15,7 @@ import {
   withinRange,
   type LubricantDisbursalRow,
   type LubricantOverview,
+  type LubricantRequestRow,
   type LubricantRange,
 } from "@/lib/fleetopsx/lubricant";
 import { exportCsv, LubricantSearch, LubricantTableFooter } from "@/components/fleetopsx/lubricant-ui";
@@ -104,12 +105,19 @@ function LubricantReportPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [companyMenu, setCompanyMenu] = useState(false);
   const [page, setPage] = useState(0);
+  /** Fleet Ops' diesel asks, and the TM's release on each — the desk he works. */
+  const [asks, setAsks] = useState<LubricantRequestRow[]>([]);
 
   const refresh = useCallback(async () => {
     try {
-      const [next, history] = await Promise.all([lubricantService.overview(), lubricantService.disbursals()]);
+      const [next, history, pending] = await Promise.all([
+        lubricantService.overview(),
+        lubricantService.disbursals(),
+        lubricantService.requests().catch(() => [] as LubricantRequestRow[]),
+      ]);
       setOverview(next);
       setRows(history);
+      setAsks(pending);
     } catch (err) {
       if (loading) toast.error(err instanceof Error ? err.message : "Failed to load the lubricant report.");
     } finally {
@@ -121,6 +129,40 @@ function LubricantReportPage() {
     void refresh();
   }, [refresh]);
   useAutoRefresh(() => void refresh(), []);
+
+  /*
+   * THE RELEASE, ON THE DEPARTMENT'S OWN PAGE. Fleet Ops works out what each
+   * dispatch needs; the pump refuses to dispense more than the Transport
+   * Manager released. That decision used to live only on his dashboard, so
+   * opening the module itself gave him nothing to act on — the queue and the
+   * decision now sit together here.
+   */
+  const isTm = authService.getRoles().includes("Transport Manager");
+  const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
+
+  const release = async (ask: LubricantRequestRow) => {
+    const answer = window.prompt(
+      `How many ${ask.request.fuelType === "Gas" ? "kg" : "litres"} of ${ask.request.fuelType} for ${ask.customer || "this dispatch"}?`,
+      String(ask.request.quantity),
+    );
+    if (answer === null) return;
+    const litres = Number(answer.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(litres) || litres <= 0) {
+      toast.error("Enter a positive number.");
+      return;
+    }
+    try {
+      await lubricantService.authorize(
+        ask.id,
+        litres,
+        authService.getCurrentUser()?.name || "Transport Manager",
+      );
+      toast.success(`${formatQuantity(litres)} released — the pump cannot exceed it.`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The release was not saved.");
+    }
+  };
 
   /** Every company that has ever been dispensed to, so the filter can offer them. */
   const companyOptions = useMemo(() => {
@@ -207,6 +249,41 @@ function LubricantReportPage() {
           accent={(overview?.counts.requests ?? 0) > 0 ? "amber" : "plain"}
         />
       </div>
+
+      {isTm && pendingAsks.length > 0 ? (
+        <div className="flex flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-[16px] font-medium text-[#1B2432]">
+                Awaiting your release ({pendingAsks.length})
+              </h3>
+              <p className="text-[12px] text-[#5C6470]">
+                Fleet Ops' figure per dispatch — the pump refuses to dispense more than you release.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col divide-y divide-[#E2E5E9]">
+            {pendingAsks.slice(0, 8).map((ask) => (
+              <div key={ask.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                <span className="min-w-0 flex-1 text-[13.5px] text-[#344256]">
+                  {ask.request.quantity} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
+                  {ask.customer || "—"} · {ask.dropoff || "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void release(ask)}
+                  className="h-8 shrink-0 rounded bg-[#1B2432] px-3 text-[12px] font-semibold text-white hover:bg-[#2a3547]"
+                >
+                  Release
+                </button>
+              </div>
+            ))}
+          </div>
+          {pendingAsks.length > 8 ? (
+            <p className="text-[12px] text-[#5C6470]">and {pendingAsks.length - 8} more…</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

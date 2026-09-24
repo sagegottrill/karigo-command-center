@@ -158,6 +158,43 @@ function PartsAndStore() {
       .finally(() => setLoading(false));
   }, [load]);
 
+  /*
+   * THE APPROVAL THE WORKSHOP WAITS ON. The TM decides a part request wherever
+   * he meets the queue — his dashboard or this board — so "he has no control in
+   * Parts & Inventory" stops being true of the module itself. Approving hands
+   * the ticket to the store floor; rejecting must name a reason.
+   */
+  const canDecide = authService.getRoles().includes("Transport Manager");
+
+  const decide = async (request: InventoryRequisition, approve: boolean) => {
+    let note = "";
+    if (!approve) {
+      note = (
+        window.prompt(`Why is "${request.part}" for ${request.truckReg} rejected? Attached to the record.`) ?? ""
+      ).trim();
+      if (!note) return;
+    }
+    try {
+      if (approve) {
+        await inventoryService.approveRequisition({
+          id: request.id,
+          itemId: request.itemId,
+          quantity: request.quantity,
+        });
+      } else {
+        await inventoryService.rejectRequisition(request.id, note);
+      }
+      toast.success(
+        approve
+          ? `${request.part} approved for ${request.truckReg} — handed to the store floor.`
+          : `${request.part} rejected for ${request.truckReg}.`,
+      );
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The decision was not saved.");
+    }
+  };
+
   const truckOf = (reg: string) => {
     const want = String(reg ?? "")
       .trim()
@@ -508,6 +545,30 @@ function PartsAndStore() {
                       <span className="text-[12px] text-[#5C6470]">
                         {request.id.slice(0, 6).toUpperCase()}
                       </span>
+                      {/*
+                       * THE TRANSPORT MANAGER'S DECISION — on the module, not only
+                       * on the dashboard. The queue is real wherever he opens it:
+                       * approving releases the stock to the floor, rejecting has
+                       * to carry a reason the workshop can read.
+                       */}
+                      {canDecide && request.status === "Pending" ? (
+                        <div className="col-span-3 flex items-center gap-2 pl-1">
+                          <button
+                            type="button"
+                            onClick={() => void decide(request, true)}
+                            className="h-7 rounded bg-[#34C759] px-3 text-[11px] font-semibold text-white hover:bg-[#2fae50]"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void decide(request, false)}
+                            className="h-7 rounded bg-[#ED351D] px-3 text-[11px] font-semibold text-white hover:bg-[#d62e19]"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })
