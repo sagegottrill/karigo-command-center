@@ -44,7 +44,7 @@ const FLEET_GRID =
   // reference you look up after you have found the row, not the first thing you
   // read. Status keeps its own wide track: it has to hold "Awaiting Approval" on
   // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
-  "grid grid-cols-[minmax(108px,0.75fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(104px,0.75fr)_minmax(80px,0.55fr)_minmax(0,0.85fr)_minmax(108px,0.75fr)_minmax(100px,0.7fr)_minmax(146px,0.8fr)_minmax(92px,0.55fr)_auto]";
+  "grid grid-cols-[minmax(108px,0.75fr)_minmax(72px,0.85fr)_minmax(64px,0.7fr)_minmax(104px,0.75fr)_minmax(80px,0.55fr)_minmax(72px,0.85fr)_minmax(108px,0.75fr)_minmax(100px,0.7fr)_minmax(146px,0.8fr)_minmax(92px,0.55fr)_auto]";
 
 /** What the search box actually reaches, said out loud when it finds nothing. */
 const SEARCH_COVERS =
@@ -758,8 +758,8 @@ function FleetDispatchRequests() {
               <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", FLEET_GRID)}>
                 {/* Date Requested leads the row — the TM reads the request date first. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
+                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
+                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
                 {/* This column shows the truck type the request was raised for —
                     labelling it "Head Type" made operators read it as the cab. */}
