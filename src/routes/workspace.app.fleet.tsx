@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
+import { IN_TRANSIT_STATUSES } from "@/lib/fleetopsx/status-buckets";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -83,8 +84,8 @@ function isDispatchRequest(trip: Trip) {
   ].includes(trip.status);
 }
 
-/** The moving statuses — one word for all of them on this table. */
-const IN_TRANSIT_STATUSES = ["Loaded", "En Route", "Offloading", "Returning", "Delayed"];
+/* The moving statuses come from the shared bucket map (see status-buckets.ts)
+ * rather than a local copy, so this table cannot drift from the others. */
 
 /**
  * Every status this table can DISPLAY on a row.

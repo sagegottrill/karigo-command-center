@@ -71,6 +71,37 @@ export function isInBucket(
   return buckets.includes(tripBucket(trip));
 }
 
+/** The statuses that BELONG to a bucket, read off the map above.
+ *
+ * Derived, never retyped. Screens used to keep their own copies of "the moving
+ * statuses" (Fleet Ops' table, the gate house, the TM's Security view). They
+ * happened to agree — but a status added to one list and not the others is a
+ * truck that moves on one board and not on another, which is exactly the
+ * two-answers-for-one-fact problem this module exists to end.
+ */
+export function statusesInBucket(bucket: TripBucket): string[] {
+  return Object.keys(BUCKET_BY_STATUS).filter((status) => BUCKET_BY_STATUS[status] === bucket);
+}
+
+/** The moving statuses — one word for all of them on every table. */
+export const IN_TRANSIT_STATUSES: string[] = statusesInBucket("inTransit");
+
+/**
+ * Gate semantics: a departure has happened once the truck is moving OR home.
+ *
+ * "Has this truck left the yard?" is asked by the gate house and by the
+ * Transport Manager's own Security view, and both must answer identically — so
+ * the set is built from the bucket map plus the one status that means "and it
+ * came back", not written out a second time.
+ */
+export const GATE_DEPARTED_STATUSES: string[] = [
+  ...IN_TRANSIT_STATUSES,
+  ...statusesInBucket("completed"),
+];
+
+/** A truck on its way in, or already back. */
+export const GATE_RETURNED_STATUSES: string[] = ["Returning", ...statusesInBucket("completed")];
+
 /** Everything currently moving or dispatched (Tracking Operations board). */
 export const ACTIVE_DISPATCH_BUCKETS: TripBucket[] = ["scheduled", "inTransit"];
 

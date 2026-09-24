@@ -1,4 +1,5 @@
 import { authService } from "@/lib/fleetopsx/services";
+import { GATE_DEPARTED_STATUSES, GATE_RETURNED_STATUSES } from "@/lib/fleetopsx/status-buckets";
 import type { Trip } from "@/lib/fleetopsx/types";
 
 /**
@@ -38,8 +39,10 @@ export function rolesCanWorkTheGate() {
  * definition; `Departure`/`Returned` are the words shown when the status says a
  * stamp exists but no readable timestamp was ever written.
  */
-const DEPARTED_STATUSES = ["En Route", "Loaded", "Offloading", "Returning", "Completed", "Delayed"];
-const RETURNED_STATUSES = ["Returning", "Completed"];
+/* The membership comes from the shared bucket map — this file keeps only the
+ * gate's READING of it (a stamp, or the word when no readable stamp exists). */
+const DEPARTED_STATUSES = GATE_DEPARTED_STATUSES;
+const RETURNED_STATUSES = GATE_RETURNED_STATUSES;
 
 /** The gate's real departure stamp, or null while the truck is still inside. */
 export function gateDepartureStamp(trip: Trip): string | null {

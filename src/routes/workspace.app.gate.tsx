@@ -22,6 +22,7 @@ import {
   rolesCanWorkTheGate,
   splitGateStamp,
 } from "@/lib/fleetopsx/gate-helpers";
+import { GATE_DEPARTED_STATUSES } from "@/lib/fleetopsx/status-buckets";
 import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip } from "@/lib/fleetopsx/types";
@@ -344,9 +345,11 @@ departure silently never logs. */
   };
 
   const listing = useMemo(() => {
-    return trips.filter((t) =>
-      ["Scheduled", "En Route", "Loaded", "Offloading", "Returning", "Completed", "Delayed"].includes(t.status),
-    );
+    /* The log shows everything the gate can be asked about: what is still to
+     * leave, what has left, and what is home — the shared status sets, so this
+     * board cannot disagree with the TM's Security view about a movement. */
+    const logged = [...GATE_DEPARTED_STATUSES, "Scheduled"];
+    return trips.filter((t) => logged.includes(t.status));
   }, [trips]);
 
   const filtered = listing.filter((t) => {
