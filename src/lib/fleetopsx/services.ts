@@ -495,6 +495,25 @@ export const tripService = {
   // Normalize through tripToApi: defaults status to "Requested" (backend default
   // "Draft" is invisible in every queue) and maps loadingSite/consignee shapes.
   create: (data: Partial<Trip>) => fetchApi('/trips', { method: 'POST', body: JSON.stringify(tripToApi(data)) }).then(mapTrip),
+  /**
+   * Security filing a truck that left BEFORE the app went live.
+   *
+   * The gate board only lists dispatches that exist, so a truck already on the
+   * road could never be stamped out — and a return with nothing to attach to
+   * left it "out of yard" for good. This files the departure it never got, so
+   * the normal Log Return closes the circle (Completed, tail to Check Up,
+   * driver freed).
+   */
+  backfillGateDeparture: (input: {
+    plate: string;
+    head?: string;
+    tailNumber?: string;
+    driverName?: string;
+    customer?: string;
+    dropoff?: string;
+    leftAt?: string;
+    note?: string;
+  }) => fetchApi<{ ok: boolean; tripId: string; reference: string }>('/gate/backfill', { method: 'POST', body: JSON.stringify(input) }),
   update: (id: string, updates: Omit<Partial<Trip>, keyof ClearableTripFields> & ClearableTripFields) => {
     // Sanitize payload for Prisma API which throws 500 on unknown fields
     const payload = { ...updates } as any;

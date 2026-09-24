@@ -107,6 +107,10 @@ function LubricantReportPage() {
   const [page, setPage] = useState(0);
   /** Fleet Ops' diesel asks, and the TM's release on each — the desk he works. */
   const [asks, setAsks] = useState<LubricantRequestRow[]>([]);
+  /** The ask currently being released — the modal's subject, null when closed. */
+  const [releasing, setReleasing] = useState<LubricantRequestRow | null>(null);
+  const [releaseValue, setReleaseValue] = useState("");
+  const [releaseSaving, setReleaseSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -140,27 +144,32 @@ function LubricantReportPage() {
   const isTm = authService.getRoles().includes("Transport Manager");
   const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
 
-  const release = async (ask: LubricantRequestRow) => {
-    const answer = window.prompt(
-      `How many ${ask.request.fuelType === "Gas" ? "kg" : "litres"} of ${ask.request.fuelType} for ${ask.customer || "this dispatch"}?`,
-      String(ask.request.quantity),
-    );
-    if (answer === null) return;
-    const litres = Number(answer.replace(/[^0-9.]/g, ""));
+  const openRelease = (ask: LubricantRequestRow) => {
+    setReleasing(ask);
+    setReleaseValue(String(ask.request.quantity));
+  };
+
+  const confirmRelease = async () => {
+    if (!releasing) return;
+    const litres = Number(releaseValue.replace(/[^0-9.]/g, ""));
     if (!Number.isFinite(litres) || litres <= 0) {
       toast.error("Enter a positive number.");
       return;
     }
+    setReleaseSaving(true);
     try {
       await lubricantService.authorize(
-        ask.id,
+        releasing.id,
         litres,
         authService.getCurrentUser()?.name || "Transport Manager",
       );
       toast.success(`${formatQuantity(litres)} released — the pump cannot exceed it.`);
+      setReleasing(null);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The release was not saved.");
+    } finally {
+      setReleaseSaving(false);
     }
   };
 
@@ -271,7 +280,7 @@ function LubricantReportPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => void release(ask)}
+                  onClick={() => openRelease(ask)}
                   className="h-8 shrink-0 rounded bg-[#1B2432] px-3 text-[12px] font-semibold text-white hover:bg-[#2a3547]"
                 >
                   Release
@@ -500,6 +509,71 @@ function LubricantReportPage() {
           }
         />
       </div>
+
+      {/* THE RELEASE MODAL — a real dialog, not a browser prompt the browser
+          swallows: the figure is editable before anything is sent, Enter
+          confirms, Esc backs out, and the button shows the save in flight. */}
+      {releasing ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B111C]/55 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setReleasing(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="flex w-full max-w-[420px] flex-col gap-4 rounded-[12px] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setReleasing(null);
+              if (e.key === "Enter" && !releaseSaving) void confirmRelease();
+            }}
+          >
+            <div className="flex flex-col gap-1">
+              <h4 className="text-[16px] font-semibold text-[#1B2432]">
+                Release {releasing.request.fuelType === "Gas" ? "gas (kg)" : "diesel (litres)"}
+              </h4>
+              <p className="text-[12.5px] text-[#5C6470]">
+                {releasing.customer || "This dispatch"}
+                {releasing.dropoff ? ` · ${releasing.dropoff}` : ""} — Fleet Ops asks for{" "}
+                <strong className="font-semibold text-[#344256]">
+                  {formatQuantity(releasing.request.quantity)}
+                </strong>{" "}
+                {releasing.request.fuelType === "Gas" ? "kg" : "L"}. The pump cannot dispense more than you release.
+              </p>
+            </div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                Litres to release
+              </span>
+              <input
+                autoFocus
+                value={releaseValue}
+                onChange={(e) => setReleaseValue(e.target.value)}
+                inputMode="decimal"
+                className="h-11 rounded border border-[#E2E5E9] px-3 text-[16px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+              />
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReleasing(null)}
+                className="h-9 rounded px-4 text-[13px] font-medium text-[#5C6470] hover:bg-[#F1F2F4]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmRelease()}
+                disabled={releaseSaving}
+                className="h-9 rounded bg-[#1B2432] px-4 text-[13px] font-semibold text-white hover:bg-[#2a3547] disabled:opacity-60"
+              >
+                {releaseSaving ? "Releasing…" : "Confirm release"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

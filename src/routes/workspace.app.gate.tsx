@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, MoreVertical, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, History, MoreVertical, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
@@ -124,6 +124,9 @@ function SecurityLogPage() {
 
   useEffect(() => {
     setCanWorkGate(rolesCanWorkTheGate());
+    setCanFilePreApp(
+      rolesCanWorkTheGate() || authService.getRoles().includes("Transport Manager"),
+    );
   }, []);
 
   /**
@@ -154,6 +157,71 @@ function SecurityLogPage() {
   // Closing the trip is shared with the Tracking department's own "Truck
   // Returned" action — see lib/fleetopsx/return-trip.ts. One implementation, so
   // the gate and the tracking crew can never close a dispatch differently.
+  /*
+   * PRE-APP RECONCILIATION. The company ran the yard on paper until Tuesday,
+   * so trucks already on the road have no dispatch to stamp — and a truck with
+   * no departure cannot be returned, which left them "out of yard" forever.
+   * Security files the departure it never got, then works the return normally.
+   */
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  /*
+   * Who may file a pre-app truck. Security owns the gate, but this is the
+   * reconciliation of the yard's history — the Transport Manager needs it too
+   * (he is the one chasing the trucks that left before go-live). Logging an
+   * ordinary departure or return stays between the gate house and no one else.
+   */
+  const [canFilePreApp, setCanFilePreApp] = useState(false);
+  const [backfillSaving, setBackfillSaving] = useState(false);
+  const [backfillForm, setBackfillForm] = useState({
+    plate: "",
+    head: "",
+    tailNumber: "",
+    driverName: "",
+    customer: "",
+    dropoff: "",
+    leftAt: "",
+    note: "",
+  });
+
+  const handleBackfill = async () => {
+    if (!backfillForm.plate.trim()) {
+      toast.error("The plate number or cap number is required.");
+      return;
+    }
+    setBackfillSaving(true);
+    try {
+      const res = await tripService.backfillGateDeparture({
+        plate: backfillForm.plate.trim(),
+        head: backfillForm.head.trim() || undefined,
+        tailNumber: backfillForm.tailNumber.trim() || undefined,
+        driverName: backfillForm.driverName.trim() || undefined,
+        customer: backfillForm.customer.trim() || undefined,
+        dropoff: backfillForm.dropoff.trim() || undefined,
+        leftAt: backfillForm.leftAt ? new Date(backfillForm.leftAt).toISOString() : undefined,
+        note: backfillForm.note.trim() || undefined,
+      });
+      toast.success(
+        `${res.reference} filed as out of the yard — log its Return when the truck comes home.`,
+      );
+      setBackfillOpen(false);
+      setBackfillForm({
+        plate: "",
+        head: "",
+        tailNumber: "",
+        driverName: "",
+        customer: "",
+        dropoff: "",
+        leftAt: "",
+        note: "",
+      });
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to file the truck as out");
+    } finally {
+      setBackfillSaving(false);
+    }
+  };
+
   const handleLogReturn = async (trip: Trip) => {
     try {
       const { marked } = await completeTripReturn(trip);
@@ -347,17 +415,32 @@ function SecurityLogPage() {
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => openLogModal()}
-          className={cn(
-            "flex h-9 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white",
-            !canWorkGate && "hidden",
-          )}
-        >
-          <Plus className="size-4" strokeWidth={2} />
-          Log Vehicle departure
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* Trucks that left before go-live: file them as out so their return
+              can close the circle like any other dispatch. */}
+          <button
+            type="button"
+            onClick={() => setBackfillOpen(true)}
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded border border-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-[#1B2432] hover:bg-[#F1F2F4]",
+              !canFilePreApp && "hidden",
+            )}
+          >
+            <History className="size-4" strokeWidth={2} />
+            Log pre-app truck
+          </button>
+          <button
+            type="button"
+            onClick={() => openLogModal()}
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white",
+              !canWorkGate && "hidden",
+            )}
+          >
+            <Plus className="size-4" strokeWidth={2} />
+            Log Vehicle departure
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
@@ -544,6 +627,80 @@ function SecurityLogPage() {
         facts={details ? movementFacts(details) : []}
         note="Read-only view — Security logs this gate. A departure or a return can only be stamped by the gate house."
       />
+
+      {/* RECONCILIATION: a truck that left before the app went live. */}
+      {canFilePreApp && backfillOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex max-h-[90vh] w-[430px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Truck already out
+              </h3>
+              <p className="text-[12.5px] text-[#5C6470]">
+                For trucks that left before we started logging the gate. Filing it as out is what lets you
+                log its Return later — and that return frees the driver and moves the truck to Check Up.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              {(
+                [
+                  ["plate", "Plate Number / Cap No *", "example: KSF 72 YF or P0841"],
+                  ["head", "Truck Head", "example: P002"],
+                  ["tailNumber", "Tail Number", "example: B001"],
+                  ["driverName", "Driver Name", "example: J.Doe"],
+                  ["customer", "Company", "example: Saba Steel"],
+                  ["dropoff", "Destination", "example: Ikorodu"],
+                ] as const
+              ).map(([key, label, placeholder]) => (
+                <label key={key} className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                  {label}
+                  <input
+                    className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+                    placeholder={placeholder}
+                    value={backfillForm[key]}
+                    onChange={(e) => setBackfillForm((f) => ({ ...f, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                Date it left (leave blank for now)
+                <input
+                  type="datetime-local"
+                  className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+                  value={backfillForm.leftAt}
+                  onChange={(e) => setBackfillForm((f) => ({ ...f, leftAt: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                Note
+                <input
+                  className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+                  placeholder="example: left before go-live"
+                  value={backfillForm.note}
+                  onChange={(e) => setBackfillForm((f) => ({ ...f, note: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => setBackfillOpen(false)}
+                className="text-[14px] font-bold text-[#ED351D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={backfillSaving}
+                onClick={() => void handleBackfill()}
+                className="h-11 rounded-lg bg-[#1B2432] px-6 text-[14px] font-bold text-white disabled:opacity-60"
+              >
+                {backfillSaving ? "Filing…" : "File as out of yard"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {canWorkGate && logOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
