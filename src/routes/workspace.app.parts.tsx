@@ -117,12 +117,21 @@ function PartsAndStore() {
     const roles = authService.getRoles();
     // The store is kept by Engineering AND by the Head of Inventory (the RBAC
     // matrix gives that role full inbound/purchase/threshold access); the
-    // Transport Manager reads the board as an audit.
+    // Transport Manager reads the board as an audit. Parts & Store is its own
+    // department — its accounts must NEVER be bounced off their own board by a
+    // stale check that predates the split.
     setCanEdit(
       rolesCanWorkOnTrucks() ||
         roles.some((r: string) => /head of inventory|inventory manager/i.test(r)),
     );
-    if (!roles.some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r))) {
+    const allowed = [
+      "Parts & Store",
+      "Parts and Store",
+      "Inventory",
+      "Head of Inventory",
+      ...ENGINEERING_ACCESS_ROLES,
+    ];
+    if (!roles.some((r: string) => allowed.includes(r))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
     }
   }, [navigate]);

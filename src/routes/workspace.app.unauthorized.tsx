@@ -12,6 +12,14 @@ function homeForRoles(roles: string[]): string {
   if (roles.includes("Tracking")) return "/workspace/app/active-dispatch";
   if (roles.includes("Security")) return "/workspace/app/gate";
   if (roles.includes("Fleet Operations")) return "/workspace/app/dispatch";
+  // The store departments land on their own boards, never on the TM's Central
+  // Dashboard (which would bounce a department role straight back here).
+  if (roles.some((r) => /^parts & store$|^parts and store$/i.test(r))) return "/workspace/app/parts";
+  if (roles.some((r) => /^inventory$|head of inventory|store floor attendant/i.test(r))) return "/workspace/app/inventory-desk";
+  if (roles.includes("Engineering")) return "/workspace/app/engineering";
+  if (roles.includes("HR")) return "/workspace/app/hr";
+  if (roles.includes("Lubricant")) return "/workspace/app/lubricant-inventory";
+  if (roles.includes("Loading")) return "/workspace/app/active-dispatch";
   return "/workspace/app";
 }
 
