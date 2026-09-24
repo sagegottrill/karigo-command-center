@@ -1,8 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
@@ -298,12 +299,10 @@ function SecurityLogPage() {
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
+  // The CSV string for the shared Export menu — same order as the table, the
+  // dispatch ID closing the row. The menu's Image and PDF options snapshot the
+  // rendered table, so they honour the same search and filters.
   const exportCsv = () => {
-    if (filtered.length === 0) {
-      toast.message("Nothing to export");
-      return;
-    }
-    // Same order as the table — the dispatch ID closes the row.
     const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Logged By,Dispatch ID\n";
     const body = filtered
       .map(
@@ -311,14 +310,7 @@ function SecurityLogPage() {
           `${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")},${returnStamp(t) ? t.gateInBy || t.gateOutBy || "Unsigned" : departureStamp(t) ? t.gateOutBy || "Unsigned" : ""},${dispatchId(t)}`,
       )
       .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "security_log.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Exported CSV");
+    return header + body;
   };
 
   if (loading) {
@@ -390,14 +382,13 @@ function SecurityLogPage() {
           }}
           allLabel="All Statuses"
         />
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="hidden h-9 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-white md:flex"
-        >
-          <Download className="size-4" />
-          Export CSV
-        </button>
+        <ExportMenu
+          csv={exportCsv}
+          rows={filtered.length}
+          title="Dispatch Logs — Gate Security"
+          fileNameBase="security_log"
+          className="hidden md:block"
+        />
       </div>
 
       <div className="overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
@@ -514,13 +505,13 @@ function SecurityLogPage() {
               >
                 <ChevronRight className="size-[18px] text-[#627084]" />
               </button>
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white md:hidden"
-              >
-                Export CSV
-              </button>
+              <ExportMenu
+                csv={exportCsv}
+                rows={filtered.length}
+                title="Dispatch Logs — Gate Security"
+                fileNameBase="security_log"
+                mobile
+              />
             </div>
           </div>
         )}
