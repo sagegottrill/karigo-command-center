@@ -19,6 +19,7 @@ import { authService, fleetService, tripService } from "@/lib/fleetopsx/services
 import {
   gateDepartureStamp,
   gateReturnStamp,
+  gateStampLabel,
   rolesCanWorkTheGate,
   splitGateStamp,
 } from "@/lib/fleetopsx/gate-helpers";
@@ -75,14 +76,16 @@ function StampCell({ value, fallback }: { value: string | null; fallback: string
   if (!value) {
     return <span className="text-[13px] italic tracking-[0.4px] text-[#627084]">{fallback}</span>;
   }
-  const stamp = parseStamp(value);
+  const stamp = gateStampLabel(value);
   if (!stamp) {
     return <span className="text-[13px] font-medium tracking-[0.4px] text-[#34C759]">{value}</span>;
   }
+  /* One line, as the board draws it: the spoken date, a dot, then the time. */
   return (
-    <span className="text-[13px] font-medium leading-4 tracking-[0.4px] text-[#34C759]">
-      {stamp.date}
-      <span className="block text-[12px] font-normal text-[#34C759]/80">{stamp.time}</span>
+    <span className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium tracking-[0.4px] text-[#34C759]">
+      <span>{stamp.date}</span>
+      <span className="size-1.5 shrink-0 rounded-full bg-[#34C759]" />
+      <span>{stamp.time}</span>
     </span>
   );
 }
@@ -466,8 +469,10 @@ departure silently never logs. */
         {/* The action column is wide enough for the read-only label the Transport
             Manager sees there instead of the 3-dots, so "View only" sits on one
             line rather than stacking into "View / only". */}
-        <div className="hidden grid-cols-[140px_105px_115px_100px_1fr_1fr_130px_96px_62px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-          {["Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Logged By", "Dispatch ID"].map(
+        <div className="hidden grid-cols-[88px_140px_92px_92px_76px_1fr_1fr_118px_48px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+          {/* The dispatch ID leads, as the board draws it: the guard reads the
+              ticket number off the paper and finds the row by it. */}
+          {["Dispatch ID", "Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Logged By"].map(
             (h) => (
               <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
@@ -483,8 +488,12 @@ departure silently never logs. */
           return (
             <div
               key={trip.id}
-              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[140px_105px_115px_100px_1fr_1fr_130px_96px_62px] md:items-center md:gap-4 md:px-5"
+              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[88px_140px_92px_92px_76px_1fr_1fr_118px_48px] md:items-center md:gap-4 md:px-5"
             >
+              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                <span className="text-[#627084] md:hidden">Dispatch ID: </span>
+                {dispatchId(trip)}
+              </span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.driverName || "—"}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{plateOf(trip)}</span>
@@ -510,12 +519,6 @@ departure silently never logs. */
                     ? trip.gateOutBy
                     : "Unsigned"}
               </span>
-              {/* The ID closes the row on every table; on the stacked phone view
-                  it carries its own label so it cannot read as an orphan value. */}
-              <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
-                <span className="text-[#627084] md:hidden">Dispatch ID: </span>
-                {dispatchId(trip)}
-              </span>
               <div className="hidden justify-self-end md:block">
                 {canWorkGate ? (
                   <RowActionMenu
@@ -524,8 +527,8 @@ departure silently never logs. */
                     label="Gate log options"
                     width={176}
                     items={[
-                      { label: "Log Departure", onSelect: () => openLogModal(trip) },
-                      { label: "Log Return", onSelect: () => void handleLogReturn(trip) },
+                      { label: "Departed", onSelect: () => openLogModal(trip) },
+                      { label: "Returned", onSelect: () => void handleLogReturn(trip) },
                     ]}
                   />
                 ) : (

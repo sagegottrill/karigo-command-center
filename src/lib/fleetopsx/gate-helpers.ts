@@ -85,6 +85,50 @@ export function splitGateStamp(value: string): { date: string; time: string } | 
   };
 }
 
+const GATE_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * `3rd Aug 2026` + `06:25` — the stamp as the gate house reads it off the board.
+ *
+ * The day is spoken, not numbered (`3rd`, not `03`), because the log is read
+ * aloud at the barrier and written down on a paper ticket. The CSV keeps the
+ * ISO form (`splitGateStamp`) so a spreadsheet can still sort it.
+ */
+export function gateStampLabel(value: string): { date: string; time: string } | null {
+  const d = parseGateStamp(value);
+  if (!d) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = d.getDate();
+  const tens = day % 100;
+  const suffix =
+    tens >= 11 && tens <= 13
+      ? "th"
+      : day % 10 === 1
+        ? "st"
+        : day % 10 === 2
+          ? "nd"
+          : day % 10 === 3
+            ? "rd"
+            : "th";
+  return {
+    date: `${day}${suffix} ${GATE_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
 /**
  * Gate-to-gate duration in hours for a dispatch that both left and returned,
  * or null when either stamp is missing/unreadable. This is the trip's TRUE
