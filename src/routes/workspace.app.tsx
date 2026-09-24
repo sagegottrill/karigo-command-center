@@ -32,10 +32,12 @@ import {
 import {
   DepartmentMobileNav,
   DepartmentSidebar,
+  shouldUseAccountsShell,
   shouldUseEngineeringShell,
   shouldUseHrShell,
   shouldUseInventoryShell,
   shouldUsePartsStoreShell,
+  type DepartmentKey,
 } from "@/components/fleetopsx/department-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
 import { authService } from "@/lib/fleetopsx/services";
@@ -109,12 +111,9 @@ function AppShell() {
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [useLoadingShell, setUseLoadingShell] = useState(false);
   const [useLubricantShell, setUseLubricantShell] = useState(false);
-  // HR, Engineering and Inventory own their portals; the manager reads them as an audit.
-  const [departmentShell, setDepartmentShell] = useState<
-    "hr" | "engineering" | "inventory" | "parts" | null
-  >(
-    null,
-  );
+  // HR, Engineering, Inventory and Accounts own their portals; the manager reads
+  // them as an audit.
+  const [departmentShell, setDepartmentShell] = useState<DepartmentKey | null>(null);
   const [shellReady, setShellReady] = useState(false);
 
   const [activeRole, setActiveRoleState] = useState<string>("");
@@ -136,14 +135,18 @@ function AppShell() {
           ? "hr"
           : shouldUseEngineeringShell(scoped)
             ? "engineering"
-            : // Parts & Inventory is ITS OWN department — its shell is picked
-              // before the storehouse's, and neither ever resolves to the
-              // manager's dashboard.
-              shouldUsePartsStoreShell(scoped)
-              ? "parts"
-              : shouldUseInventoryShell(scoped)
-                ? "inventory"
-                : null,
+            : // The money desk: an Accounts login works its own disbursal board, with
+              // its own sidebar and its own header, never the manager's chrome.
+              shouldUseAccountsShell(scoped)
+              ? "accounts"
+              : // Parts & Inventory is ITS OWN department — its shell is picked
+                // before the storehouse's, and neither ever resolves to the
+                // manager's dashboard.
+                shouldUsePartsStoreShell(scoped)
+                ? "parts"
+                : shouldUseInventoryShell(scoped)
+                  ? "inventory"
+                  : null,
       );
       setActiveRoleState(active);
       setShellReady(true);
@@ -213,7 +216,7 @@ function AppShell() {
           forceGateSecurity={shellReady ? useGateShell : false}
           forceLoadingOps={shellReady ? useLoadingShell : false}
           forceLubricantOps={shellReady ? useLubricantShell : false}
-          forceDepartment={shellReady ? (departmentShell as "hr" | "engineering" | "inventory" | "parts" | null) : null}
+          forceDepartment={shellReady ? departmentShell : null}
         />
         <main className={cn("scroll-edge min-w-0 flex-1 overflow-auto", "pb-24 md:pb-0")}>
           <div className="mx-auto w-full max-w-[1920px]">

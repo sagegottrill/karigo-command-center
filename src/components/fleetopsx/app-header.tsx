@@ -36,7 +36,7 @@ import { hardLogout } from "@/lib/fleetopsx/session";
 import { NAV } from "./app-sidebar";
 import { toast } from "sonner";
 import { Route as RootRoute } from "../../routes/__root";
-import { departmentPortal } from "@/components/fleetopsx/department-sidebar";
+import { departmentPortal, type DepartmentKey } from "@/components/fleetopsx/department-sidebar";
 import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
 function isAdminPortalPath(pathname: string) {
@@ -85,8 +85,8 @@ export function AppHeader({
   forceLoadingOps?: boolean;
   /** When the Lubricant shell is active, use the Lubricants portal chrome */
   forceLubricantOps?: boolean;
-  /** When a department shell (HR / Engineering) is active, use that portal's chrome */
-  forceDepartment?: "hr" | "engineering" | "inventory" | "parts" | null;
+  /** When a department shell (HR / Engineering / Accounts) is active, use that portal's chrome */
+  forceDepartment?: DepartmentKey | null;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

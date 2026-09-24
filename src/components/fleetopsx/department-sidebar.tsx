@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   CalendarClock,
+  CircleDollarSign,
   LogOut,
   MessageSquare,
   MoreVertical,
@@ -9,6 +10,7 @@ import {
   PackageCheck,
   Receipt,
   ShieldCheck,
+  TicketCheck,
   Truck,
   Users,
   Wrench,
@@ -30,7 +32,7 @@ import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
  * the manager's account menus on screen. A department is its own department; the
  * TM gets a glimpse of the data, not the department's desk.
  */
-export type DepartmentKey = "hr" | "engineering" | "inventory" | "parts";
+export type DepartmentKey = "hr" | "engineering" | "inventory" | "parts" | "accounts";
 
 type DepartmentNavItem = {
   label: string;
@@ -95,6 +97,25 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
+  /*
+   * The ACCOUNTS desk: the half of the money the Transport Manager does not own.
+   *
+   * He ENDORSES a dispatch's cost sheet; this desk PAYS it, records how the
+   * money left (bank transfer or petty cash, the reference, the officer), and
+   * issues the voucher for each dispatch it has paid. Two seats at the same
+   * table, so they are two portals — the cash is not the manager's to move, and
+   * the endorsement is not the accountant's to give.
+   */
+  accounts: {
+    heading: "ACCOUNTS",
+    title: "Accounts Portal",
+    subtitle: "Capture and manage costs disbursal",
+    items: [
+      { label: "Dispatch Disbursal", to: "/workspace/app/disbursal", icon: CircleDollarSign },
+      { label: "Disbursal Voucher", to: "/workspace/app/disbursal-voucher", icon: TicketCheck },
+      { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+    ],
+  },
   // The STORE DEPARTMENT as its own portal: the Parts & Store board IS the
   // department's working page — catalog, purchases, requisitions, movements.
   parts: {
@@ -125,6 +146,9 @@ const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   // Engineering's shell and never the manager's dashboard. Parts & Inventory
   // is its own department — the thing the brief has said three times.
   parts: /^(parts & store|parts and store|parts|store)$/i,
+  // The money desk. `Accountant` is the same department's second seat, and the
+  // API issues both spellings.
+  accounts: /^(accounts|accountant|accounts officer|accounts clerk|finance|finance officer)$/i,
 };
 
 /**
@@ -156,6 +180,16 @@ export function shouldUseInventoryShell(roles: string[]) {
 
 export function shouldUsePartsStoreShell(roles: string[]) {
   return shouldUseDepartmentShell(roles, "parts");
+}
+
+/**
+ * The Accounts desk's own portal.
+ *
+ * A person who holds Accounts AND another department is already excluded by
+ * `shouldUseDepartmentShell` from riding into a department that is not theirs.
+ */
+export function shouldUseAccountsShell(roles: string[]) {
+  return shouldUseDepartmentShell(roles, "accounts");
 }
 
 function isPathActive(pathname: string, to: string) {

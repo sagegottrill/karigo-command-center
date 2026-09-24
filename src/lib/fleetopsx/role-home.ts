@@ -29,8 +29,10 @@ const ROLE_HOME: Record<string, string> = {
   Lubricant: "/workspace/app/lubricant-inventory",
   "Lubricant Manager": "/workspace/app/lubricant-inventory",
   "Lubricant Operations": "/workspace/app/lubricant-inventory",
+  // The money desk signs in onto its own board: the dispatches it has to pay.
+  Accounts: "/workspace/app/disbursal",
+  Accountant: "/workspace/app/disbursal",
   // Roles without a dedicated Figma portal home stay on the Central Dashboard.
-  Accounts: "/workspace/app",
   Diesel: "/workspace/app",
   "Fuel Manager": "/workspace/app",
   Procurement: "/workspace/app",

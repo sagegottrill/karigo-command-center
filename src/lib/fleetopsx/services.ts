@@ -11,6 +11,7 @@ import { mapTrip, mapDriver, mapExpense, mapWorkOrder, mapTruckHead, mapTail, as
 import { displayRequestId } from "./request-id";
 import { setActiveRole } from "./active-role";
 import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
+import type { DirectCostKey } from "./direct-costs";
 
 /**
  * Fuel pricing: the Transport Manager is the single source of truth for the
@@ -599,6 +600,36 @@ export const tripService = {
     fetchApi<{ ok: boolean; voucher: { status: string; by: string; at: string } | null }>(
       `/trips/${id}/voucher`,
       { method: 'POST', body: JSON.stringify({ status, note }) },
+    ),
+  /**
+   * The Accounts department's capture: the money left the office, and how.
+   *
+   * Passing the six figures corrects a cost the dispatch was configured with;
+   * omitting them leaves the sheet alone. `Pending Disbursal` withdraws a
+   * disbursal recorded against the wrong truck.
+   */
+  captureDisbursement: (
+    id: string,
+    input: {
+      amounts?: Partial<Record<DirectCostKey, number>>;
+      paymentMethod?: string;
+      bankRef?: string;
+      officer?: string;
+      status: string;
+    },
+  ) =>
+    fetchApi<{ ok: boolean; tripId: string; directCosts: Trip['directCosts'] }>(
+      `/trips/${id}/disbursement`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+  /**
+   * A cost the six categories do not cover. A named category corrects that
+   * figure on the sheet; a free label adds a line of its own beside them.
+   */
+  addDirectCost: (id: string, input: { key?: DirectCostKey; label?: string; amount: number }) =>
+    fetchApi<{ ok: boolean; tripId: string; directCosts: Trip['directCosts'] }>(
+      `/trips/${id}/direct-cost`,
+      { method: 'POST', body: JSON.stringify(input) },
     ),
   summary: () => fetchApi('/dashboard/overview'),
   initialApprove: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }),

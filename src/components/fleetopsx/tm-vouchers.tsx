@@ -12,7 +12,19 @@ import {
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
-import { formatMoney } from "@/lib/fleetopsx/lubricant";
+import { DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
+import {
+  COST_COLUMNS as CELL_COLUMNS,
+  COST_PAIRS as BREAKDOWN_PAIRS,
+  DIRECT_COST_CATEGORIES as CATEGORIES,
+  costTotal as sum,
+  dayLabel,
+  driverOf,
+  money,
+  sheetOf,
+  truckDetails,
+  voucherRef,
+} from "@/lib/fleetopsx/direct-costs";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -26,80 +38,9 @@ import { cn } from "@/lib/utils";
  * what the trip actually costs, and the decision — endorse or decline — is
  * recorded beside those figures rather than in a ledger that could drift.
  *
- * The money itself is the Accounts department's to pay and enter; this side
- * owns the authorisation.
+ * The money itself is the Accounts department's to pay and enter — see the
+ * Accounts portal, which pays against the very same sheet.
  */
-
-type VoucherDecision = {
-  status?: string;
-  by?: string;
-  at?: string;
-  note?: string | null;
-};
-
-type CostSheet = {
-  tripAllowance?: number;
-  returnWaybill?: number;
-  motorBoy?: number;
-  ticket?: number;
-  extraAllowance?: number;
-  bonus?: number;
-  voucher?: VoucherDecision;
-  /** Written by the Accounts department when the funds actually move. */
-  paymentMethod?: string;
-  bankRef?: string;
-  disbursingOfficer?: string;
-  disbursementStatus?: string;
-};
-
-/** The six commitments, in the order the design numbers them. */
-const CATEGORIES = [
-  { label: "Trip Allowance", key: "tripAllowance" },
-  { label: "Return Waybill", key: "returnWaybill" },
-  { label: "Motor Boy", key: "motorBoy" },
-  { label: "Road Tickets", key: "ticket" },
-  { label: "Contingency", key: "extraAllowance" },
-  { label: "Trip Bonus", key: "bonus" },
-] as const;
-
-type Category = (typeof CATEGORIES)[number];
-type BreakdownItem = { label: string; key: Category["key"] };
-
-/**
- * The preview's fields, read left-to-right and row by row — the design's order.
- */
-const BREAKDOWN_PAIRS: BreakdownItem[][] = [
-  [
-    { label: "Trip Allowance", key: "tripAllowance" },
-    { label: "Motor Boy Allowance", key: "motorBoy" },
-  ],
-  [
-    { label: "Road Tickets", key: "ticket" },
-    { label: "Return Waybill", key: "returnWaybill" },
-  ],
-  [
-    { label: "Extra Contingency", key: "extraAllowance" },
-    { label: "Bonus Allowance", key: "bonus" },
-  ],
-];
-
-/**
- * The table's breakdown cell reads DOWN each column, not across — the design
- * puts the driver's own allowances in the left column and the road's costs in
- * the right, which is why this is not the preview's order.
- */
-const CELL_COLUMNS: BreakdownItem[][] = [
-  [
-    { label: "Trip Allowance", key: "tripAllowance" },
-    { label: "Motor Boy", key: "motorBoy" },
-    { label: "Contingency", key: "extraAllowance" },
-  ],
-  [
-    { label: "Waybill", key: "returnWaybill" },
-    { label: "Road Tickets", key: "ticket" },
-    { label: "Bonus", key: "bonus" },
-  ],
-];
 
 /**
  * The voucher table's nine tracks, sized to fit the card it lives in (the two
@@ -107,28 +48,6 @@ const CELL_COLUMNS: BreakdownItem[][] = [
  */
 const VOUCHER_GRID =
   "grid min-w-[1040px] grid-cols-[96px_102px_136px_0.7fr_1.95fr_108px_88px_32px_32px] items-center gap-3";
-
-const sheetOf = (trip: Trip): CostSheet => (trip.directCosts ?? {}) as CostSheet;
-const money = (value: number | undefined) => formatMoney(Number(value ?? 0));
-const sum = (sheet: CostSheet) =>
-  CATEGORIES.reduce((total, c) => total + Number(sheet[c.key] ?? 0), 0);
-
-const voucherRef = (trip: Trip) => `VD-${String(trip.id).replace(/-/g, "").slice(0, 6).toUpperCase()}`;
-const dayLabel = (iso?: string | null) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
-};
-const capOf = (trip: Trip) => (trip as any).head?.cabId || (trip as any).head?.capId || "";
-const plateOf = (trip: Trip) =>
-  (trip as any).head?.registration || String(trip.truckReg ?? "").split("/")[0]?.trim() || "";
-const driverOf = (trip: Trip) => (trip as any).driver?.name || trip.driverName || "—";
-const truckDetails = (trip: Trip) => {
-  const cap = capOf(trip);
-  const plate = plateOf(trip);
-  if (cap && plate) return `${cap} (${plate})`;
-  return cap || plate || "—";
-};
 
 function StatusPill({ status }: { status: string }) {
   const tone =
@@ -202,23 +121,22 @@ export function TmVouchers() {
   const pendingCount = vouchers.filter((t) => statusOf(t) === "Pending").length;
 
   /**
-   * Today's commitments, per category.
+   * Today's commitments.
    *
    * "Daily" on the banner means the day the dispatch was raised: the figure that
-   * moves as the day goes on, which is the one a manager audits.
+   * moves as the day goes on, which is the one a manager audits. The Accounts
+   * desk's banner totals everything it still owes — same six figures, same
+   * arithmetic, one component.
    */
-  const today = useMemo(() => {
+  const todaySheets = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    const mine = vouchers.filter((t) => {
-      const at = new Date(t.createdAt ?? "");
-      return !Number.isNaN(at.getTime()) && at >= start;
-    });
-    const byCategory: Record<string, number> = {};
-    for (const c of CATEGORIES) {
-      byCategory[c.key] = mine.reduce((total, t) => total + Number(sheetOf(t)[c.key] ?? 0), 0);
-    }
-    return { count: mine.length, byCategory, total: Object.values(byCategory).reduce((a, b) => a + b, 0) };
+    return vouchers
+      .filter((t) => {
+        const at = new Date(t.createdAt ?? "");
+        return !Number.isNaN(at.getTime()) && at >= start;
+      })
+      .map(sheetOf);
   }, [vouchers]);
 
   const review = async (trip: Trip, status: "Approved" | "Declined") => {
@@ -257,42 +175,10 @@ export function TmVouchers() {
       </div>
 
       {/* The day's commitments, by the six things a dispatch can be paid. */}
-      <div className="rounded-[10px] bg-[#1B2432] p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-[17px] font-semibold tracking-[0.4px] text-white">
-              Daily Direct Disbursal Cost Breakdown by Category
-            </h3>
-            <p className="text-[12px] text-[#9CA3AF]">
-              Aggregate across all trucks: Trip Allowance, Return Waybill, motor boy, transit tickets,
-              contingency and bonus.
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">
-              Total Direct Commitments
-            </span>
-            <span className="text-[20px] font-semibold tabular-nums text-[#2BB673]">
-              {money(today.total)}
-            </span>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {CATEGORIES.map((c, index) => (
-            <div
-              key={c.key}
-              className="rounded-[6px] border border-white/10 bg-white/[0.04] p-3"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">
-                {index + 1}. {c.label}
-              </p>
-              <p className="mt-1 text-[19px] font-semibold tabular-nums text-white">
-                {money(today.byCategory[c.key] ?? 0)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <DirectCostBanner
+        subtitle="Aggregate across all trucks: Trip Allowance, Return Waybill, motor boy, transit tickets, contingency and bonus."
+        sheets={todaySheets}
+      />
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -625,10 +511,10 @@ export function TmVouchers() {
             <h4 className="mt-5 text-[16px] font-bold text-[#1B2432]">Disbursement Details</h4>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {[
-                ["Payment Method", previewSheet.paymentMethod],
-                ["Payment/Bank Ref. No.", previewSheet.bankRef],
-                ["Disbursing Officer", previewSheet.disbursingOfficer],
-                ["Disbursement Status", previewSheet.disbursementStatus],
+                ["Payment Method", previewSheet.disbursement?.paymentMethod],
+                ["Payment/Bank Ref. No.", previewSheet.disbursement?.bankRef],
+                ["Disbursing Officer", previewSheet.disbursement?.officer],
+                ["Disbursement Status", previewSheet.disbursement?.status],
               ].map(([label, value]) => (
                 <label key={label as string} className="flex flex-col gap-1.5">
                   <span className="text-[13px] text-[#344256]">{label}</span>

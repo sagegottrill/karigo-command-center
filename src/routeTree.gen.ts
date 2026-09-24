@@ -30,6 +30,8 @@ import { Route as WorkspaceAppApprovalsRouteImport } from './routes/workspace.ap
 import { Route as WorkspaceAppAuditRouteImport } from './routes/workspace.app.audit'
 import { Route as WorkspaceAppComplianceRouteImport } from './routes/workspace.app.compliance'
 import { Route as WorkspaceAppDepreciationRouteImport } from './routes/workspace.app.depreciation'
+import { Route as WorkspaceAppDisbursalRouteImport } from './routes/workspace.app.disbursal'
+import { Route as WorkspaceAppDisbursalVoucherRouteImport } from './routes/workspace.app.disbursal-voucher'
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
 import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
@@ -180,6 +182,17 @@ const WorkspaceAppDepreciationRoute =
   WorkspaceAppDepreciationRouteImport.update({
     id: '/depreciation',
     path: '/depreciation',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppDisbursalRoute = WorkspaceAppDisbursalRouteImport.update({
+  id: '/disbursal',
+  path: '/disbursal',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppDisbursalVoucherRoute =
+  WorkspaceAppDisbursalVoucherRouteImport.update({
+    id: '/disbursal-voucher',
+    path: '/disbursal-voucher',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
 const WorkspaceAppDispatchRoute = WorkspaceAppDispatchRouteImport.update({
@@ -450,6 +463,8 @@ export interface FileRoutesByFullPath {
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
+  '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
@@ -513,6 +528,8 @@ export interface FileRoutesByTo {
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
+  '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
@@ -580,6 +597,8 @@ export interface FileRoutesById {
   '/workspace/app/audit': typeof WorkspaceAppAuditRoute
   '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
   '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
+  '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
+  '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
@@ -649,6 +668,8 @@ export interface FileRouteTypes {
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
+    | '/workspace/app/disbursal'
+    | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
@@ -712,6 +733,8 @@ export interface FileRouteTypes {
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
+    | '/workspace/app/disbursal'
+    | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
@@ -778,6 +801,8 @@ export interface FileRouteTypes {
     | '/workspace/app/audit'
     | '/workspace/app/compliance'
     | '/workspace/app/depreciation'
+    | '/workspace/app/disbursal'
+    | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
@@ -981,6 +1006,20 @@ declare module '@tanstack/react-router' {
       path: '/depreciation'
       fullPath: '/workspace/app/depreciation'
       preLoaderRoute: typeof WorkspaceAppDepreciationRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/disbursal': {
+      id: '/workspace/app/disbursal'
+      path: '/disbursal'
+      fullPath: '/workspace/app/disbursal'
+      preLoaderRoute: typeof WorkspaceAppDisbursalRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/disbursal-voucher': {
+      id: '/workspace/app/disbursal-voucher'
+      path: '/disbursal-voucher'
+      fullPath: '/workspace/app/disbursal-voucher'
+      preLoaderRoute: typeof WorkspaceAppDisbursalVoucherRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/dispatch': {
@@ -1321,6 +1360,8 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppAuditRoute: typeof WorkspaceAppAuditRoute
   WorkspaceAppComplianceRoute: typeof WorkspaceAppComplianceRoute
   WorkspaceAppDepreciationRoute: typeof WorkspaceAppDepreciationRoute
+  WorkspaceAppDisbursalRoute: typeof WorkspaceAppDisbursalRoute
+  WorkspaceAppDisbursalVoucherRoute: typeof WorkspaceAppDisbursalVoucherRoute
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
   WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
@@ -1369,6 +1410,8 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppAuditRoute: WorkspaceAppAuditRoute,
   WorkspaceAppComplianceRoute: WorkspaceAppComplianceRoute,
   WorkspaceAppDepreciationRoute: WorkspaceAppDepreciationRoute,
+  WorkspaceAppDisbursalRoute: WorkspaceAppDisbursalRoute,
+  WorkspaceAppDisbursalVoucherRoute: WorkspaceAppDisbursalVoucherRoute,
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
   WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
