@@ -588,6 +588,18 @@ export const tripService = {
   assignResource: (id: string, updates: Partial<Trip>) => tripService.update(id, updates),
   setStatus: (id: string, status: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }).then(mapTrip),
   delete: (id: string) => fetchApi(`/trips/${id}`, { method: 'DELETE' }),
+  /**
+   * The Transport Manager's decision on a dispatch's direct-cost voucher.
+   *
+   * The voucher is the dispatch's own cost sheet — trip allowance, waybill,
+   * motor boy, tickets, contingency, bonus — so the decision is recorded beside
+   * those figures rather than in a ledger of its own that could drift from them.
+   */
+  reviewVoucher: (id: string, status: 'Pending' | 'Approved' | 'Declined', note?: string) =>
+    fetchApi<{ ok: boolean; voucher: { status: string; by: string; at: string } | null }>(
+      `/trips/${id}/voucher`,
+      { method: 'POST', body: JSON.stringify({ status, note }) },
+    ),
   summary: () => fetchApi('/dashboard/overview'),
   initialApprove: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Approved' }) }),
   approveDispatch: (id: string) => fetchApi(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Scheduled' }) }),
