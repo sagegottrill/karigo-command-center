@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,6 +42,13 @@ export function FilterButton<T extends string>({
   allLabel,
   allValue = "All" as T,
   noun = "status",
+  /**
+   * The department's drawn control: one red square, no value printed on it.
+   * The menu it opens is the same one, and the current choice is named in the
+   * tooltip and to screen readers — a bare square that silently hides rows is
+   * how a table reads as broken.
+   */
+  iconOnly = false,
 }: {
   options: readonly T[];
   value: T;
@@ -54,6 +61,7 @@ export function FilterButton<T extends string>({
   allValue?: T;
   /** What is being filtered, for screen readers: "status", "company". */
   noun?: string;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -69,19 +77,30 @@ export function FilterButton<T extends string>({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex h-9 shrink-0 items-center gap-2 rounded border bg-white px-3 text-[13px] tracking-[0.4px] transition-colors hover:bg-[#F7F8F9]",
-          isAll
-            ? "border-[rgba(92,100,112,0.6)] text-[#141A1F]"
-            : "border-[#ED351D] font-medium text-[#1B2432]",
+          iconOnly
+            ? "grid size-9 shrink-0 place-items-center rounded bg-[#ED351D] text-white transition-colors hover:bg-[#d62e19]"
+            : cn(
+                "flex h-9 shrink-0 items-center gap-2 rounded border bg-white px-3 text-[13px] tracking-[0.4px] transition-colors hover:bg-[#F7F8F9]",
+                isAll
+                  ? "border-[rgba(92,100,112,0.6)] text-[#141A1F]"
+                  : "border-[#ED351D] font-medium text-[#1B2432]",
+              ),
         )}
-        aria-label={`Filter by ${noun}`}
+        aria-label={`Filter by ${noun}: ${shown}`}
         aria-expanded={open}
+        title={`Filter by ${noun}: ${shown}`}
       >
-        <span className="max-w-[170px] truncate">{shown}</span>
-        <ChevronDown
-          className={cn("size-4 shrink-0 text-[#5C6470] transition-transform", open && "rotate-180")}
-          strokeWidth={1.75}
-        />
+        {iconOnly ? (
+          <SlidersHorizontal className="size-[18px]" strokeWidth={1.75} />
+        ) : (
+          <>
+            <span className="max-w-[170px] truncate">{shown}</span>
+            <ChevronDown
+              className={cn("size-4 shrink-0 text-[#5C6470] transition-transform", open && "rotate-180")}
+              strokeWidth={1.75}
+            />
+          </>
+        )}
       </button>
       {open && (
         <>

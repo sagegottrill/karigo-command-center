@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import {
   FleetOperationsMobileNav,
   FleetOperationsSidebar,
@@ -101,7 +101,41 @@ export const Route = createFileRoute("/workspace/app")({
     }
   },
   component: AppShell,
+  notFoundComponent: PortalNotFound,
 });
+
+/**
+ * An address inside the portal that no page claims.
+ *
+ * The old Karigo screens used to answer these by bouncing the person to the
+ * dashboard, which is why nobody noticed they were dead: the address never
+ * changed what they got, it just quietly ate the URL. They are gone now, and the
+ * router's own default prints a bare "Not Found" inside the chrome, which reads
+ * like the app broke. This says what happened and walks them back to their own
+ * department's first page.
+ */
+function PortalNotFound() {
+  return (
+    <div className="flex min-h-[60vh] w-full items-center justify-center bg-[#F1F2F4] px-4">
+      <div className="max-w-md text-center">
+        <p className="num text-[56px] font-bold leading-none text-[#1B2432]">404</p>
+        <h1 className="mt-3 text-[20px] font-semibold leading-7 text-[#1B2432]">
+          This page is not part of your portal
+        </h1>
+        <p className="mt-2 text-[13px] leading-5 text-[#5C6470]">
+          The address may be from an older version of the system, or the module may have moved to
+          another board. Nothing you were working on has been lost.
+        </p>
+        <Link
+          to="/workspace/app"
+          className="mt-5 inline-flex h-9 items-center rounded bg-[#ED351D] px-3 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+        >
+          Back to my portal
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const navigate = useNavigate();

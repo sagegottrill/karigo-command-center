@@ -1,7 +1,6 @@
 import { authService } from "@/lib/fleetopsx/services";
-import { driverHasOpenDispatches } from "@/lib/fleetopsx/driver-duty";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
-import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
+import type { Driver, DriverStatus } from "@/lib/fleetopsx/types";
 
 /**
  * Shared by every HR & Personnel page (Staff Records, Licence & Compliance,
@@ -158,12 +157,16 @@ export function employmentStatusOf(driver: Driver): EmploymentStatus {
 }
 
 /**
- * The pill the staff register prints: the dispatch outranks the stored word, so
- * a man the fleet desk has already sent out reads In Transit no matter what HR
- * last filed him as — and everyone else reads the employment decision.
+ * The word the staff register prints in its Status column: the DEPARTMENT's
+ * decision about the person — Active, On Leave or Suspended.
+ *
+ * The register used to print the duty word instead (a man the dispatch list knew
+ * about read In Transit), which mixed two questions in one column: what HR has
+ * filed, and where somebody else has sent him today. Who is on the road belongs
+ * to the fleet and tracking boards, which read the dispatches directly; the
+ * staff register answers for the staff file.
  */
-export function staffStatusLabel(driver: Driver, trips: Trip[]): EmploymentStatus | "In Transit" {
-  if (driverHasOpenDispatches(driver, trips)) return "In Transit";
+export function staffStatusLabel(driver: Driver): EmploymentStatus {
   return employmentStatusOf(driver);
 }
 

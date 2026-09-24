@@ -1,8 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, Upload, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
@@ -19,7 +19,7 @@ import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { dutyTally, driverHasOpenDispatches, liveTripsFor, releaseConfirmBody } from "@/lib/fleetopsx/driver-duty";
+import { driverHasOpenDispatches, liveTripsFor, releaseConfirmBody } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import {
   HR_ACCESS_ROLES,
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/workspace/app/hr")({
  * (In Transit). "On Trip" used to sit in this list as an HR word, which let the
  * register file a man as being on a trip nobody had given him.
  */
-const STAFF_STATUS_FILTERS = ["All", "Active", "In Transit", "On Leave", "Suspended"] as const;
+const STAFF_STATUS_FILTERS = ["All", "Active", "On Leave", "Suspended"] as const;
 type StaffStatusWord = (typeof STAFF_STATUS_FILTERS)[number];
 
 /**
@@ -64,48 +64,6 @@ type StaffStatusWord = (typeof STAFF_STATUS_FILTERS)[number];
  * because this file and Licence & Compliance each used to carry their own copy of
  * the same role list — which is how one page keeps a control the other drops.
  */
-
-/**
- * Minimal RFC-4180 reader for the bulk-onboard sheet: quoted fields, embedded
- * commas, embedded newlines and CRLF — so a staff name containing a comma does
- * not silently split the row and drop half a record.
- */
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else quoted = false;
-      } else field += ch;
-      continue;
-    }
-    if (ch === '"') {
-      quoted = true;
-    } else if (ch === ",") {
-      row.push(field);
-      field = "";
-    } else if (ch === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (ch !== "\r") {
-      field += ch;
-    }
-  }
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
-}
 
 /** The pill for a staff row: green for active, amber for on the road, grey for
  * on leave, red for suspended — the register's four words, and the stored
@@ -122,7 +80,9 @@ function statusPillClass(status: DriverStatus | "In Transit" | EmploymentStatus)
       return "bg-[#F99E1F] text-white";
     case "On Leave":
     case "Off Duty":
-      return "bg-[#627084] text-white";
+      // Amber, as the department draws it — the same tone a licence that needs
+      // attention wears, because both are things somebody has to look at.
+      return "bg-[#F99E1F] text-white";
     case "Suspended":
       return "bg-[#ED351D] text-white";
     default: {
@@ -152,15 +112,13 @@ function HrStaffDirectory() {
   }, [navigate]);
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  /** Every dispatch — read only to tell a stale duty word from a real one. */
+  /** Every dispatch — read only to answer the release question on a save. */
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  // "In Transit" is a filter in its own right — the word a driver on a live
-  // dispatch prints — and it sits alongside the three employment decisions.
+  // The three words the register files a person under, and "All".
   const [statusFilter, setStatusFilter] = useState<StaffStatusWord>("All");
   const [page, setPage] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [idEdit, setIdEdit] = useState<{ driver: Driver; draft: StaffDraft } | null>(null);
   /** The "close his open dispatch?" question, asked in-app (see handleSaveEdits). */
   const [pendingFree, setPendingFree] = useState<{
@@ -190,8 +148,7 @@ function HrStaffDirectory() {
       { label: "Name", value: driver.name || "—" },
       { label: "Phone", value: driver.phone || "—" },
       { label: "Department", value: driver.department || "—" },
-      { label: "Employment status", value: employmentStatusOf(driver) },
-      { label: "On the road today", value: staffStatusLabel(driver, trips) },
+      { label: "Employment status", value: staffStatusLabel(driver) },
       { label: "Guarantor", value: driver.guarantorName || "—" },
       { label: "Guarantor phone", value: driver.guarantorPhone || "—" },
       { label: "Licence document", value: driver.licenseDocName || "— none on file" },
@@ -232,51 +189,18 @@ function HrStaffDirectory() {
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
-      // The printed word decides: a driver on a live dispatch is In Transit even
-      // while his employment record still reads Active.
-      if (statusFilter !== "All" && staffStatusLabel(d, trips) !== statusFilter) return false;
+      // The column's word decides, so the filter and the pills can never
+      // disagree about who is Active, On Leave or Suspended.
+      if (statusFilter !== "All" && staffStatusLabel(d) !== statusFilter) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
       // be found without knowing whose licence it is; so are the department, the
       // guarantor HR recorded and the truck pairing.
       const hay =
-        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${staffStatusLabel(d, trips)}`.toLowerCase();
+        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${staffStatusLabel(d)}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
-  }, [drivers, query, statusFilter, trips]);
-
-  /**
-   * The headcount the department is asked about, counted from the records on
-   * screen: how many can be put on a truck today, and how many licences need
-   * attention before they can.
-   */
-  const summary = useMemo(() => {
-    const by = (s: DriverStatus) => drivers.filter((d) => d.status === s).length;
-    let expiring = 0;
-    let expired = 0;
-    let notRecorded = 0;
-    for (const d of drivers) {
-      const state = licenseExpiry(d.licenseExpiry);
-      if (state.tone === "expired") expired += 1;
-      else if (state.tone === "soon") expiring += 1;
-      // A licence with no date on file is its own count. Rolling it in with
-      // "expiring" would report the whole roster as about to lapse.
-      else if (state.tone === "missing") notRecorded += 1;
-    }
-    // Split by the dispatches, not the stored words, so the headcount and the
-    // pills beneath it can never tell two different stories.
-    const tally = dutyTally(drivers, trips);
-    return {
-      total: tally.total,
-      available: tally.available,
-      onTrip: tally.inTransit,
-      offDuty: tally.offDuty,
-      suspended: tally.suspended,
-      expiring,
-      expired,
-      notRecorded,
-    };
-  }, [drivers, trips]);
+  }, [drivers, query, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -432,97 +356,6 @@ function HrStaffDirectory() {
     }
   };
 
-  /**
-   * Bulk onboard from a CSV — the roster arrives as a spreadsheet, so retyping
-   * 100 drivers one dialog at a time is not an option.
-   *
-   * Same columns as the export (plus every field HR now records), read by header
-   * name so the order does not matter and a sheet missing a column still imports
-   * what it has. Each row is created on its own: one bad row never costs the
-   * good ones, and the toast names what failed.
-   */
-  const importCSV = async (file: File) => {
-    const text = await file.text();
-    const rows = parseCsv(text);
-    if (rows.length === 0) {
-      toast.error("That file has no rows. Expected a header row and one line per staff member.");
-      return;
-    }
-    const header = (rows[0] ?? []).map((h) => h.trim().toLowerCase());
-    const col = (...names: string[]) => {
-      for (const name of names) {
-        const i = header.indexOf(name);
-        if (i >= 0) return i;
-      }
-      return -1;
-    };
-    const idx = {
-      name: col("name", "staff name", "full name"),
-      phone: col("phone", "phone number", "staff phone number"),
-      staffId: col("staff id", "staff salary number", "salary number", "staff no", "staff no.", "driver id", "id"),
-      department: col("department"),
-      licence: col("license number", "licence number"),
-      licenceClass: col("license class", "licence class", "category"),
-      expiry: col("license expiry", "licence expiry", "expiry"),
-      head: col("truck head", "assigned truck", "truck", "cap number"),
-      tail: col("truck tail", "assigned tail", "tail"),
-      guarantor: col("guarantor name", "guarantor"),
-      guarantorPhone: col("guarantor phone number", "guarantor phone", "guarantor no"),
-      status: col("status", "employment status"),
-    };
-    if (idx.name < 0) {
-      toast.error("No Name column found — the first row must name its columns.");
-      return;
-    }
-    const at = (row: string[], i: number) => (i >= 0 ? (row[i] ?? "").trim() : "");
-    // The sheet is filled in by hand, so both spellings are read: the register's
-    // employment words and the older duty words a previous export carries.
-    const employmentFrom = (raw: string): EmploymentStatus => {
-      const word = raw.trim().toLowerCase();
-      if (word === "on leave" || word === "off duty") return "On Leave";
-      if (word === "suspended") return "Suspended";
-      return "Active";
-    };
-    let created = 0;
-    const failed: string[] = [];
-    for (const row of rows.slice(1)) {
-      if (row.every((c) => !c.trim())) continue;
-      const name = at(row, idx.name);
-      if (!name) continue;
-      // A blank or unreadable status onboards the person Active — ready to work.
-      const status = employmentStatusForWrite(employmentFrom(at(row, idx.status)));
-      try {
-        await driverService.create({
-          name,
-          phone: at(row, idx.phone),
-          staffId: at(row, idx.staffId).toUpperCase(),
-          department: at(row, idx.department),
-          status,
-          licenseNumber: at(row, idx.licence),
-          licenseExpiry: at(row, idx.expiry),
-          category: at(row, idx.licenceClass),
-          truckReg: at(row, idx.head),
-          truckReg2: at(row, idx.tail),
-          guarantorName: at(row, idx.guarantor),
-          guarantorPhone: at(row, idx.guarantorPhone),
-        } as never);
-        created += 1;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "failed";
-        failed.push(`${name}: ${/unique|409/i.test(msg) ? "that Staff ID is already taken" : msg}`);
-      }
-    }
-    await refreshDrivers();
-    if (failed.length === 0) {
-      toast.success(`${created} staff member${created === 1 ? "" : "s"} onboarded.`);
-    } else {
-      // Loud partial failure: what landed, and exactly which rows did not.
-      toast.error(`${created} onboarded, ${failed.length} failed.`, {
-        description: failed.slice(0, 4).join(" · "),
-      });
-    }
-  };
-
   const exportCSV = () => {
     /*
      * The whole staff file, in the register's own words: the payroll number
@@ -590,28 +423,12 @@ function HrStaffDirectory() {
             )}
           </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex h-8 items-center gap-1.5 px-[7px] text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
-            >
-              <Upload className="size-[18px]" strokeWidth={1.75} />
-              Import CSV
-            </button>
-            {/* Bulk onboard — export first, fill it in, load it back. Columns are
-                matched by header name, so the order does not matter. */}
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void importCSV(file);
-                // Reset so choosing the same file twice still fires a change.
-                e.target.value = "";
-              }}
-            />
+            {/*
+              ONE button, the way the department draws it. A second "Import CSV"
+              control used to sit here for bulk onboarding a spreadsheet; the
+              form that files a person is the Onboard New Staff page, and a row
+              of staff is filed on it one record at a time.
+            */}
             <button
               type="button"
               onClick={openOnboard}
@@ -621,32 +438,6 @@ function HrStaffDirectory() {
               Onboard New Staff
             </button>
           </div>
-        </div>
-
-        {/* The headcount the department is asked for, before any filtering: how
-            many people can be put on a truck today and how many licences need
-            attention first. Counted from the roster itself, never a guess. */}
-        <div className="flex flex-wrap gap-3">
-          {[
-            { label: "Total Staff", value: summary.total, tone: "text-[#1B2432]" },
-            { label: "Active", value: summary.available, tone: "text-[#0A8F4D]" },
-            { label: "In Transit", value: summary.onTrip, tone: "text-[#B26A00]" },
-            { label: "On Leave", value: summary.offDuty, tone: "text-[#5C6470]" },
-            { label: "Suspended", value: summary.suspended, tone: "text-[#ED351D]" },
-            { label: "Licence Expiring", value: summary.expiring, tone: "text-[#B26A00]" },
-            { label: "Licence Expired", value: summary.expired, tone: "text-[#ED351D]" },
-            { label: "No Expiry On File", value: summary.notRecorded, tone: "text-[#B26A00]" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="flex min-w-[130px] flex-1 flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.05)]"
-            >
-              <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                {stat.label}
-              </span>
-              <span className={cn("text-[22px] font-semibold leading-7", stat.tone)}>{stat.value}</span>
-            </div>
-          ))}
         </div>
 
         <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
@@ -671,6 +462,7 @@ function HrStaffDirectory() {
                 setPage(0);
               }}
               allLabel="All Statuses"
+              iconOnly
             />
           </div>
 
@@ -689,9 +481,8 @@ function HrStaffDirectory() {
             const staffId = displayDriverSalary(driver) || driver.employeeId || "—";
             const sn = currentPage * PAGE_SIZE + index + 1;
             const licence = licenseState(driver);
-            // The register's own word for the row: the dispatch outranks the
-            // employment decision, so a man already sent out reads In Transit.
-            const statusWord = staffStatusLabel(driver, trips);
+            // The register's own word for the row: HR's employment decision.
+            const statusWord = staffStatusLabel(driver);
             return (
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
@@ -838,13 +629,19 @@ function HrStaffDirectory() {
             />
           )}
 
+          {/* How much of the register is on screen, at the left, and the way
+              through it at the right — the shape the department draws. */}
           {!loading && filtered.length > 0 && (
-            <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {from} - {to}
-              </span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
-              <div className="ml-2 flex items-center gap-2.5">
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2.5 border-t border-[#E2E5E9] pt-5">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  {from} - {to}
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  of {filtered.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   disabled={currentPage === 0}
@@ -863,7 +660,13 @@ function HrStaffDirectory() {
                 >
                   <ChevronRight className="size-[18px] text-[#627084]" />
                 </button>
-                <ExportMenu csv={exportCSV} rows={filtered.length} title="Staff Directory" fileNameBase="staff_directory" />
+                <ExportMenu
+                  csv={exportCSV}
+                  rows={filtered.length}
+                  title="Staff Directory"
+                  fileNameBase="staff_directory"
+                  label="Export CSV"
+                />
               </div>
             </div>
           )}
@@ -880,10 +683,10 @@ function HrStaffDirectory() {
             <span
               className={cn(
                 "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
-                statusPillClass(staffStatusLabel(details, trips)),
+                statusPillClass(staffStatusLabel(details)),
               )}
             >
-              {staffStatusLabel(details, trips)}
+              {staffStatusLabel(details)}
             </span>
           ) : null
         }

@@ -25,6 +25,9 @@ export function ExportMenu({
   className,
   mobile = false,
   csvAction,
+  /** What the button reads. Defaults to "Export"; a page whose drawing names
+   *  the format passes its own label. */
+  label = "Export",
 }: {
   /** The CSV string builder — the page's own export code, run on demand. May be async when the page fetches extra data first. Optional when csvAction is provided instead. */
   csv?: () => string | Promise<string>;
@@ -37,6 +40,7 @@ export function ExportMenu({
   mobile?: boolean;
   /** Optional override for the CSV action when the page already owns its download (e.g. the lubricant footer). */
   csvAction?: () => void;
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -129,7 +133,7 @@ export function ExportMenu({
         )}
       >
         <Download className={mobile ? "size-[18px]" : "size-4"} strokeWidth={1.75} />
-        {busy ? "Exporting…" : "Export"}
+        {busy ? "Exporting…" : label}
       </button>
       {open && (
         <div

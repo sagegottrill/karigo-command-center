@@ -7,7 +7,6 @@ import {
   MessageSquare,
   PanelLeft,
   Settings,
-  User,
   Search,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -626,12 +625,12 @@ export function AppHeader({
               </>
             )}
             <DropdownMenuSeparator className="my-1.5 bg-[#e2e5e9]" />
-            <DropdownMenuItem asChild className="rounded-[8px] px-2.5 py-2 text-[13px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]">
-              <Link to="/workspace/app/admin">
-                <User className="mr-2 h-3.5 w-3.5" />
-                Profile
-              </Link>
-            </DropdownMenuItem>
+            {/*
+              "Profile" used to sit here, pointing at /workspace/app/admin — one
+              of the old Karigo screens, which bounced straight back to Overview.
+              It never opened anything: the account menu below is where a person
+              changes who they are. The route is gone, so the dead link is too.
+            */}
             <DropdownMenuItem asChild className="rounded-[8px] px-2.5 py-2 text-[13px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]">
               <Link to="/workspace/app/manage-account">
                 <Settings className="mr-2 h-3.5 w-3.5" />

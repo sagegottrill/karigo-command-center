@@ -25,11 +25,6 @@ import { Route as WorkspaceAppAccountsRouteImport } from './routes/workspace.app
 import { Route as WorkspaceAppActiveDispatchRouteImport } from './routes/workspace.app.active-dispatch'
 import { Route as WorkspaceAppAddAccountRouteImport } from './routes/workspace.app.add-account'
 import { Route as WorkspaceAppAddPartnerRouteImport } from './routes/workspace.app.add-partner'
-import { Route as WorkspaceAppAdminRouteImport } from './routes/workspace.app.admin'
-import { Route as WorkspaceAppApprovalsRouteImport } from './routes/workspace.app.approvals'
-import { Route as WorkspaceAppAuditRouteImport } from './routes/workspace.app.audit'
-import { Route as WorkspaceAppComplianceRouteImport } from './routes/workspace.app.compliance'
-import { Route as WorkspaceAppDepreciationRouteImport } from './routes/workspace.app.depreciation'
 import { Route as WorkspaceAppDisbursalRouteImport } from './routes/workspace.app.disbursal'
 import { Route as WorkspaceAppDisbursalVoucherRouteImport } from './routes/workspace.app.disbursal-voucher'
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
@@ -39,12 +34,8 @@ import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fl
 import { Route as WorkspaceAppFleetRegistryRouteImport } from './routes/workspace.app.fleet-registry'
 import { Route as WorkspaceAppFuelPricingRouteImport } from './routes/workspace.app.fuel-pricing'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
-import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
-import { Route as WorkspaceAppHrComplianceRouteImport } from './routes/workspace.app.hr-compliance'
 import { Route as WorkspaceAppHrOnboardRouteImport } from './routes/workspace.app.hr-onboard'
-import { Route as WorkspaceAppHrRosterRouteImport } from './routes/workspace.app.hr-roster'
-import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
 import { Route as WorkspaceAppInventoryDeskRouteImport } from './routes/workspace.app.inventory-desk'
 import { Route as WorkspaceAppLiveTrackingRouteImport } from './routes/workspace.app.live-tracking'
 import { Route as WorkspaceAppLubricantRouteImport } from './routes/workspace.app.lubricant'
@@ -61,7 +52,6 @@ import { Route as WorkspaceAppPartnerRequestsRouteImport } from './routes/worksp
 import { Route as WorkspaceAppPartsRouteImport } from './routes/workspace.app.parts'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
 import { Route as WorkspaceAppRepairSpendRouteImport } from './routes/workspace.app.repair-spend'
-import { Route as WorkspaceAppReportsRouteImport } from './routes/workspace.app.reports'
 import { Route as WorkspaceAppTruckAvailabilityRouteImport } from './routes/workspace.app.truck-availability'
 import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace.app.unauthorized'
 import { Route as WorkspaceCustomerPortalIndexRouteImport } from './routes/workspace.customer-portal.index'
@@ -69,10 +59,6 @@ import { Route as WorkspaceCustomerPortalAuthRouteImport } from './routes/worksp
 import { Route as WorkspaceCustomerPortalLoginRouteImport } from './routes/workspace.customer-portal.login'
 import { Route as WorkspaceAppActiveDispatchIndexRouteImport } from './routes/workspace.app.active-dispatch.index'
 import { Route as WorkspaceAppActiveDispatchDispatchIdRouteImport } from './routes/workspace.app.active-dispatch.$dispatchId'
-import { Route as WorkspaceAppDriversIndexRouteImport } from './routes/workspace.app.drivers.index'
-import { Route as WorkspaceAppDriversDriverIdRouteImport } from './routes/workspace.app.drivers.$driverId'
-import { Route as WorkspaceAppTripsIndexRouteImport } from './routes/workspace.app.trips.index'
-import { Route as WorkspaceAppTripsTripIdRouteImport } from './routes/workspace.app.trips.$tripId'
 import { Route as WorkspaceCustomerPortalAuthRequestIdRouteImport } from './routes/workspace.customer-portal._auth.$requestId'
 import { Route as WorkspaceCustomerPortalAuthDashboardRouteImport } from './routes/workspace.customer-portal._auth.dashboard'
 import { Route as WorkspaceCustomerPortalAuthNotificationsRouteImport } from './routes/workspace.customer-portal._auth.notifications'
@@ -159,32 +145,6 @@ const WorkspaceAppAddPartnerRoute = WorkspaceAppAddPartnerRouteImport.update({
   path: '/add-partner',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const WorkspaceAppAdminRoute = WorkspaceAppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppApprovalsRoute = WorkspaceAppApprovalsRouteImport.update({
-  id: '/approvals',
-  path: '/approvals',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppAuditRoute = WorkspaceAppAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppComplianceRoute = WorkspaceAppComplianceRouteImport.update({
-  id: '/compliance',
-  path: '/compliance',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppDepreciationRoute =
-  WorkspaceAppDepreciationRouteImport.update({
-    id: '/depreciation',
-    path: '/depreciation',
-    getParentRoute: () => WorkspaceAppRoute,
-  } as any)
 const WorkspaceAppDisbursalRoute = WorkspaceAppDisbursalRouteImport.update({
   id: '/disbursal',
   path: '/disbursal',
@@ -233,35 +193,14 @@ const WorkspaceAppGateRoute = WorkspaceAppGateRouteImport.update({
   path: '/gate',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const WorkspaceAppGodViewRoute = WorkspaceAppGodViewRouteImport.update({
-  id: '/god-view',
-  path: '/god-view',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
 const WorkspaceAppHrRoute = WorkspaceAppHrRouteImport.update({
   id: '/hr',
   path: '/hr',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const WorkspaceAppHrComplianceRoute =
-  WorkspaceAppHrComplianceRouteImport.update({
-    id: '/hr-compliance',
-    path: '/hr-compliance',
-    getParentRoute: () => WorkspaceAppRoute,
-  } as any)
 const WorkspaceAppHrOnboardRoute = WorkspaceAppHrOnboardRouteImport.update({
   id: '/hr-onboard',
   path: '/hr-onboard',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppHrRosterRoute = WorkspaceAppHrRosterRouteImport.update({
-  id: '/hr-roster',
-  path: '/hr-roster',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
-  id: '/inventory',
-  path: '/inventory',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
 const WorkspaceAppInventoryDeskRoute =
@@ -355,11 +294,6 @@ const WorkspaceAppRepairSpendRoute = WorkspaceAppRepairSpendRouteImport.update({
   path: '/repair-spend',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
-const WorkspaceAppReportsRoute = WorkspaceAppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
 const WorkspaceAppTruckAvailabilityRoute =
   WorkspaceAppTruckAvailabilityRouteImport.update({
     id: '/truck-availability',
@@ -401,28 +335,6 @@ const WorkspaceAppActiveDispatchDispatchIdRoute =
     path: '/$dispatchId',
     getParentRoute: () => WorkspaceAppActiveDispatchRoute,
   } as any)
-const WorkspaceAppDriversIndexRoute =
-  WorkspaceAppDriversIndexRouteImport.update({
-    id: '/drivers/',
-    path: '/drivers/',
-    getParentRoute: () => WorkspaceAppRoute,
-  } as any)
-const WorkspaceAppDriversDriverIdRoute =
-  WorkspaceAppDriversDriverIdRouteImport.update({
-    id: '/drivers/$driverId',
-    path: '/drivers/$driverId',
-    getParentRoute: () => WorkspaceAppRoute,
-  } as any)
-const WorkspaceAppTripsIndexRoute = WorkspaceAppTripsIndexRouteImport.update({
-  id: '/trips/',
-  path: '/trips/',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
-const WorkspaceAppTripsTripIdRoute = WorkspaceAppTripsTripIdRouteImport.update({
-  id: '/trips/$tripId',
-  path: '/trips/$tripId',
-  getParentRoute: () => WorkspaceAppRoute,
-} as any)
 const WorkspaceCustomerPortalAuthRequestIdRoute =
   WorkspaceCustomerPortalAuthRequestIdRouteImport.update({
     id: '/$requestId',
@@ -464,11 +376,6 @@ export interface FileRoutesByFullPath {
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchRouteWithChildren
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
-  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
-  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
-  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
-  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
-  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -478,12 +385,8 @@ export interface FileRoutesByFullPath {
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
-  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
-  '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
-  '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
-  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
@@ -500,22 +403,17 @@ export interface FileRoutesByFullPath {
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
-  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
-  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
-  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
-  '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
-  '/workspace/app/trips/': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -530,11 +428,6 @@ export interface FileRoutesByTo {
   '/workspace/app/accounts': typeof WorkspaceAppAccountsRoute
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
-  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
-  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
-  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
-  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
-  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -544,12 +437,8 @@ export interface FileRoutesByTo {
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
-  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
-  '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
-  '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
-  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
@@ -566,22 +455,17 @@ export interface FileRoutesByTo {
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
-  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app': typeof WorkspaceAppIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
-  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
-  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchIndexRoute
-  '/workspace/app/drivers': typeof WorkspaceAppDriversIndexRoute
-  '/workspace/app/trips': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -600,11 +484,6 @@ export interface FileRoutesById {
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchRouteWithChildren
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
-  '/workspace/app/admin': typeof WorkspaceAppAdminRoute
-  '/workspace/app/approvals': typeof WorkspaceAppApprovalsRoute
-  '/workspace/app/audit': typeof WorkspaceAppAuditRoute
-  '/workspace/app/compliance': typeof WorkspaceAppComplianceRoute
-  '/workspace/app/depreciation': typeof WorkspaceAppDepreciationRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -614,12 +493,8 @@ export interface FileRoutesById {
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
-  '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
-  '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
-  '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
-  '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
@@ -636,7 +511,6 @@ export interface FileRoutesById {
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
-  '/workspace/app/reports': typeof WorkspaceAppReportsRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
   '/workspace/customer-portal/_auth': typeof WorkspaceCustomerPortalAuthRouteWithChildren
@@ -644,15 +518,11 @@ export interface FileRoutesById {
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
-  '/workspace/app/drivers/$driverId': typeof WorkspaceAppDriversDriverIdRoute
-  '/workspace/app/trips/$tripId': typeof WorkspaceAppTripsTripIdRoute
   '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/_auth/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/_auth/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/_auth/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
-  '/workspace/app/drivers/': typeof WorkspaceAppDriversIndexRoute
-  '/workspace/app/trips/': typeof WorkspaceAppTripsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -672,11 +542,6 @@ export interface FileRouteTypes {
     | '/workspace/app/active-dispatch'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
-    | '/workspace/app/admin'
-    | '/workspace/app/approvals'
-    | '/workspace/app/audit'
-    | '/workspace/app/compliance'
-    | '/workspace/app/depreciation'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -686,12 +551,8 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
-    | '/workspace/app/god-view'
     | '/workspace/app/hr'
-    | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-onboard'
-    | '/workspace/app/hr-roster'
-    | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
@@ -708,22 +569,17 @@ export interface FileRouteTypes {
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
     | '/workspace/app/repair-spend'
-    | '/workspace/app/reports'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal/login'
     | '/workspace/app/'
     | '/workspace/customer-portal/'
     | '/workspace/app/active-dispatch/$dispatchId'
-    | '/workspace/app/drivers/$driverId'
-    | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch/'
-    | '/workspace/app/drivers/'
-    | '/workspace/app/trips/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -738,11 +594,6 @@ export interface FileRouteTypes {
     | '/workspace/app/accounts'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
-    | '/workspace/app/admin'
-    | '/workspace/app/approvals'
-    | '/workspace/app/audit'
-    | '/workspace/app/compliance'
-    | '/workspace/app/depreciation'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -752,12 +603,8 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
-    | '/workspace/app/god-view'
     | '/workspace/app/hr'
-    | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-onboard'
-    | '/workspace/app/hr-roster'
-    | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
@@ -774,22 +621,17 @@ export interface FileRouteTypes {
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
     | '/workspace/app/repair-spend'
-    | '/workspace/app/reports'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal'
     | '/workspace/customer-portal/login'
     | '/workspace/app'
     | '/workspace/app/active-dispatch/$dispatchId'
-    | '/workspace/app/drivers/$driverId'
-    | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch'
-    | '/workspace/app/drivers'
-    | '/workspace/app/trips'
   id:
     | '__root__'
     | '/'
@@ -807,11 +649,6 @@ export interface FileRouteTypes {
     | '/workspace/app/active-dispatch'
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
-    | '/workspace/app/admin'
-    | '/workspace/app/approvals'
-    | '/workspace/app/audit'
-    | '/workspace/app/compliance'
-    | '/workspace/app/depreciation'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -821,12 +658,8 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
     | '/workspace/app/gate'
-    | '/workspace/app/god-view'
     | '/workspace/app/hr'
-    | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-onboard'
-    | '/workspace/app/hr-roster'
-    | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
@@ -843,7 +676,6 @@ export interface FileRouteTypes {
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
     | '/workspace/app/repair-spend'
-    | '/workspace/app/reports'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
     | '/workspace/customer-portal/_auth'
@@ -851,15 +683,11 @@ export interface FileRouteTypes {
     | '/workspace/app/'
     | '/workspace/customer-portal/'
     | '/workspace/app/active-dispatch/$dispatchId'
-    | '/workspace/app/drivers/$driverId'
-    | '/workspace/app/trips/$tripId'
     | '/workspace/customer-portal/_auth/$requestId'
     | '/workspace/customer-portal/_auth/dashboard'
     | '/workspace/customer-portal/_auth/notifications'
     | '/workspace/customer-portal/_auth/request'
     | '/workspace/app/active-dispatch/'
-    | '/workspace/app/drivers/'
-    | '/workspace/app/trips/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -985,41 +813,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppAddPartnerRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
-    '/workspace/app/admin': {
-      id: '/workspace/app/admin'
-      path: '/admin'
-      fullPath: '/workspace/app/admin'
-      preLoaderRoute: typeof WorkspaceAppAdminRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/approvals': {
-      id: '/workspace/app/approvals'
-      path: '/approvals'
-      fullPath: '/workspace/app/approvals'
-      preLoaderRoute: typeof WorkspaceAppApprovalsRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/audit': {
-      id: '/workspace/app/audit'
-      path: '/audit'
-      fullPath: '/workspace/app/audit'
-      preLoaderRoute: typeof WorkspaceAppAuditRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/compliance': {
-      id: '/workspace/app/compliance'
-      path: '/compliance'
-      fullPath: '/workspace/app/compliance'
-      preLoaderRoute: typeof WorkspaceAppComplianceRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/depreciation': {
-      id: '/workspace/app/depreciation'
-      path: '/depreciation'
-      fullPath: '/workspace/app/depreciation'
-      preLoaderRoute: typeof WorkspaceAppDepreciationRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
     '/workspace/app/disbursal': {
       id: '/workspace/app/disbursal'
       path: '/disbursal'
@@ -1083,13 +876,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppGateRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
-    '/workspace/app/god-view': {
-      id: '/workspace/app/god-view'
-      path: '/god-view'
-      fullPath: '/workspace/app/god-view'
-      preLoaderRoute: typeof WorkspaceAppGodViewRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
     '/workspace/app/hr': {
       id: '/workspace/app/hr'
       path: '/hr'
@@ -1097,32 +883,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppHrRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
-    '/workspace/app/hr-compliance': {
-      id: '/workspace/app/hr-compliance'
-      path: '/hr-compliance'
-      fullPath: '/workspace/app/hr-compliance'
-      preLoaderRoute: typeof WorkspaceAppHrComplianceRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
     '/workspace/app/hr-onboard': {
       id: '/workspace/app/hr-onboard'
       path: '/hr-onboard'
       fullPath: '/workspace/app/hr-onboard'
       preLoaderRoute: typeof WorkspaceAppHrOnboardRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/hr-roster': {
-      id: '/workspace/app/hr-roster'
-      path: '/hr-roster'
-      fullPath: '/workspace/app/hr-roster'
-      preLoaderRoute: typeof WorkspaceAppHrRosterRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/inventory': {
-      id: '/workspace/app/inventory'
-      path: '/inventory'
-      fullPath: '/workspace/app/inventory'
-      preLoaderRoute: typeof WorkspaceAppInventoryRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/inventory-desk': {
@@ -1237,13 +1002,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppRepairSpendRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
-    '/workspace/app/reports': {
-      id: '/workspace/app/reports'
-      path: '/reports'
-      fullPath: '/workspace/app/reports'
-      preLoaderRoute: typeof WorkspaceAppReportsRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
     '/workspace/app/truck-availability': {
       id: '/workspace/app/truck-availability'
       path: '/truck-availability'
@@ -1292,34 +1050,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspace/app/active-dispatch/$dispatchId'
       preLoaderRoute: typeof WorkspaceAppActiveDispatchDispatchIdRouteImport
       parentRoute: typeof WorkspaceAppActiveDispatchRoute
-    }
-    '/workspace/app/drivers/': {
-      id: '/workspace/app/drivers/'
-      path: '/drivers'
-      fullPath: '/workspace/app/drivers/'
-      preLoaderRoute: typeof WorkspaceAppDriversIndexRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/drivers/$driverId': {
-      id: '/workspace/app/drivers/$driverId'
-      path: '/drivers/$driverId'
-      fullPath: '/workspace/app/drivers/$driverId'
-      preLoaderRoute: typeof WorkspaceAppDriversDriverIdRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/trips/': {
-      id: '/workspace/app/trips/'
-      path: '/trips'
-      fullPath: '/workspace/app/trips/'
-      preLoaderRoute: typeof WorkspaceAppTripsIndexRouteImport
-      parentRoute: typeof WorkspaceAppRoute
-    }
-    '/workspace/app/trips/$tripId': {
-      id: '/workspace/app/trips/$tripId'
-      path: '/trips/$tripId'
-      fullPath: '/workspace/app/trips/$tripId'
-      preLoaderRoute: typeof WorkspaceAppTripsTripIdRouteImport
-      parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/customer-portal/_auth/$requestId': {
       id: '/workspace/customer-portal/_auth/$requestId'
@@ -1374,11 +1104,6 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppActiveDispatchRoute: typeof WorkspaceAppActiveDispatchRouteWithChildren
   WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
   WorkspaceAppAddPartnerRoute: typeof WorkspaceAppAddPartnerRoute
-  WorkspaceAppAdminRoute: typeof WorkspaceAppAdminRoute
-  WorkspaceAppApprovalsRoute: typeof WorkspaceAppApprovalsRoute
-  WorkspaceAppAuditRoute: typeof WorkspaceAppAuditRoute
-  WorkspaceAppComplianceRoute: typeof WorkspaceAppComplianceRoute
-  WorkspaceAppDepreciationRoute: typeof WorkspaceAppDepreciationRoute
   WorkspaceAppDisbursalRoute: typeof WorkspaceAppDisbursalRoute
   WorkspaceAppDisbursalVoucherRoute: typeof WorkspaceAppDisbursalVoucherRoute
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
@@ -1388,12 +1113,8 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppFleetRegistryRoute: typeof WorkspaceAppFleetRegistryRoute
   WorkspaceAppFuelPricingRoute: typeof WorkspaceAppFuelPricingRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
-  WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
-  WorkspaceAppHrComplianceRoute: typeof WorkspaceAppHrComplianceRoute
   WorkspaceAppHrOnboardRoute: typeof WorkspaceAppHrOnboardRoute
-  WorkspaceAppHrRosterRoute: typeof WorkspaceAppHrRosterRoute
-  WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
   WorkspaceAppInventoryDeskRoute: typeof WorkspaceAppInventoryDeskRoute
   WorkspaceAppLiveTrackingRoute: typeof WorkspaceAppLiveTrackingRoute
   WorkspaceAppLubricantRoute: typeof WorkspaceAppLubricantRoute
@@ -1410,14 +1131,9 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppPartsRoute: typeof WorkspaceAppPartsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
   WorkspaceAppRepairSpendRoute: typeof WorkspaceAppRepairSpendRoute
-  WorkspaceAppReportsRoute: typeof WorkspaceAppReportsRoute
   WorkspaceAppTruckAvailabilityRoute: typeof WorkspaceAppTruckAvailabilityRoute
   WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
   WorkspaceAppIndexRoute: typeof WorkspaceAppIndexRoute
-  WorkspaceAppDriversDriverIdRoute: typeof WorkspaceAppDriversDriverIdRoute
-  WorkspaceAppTripsTripIdRoute: typeof WorkspaceAppTripsTripIdRoute
-  WorkspaceAppDriversIndexRoute: typeof WorkspaceAppDriversIndexRoute
-  WorkspaceAppTripsIndexRoute: typeof WorkspaceAppTripsIndexRoute
 }
 
 const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
@@ -1425,11 +1141,6 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppActiveDispatchRoute: WorkspaceAppActiveDispatchRouteWithChildren,
   WorkspaceAppAddAccountRoute: WorkspaceAppAddAccountRoute,
   WorkspaceAppAddPartnerRoute: WorkspaceAppAddPartnerRoute,
-  WorkspaceAppAdminRoute: WorkspaceAppAdminRoute,
-  WorkspaceAppApprovalsRoute: WorkspaceAppApprovalsRoute,
-  WorkspaceAppAuditRoute: WorkspaceAppAuditRoute,
-  WorkspaceAppComplianceRoute: WorkspaceAppComplianceRoute,
-  WorkspaceAppDepreciationRoute: WorkspaceAppDepreciationRoute,
   WorkspaceAppDisbursalRoute: WorkspaceAppDisbursalRoute,
   WorkspaceAppDisbursalVoucherRoute: WorkspaceAppDisbursalVoucherRoute,
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
@@ -1439,12 +1150,8 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppFleetRegistryRoute: WorkspaceAppFleetRegistryRoute,
   WorkspaceAppFuelPricingRoute: WorkspaceAppFuelPricingRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
-  WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,
-  WorkspaceAppHrComplianceRoute: WorkspaceAppHrComplianceRoute,
   WorkspaceAppHrOnboardRoute: WorkspaceAppHrOnboardRoute,
-  WorkspaceAppHrRosterRoute: WorkspaceAppHrRosterRoute,
-  WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
   WorkspaceAppInventoryDeskRoute: WorkspaceAppInventoryDeskRoute,
   WorkspaceAppLiveTrackingRoute: WorkspaceAppLiveTrackingRoute,
   WorkspaceAppLubricantRoute: WorkspaceAppLubricantRoute,
@@ -1462,14 +1169,9 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppPartsRoute: WorkspaceAppPartsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
   WorkspaceAppRepairSpendRoute: WorkspaceAppRepairSpendRoute,
-  WorkspaceAppReportsRoute: WorkspaceAppReportsRoute,
   WorkspaceAppTruckAvailabilityRoute: WorkspaceAppTruckAvailabilityRoute,
   WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,
   WorkspaceAppIndexRoute: WorkspaceAppIndexRoute,
-  WorkspaceAppDriversDriverIdRoute: WorkspaceAppDriversDriverIdRoute,
-  WorkspaceAppTripsTripIdRoute: WorkspaceAppTripsTripIdRoute,
-  WorkspaceAppDriversIndexRoute: WorkspaceAppDriversIndexRoute,
-  WorkspaceAppTripsIndexRoute: WorkspaceAppTripsIndexRoute,
 }
 
 const WorkspaceAppRouteWithChildren = WorkspaceAppRoute._addFileChildren(

@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
-  CalendarClock,
   CircleDollarSign,
   LogOut,
   MessageSquare,
@@ -9,7 +8,6 @@ import {
   Package,
   PackageCheck,
   Receipt,
-  ShieldCheck,
   TicketCheck,
   Truck,
   Users,
@@ -52,16 +50,24 @@ type DepartmentPortal = {
 const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
   // A department is more than one page: each module below is its own board, the
   // way Fleet Operation splits dispatch, fleet and history.
+  /*
+   * TWO PAGES — the register it works, and what has arrived.
+   *
+   * Licence & Compliance and Duty Roster were two more boards sitting in this
+   * nav. Both asked questions the register itself already answers: every row
+   * carries the licence number over its expiry date in red/amber, the headcount
+   * above it counts who is expiring, expiring soon and with nothing on file, and
+   * the status column says who is on the road. A department is not four places
+   * to look for one answer, so the extra boards are gone and the register keeps
+   * them.
+   */
   hr: {
     heading: "HUMAN RESOURCES",
     title: "HR and Personnel Portal",
     subtitle: "Manage staff records and important documents",
     items: [
       { label: "Staff Record", to: "/workspace/app/hr", icon: Users },
-      { label: "Licence & Compliance", to: "/workspace/app/hr-compliance", icon: ShieldCheck },
-      { label: "Duty Roster", to: "/workspace/app/hr-roster", icon: CalendarClock },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
-      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
   // The STOREHOUSE: inbound stock, handoff queue, count variances. Its own

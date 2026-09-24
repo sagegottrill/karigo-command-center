@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Crosshair, Layers, Maximize2, Navigation } from "lucide-react";
+import { Crosshair, Layers, Maximize2 } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
 import { StatusBadge } from "./status-badge";
@@ -121,12 +120,12 @@ export function LiveOperationsMap({ trips }: { trips: Trip[] }) {
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/[0.06]">
             <div className="h-full rounded-full bg-[#1d1d1f]" style={{ width: `${selected.progress}%` }} />
           </div>
-          <Button asChild size="sm" className="mt-3 h-8 w-full gap-1.5 text-[12px]">
-            <Link to="/workspace/app/trips/$tripId" params={{ tripId: selected.id }}>
-              <Navigation className="h-3 w-3" />
-              Open trip {selected.id}
-            </Link>
-          </Button>
+          {/*
+            "Open trip" walked to /workspace/app/trips/$tripId — one of the old
+            Karigo screens, which only bounced back to Overview, so the button
+            never opened anything. The dispatch itself is opened from the
+            dispatch boards, where it carries its own history.
+          */}
         </div>
       )}
     </div>

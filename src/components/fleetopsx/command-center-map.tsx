@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { Crosshair, Minus, MoreVertical, Plus } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { ACTIVE_DISPATCH_BUCKETS, isInBucket } from "@/lib/fleetopsx/status-buckets";
@@ -312,13 +311,12 @@ export function CommandCenterMap({
             >
               {selected.status}
             </p>
-            <Link
-              to="/workspace/app/trips/$tripId"
-              params={{ tripId: selected.id }}
-              className="mt-2 inline-block text-[11px] font-semibold underline-offset-2 hover:underline"
-            >
-              Open trip
-            </Link>
+            {/*
+              There used to be an "Open trip" link here, pointing at
+              /workspace/app/trips/$tripId — an old Karigo screen that bounced
+              back to Overview. The marker already names the trip it stands for,
+              and the dispatch is opened from the dispatch board.
+            */}
           </div>
         )}
       </div>
