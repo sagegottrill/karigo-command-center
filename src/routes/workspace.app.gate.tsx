@@ -304,11 +304,11 @@ function SecurityLogPage() {
       return;
     }
     // Same order as the table — the dispatch ID closes the row.
-    const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Dispatch ID\n";
+    const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Logged By,Dispatch ID\n";
     const body = filtered
       .map(
         (t) =>
-          `${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")},${dispatchId(t)}`,
+          `${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")},${returnStamp(t) ? t.gateInBy || t.gateOutBy || "Unsigned" : departureStamp(t) ? t.gateOutBy || "Unsigned" : ""},${dispatchId(t)}`,
       )
       .join("\n");
     const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
@@ -404,12 +404,14 @@ function SecurityLogPage() {
         {/* The action column is wide enough for the read-only label the Transport
             Manager sees there instead of the 3-dots, so "View only" sits on one
             line rather than stacking into "View / only". */}
-        <div className="hidden grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_62px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
-          {["Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Dispatch ID"].map((h) => (
-            <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-              {h}
-            </span>
-          ))}
+        <div className="hidden grid-cols-[140px_105px_115px_100px_1fr_1fr_130px_96px_62px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
+          {["Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Logged By", "Dispatch ID"].map(
+            (h) => (
+              <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ),
+          )}
           <span />
         </div>
 
@@ -419,7 +421,7 @@ function SecurityLogPage() {
           return (
             <div
               key={trip.id}
-              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[150px_110px_120px_110px_1fr_1fr_96px_62px] md:items-center md:gap-4 md:px-5"
+              className="grid grid-cols-1 gap-2 border-b border-[#E2E5E9] px-4 py-3 last:border-0 md:grid-cols-[140px_105px_115px_100px_1fr_1fr_130px_96px_62px] md:items-center md:gap-4 md:px-5"
             >
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.driverName || "—"}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
@@ -427,6 +429,25 @@ function SecurityLogPage() {
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{tailOf(trip)}</span>
               <StampCell value={dep} fallback="Not Departed" />
               <StampCell value={ret} fallback="Not Returned" />
+              {/* WHO stamped it — the accountability column. The gate house sees
+                  its own signatures here; the TM sees the same on the dashboard
+                  ledger. Empty (italic) until a signed stamp exists. */}
+              <span
+                className={
+                  (trip.gateOutBy || trip.gateInBy) && ret
+                    ? "text-[13px] tracking-[0.4px] text-[#1F7A33]"
+                    : (trip.gateOutBy || trip.gateInBy) && dep
+                      ? "text-[13px] tracking-[0.4px] text-[#8E3D2D]"
+                      : "text-[13px] italic tracking-[0.4px] text-[#627084]"
+                }
+              >
+                <span className="text-[#627084] md:hidden">Logged By: </span>
+                {(trip.gateInBy || trip.gateOutBy) && ret
+                  ? trip.gateInBy
+                  : (trip.gateOutBy || trip.gateInBy) && dep
+                    ? trip.gateOutBy
+                    : "Unsigned"}
+              </span>
               {/* The ID closes the row on every table; on the stacked phone view
                   it carries its own label so it cannot read as an orphan value. */}
               <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">

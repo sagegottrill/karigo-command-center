@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MoreVertical,
   Navigation,
+  Package,
   ShieldCheck,
   Truck,
   Users,
@@ -84,6 +85,10 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // The workshop: work orders, repair spend, and the verdict that decides
       // whether a truck that came back through the gate is fit to dispatch.
       { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench },
+      // Parts & Inventory is ITS OWN department — never folded into Engineering.
+      // The TM reads its valuation, shrinkage and requisition queues from the
+      // dashboard; this is the department's own working page.
+      { label: "Parts & Inventory", to: "/workspace/app/parts", icon: Package },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into.

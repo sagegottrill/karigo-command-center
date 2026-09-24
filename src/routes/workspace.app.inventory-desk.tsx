@@ -21,15 +21,17 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/workspace/app/inventory-desk")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    // The department owns its board; the Transport Manager and Platform Admin
-    // read it as an audit, and Engineering follows its parts.
+    // The STOREHOUSE's own desk — Inventory roles and the TM's audit view.
+    // Engineering follows its parts on the Parts & Store board; the two
+    // departments' doors stay separate.
     const allowed = [
       "Transport Manager",
       "Platform Admin",
       "Inventory",
       "Head of Inventory",
       "Store Floor Attendant",
-      ...ENGINEERING_ACCESS_ROLES,
+      "Parts & Store",
+      "Parts and Store",
     ];
     if (!authService.getRoles().some((r: string) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
@@ -240,7 +242,7 @@ function InventoryDesk() {
   if (loading) {
     return (
       <>
-        <DepartmentTabs department="engineering" />
+        <DepartmentTabs department="inventory" />
         <div className="min-h-[60vh] bg-[#F1F2F4]">
           <FigmaLoadingState label="Loading the desk…" />
         </div>

@@ -34,7 +34,17 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/workspace/app/parts")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    if (!authService.getRoles().some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r))) {
+    // Parts & Inventory is ITS OWN department: its own roles, plus the TM who
+    // audits it. Engineering reads the parts it raised through the same board;
+    // the STOREHOUSE (Inventory) works the desk, not this catalog.
+    const allowed = [
+      "Parts & Store",
+      "Parts and Store",
+      "Inventory",
+      "Head of Inventory",
+      ...ENGINEERING_ACCESS_ROLES,
+    ];
+    if (!authService.getRoles().some((r: string) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
@@ -297,7 +307,7 @@ function PartsAndStore() {
   if (loading) {
     return (
       <>
-        <DepartmentTabs department="engineering" />
+        <DepartmentTabs department="parts" />
         <div className="min-h-[60vh] bg-[#F1F2F4]">
           <FigmaLoadingState label="Loading the store…" />
         </div>
