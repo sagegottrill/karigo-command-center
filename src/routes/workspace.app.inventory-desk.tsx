@@ -252,7 +252,8 @@ function InventoryDesk() {
 
   return (
     <>
-      <DepartmentTabs department="engineering" />
+      {/* The storehouse's own modules — never Engineering's tab strip. */}
+      <DepartmentTabs department="inventory" />
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">

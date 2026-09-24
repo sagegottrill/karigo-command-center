@@ -326,7 +326,13 @@ function PartsAndStore() {
 
   return (
     <>
-      <DepartmentTabs department="engineering" />
+      {/*
+       * The STOREHOUSE's own modules. This page printed Engineering's tab strip
+       * (Work Orders / Truck Availability / Repair Spend) for every viewer,
+       * so the Transport Manager's Parts & Inventory page looked like the
+       * workshop — the tabs now name the department he is actually standing in.
+       */}
+      <DepartmentTabs department="parts" />
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">

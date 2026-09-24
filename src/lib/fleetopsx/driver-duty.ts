@@ -97,17 +97,23 @@ export function driverIsOnLiveTrip(driver: Driver, trips: Trip[]): boolean {
 export type DutyWord = DriverStatus | "In Transit";
 
 /**
- * What a screen must PRINT for this driver.
+ * What a screen must PRINT for this driver — ONE word, and the whole truth.
  *
- * "Available" has to mean one thing only — the man is on the ground and can be
- * handed a truck — and it used to be printed beside the line "On a live
- * dispatch", a contradiction the yard cannot act on. So the dispatch list
- * decides the word: a driver it names reads IN TRANSIT, and only a driver it
- * does not name can read Available. The stored duty word is still what HR set;
- * this is what the record ACTUALLY is right now.
+ * It used to be the stored word with a corrective line underneath ("Available"
+ * over "On a live dispatch"), which reads as the platform arguing with itself
+ * and leaves the yard to work out which half to believe. There is no caption
+ * now: the dispatch list decides the word, and the word is enough.
+ *
+ *   on a live dispatch          -> IN TRANSIT
+ *   HR set Off Duty/Suspended   -> that word (HR's own decision, respected)
+ *   anything else               -> AVAILABLE, because a trip word with no
+ *                                  dispatch behind it is a stale record and
+ *                                  the man is standing in the yard
  */
 export function displayDutyStatus(driver: Driver, trips: Trip[]): DutyWord {
-  return driverIsOnLiveTrip(driver, trips) ? "In Transit" : driver.status;
+  if (driverIsOnLiveTrip(driver, trips)) return "In Transit";
+  if (driver.status === "Off Duty" || driver.status === "Suspended") return driver.status;
+  return "Available";
 }
 
 /**

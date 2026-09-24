@@ -20,8 +20,6 @@ import {
   driverIsOnLiveTrip,
   dutyTally,
   liveTripsFor,
-  staleDutyStatus,
-  type DutyWord,
 } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { licenseToneClass } from "@/lib/fleetopsx/license";
@@ -377,21 +375,7 @@ function DutyRoster() {
                     >
                       {displayDutyStatus(driver, trips)}
                     </span>
-                    {/*
-                     * The duty word against the dispatch list. A driver the list
-                     * names reads IN TRANSIT above and the dispatch is named here,
-                     * so "Available" never sits beside a live trip again; a driver
-                     * parked on a trip word with no job is the opposite problem
-                     * and is named too. Both are HR's to fix.
-                     */}
-                    {staleDutyStatus(driver, trips) === "should-be-free" ? (
-                      <span className="text-[11px] text-[#B26A00]">No live dispatch</span>
-                    ) : null}
-                    {liveTripsFor(driver, trips).slice(0, 1).map((trip) => (
-                      <span key={trip.id} className="text-[11px] text-[#B26A00]">
-                        {displayDispatchId(trip)} · {trip.status}
-                      </span>
-                    ))}
+
                   </span>
 
                   {canEdit ? (

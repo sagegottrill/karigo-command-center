@@ -71,6 +71,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     subtitle: "Inbound stock, handoff queue and shelf variances",
     items: [
       { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
+      { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
@@ -82,10 +83,13 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     items: [
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
-      // The workshop's own parts request view. The STOREHOUSE is a separate
-      // department with its own portal — this link is Engineering's window onto
-      // the parts it raised, not the store's desk.
-      { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
+      /*
+       * Repair Spend only. Parts & Store used to ride along here, which is why
+       * the STOREHOUSE's own page printed Engineering's modules across the top:
+       * the store is its own department now, and its modules belong to it.
+       * Engineering's window onto the parts it raised is the request it opens on
+       * a work order, not the store's catalogue.
+       */
       { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },

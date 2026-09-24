@@ -14,7 +14,7 @@ import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { displayDutyStatus, dutyTally, liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { displayDutyStatus, dutyTally, liveTripsFor } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
@@ -782,23 +782,7 @@ function HrStaffDirectory() {
                     >
                       {displayDutyStatus(driver, trips)}
                     </span>
-                    {/*
-                     * The duty word against the live dispatch list. A driver the
-                     * list names already reads IN TRANSIT above, so the row names
-                     * the dispatch instead of repeating the fact; a driver parked
-                     * on a trip word with no job is the opposite problem and is
-                     * named too. Both are HR's to correct.
-                     */}
-                    {staleDutyStatus(driver, trips) === "should-be-free" ? (
-                      <span className="text-[11px] leading-none text-[#B26A00]">No live dispatch</span>
-                    ) : null}
-                    {liveTripsFor(driver, trips)
-                      .slice(0, 1)
-                      .map((trip) => (
-                        <span key={trip.id} className="text-[11px] leading-none text-[#B26A00]">
-                          {displayDispatchId(trip)} · {trip.status}
-                        </span>
-                      ))}
+
                   </span>
                   {/* The ID closes the row — the reference you quote once the
                       driver you were looking for is found. */}
