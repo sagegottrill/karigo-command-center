@@ -5,12 +5,12 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Download,
   ListFilter,
   MoreVertical,
   Search,
   X,
 } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -203,13 +203,7 @@ function AdminManagePartner() {
     const csv = filtered
       .map((u, i) => `${i + 1},${u.name},${u.partnerCompanyName || "-"},${u.username ?? ""},${u.status}`)
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "partner_accounts.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   const handleConfirmAction = async () => {
@@ -271,14 +265,7 @@ function AdminManagePartner() {
             >
               + Add New Account
             </Link>
-            <button
-              type="button"
-              onClick={exportCSV}
-              className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white sm:w-[123px]"
-            >
-              <Download className="size-[18px]" strokeWidth={1.75} />
-              Export CSV
-            </button>
+            <ExportMenu csv={exportCSV} rows={filtered.length} title="Partner Accounts" fileNameBase="partner_accounts" />
           </div>
         </div>
 

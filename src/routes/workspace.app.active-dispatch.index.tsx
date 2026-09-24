@@ -1,8 +1,9 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ArrowBigRight, Check, ChevronLeft, ChevronRight, ListFilter, Search, Upload } from "lucide-react";
+import { ArrowBigRight, Check, ChevronLeft, ChevronRight, ListFilter, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayCapFromTrip, displayDriverSalary, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import { formatMovementStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
@@ -444,11 +445,8 @@ function ActiveDispatchPage() {
     };
   }, [visibleIds]);
 
-  const exportCsv = async () => {
-    if (filtered.length === 0) {
-      toast.message("Nothing to export");
-      return;
-    }
+  const exportCsv = async (): Promise<string> => {
+    if (filtered.length === 0) return "";
     // The export covers every page, so fetch the checkpoints that were never on
     // screen — the file must not disagree with what the board shows.
     const stops = await Promise.all(
@@ -492,13 +490,7 @@ function ActiveDispatchPage() {
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(",");
     });
-    const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "tracking-operations.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    return [header.join(","), ...lines].join("\n");
   };
 
   if (loading) {
@@ -533,14 +525,13 @@ function ActiveDispatchPage() {
             : "VIEW TRUCKS AND THEIR LOCATION HISTORY"}
       </p>
 
-      <button
-        type="button"
-        onClick={exportCsv}
-        className="flex h-8 w-[123px] items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white md:hidden"
-      >
-        <Upload className="size-[18px]" strokeWidth={1.5} />
-        Export CSV
-      </button>
+      <ExportMenu
+        csv={exportCsv}
+        rows={filtered.length}
+        title="Tracking Operations"
+        fileNameBase="tracking-operations"
+        mobile
+      />
 
       <div className="flex flex-col gap-[15px] border-b border-[#E2E5E9] pb-[5px] md:hidden">
         <div className="flex items-center gap-5">
@@ -718,14 +709,12 @@ function ActiveDispatchPage() {
                   <ChevronRight className="size-4" />
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="inline-flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] text-[14px] font-medium text-white"
-              >
-                <Upload className="size-[18px]" strokeWidth={1.5} />
-                Export CSV
-              </button>
+              <ExportMenu
+                csv={exportCsv}
+                rows={filtered.length}
+                title="Tracking Operations"
+                fileNameBase="tracking-operations"
+              />
             </div>
           </>
         )}

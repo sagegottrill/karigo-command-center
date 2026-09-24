@@ -4,12 +4,12 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Download,
   ListFilter,
   MoreVertical,
   Search,
   X,
 } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -135,13 +135,7 @@ function AdminManageAccount() {
           `${i + 1},${u.name},${Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(" ")},${displayUsername(u)},${staffIdLabel(u)},${u.status},${formatLastLogin(u.lastActive)}`,
       )
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "staff_accounts.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   const handleConfirmAction = async () => {
@@ -202,14 +196,7 @@ function AdminManageAccount() {
             >
               + Add New Staff Account
             </Link>
-            <button
-              type="button"
-              onClick={exportCSV}
-              className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] whitespace-nowrap text-white sm:w-[123px]"
-            >
-              <Download className="size-[18px]" strokeWidth={1.75} />
-              Export CSV
-            </button>
+            <ExportMenu csv={exportCSV} rows={filtered.length} title="Staff Accounts" fileNameBase="staff_accounts" />
           </div>
         </div>
 

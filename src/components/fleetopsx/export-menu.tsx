@@ -18,22 +18,25 @@ import { cn } from "@/lib/utils";
  * and the filters, exactly like the old CSV-only button did).
  */
 export function ExportMenu({
-  csv,
+  csv: csvBuilder,
   rows,
   title,
   fileNameBase,
   className,
   mobile = false,
+  csvAction,
 }: {
-  /** The CSV string builder — the page's own export code, run on demand. */
-  csv: () => string;
+  /** The CSV string builder — the page's own export code, run on demand. May be async when the page fetches extra data first. Optional when csvAction is provided instead. */
+  csv?: () => string | Promise<string>;
   /** Row count of the filtered table; 0 means "nothing to export". */
   rows: number;
-  title: string;
-  fileNameBase: string;
+  title?: string;
+  fileNameBase?: string;
   className?: string;
   /** Mobile variant renders full-width like the old Export CSV button. */
   mobile?: boolean;
+  /** Optional override for the CSV action when the page already owns its download (e.g. the lubricant footer). */
+  csvAction?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,9 +65,16 @@ export function ExportMenu({
     return true;
   };
 
-  const runCsv = () => {
-    if (!guard()) return;
-    downloadCsvBlob(csv(), fileNameBase);
+  const runCsv = async () => {
+    if (csvAction) {
+      csvAction();
+      setOpen(false);
+      return;
+    }
+    if (!csvBuilder || !guard()) return;
+    const csv = await csvBuilder();
+    if (!csv) return;
+    downloadCsvBlob(csv, fileNameBase ?? "export");
     setOpen(false);
     toast.success("CSV downloaded.");
   };
@@ -75,7 +85,7 @@ export function ExportMenu({
     try {
       const card = findExportCard(btnRef.current);
       if (!card) throw new Error("Could not find the table to capture.");
-      await downloadTableImage(card, title, fileNameBase);
+      await downloadTableImage(card, title ?? "Export", fileNameBase ?? "export");
       toast.success("Image downloaded.");
       setOpen(false);
     } catch (err) {
@@ -91,7 +101,7 @@ export function ExportMenu({
     try {
       const card = findExportCard(btnRef.current);
       if (!card) throw new Error("Could not find the table to capture.");
-      await downloadTablePdf(card, title, fileNameBase);
+      await downloadTablePdf(card, title ?? "Export", fileNameBase ?? "export");
       setOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The PDF could not be created.");

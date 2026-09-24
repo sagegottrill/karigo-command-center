@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Download, Pencil, Search, Upload, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, Upload, UserPlus } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
@@ -500,13 +501,7 @@ function HrStaffDirectory() {
           `${d.name},${d.phone},${d.licenseNumber},${d.licenseCategory},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.assignedTail ?? ""},${d.status},${displayDriverSalary(d) || d.employeeId}`,
       )
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "staff_directory.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   return (
@@ -800,14 +795,7 @@ function HrStaffDirectory() {
                 >
                   <ChevronRight className="size-[18px] text-[#627084]" />
                 </button>
-                <button
-                  type="button"
-                  onClick={exportCSV}
-                  className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-                >
-                  <Download className="size-[18px]" strokeWidth={1.75} />
-                  Export CSV
-                </button>
+                <ExportMenu csv={exportCSV} rows={filtered.length} title="Staff Directory" fileNameBase="staff_directory" />
               </div>
             </div>
           )}

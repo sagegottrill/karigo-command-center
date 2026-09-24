@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Search, Wrench } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
@@ -198,13 +199,7 @@ function TruckAvailability() {
           .join(",");
       })
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "truck_availability.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   return (
@@ -224,13 +219,7 @@ function TruckAvailability() {
             )}
           </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
-            <button
-              type="button"
-              onClick={exportCSV}
-              className="flex h-8 items-center rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
-            >
-              Export CSV
-            </button>
+            <ExportMenu csv={exportCSV} rows={filtered.length} title="Truck Availability" fileNameBase="truck_availability" />
           </div>
         </div>
 

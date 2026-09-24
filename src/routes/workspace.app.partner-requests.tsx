@@ -1,9 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Plus, Search } from "lucide-react";
 import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton, CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
@@ -304,13 +305,7 @@ function AdminPartnerRequests() {
           `${formatTableDate(t.createdAt)},${partnerNameOf(t)},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${requestId(t)},${toPartnerUiStatus(t)}`,
       )
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "partner_requests.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   /**
@@ -488,14 +483,13 @@ function AdminPartnerRequests() {
           New Request
         </button>
 
-        <button
-          type="button"
-          onClick={exportCSV}
-          className="flex h-8 w-full items-center justify-center gap-[5px] rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white md:hidden"
-        >
-          <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CSV
-        </button>
+        <ExportMenu
+          csv={exportCSV}
+          rows={filtered.length}
+          title="Partner Requests"
+          fileNameBase="partner_requests"
+          mobile
+        />
 
         <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
           {/* Search takes its own row on a phone: two named filter boxes beside it
@@ -797,14 +791,12 @@ function AdminPartnerRequests() {
                 >
                   <ChevronRight className="size-[18px] text-[#627084]" />
                 </button>
-                <button
-                  type="button"
-                  onClick={exportCSV}
-                  className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-                >
-                  <Download className="size-[18px]" strokeWidth={1.75} />
-                  Export CSV
-                </button>
+                <ExportMenu
+                  csv={exportCSV}
+                  rows={filtered.length}
+                  title="Partner Requests"
+                  fileNameBase="partner_requests"
+                />
               </div>
             </div>
           )}

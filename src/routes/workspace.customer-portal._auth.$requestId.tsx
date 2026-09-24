@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Download, MapPin, Pencil, Share2, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Download, MapPin, Pencil, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
 import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
@@ -620,8 +621,8 @@ function PartnerRequestDetailsPage() {
     }
   };
 
-  const handleExport = () => {
-    if (!trip) return;
+  const ticketExport = () => {
+    if (!trip) return { csv: "", base: "ticket" };
     const rows = [
       ["Ticket", displayRequestId(trip)],
       ["Status", uiStatus],
@@ -635,13 +636,7 @@ function PartnerRequestDetailsPage() {
       ["Truck Head (Cap Number / Plate)", capPlate],
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${displayRequestId(trip)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    return { csv, base: displayRequestId(trip) };
   };
 
   const handleDelete = async () => {
@@ -711,14 +706,12 @@ function PartnerRequestDetailsPage() {
                   Modify
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={handleExport}
-                className="flex h-8 items-center gap-[5px] rounded bg-[#1B2432] px-[7px] py-[5px] text-[14px] font-medium tracking-[0.4px] text-white"
-              >
-                <Upload className="size-[18px]" />
-                Export CSV
-              </button>
+              <ExportMenu
+                csv={() => ticketExport().csv}
+                rows={trip ? 1 : 0}
+                title={`Ticket ${trip ? displayRequestId(trip) : ""}`}
+                fileNameBase={ticketExport().base}
+              />
               {/* The partner raises a WP from this document — a JPEG is what
                   travels in WhatsApp, so the whole ticket is drawn as one. */}
               <button

@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Download, Search, ArrowLeft } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
@@ -311,13 +312,7 @@ function DispatchDetail({
       }
     }
     const csv = rows.map(([k, v]) => `"${k}","${String(v).replace(/"/g, '""')}"`).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `dispatch_${dispatchId(trip)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${dispatchId(trip)}.`);
+    return { csv, base: `dispatch_${dispatchId(trip)}`, label: dispatchId(trip) };
   };
 
   return (
@@ -333,14 +328,12 @@ function DispatchDetail({
           <span className="hidden md:inline">Dispatch Details and Timeline</span>
           <span className="md:hidden">Dispatch Details and Timeline</span>
         </button>
-        <button
-          type="button"
-          onClick={exportDispatch}
-          className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-        >
-          <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CSV
-        </button>
+        <ExportMenu
+          csv={() => exportDispatch().csv}
+          rows={1}
+          title={`Dispatch Details — ${exportDispatch().label}`}
+          fileNameBase={exportDispatch().base}
+        />
       </div>
 
       <div className="flex flex-col gap-5 lg:flex-row">
@@ -651,13 +644,7 @@ function DispatchHistoryPage() {
         return `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)},${driver?.name || t.driverName || ""},${driver?.employeeId ?? ""},${driver?.phone ?? ""}`;
       })
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "dispatch_history.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   if (selectedTrip) {
@@ -691,14 +678,12 @@ function DispatchHistoryPage() {
             Manage and track live fleet status.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={exportCSV}
-          className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-        >
-          <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CSV
-        </button>
+        <ExportMenu
+          csv={exportCSV}
+          rows={filteredTrips.length}
+          title="Dispatch History"
+          fileNameBase="dispatch_history"
+        />
       </div>
 
       <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">

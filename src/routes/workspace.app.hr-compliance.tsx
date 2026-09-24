@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, Pencil, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
@@ -201,13 +202,7 @@ function HrCompliance() {
           .join(",");
       })
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "licence_compliance.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   return (
@@ -228,14 +223,7 @@ function HrCompliance() {
           </div>
           {/* Export stays available to the Transport Manager's glimpse: an
               auditor who cannot take the register away has no audit. */}
-          <button
-            type="button"
-            onClick={exportCSV}
-            className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
-          >
-            <Download className="size-[18px]" strokeWidth={1.75} />
-            Export CSV
-          </button>
+          <ExportMenu csv={exportCSV} rows={filtered.length} title="Licence Compliance" fileNameBase="licence_compliance" />
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

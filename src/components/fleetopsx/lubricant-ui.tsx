@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertOctagon, ArrowDownToLine, ChevronLeft, ChevronRight, Download, Fuel, Search } from "lucide-react";
+import { AlertOctagon, ArrowDownToLine, ChevronLeft, ChevronRight, Fuel, Search } from "lucide-react";
 import { toast } from "sonner";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import { adminService, driverService, lubricantService } from "@/lib/fleetopsx/services";
 import {
@@ -722,14 +723,12 @@ export function LubricantTableFooter({
         >
           <ChevronRight className="size-[18px] text-[#627084]" />
         </button>
-        <button
-          type="button"
-          onClick={onExport}
-          className="flex h-8 items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-        >
-          <Download className="size-[18px]" strokeWidth={1.75} />
-          Export CSV
-        </button>
+        <ExportMenu
+          csvAction={onExport}
+          rows={total}
+          title={`${from}–${to} of ${total}`}
+          fileNameBase="lubricant"
+        />
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { matchesQuery } from "@/lib/fleetopsx/search-match";
-import { ChevronLeft, ChevronRight, Download, Plus, Printer, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Printer, Search } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
@@ -471,13 +472,7 @@ function FleetRegistryPage() {
         return `${tail.number},${tail.registration},${tail.type},${tail.status},${tail.location}`;
       })
       .join("\n");
-    const blob = new Blob([headers + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = tab === "head" ? "fleet_heads.csv" : "fleet_tails.csv";
-    a.click();
-    toast.success("Exported CSV successfully.");
+    return headers + csv;
   };
 
   return (
@@ -891,14 +886,7 @@ function FleetRegistryPage() {
                 >
                   <ChevronRight className="size-[18px] text-[#627084]" />
                 </button>
-                <button
-                  type="button"
-                  onClick={exportCSV}
-                  className="flex h-8 w-[123px] items-center gap-1.5 rounded bg-[#1B2432] px-[7px] text-[14px] font-medium tracking-[0.4px] text-white"
-                >
-                  <Download className="size-[18px]" strokeWidth={1.75} />
-                  Export CSV
-                </button>
+                <ExportMenu csv={exportCSV} rows={filtered.length} title={tab === "head" ? "Fleet Heads" : "Fleet Tails"} fileNameBase={tab === "head" ? "fleet_heads" : "fleet_tails"} />
               </div>
             </div>
           )}

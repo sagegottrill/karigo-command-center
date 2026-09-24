@@ -11,7 +11,8 @@ import { formatDateLines, formatDateTimeStamp } from "@/lib/fleetopsx/display-da
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import { authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
-import { Download, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -197,14 +198,7 @@ function exportCsv(fields: ReturnType<typeof dispatchFields>) {
       rows.push([esc(section), esc(item.label), esc(item.value)].join(","));
     }
   }
-  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `dispatch_${fields.ticket}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.success("Dispatch details exported.");
+  return { csv: rows.join("\n"), base: `dispatch_${fields.ticket}` };
 }
 
 /** Open a clean print sheet with just the dispatch details. (Shared with the Tracking Operations detail page.) */
@@ -425,14 +419,13 @@ export function DispatchDetailsModal({
               <Printer className="size-4" strokeWidth={1.75} />
               Print
             </button>
-            <button
-              type="button"
-              onClick={() => exportCsv(fields)}
-              className="flex h-8 items-center gap-1.5 rounded border border-[#E2E5E9] px-2.5 text-[12px] tracking-[0.4px] text-[#344256] hover:bg-[#F1F2F4]"
-            >
-              <Download className="size-4" strokeWidth={1.75} />
-              Export CSV
-            </button>
+            <ExportMenu
+              csv={() => exportCsv(fields).csv}
+              rows={1}
+              title={`Dispatch Details — ${fields.ticket}`}
+              fileNameBase={exportCsv(fields).base}
+              className="h-8 [&>button]:h-8 [&>button]:border [&>button]:border-[#E2E5E9] [&>button]:bg-white [&>button]:px-2.5 [&>button]:text-[12px] [&>button]:text-[#344256] [&>button]:hover:bg-[#F1F2F4]"
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
