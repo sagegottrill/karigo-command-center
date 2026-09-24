@@ -51,6 +51,28 @@ export function isNamedDriver(value: unknown): boolean {
 }
 
 /**
+ * Every dispatch that still names this driver — the ones holding him.
+ *
+ * Freeing a driver on the roster is only honest if these are dealt with, so the
+ * surfaces that offer the release name them before the decision is taken. One
+ * implementation, so the roster, the staff record and the fleet desk cannot
+ * disagree about which dispatches a man is on.
+ */
+export function liveTripsFor(driver: Driver, trips: Trip[], excludeTripId?: string): Trip[] {
+  const id = String(driver.id ?? "");
+  const name = normPersonName(driver.name);
+  return trips.filter((trip) => {
+    if (!isLiveTrip(trip)) return false;
+    if (excludeTripId && String(trip.id) === String(excludeTripId)) return false;
+    const tripDriverId = String((trip as { driverId?: unknown }).driverId ?? "");
+    if (id && tripDriverId && tripDriverId === id) return true;
+    return (
+      Boolean(name) && isNamedDriver(trip.driverName) && normPersonName(trip.driverName) === name
+    );
+  });
+}
+
+/**
  * The dispatch a driver is committed to right now, or undefined when he is free.
  * `excludeTripId` lets a re-assignment ignore the very dispatch being edited — a
  * driver keeping his own job is not "busy" with it.
@@ -60,15 +82,7 @@ export function liveTripFor(
   trips: Trip[],
   excludeTripId?: string,
 ): Trip | undefined {
-  const id = String(driver.id ?? "");
-  const name = normPersonName(driver.name);
-  return trips.find((trip) => {
-    if (!isLiveTrip(trip)) return false;
-    if (excludeTripId && String(trip.id) === String(excludeTripId)) return false;
-    const tripDriverId = String((trip as { driverId?: unknown }).driverId ?? "");
-    if (id && tripDriverId && tripDriverId === id) return true;
-    return Boolean(name) && isNamedDriver(trip.driverName) && normPersonName(trip.driverName) === name;
-  });
+  return liveTripsFor(driver, trips, excludeTripId)[0];
 }
 
 /** Is this driver genuinely out on a live dispatch? */

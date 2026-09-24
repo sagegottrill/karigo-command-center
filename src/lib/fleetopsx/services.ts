@@ -214,7 +214,13 @@ export const driverService = {
     return fetchApi(`/drivers/${id}`).then(mapDriver);
   },
   create: (input: any) => fetchApi('/drivers', { method: 'POST', body: JSON.stringify(input) }).then(mapDriver),
-  update: (id: string, updates: Partial<Driver>) => fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
+  /**
+   * `closeDispatches` is the Transport Manager's absolute release: it ends any
+   * open dispatch that still names the driver at the same moment he is freed, so
+   * a cycle nobody closed can never leave a man invisible to the fleet desk.
+   */
+  update: (id: string, updates: Partial<Driver> & { closeDispatches?: boolean }) =>
+    fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
   delete: (id: string) => fetchApi(`/drivers/${id}`, { method: 'DELETE' }),
 };
 

@@ -14,7 +14,8 @@ import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -383,6 +384,35 @@ function HrStaffDirectory() {
       toast.error("Phone is required — it is the number dispatchers and the tracking desk call.");
       return;
     }
+    /*
+     * THE HUMAN DECISION IS THE FACT.
+     *
+     * Availability is derived from the dispatch list, which is the safe default —
+     * but a dispatch nobody closed then holds a man hostage: the record is saved
+     * as Available and the fleet desk still refuses to offer him, because a trip
+     * from days ago still carries his name. That is what left drivers stranded.
+     *
+     * So when HR or the Transport Manager parks a driver on a free status while
+     * open dispatches still name him, the dispatches are ended with him — named
+     * on screen first, never silently, because a release is a decision someone
+     * signed.
+     */
+    const openDispatches = liveTripsFor(idEdit.driver, trips);
+    const freeing = dutyStatusForWrite(draft.status) !== "On Trip";
+    let closeDispatches = false;
+    if (freeing && openDispatches.length > 0) {
+      const named = openDispatches
+        .slice(0, 3)
+        .map((t) => `${displayDispatchId(t)} (${t.status})`)
+        .join(", ");
+      const more = openDispatches.length > 3 ? ` and ${openDispatches.length - 3} more` : "";
+      const ok = window.confirm(
+        `${name} is still named on ${openDispatches.length} open dispatch${openDispatches.length === 1 ? "" : "es"}: ${named}${more}.\n\n` +
+          `Saving him as ${draft.status} will close ${openDispatches.length === 1 ? "that dispatch" : "those dispatches"} as Completed so the fleet desk can hand him a truck. Continue?`,
+      );
+      if (!ok) return;
+      closeDispatches = true;
+    }
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
       // Anything HR empties is sent as "" (never left out, which would silently
@@ -398,6 +428,7 @@ function HrStaffDirectory() {
         category: draft.licenseCategory.trim(),
         truckReg: draft.truckReg.trim(),
         truckReg2: draft.truckReg2.trim(),
+        ...(closeDispatches ? { closeDispatches: true } : {}),
       } as never);
       toast.success(`${name} updated.`);
       setIdEdit(null);

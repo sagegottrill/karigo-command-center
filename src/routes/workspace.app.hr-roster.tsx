@@ -16,7 +16,8 @@ import {
   dutyStatusForWrite,
   rolesCanMaintainStaff,
 } from "@/lib/fleetopsx/hr-helpers";
-import { driverIsOnLiveTrip, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { driverIsOnLiveTrip, liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { licenseToneClass } from "@/lib/fleetopsx/license";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
@@ -151,15 +152,36 @@ function DutyRoster() {
      * whose record still says "On Trip" but who holds no live dispatch must be
      * releasable here, or a stale record can never be corrected by the only
      * department that owns it.
+     *
+     * And where a dispatch IS still open, this used to be a dead end — "end the
+     * trip first" — while nothing in the product could end it, which is how men
+     * ended up stranded on trips that had physically finished weeks earlier. The
+     * authority now ends those dispatches with the man, after naming them.
      */
-    if (status === "Available" && driverIsOnLiveTrip(driver, trips)) {
-      toast.error(`${driver.name} is on a live dispatch — end the trip before making them available.`);
-      setMenuFor(null);
-      return;
+    const openDispatches = liveTripsFor(driver, trips);
+    let closeDispatches = false;
+    if (status === "Available" && openDispatches.length > 0) {
+      const named = openDispatches
+        .slice(0, 3)
+        .map((t) => `${displayDispatchId(t)} (${t.status})`)
+        .join(", ");
+      const more = openDispatches.length > 3 ? ` and ${openDispatches.length - 3} more` : "";
+      const ok = window.confirm(
+        `${driver.name} is still named on ${openDispatches.length} open dispatch${openDispatches.length === 1 ? "" : "es"}: ${named}${more}.\n\n` +
+          `Making him Available will close ${openDispatches.length === 1 ? "that dispatch" : "those dispatches"} as Completed so the fleet desk can hand him a truck. Continue?`,
+      );
+      if (!ok) {
+        setMenuFor(null);
+        return;
+      }
+      closeDispatches = true;
     }
     setBusy(driver.id);
     try {
-      const updated = await driverService.update(driver.id, { status: dutyStatusForWrite(status) } as never);
+      const updated = await driverService.update(driver.id, {
+        status: dutyStatusForWrite(status),
+        ...(closeDispatches ? { closeDispatches: true } : {}),
+      } as never);
       setDrivers((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
       toast.success(`${updated.name} is now ${status}.`);
     } catch (err) {
@@ -199,8 +221,15 @@ function DutyRoster() {
 
   const rowMenu = (driver: Driver): RowMenuItem[] => [
     {
-      label: "Mark Available",
-      disabled: driverIsOnLiveTrip(driver, trips),
+      /*
+       * Never disabled. Greying it out while a dispatch was live was the dead
+       * end: the department could see the stale dispatch, could not clear it,
+       * and the driver stayed off the board. Choosing it now names the
+       * dispatches and ends them with him.
+       */
+      label: driverIsOnLiveTrip(driver, trips)
+        ? "Make Available (close open dispatch)"
+        : "Mark Available",
       onSelect: () => void setDuty(driver, "Available"),
     },
     { label: "Mark On Trip", onSelect: () => void setDuty(driver, "On Trip") },
