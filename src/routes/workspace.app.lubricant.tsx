@@ -18,6 +18,7 @@ import {
   type LubricantRequestRow,
   type LubricantRange,
 } from "@/lib/fleetopsx/lubricant";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { exportCsv, LubricantSearch, LubricantTableFooter } from "@/components/fleetopsx/lubricant-ui";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { cn } from "@/lib/utils";
@@ -111,8 +112,14 @@ function LubricantReportPage() {
   const [releasing, setReleasing] = useState<LubricantRequestRow | null>(null);
   const [releaseValue, setReleaseValue] = useState("");
   const [releaseSaving, setReleaseSaving] = useState(false);
-  /** The queue used to dead-end at "and N more" — it opens fully on demand. */
-  const [releaseQueueOpen, setReleaseQueueOpen] = useState(false);
+  /**
+   * The TM's release queue pages, 20 to a page.
+   *
+   * It used to show eight and then dump the rest behind "Show all 62", which
+   * turned the page into a 62-row scroll. A page at a time is scannable and the
+   * count is still exact.
+   */
+  const [queuePage, setQueuePage] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -145,6 +152,17 @@ function LubricantReportPage() {
    */
   const isTm = authService.getRoles().includes("Transport Manager");
   const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
+  /*
+   * ONE number for "still waiting". The stat card and the queue header used to
+   * print the server's count and the loaded list respectively, which is how the
+   * same screen showed 63 and 62 at once. Both now read the list the queue
+   * pages; the server's count is only the fallback for a role whose request
+   * queue does not load at all.
+   */
+  const waitingForRelease = asks.length > 0 ? pendingAsks.length : (overview?.counts.requests ?? 0);
+  const queuePageCount = Math.max(1, Math.ceil(pendingAsks.length / PAGE_SIZE));
+  const safeQueuePage = Math.min(queuePage, queuePageCount - 1);
+  const queueRows = pendingAsks.slice(safeQueuePage * PAGE_SIZE, (safeQueuePage + 1) * PAGE_SIZE);
 
   const openRelease = (ask: LubricantRequestRow) => {
     setReleasing(ask);
@@ -256,7 +274,7 @@ function LubricantReportPage() {
           label="Trucks Dispensed Today"
           value={formatQuantity(overview?.daily.trucks ?? 0)}
           unit="trucks"
-          note={`${formatQuantity(overview?.counts.requests ?? 0)} still waiting for lubricant`}
+          note={`${formatQuantity(waitingForRelease)} still waiting for lubricant`}
           accent={(overview?.counts.requests ?? 0) > 0 ? "amber" : "plain"}
         />
       </div>
@@ -273,13 +291,8 @@ function LubricantReportPage() {
               </p>
             </div>
           </div>
-          <div
-            className={cn(
-              "flex flex-col divide-y divide-[#E2E5E9]",
-              releaseQueueOpen && "max-h-[420px] overflow-y-auto pr-1",
-            )}
-          >
-            {(releaseQueueOpen ? pendingAsks : pendingAsks.slice(0, 8)).map((ask) => (
+          <div className="flex flex-col divide-y divide-[#E2E5E9]">
+            {queueRows.map((ask) => (
               <div key={ask.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <span className="min-w-0 flex-1 text-[13.5px] text-[#344256]">
                   {ask.request.quantity} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
@@ -295,16 +308,39 @@ function LubricantReportPage() {
               </div>
             ))}
           </div>
-          {pendingAsks.length > 8 ? (
-            <button
-              type="button"
-              onClick={() => setReleaseQueueOpen((open) => !open)}
-              className="w-fit text-[12.5px] font-semibold text-[#1B2432] underline underline-offset-2 hover:text-[#ED351D]"
-            >
-              {releaseQueueOpen
-                ? "Show fewer"
-                : `Show all ${pendingAsks.length} awaiting release`}
-            </button>
+          {pendingAsks.length > PAGE_SIZE ? (
+            <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-4">
+              <span className="text-[13.5px] font-semibold tabular-nums text-[#1B2432]">
+                {safeQueuePage * PAGE_SIZE + 1} -{" "}
+                {Math.min((safeQueuePage + 1) * PAGE_SIZE, pendingAsks.length)}
+              </span>
+              <span className="text-[13.5px] font-semibold text-[#1B2432]">
+                of {pendingAsks.length} awaiting release
+              </span>
+              <div className="ml-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={safeQueuePage === 0}
+                  onClick={() => setQueuePage((p) => Math.max(0, p - 1))}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-[18px] text-[#627084]" />
+                </button>
+                <button
+                  type="button"
+                  disabled={safeQueuePage + 1 >= queuePageCount}
+                  onClick={() => setQueuePage((p) => p + 1)}
+                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-[18px] text-[#627084]" />
+                </button>
+              </div>
+              <span className="text-[12.5px] text-[#5C6470]">
+                Page {safeQueuePage + 1} of {queuePageCount}
+              </span>
+            </div>
           ) : null}
         </div>
       ) : null}
