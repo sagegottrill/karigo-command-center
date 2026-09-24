@@ -42,6 +42,7 @@ import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gat
 import { Route as WorkspaceAppGodViewRouteImport } from './routes/workspace.app.god-view'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppHrComplianceRouteImport } from './routes/workspace.app.hr-compliance'
+import { Route as WorkspaceAppHrOnboardRouteImport } from './routes/workspace.app.hr-onboard'
 import { Route as WorkspaceAppHrRosterRouteImport } from './routes/workspace.app.hr-roster'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
 import { Route as WorkspaceAppInventoryDeskRouteImport } from './routes/workspace.app.inventory-desk'
@@ -248,6 +249,11 @@ const WorkspaceAppHrComplianceRoute =
     path: '/hr-compliance',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppHrOnboardRoute = WorkspaceAppHrOnboardRouteImport.update({
+  id: '/hr-onboard',
+  path: '/hr-onboard',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppHrRosterRoute = WorkspaceAppHrRosterRouteImport.update({
   id: '/hr-roster',
   path: '/hr-roster',
@@ -475,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
+  '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
@@ -540,6 +547,7 @@ export interface FileRoutesByTo {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
+  '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
@@ -609,6 +617,7 @@ export interface FileRoutesById {
   '/workspace/app/god-view': typeof WorkspaceAppGodViewRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
+  '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
   '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
@@ -680,6 +689,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/hr-compliance'
+    | '/workspace/app/hr-onboard'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
@@ -745,6 +755,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/hr-compliance'
+    | '/workspace/app/hr-onboard'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/workspace/app/god-view'
     | '/workspace/app/hr'
     | '/workspace/app/hr-compliance'
+    | '/workspace/app/hr-onboard'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
     | '/workspace/app/inventory-desk'
@@ -1090,6 +1102,13 @@ declare module '@tanstack/react-router' {
       path: '/hr-compliance'
       fullPath: '/workspace/app/hr-compliance'
       preLoaderRoute: typeof WorkspaceAppHrComplianceRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/hr-onboard': {
+      id: '/workspace/app/hr-onboard'
+      path: '/hr-onboard'
+      fullPath: '/workspace/app/hr-onboard'
+      preLoaderRoute: typeof WorkspaceAppHrOnboardRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/hr-roster': {
@@ -1372,6 +1391,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppGodViewRoute: typeof WorkspaceAppGodViewRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
   WorkspaceAppHrComplianceRoute: typeof WorkspaceAppHrComplianceRoute
+  WorkspaceAppHrOnboardRoute: typeof WorkspaceAppHrOnboardRoute
   WorkspaceAppHrRosterRoute: typeof WorkspaceAppHrRosterRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
   WorkspaceAppInventoryDeskRoute: typeof WorkspaceAppInventoryDeskRoute
@@ -1422,6 +1442,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppGodViewRoute: WorkspaceAppGodViewRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,
   WorkspaceAppHrComplianceRoute: WorkspaceAppHrComplianceRoute,
+  WorkspaceAppHrOnboardRoute: WorkspaceAppHrOnboardRoute,
   WorkspaceAppHrRosterRoute: WorkspaceAppHrRosterRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
   WorkspaceAppInventoryDeskRoute: WorkspaceAppInventoryDeskRoute,

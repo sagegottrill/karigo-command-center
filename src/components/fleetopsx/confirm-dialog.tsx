@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, OctagonAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,6 +21,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   tone = "default",
   busy = false,
+  layout = "row",
   onConfirm,
   onCancel,
 }: {
@@ -32,10 +33,64 @@ export function ConfirmDialog({
   /** `danger` paints the confirm button red for destructive choices. */
   tone?: "default" | "danger";
   busy?: boolean;
+  /**
+   * `stacked` is the delete dialog the departments draw: the warning, then the
+   * question, then the two answers. The default row layout stays as it is for
+   * every confirm already built on it.
+   */
+  layout?: "row" | "stacked";
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   if (!open) return null;
+  if (layout === "stacked") {
+    return (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141A1F]/60 p-4"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget && !busy) onCancel();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !busy) onCancel();
+          if (e.key === "Enter" && !busy) onConfirm();
+        }}
+      >
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={title}
+          className="flex w-[338px] max-w-full flex-col items-center gap-5 rounded-[10px] bg-white px-5 py-6 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]"
+        >
+          <OctagonAlert
+            className={cn("size-11", tone === "danger" ? "text-[#ED351D]" : "text-[#1B2432]")}
+            strokeWidth={1.5}
+          />
+          <p className="text-center text-[14px] leading-5 tracking-[0.4px] text-[#1B2432] whitespace-pre-line">
+            {body}
+          </p>
+          <div className="flex w-full items-center justify-between">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onCancel}
+              className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:underline disabled:opacity-60"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              autoFocus
+              disabled={busy}
+              onClick={onConfirm}
+              className="h-9 rounded bg-[#ED351D] px-7 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19] disabled:opacity-60"
+            >
+              {busy ? "Working…" : confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141A1F]/60 p-4"

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Pencil, Search, Upload, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, Upload, UserPlus } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -8,22 +8,27 @@ import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import {
+  StaffRecordForm,
+  draftFromDriver,
+  type StaffDraft,
+} from "@/components/fleetopsx/hr-staff-form";
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
-import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import {
-  displayDutyStatus,
-  dutyTally,
-  driverHasOpenDispatches,
-  liveTripsFor,
-  releaseConfirmBody,
-} from "@/lib/fleetopsx/driver-duty";
+import { dutyTally, driverHasOpenDispatches, liveTripsFor, releaseConfirmBody } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
-import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
+import {
+  HR_ACCESS_ROLES,
+  employmentStatusForWrite,
+  employmentStatusOf,
+  rolesCanMaintainStaff,
+  staffStatusLabel,
+  type EmploymentStatus,
+} from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +46,16 @@ export const Route = createFileRoute("/workspace/app/hr")({
 // Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
 /*
- * "On Trip" is replaced by IN TRANSIT on the staff board: the word HR sets and
- * the word the dispatch line proves are now one status, so Available can only
- * ever mean a man who is on the ground.
+ * EMPLOYMENT, "ON LEAVE" AND IN TRANSIT.
+ *
+ * The board filters the two questions a staff register is asked separately:
+ * what the department has decided about the person (Active / On Leave /
+ * Suspended), and whether a dispatch has already put him on the road today
+ * (In Transit). "On Trip" used to sit in this list as an HR word, which let the
+ * register file a man as being on a trip nobody had given him.
  */
-const DRIVER_STATUS_FILTERS = ["All", "Available", "In Transit", "Off Duty", "Suspended"] as const;
+const STAFF_STATUS_FILTERS = ["All", "Active", "In Transit", "On Leave", "Suspended"] as const;
+type StaffStatusWord = (typeof STAFF_STATUS_FILTERS)[number];
 
 /**
  * Who maintains the staff record, and who may only read it.
@@ -54,68 +64,6 @@ const DRIVER_STATUS_FILTERS = ["All", "Available", "In Transit", "Off Duty", "Su
  * because this file and Licence & Compliance each used to carry their own copy of
  * the same role list — which is how one page keeps a control the other drops.
  */
-
-/**
- * Every field HR can write on a staff record.
- *
- * These are exactly the columns the live Driver row holds (the API whitelists
- * the same list), so each one genuinely saves — the roster carries no department,
- * date-joined or experience columns, and inventing inputs for them would only
- * produce edits that silently vanish on reload.
- */
-type StaffDraft = {
-  staffId: string;
-  name: string;
-  phone: string;
-  /** Licence class — "Professional", "Heavy Duty"… stored on the record as `category`. */
-  licenseCategory: string;
-  /** The truck normally paired with this driver: head (cap/plate) and tail. */
-  truckReg: string;
-  truckReg2: string;
-  status: DriverStatus;
-  licenseNumber: string;
-  licenseExpiry: string;
-};
-
-const emptyStaffDraft = (): StaffDraft => ({
-  staffId: "",
-  name: "",
-  phone: "",
-  licenseCategory: "",
-  truckReg: "",
-  truckReg2: "",
-  status: "Available",
-  licenseNumber: "",
-  licenseExpiry: "",
-});
-
-/** Label + control + optional hint — one shape for every field in both dialogs. */
-function StaffField({
-  label,
-  hint,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
-        {label}
-        {required ? <span className="text-[#ED351D]"> *</span> : null}
-      </span>
-      {children}
-      {hint ? <span className="text-[11px] text-[#5C6470]">{hint}</span> : null}
-    </label>
-  );
-}
-
-const staffInputClass =
-  "h-10 rounded border border-[#1B2432] px-3 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none";
-const staffSelectClass = `${staffInputClass} bg-white`;
 
 /**
  * Minimal RFC-4180 reader for the bulk-onboard sheet: quoted fields, embedded
@@ -159,8 +107,12 @@ function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-function statusPillClass(status: DriverStatus | "In Transit") {
+/** The pill for a staff row: green for active, amber for on the road, grey for
+ * on leave, red for suspended — the register's four words, and the stored
+ * spellings alongside them so a record read straight off the API still paints. */
+function statusPillClass(status: DriverStatus | "In Transit" | EmploymentStatus) {
   switch (status) {
+    case "Active":
     case "Available":
       return "bg-[#34C759] text-white";
     // One amber for "out on the road", whether the word came from HR or from
@@ -168,6 +120,7 @@ function statusPillClass(status: DriverStatus | "In Transit") {
     case "On Trip":
     case "In Transit":
       return "bg-[#F99E1F] text-white";
+    case "On Leave":
     case "Off Duty":
       return "bg-[#627084] text-white";
     case "Suspended":
@@ -203,20 +156,21 @@ function HrStaffDirectory() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  // "In Transit" is a filter in its own right now — the word a driver on a live
-  // dispatch prints — so the filter state carries it alongside HR's own words.
-  const [statusFilter, setStatusFilter] = useState<DriverStatus | "In Transit" | "All">("All");
+  // "In Transit" is a filter in its own right — the word a driver on a live
+  // dispatch prints — and it sits alongside the three employment decisions.
+  const [statusFilter, setStatusFilter] = useState<StaffStatusWord>("All");
   const [page, setPage] = useState(0);
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [newStaff, setNewStaff] = useState<StaffDraft>(() => emptyStaffDraft());
   const [idEdit, setIdEdit] = useState<{ driver: Driver; draft: StaffDraft } | null>(null);
   /** The "close his open dispatch?" question, asked in-app (see handleSaveEdits). */
   const [pendingFree, setPendingFree] = useState<{
     driver: Driver;
-    status: DriverStatus;
+    status: EmploymentStatus;
     openDispatches: Trip[];
   } | null>(null);
+  /** The record the delete confirmation is holding, and whether it is working. */
+  const [deleteFor, setDeleteFor] = useState<Driver | null>(null);
+  const [deleting, setDeleting] = useState(false);
   /** Which row's 3-dots is open, and which record the read-only dialog shows. */
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [details, setDetails] = useState<Driver | null>(null);
@@ -235,7 +189,12 @@ function HrStaffDirectory() {
       { label: "Staff ID", value: displayDriverSalary(driver) || driver.employeeId || "—" },
       { label: "Name", value: driver.name || "—" },
       { label: "Phone", value: driver.phone || "—" },
-      { label: "Duty status", value: driver.status },
+      { label: "Department", value: driver.department || "—" },
+      { label: "Employment status", value: employmentStatusOf(driver) },
+      { label: "On the road today", value: staffStatusLabel(driver, trips) },
+      { label: "Guarantor", value: driver.guarantorName || "—" },
+      { label: "Guarantor phone", value: driver.guarantorPhone || "—" },
+      { label: "Licence document", value: driver.licenseDocName || "— none on file" },
       { label: "Licence number", value: driver.licenseNumber || "—" },
       { label: "Licence class", value: driver.licenseCategory || "—" },
       {
@@ -249,16 +208,6 @@ function HrStaffDirectory() {
         value: driver.dateJoined ? formatDateLines(driver.dateJoined).date : "—",
       },
     ];
-  };
-
-  /** Highest numeric part of existing P#### IDs — used to suggest the next free Driver ID. */
-  const nextStaffId = () => {
-    let max = 0;
-    for (const d of drivers) {
-      const m = /(\d+)\s*$/.exec((displayDriverSalary(d) || d.employeeId || "").trim());
-      if (m) max = Math.max(max, Number(m[1]));
-    }
-    return `P${String(max + 1).padStart(4, "0")}`;
   };
 
   const refreshDrivers = async () => {
@@ -284,14 +233,14 @@ function HrStaffDirectory() {
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
       // The printed word decides: a driver on a live dispatch is In Transit even
-      // while his stored word still reads Available.
-      if (statusFilter !== "All" && displayDutyStatus(d, trips) !== statusFilter) return false;
+      // while his employment record still reads Active.
+      if (statusFilter !== "All" && staffStatusLabel(d, trips) !== statusFilter) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
-      // be found without knowing whose licence it is; so are the truck pairing
-      // and licence class, which HR now records here.
+      // be found without knowing whose licence it is; so are the department, the
+      // guarantor HR recorded and the truck pairing.
       const hay =
-        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${d.status}`.toLowerCase();
+        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${staffStatusLabel(d, trips)}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
   }, [drivers, query, statusFilter, trips]);
@@ -335,65 +284,45 @@ function HrStaffDirectory() {
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
-  const handleAddStaff = async () => {
-    const staffId = newStaff.staffId.trim().toUpperCase();
-    if (!newStaff.name.trim() || !newStaff.phone.trim()) {
-      toast.error("Name and Phone are required.");
-      return;
-    }
-    if (!staffId) {
-      toast.error("Driver ID is required (e.g. P0123).");
-      return;
-    }
+  /**
+   * Onboarding walks to its own page.
+   *
+   * The record carries ten fields and a document to attach; the dialog that used
+   * to hold it scrolled behind its own footer and lost the field you were on
+   * when the roster reloaded. The department draws it as a screen, so it is one.
+   */
+  const openOnboard = () => navigate({ to: "/workspace/app/hr-onboard" });
+
+  /** Open the pre-filled staff editor for an existing driver — every writable field. */
+  const openEdit = (driver: Driver) => setIdEdit({ driver, draft: draftFromDriver(driver) });
+
+  /**
+   * Delete a staff record for good, once the confirmation is answered.
+   *
+   * The licence document and the record go together: the document lives on the
+   * row, so removing the row removes it — which is why the confirmation names
+   * the person rather than asking about "this record".
+   */
+  const confirmDelete = async () => {
+    if (!deleteFor) return;
+    setDeleting(true);
     try {
-      // Every field on the form is a live Driver column, so nothing typed here is
-      // quietly dropped. Blank optional fields are omitted rather than written as
-      // empty strings — a new record should read "not recorded", not "cleared".
-      await driverService.create({
-        name: newStaff.name.trim(),
-        phone: newStaff.phone.trim(),
-        staffId,
-        status: dutyStatusForWrite(newStaff.status),
-        licenseNumber: newStaff.licenseNumber.trim(),
-        licenseExpiry: newStaff.licenseExpiry.trim(),
-        category: newStaff.licenseCategory.trim(),
-        truckReg: newStaff.truckReg.trim(),
-        truckReg2: newStaff.truckReg2.trim(),
-      } as never);
-      toast.success(`${newStaff.name.trim()} onboarded as ${staffId}.`);
-      setIsAddOpen(false);
-      setNewStaff(emptyStaffDraft());
+      await driverService.delete(deleteFor.id);
+      toast.success(`${deleteFor.name} removed from the staff register.`);
+      setDeleteFor(null);
+      setIdEdit(null);
       await refreshDrivers();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to add staff";
-      toast.error(/unique|409/i.test(msg) ? `Driver ID ${staffId} is already assigned to another driver.` : msg);
+      toast.error(err instanceof Error ? err.message : "Could not delete that staff record.");
+    } finally {
+      setDeleting(false);
     }
   };
 
-  /** Open the pre-filled staff editor for an existing driver — every writable field. */
-  const openEdit = (driver: Driver) =>
-    setIdEdit({
-      driver,
-      draft: {
-        staffId: displayDriverSalary(driver) || driver.employeeId || "",
-        name: driver.name,
-        phone: driver.phone ?? "",
-        licenseCategory: driver.licenseCategory ?? "",
-        truckReg: driver.assignedTruck ?? "",
-        truckReg2: driver.assignedTail ?? "",
-        // The form must never silently read "Available" for a man who is out:
-        // the option list has no "On Trip", so the stored word is resolved to
-        // the duty actually shown on the board.
-        status: displayDutyStatus(driver, trips) as DriverStatus,
-        licenseNumber: driver.licenseNumber ?? "",
-        // <input type="date"> needs yyyy-mm-dd; the API may return a full stamp.
-        licenseExpiry: (driver.licenseExpiry ?? "").slice(0, 10),
-      },
-    });
-
   /**
-   * Save corrections to an existing staff record: ID, name, phone, status, the
-   * licence itself (number, class, expiry) and the truck the driver is paired
+   * Save corrections to an existing staff record: the payroll number, name,
+   * phone, department, employment decision, the licence itself (number, expiry,
+   * and the document on file), the guarantor and the truck the driver is paired
    * with. These are exactly the columns the API whitelists on PATCH, so HR can
    * fix a misspelt name, a wrong phone or a renewed licence without deleting and
    * re-onboarding.
@@ -404,15 +333,19 @@ function HrStaffDirectory() {
     const staffId = draft.staffId.trim().toUpperCase();
     const name = draft.name.trim();
     if (!name) {
-      toast.error("Name is required.");
+      toast.error("Full Name is required.");
       return;
     }
     if (!staffId) {
-      toast.error("Enter a Driver ID (e.g. P0123).");
+      toast.error("Staff Salary Number is required (eg: SL-00830).");
       return;
     }
     if (!draft.phone.trim()) {
-      toast.error("Phone is required — it is the number dispatchers and the tracking desk call.");
+      toast.error("Phone Number is required — it is the number dispatchers and the tracking desk call.");
+      return;
+    }
+    if (!draft.department.trim()) {
+      toast.error("Choose the department this staff member belongs to.");
       return;
     }
     /*
@@ -420,16 +353,19 @@ function HrStaffDirectory() {
      *
      * Availability is derived from the dispatch list, which is the safe default —
      * but a dispatch nobody closed then holds a man hostage: the record is saved
-     * as Available and the fleet desk still refuses to offer him, because a trip
+     * as Active and the fleet desk still refuses to offer him, because a trip
      * from days ago still carries his name. That is what left drivers stranded.
      *
-     * So when HR or the Transport Manager parks a driver on a free status while
-     * open dispatches still name him, the dispatches are ended with him — named
-     * on screen first, never silently, because a release is a decision someone
-     * signed.
+     * So when HR or the Transport Manager files a driver under any employment
+     * decision while open dispatches still name him, the dispatches are ended
+     * with him — named on screen first, never silently, because a release is a
+     * decision someone signed.
+     *
+     * Note there is no longer a status that skips the question: the form files
+     * EMPLOYMENT (Active / On Leave / Suspended), and none of those is the word
+     * a dispatch uses, so every save is a decision about the open trips.
      */
     const openDispatches = liveTripsFor(idEdit.driver, trips);
-    const freeing = dutyStatusForWrite(draft.status) !== "On Trip";
     let closeDispatches = forceClose;
     /*
      * Asked in the app, NOT with window.confirm: a native dialog the browser
@@ -440,7 +376,7 @@ function HrStaffDirectory() {
      * trip list that failed to load can no longer turn the release into a
      * silent no-op that leaves the driver committed.
      */
-    if (!forceClose && freeing && driverHasOpenDispatches(idEdit.driver, trips)) {
+    if (!forceClose && driverHasOpenDispatches(idEdit.driver, trips)) {
       setPendingFree({ driver: idEdit.driver, status: draft.status, openDispatches });
       return;
     }
@@ -454,20 +390,45 @@ function HrStaffDirectory() {
         staffId,
         name,
         phone: draft.phone.trim(),
-        status: dutyStatusForWrite(draft.status),
+        department: draft.department.trim(),
+        status: employmentStatusForWrite(draft.status),
         licenseNumber: draft.licenseNumber.trim(),
         licenseExpiry: draft.licenseExpiry.trim(),
         category: draft.licenseCategory.trim(),
         truckReg: draft.truckReg.trim(),
         truckReg2: draft.truckReg2.trim(),
+        guarantorName: draft.guarantorName.trim(),
+        guarantorPhone: draft.guarantorPhone.trim(),
         ...(closeDispatches ? { closeDispatches: true } : {}),
       } as never);
+
+      /*
+       * The document travels on its own request, and its failure must not undo
+       * the record: a scan that would not upload is a missing attachment, not a
+       * lost correction to the man's name and licence date.
+       */
+      try {
+        if (draft.licenceFile) {
+          await driverService.attachLicence(
+            idEdit.driver.id,
+            draft.licenceFile.name,
+            draft.licenceFile.dataUrl,
+          );
+        } else if (draft.removeLicence) {
+          await driverService.removeLicence(idEdit.driver.id);
+        }
+      } catch (err) {
+        toast.error(`${name} was saved, but the licence document did not change.`, {
+          description: err instanceof Error ? err.message : "Try attaching it again.",
+        });
+      }
+
       toast.success(`${name} updated.`);
       setIdEdit(null);
       await refreshDrivers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save staff details";
-      toast.error(/unique|409/i.test(msg) ? "That Driver ID is already assigned to another driver." : msg);
+      toast.error(/unique|409/i.test(msg) ? "That Staff Salary Number is already assigned to another driver." : msg);
     }
   };
 
@@ -475,10 +436,10 @@ function HrStaffDirectory() {
    * Bulk onboard from a CSV — the roster arrives as a spreadsheet, so retyping
    * 100 drivers one dialog at a time is not an option.
    *
-   * Same columns as the export (plus the two HR now records), read by header name
-   * so the order does not matter and a sheet missing a column still imports what
-   * it has. Each row is created on its own: one bad row never costs the good
-   * ones, and the toast names what failed.
+   * Same columns as the export (plus every field HR now records), read by header
+   * name so the order does not matter and a sheet missing a column still imports
+   * what it has. Each row is created on its own: one bad row never costs the
+   * good ones, and the toast names what failed.
    */
   const importCSV = async (file: File) => {
     const text = await file.text();
@@ -498,43 +459,52 @@ function HrStaffDirectory() {
     const idx = {
       name: col("name", "staff name", "full name"),
       phone: col("phone", "phone number", "staff phone number"),
-      staffId: col("staff id", "staff no", "staff no.", "driver id", "id"),
+      staffId: col("staff id", "staff salary number", "salary number", "staff no", "staff no.", "driver id", "id"),
+      department: col("department"),
       licence: col("license number", "licence number"),
       licenceClass: col("license class", "licence class", "category"),
       expiry: col("license expiry", "licence expiry", "expiry"),
       head: col("truck head", "assigned truck", "truck", "cap number"),
       tail: col("truck tail", "assigned tail", "tail"),
-      status: col("status"),
+      guarantor: col("guarantor name", "guarantor"),
+      guarantorPhone: col("guarantor phone number", "guarantor phone", "guarantor no"),
+      status: col("status", "employment status"),
     };
     if (idx.name < 0) {
       toast.error("No Name column found — the first row must name its columns.");
       return;
     }
     const at = (row: string[], i: number) => (i >= 0 ? (row[i] ?? "").trim() : "");
-    const valid: DriverStatus[] = ["Available", "On Trip", "Off Duty", "Suspended"];
+    // The sheet is filled in by hand, so both spellings are read: the register's
+    // employment words and the older duty words a previous export carries.
+    const employmentFrom = (raw: string): EmploymentStatus => {
+      const word = raw.trim().toLowerCase();
+      if (word === "on leave" || word === "off duty") return "On Leave";
+      if (word === "suspended") return "Suspended";
+      return "Active";
+    };
     let created = 0;
     const failed: string[] = [];
     for (const row of rows.slice(1)) {
       if (row.every((c) => !c.trim())) continue;
       const name = at(row, idx.name);
       if (!name) continue;
-      const statusRaw = at(row, idx.status);
-      // A blank or unknown Status column onboards the driver ready to work —
-      // which the column stores as "Active" (see dutyStatusForWrite).
-      const status = dutyStatusForWrite(
-        (valid as string[]).includes(statusRaw) ? (statusRaw as DriverStatus) : "Available",
-      );
+      // A blank or unreadable status onboards the person Active — ready to work.
+      const status = employmentStatusForWrite(employmentFrom(at(row, idx.status)));
       try {
         await driverService.create({
           name,
           phone: at(row, idx.phone),
           staffId: at(row, idx.staffId).toUpperCase(),
+          department: at(row, idx.department),
           status,
           licenseNumber: at(row, idx.licence),
           licenseExpiry: at(row, idx.expiry),
           category: at(row, idx.licenceClass),
           truckReg: at(row, idx.head),
           truckReg2: at(row, idx.tail),
+          guarantorName: at(row, idx.guarantor),
+          guarantorPhone: at(row, idx.guarantorPhone),
         } as never);
         created += 1;
       } catch (err) {
@@ -554,17 +524,53 @@ function HrStaffDirectory() {
   };
 
   const exportCSV = () => {
-    // Same order as the table — the Staff ID closes the row — with the two fields
-    // HR now records exposed for payroll and maintenance reports.
-    const headers =
-      "Name,Phone,License Number,License Class,License Expiry,Truck Head,Truck Tail,Status,Staff ID\n";
+    /*
+     * The whole staff file, in the register's own words: the payroll number
+     * leads so the sheet sorts the way the office files it, the employment
+     * decision is written as the department says it (Active / On Leave /
+     * Suspended), and the department and guarantor travel with the row so a
+     * payroll or surety question can be answered from the export alone.
+     *
+     * Every field is quoted: a department or a name containing a comma used to
+     * split into two columns and shift everything after it. The header names are
+     * the ones the importer reads back.
+     */
+    const headers = [
+      "Staff ID",
+      "Name",
+      "Phone",
+      "Department",
+      "Employment Status",
+      "License Number",
+      "License Class",
+      "License Expiry",
+      "Truck Head",
+      "Truck Tail",
+      "Guarantor Name",
+      "Guarantor Phone Number",
+    ];
+    const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const csv = filtered
-      .map(
-        (d) =>
-          `${d.name},${d.phone},${d.licenseNumber},${d.licenseCategory},${d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : ""},${d.assignedTruck ?? ""},${d.assignedTail ?? ""},${d.status},${displayDriverSalary(d) || d.employeeId}`,
+      .map((d) =>
+        [
+          displayDriverSalary(d) || d.employeeId,
+          d.name,
+          d.phone,
+          d.department,
+          employmentStatusOf(d),
+          d.licenseNumber,
+          d.licenseCategory,
+          d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : "",
+          d.assignedTruck ?? "",
+          d.assignedTail ?? "",
+          d.guarantorName ?? "",
+          d.guarantorPhone ?? "",
+        ]
+          .map(quote)
+          .join(","),
       )
       .join("\n");
-    return headers + csv;
+    return `${headers.map(quote).join(",")}\n${csv}`;
   };
 
   return (
@@ -573,9 +579,9 @@ function HrStaffDirectory() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">HR and Personnel</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              staff records, licences, guarantors and duty status
+              Manage staff records and license status
             </p>
             {!canEdit && (
               <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
@@ -608,10 +614,7 @@ function HrStaffDirectory() {
             />
             <button
               type="button"
-              onClick={() => {
-                setNewStaff((s) => ({ ...s, staffId: s.staffId || nextStaffId() }));
-                setIsAddOpen(true);
-              }}
+              onClick={openOnboard}
               className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[14px] font-medium tracking-[0.4px] text-white"
             >
               <UserPlus className="size-4" />
@@ -621,14 +624,14 @@ function HrStaffDirectory() {
         </div>
 
         {/* The headcount the department is asked for, before any filtering: how
-            many drivers can be put on a truck today and how many licences need
+            many people can be put on a truck today and how many licences need
             attention first. Counted from the roster itself, never a guess. */}
         <div className="flex flex-wrap gap-3">
           {[
             { label: "Total Staff", value: summary.total, tone: "text-[#1B2432]" },
-            { label: "Available", value: summary.available, tone: "text-[#0A8F4D]" },
+            { label: "Active", value: summary.available, tone: "text-[#0A8F4D]" },
             { label: "In Transit", value: summary.onTrip, tone: "text-[#B26A00]" },
-            { label: "Off Duty", value: summary.offDuty, tone: "text-[#5C6470]" },
+            { label: "On Leave", value: summary.offDuty, tone: "text-[#5C6470]" },
             { label: "Suspended", value: summary.suspended, tone: "text-[#ED351D]" },
             { label: "Licence Expiring", value: summary.expiring, tone: "text-[#B26A00]" },
             { label: "Licence Expired", value: summary.expired, tone: "text-[#ED351D]" },
@@ -661,7 +664,7 @@ function HrStaffDirectory() {
               />
             </div>
             <FilterButton
-              options={DRIVER_STATUS_FILTERS}
+              options={STAFF_STATUS_FILTERS}
               value={statusFilter}
               onChange={(s) => {
                 setStatusFilter(s);
@@ -686,6 +689,9 @@ function HrStaffDirectory() {
             const staffId = displayDriverSalary(driver) || driver.employeeId || "—";
             const sn = currentPage * PAGE_SIZE + index + 1;
             const licence = licenseState(driver);
+            // The register's own word for the row: the dispatch outranks the
+            // employment decision, so a man already sent out reads In Transit.
+            const statusWord = staffStatusLabel(driver, trips);
             return (
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
@@ -726,14 +732,14 @@ function HrStaffDirectory() {
                       <span className="flex-1 text-[#344256]">{driver.licenseCategory || "—"}</span>
                     </div>
                   </div>
-                  {driver.status !== "Suspended" && (
+                  {statusWord !== "Suspended" && (
                     <span
                       className={cn(
                         "mt-1 inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
-                        statusPillClass(displayDutyStatus(driver, trips)),
+                        statusPillClass(statusWord),
                       )}
                     >
-                      {displayDutyStatus(driver, trips)}
+                      {statusWord}
                     </span>
                   )}
                   {/* The ID closes the card, exactly like the table's last column. */}
@@ -767,6 +773,18 @@ function HrStaffDirectory() {
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {driver.department || "—"}
                   </span>
+                  {/* The register's word for the row, in the column the
+                      department files it under — Status, then the licence. */}
+                  <span className="flex flex-col items-start gap-0.5">
+                    <span
+                      className={cn(
+                        "inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
+                        statusPillClass(statusWord),
+                      )}
+                    >
+                      {statusWord}
+                    </span>
+                  </span>
                   {/* Licence number over its expiry date — the column he reads to
                       know whether a driver can still be put on a truck. */}
                   <span className="flex flex-col gap-0.5 text-[14px] tracking-[0.4px]">
@@ -787,17 +805,6 @@ function HrStaffDirectory() {
                         {licence.text}
                       </span>
                     )}
-                  </span>
-                  <span className="flex flex-col items-start gap-0.5">
-                    <span
-                      className={cn(
-                        "inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
-                        statusPillClass(displayDutyStatus(driver, trips)),
-                      )}
-                    >
-                      {displayDutyStatus(driver, trips)}
-                    </span>
-
                   </span>
                   {canEdit ? (
                     <button
@@ -873,10 +880,10 @@ function HrStaffDirectory() {
             <span
               className={cn(
                 "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
-                statusPillClass(details.status),
+                statusPillClass(staffStatusLabel(details, trips)),
               )}
             >
-              {details.status}
+              {staffStatusLabel(details, trips)}
             </span>
           ) : null
         }
@@ -884,222 +891,48 @@ function HrStaffDirectory() {
         note="Read-only view — HR & Personnel maintains this record. Ask them to change a licence, a phone number or the truck pairing."
       />
 
-      {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
-            <div className="border-b border-[#E2E5E9] py-2">
-              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Onboard New Staff</h3>
-            </div>
-            <StaffField label="Name" required>
-              <input
-                value={newStaff.name}
-                onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField
-              label="Driver ID"
-              required
-              hint="Shown on dispatches, security logs and the driver roster. Pre-filled with the next free ID."
-            >
-              <input
-                value={newStaff.staffId}
-                onChange={(e) => setNewStaff({ ...newStaff, staffId: e.target.value })}
-                placeholder="example: P0123"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Phone" required hint="Dispatchers and the tracking desk call this number.">
-              <input
-                value={newStaff.phone}
-                onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
-                placeholder="example: 08031234567"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="License Number">
-              <input
-                value={newStaff.licenseNumber}
-                onChange={(e) => setNewStaff({ ...newStaff, licenseNumber: e.target.value })}
-                placeholder="example: ABC-123456"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="License Class">
-              <input
-                value={newStaff.licenseCategory}
-                onChange={(e) => setNewStaff({ ...newStaff, licenseCategory: e.target.value })}
-                placeholder="example: Professional"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField
-              label="License Expiry"
-              hint="Staff Records flags the licence amber 60 days before this date, and red once it passes."
-            >
-              <input
-                type="date"
-                value={newStaff.licenseExpiry}
-                onChange={(e) => setNewStaff({ ...newStaff, licenseExpiry: e.target.value })}
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField
-              label="Assigned Truck Head"
-              hint="The truck this driver normally drives — cap number or plate. Dispatch can still put them on another."
-            >
-              <input
-                value={newStaff.truckReg}
-                onChange={(e) => setNewStaff({ ...newStaff, truckReg: e.target.value })}
-                placeholder="example: P073 or GGE98YK"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Assigned Truck Tail" hint="The tail normally paired with that head.">
-              <input
-                value={newStaff.truckReg2}
-                onChange={(e) => setNewStaff({ ...newStaff, truckReg2: e.target.value })}
-                placeholder="example: B056"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Status" hint="Available means they can be put on a dispatch today.">
-              <select
-                value={newStaff.status}
-                onChange={(e) => setNewStaff({ ...newStaff, status: e.target.value as DriverStatus })}
-                className={staffSelectClass}
-              >
-                {DRIVER_STATUS_FILTERS.filter((s) => s !== "All").map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </StaffField>
-            <div className="flex items-center justify-between pt-1">
-              <button type="button" onClick={() => setIsAddOpen(false)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
-                Go Back
-              </button>
+      {idEdit && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex max-h-[92vh] w-[840px] max-w-full flex-col gap-5 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#E2E5E9] pb-5">
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+                Edit Staff Record: {idEdit.driver.name}
+              </h3>
+              {/*
+                Delete sits on the record it deletes — the trash in the header,
+                the way the department draws it — rather than as a row action
+                that one stray click can reach on a 40-line register.
+              */}
               <button
                 type="button"
-                onClick={() => void handleAddStaff()}
-                className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
+                onClick={() => setDeleteFor(idEdit.driver)}
+                aria-label={`Delete the staff record for ${idEdit.driver.name}`}
+                title="Delete this staff record"
+                className="grid size-8 shrink-0 place-items-center rounded text-[#ED351D] hover:bg-[#FDECEA]"
               >
-                Onboard New Staff
+                <Trash2 className="size-[18px]" strokeWidth={1.75} />
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {idEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
-            <div className="border-b border-[#E2E5E9] py-2">
-              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Edit Staff Details</h3>
-            </div>
-            <StaffField
-              label="Driver ID"
-              required
-              hint="This ID becomes the driver's identity across dispatch, security log and roster. It must be unique."
-            >
-              <input
-                autoFocus
-                value={idEdit.draft.staffId}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, staffId: e.target.value } })}
-                placeholder="example: P0123"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Name" required>
-              <input
-                value={idEdit.draft.name}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, name: e.target.value } })}
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Phone" required hint="Dispatchers and the tracking desk call this number.">
-              <input
-                value={idEdit.draft.phone}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, phone: e.target.value } })}
-                placeholder="example: 08031234567"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="License Number" hint="Leave blank to clear a number that was entered by mistake.">
-              <input
-                value={idEdit.draft.licenseNumber}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseNumber: e.target.value } })}
-                placeholder="example: ABC-123456"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="License Class">
-              <input
-                value={idEdit.draft.licenseCategory}
-                onChange={(e) =>
-                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseCategory: e.target.value } })
-                }
-                placeholder="example: Professional"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="License Expiry">
-              <input
-                type="date"
-                value={idEdit.draft.licenseExpiry}
-                onChange={(e) =>
-                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, licenseExpiry: e.target.value } })
-                }
-                className={staffInputClass}
-              />
-              {idEdit.draft.licenseExpiry && (
-                <span
-                  className={cn("text-[11px]", licenseToneClass(licenseExpiry(idEdit.draft.licenseExpiry).tone))}
-                >
-                  {licenseExpiry(idEdit.draft.licenseExpiry).text}
-                </span>
-              )}
-            </StaffField>
-            <StaffField label="Assigned Truck Head" hint="Cap number or plate. Blank means no regular truck.">
-              <input
-                value={idEdit.draft.truckReg}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, truckReg: e.target.value } })}
-                placeholder="example: P073 or GGE98YK"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Assigned Truck Tail">
-              <input
-                value={idEdit.draft.truckReg2}
-                onChange={(e) => setIdEdit({ ...idEdit, draft: { ...idEdit.draft, truckReg2: e.target.value } })}
-                placeholder="example: B056"
-                className={staffInputClass}
-              />
-            </StaffField>
-            <StaffField label="Status" hint="Set to Suspended and the driver stops being offered for dispatch.">
-              <select
-                value={idEdit.draft.status}
-                onChange={(e) =>
-                  setIdEdit({ ...idEdit, draft: { ...idEdit.draft, status: e.target.value as DriverStatus } })
-                }
-                className={staffSelectClass}
+            <StaffRecordForm
+              value={idEdit.draft}
+              onChange={(draft) => setIdEdit({ ...idEdit, draft })}
+              extras
+              attachedLicenceName={idEdit.driver.licenseDocName ?? null}
+            />
+
+            <div className="flex items-center justify-between gap-2 border-t border-[#E2E5E9] pt-4">
+              <button
+                type="button"
+                onClick={() => setIdEdit(null)}
+                className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D] hover:underline"
               >
-                {DRIVER_STATUS_FILTERS.filter((s) => s !== "All").map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </StaffField>
-            <div className="flex items-center justify-between pt-1">
-              <button type="button" onClick={() => setIdEdit(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void handleSaveEdits()}
-                className="flex h-8 items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-3 text-[12px] tracking-[0.4px] text-white"
+                className="flex h-9 items-center rounded bg-[#ED351D] px-3 text-[12px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
               >
                 Save Changes
               </button>
@@ -1114,12 +947,35 @@ function HrStaffDirectory() {
         body={
           pendingFree ? releaseConfirmBody(pendingFree.driver, trips, pendingFree.status) : ""
         }
-        confirmLabel={`Save as ${pendingFree?.status ?? "Available"}`}
+        confirmLabel={`Save as ${pendingFree?.status ?? "Active"}`}
         onCancel={() => setPendingFree(null)}
         onConfirm={() => {
           setPendingFree(null);
           void handleSaveEdits(true);
         }}
+      />
+
+      {/* The delete question, in the department's own shape: the warning, the
+          question, then the two answers. It names the person, because "this
+          record" is exactly what a bad click gets wrong. */}
+      <ConfirmDialog
+        open={deleteFor !== null}
+        layout="stacked"
+        tone="danger"
+        title="Delete staff record"
+        body={
+          deleteFor
+            ? `Are you sure you want to delete this record?\n\n${deleteFor.name}${
+                displayDriverSalary(deleteFor) ? ` (${displayDriverSalary(deleteFor)})` : ""
+              } will be removed from the staff register.${
+                deleteFor.licenseDocName ? " The licence document on file goes with it." : ""
+              }`
+            : ""
+        }
+        confirmLabel="Confirm"
+        busy={deleting}
+        onCancel={() => setDeleteFor(null)}
+        onConfirm={() => void confirmDelete()}
       />
     </>
   );

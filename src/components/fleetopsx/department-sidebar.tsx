@@ -53,11 +53,11 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
   // A department is more than one page: each module below is its own board, the
   // way Fleet Operation splits dispatch, fleet and history.
   hr: {
-    heading: "HR & PERSONNEL",
-    title: "HR & Personnel Portal",
-    subtitle: "Manage staff records, licences and driver availability",
+    heading: "HUMAN RESOURCES",
+    title: "HR and Personnel Portal",
+    subtitle: "Manage staff records and important documents",
     items: [
-      { label: "Staff Records", to: "/workspace/app/hr", icon: Users },
+      { label: "Staff Record", to: "/workspace/app/hr", icon: Users },
       { label: "Licence & Compliance", to: "/workspace/app/hr-compliance", icon: ShieldCheck },
       { label: "Duty Roster", to: "/workspace/app/hr-roster", icon: CalendarClock },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },

@@ -131,7 +131,14 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     department: String(d["department"] ?? ""),
     dateJoined: String(d["dateJoined"] ?? d["createdAt"] ?? ""),
     licenseNumber: String(d["licenseNumber"] ?? d["license"] ?? ""),
-    licenseCategory: String(d["licenseCategory"] ?? d["category"] ?? "Professional"),
+    /*
+     * No invented class. This used to read "Professional" whenever the column
+     * was empty, which is a fact nobody recorded — and worse, the staff editor
+     * loaded that word into its field, so opening a record and saving a phone
+     * number wrote "Professional" into a licence class that had never been
+     * filled in. Empty stays empty; every screen already prints "—" for it.
+     */
+    licenseCategory: String(d["licenseCategory"] ?? d["category"] ?? ""),
     licenseExpiry: String(d["licenseExpiry"] ?? ""),
     compliance: (d["compliance"] as Driver["compliance"]) || "Valid",
     experienceYears: Number(d["experienceYears"] ?? 0),
