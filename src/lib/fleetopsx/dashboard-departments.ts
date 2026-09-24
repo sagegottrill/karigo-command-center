@@ -208,6 +208,9 @@ export type SecTrip = {
   driver: string;
   departedAt: string | null;
   returnedAt: string | null;
+  /** Which security account stamped the departure / return, when signed. */
+  gateOutBy?: string | null;
+  gateInBy?: string | null;
   hoursOut: number | null;
   /** Hours between the TM's release and the gate actually logging it out. */
   waitHours: number | null;
@@ -236,6 +239,18 @@ export type SecurityOversight = {
   };
   /** Movements the gate logged inside the selected window. */
   movements: { departures: number; returns: number; list: SecTrip[] };
+  /**
+   * The Guard Activity Ledger — WHO at the gate scanned each movement, with the
+   * exact timestamp. One row per stamp, newest first; rows without an actor are
+   * stamps taken before the gate started signing its work, and say so.
+   */
+  guardLedger: {
+    departures: number;
+    returns: number;
+    /** Stamps with no actor on them — the pre-ledger backlog. */
+    unsigned: number;
+    list: { id: string; label: string; truck: string; driver: string; guard: string; action: "Logged Out" | "Logged In"; at: string | null }[];
+  };
 };
 
 /** Past this many days in the shop, a truck is flagged on the TM's board. */
@@ -743,6 +758,8 @@ export function buildSecurityOversight(
       driver: trip.driverName || "Unassigned",
       departedAt,
       returnedAt,
+      gateOutBy: (trip as { gateOutBy?: string | null }).gateOutBy ?? null,
+      gateInBy: (trip as { gateInBy?: string | null }).gateInBy ?? null,
       hoursOut: out && !back ? round1((now.getTime() - out.getTime()) / 3_600_000) : null,
       /** Wait is measured from the TM's release — before that the gate owes nothing. */
       waitHours:
@@ -842,7 +859,58 @@ export function buildSecurityOversight(
       list: measured,
     },
     movements: { departures: departureTrips.length, returns: returnTrips.length, list: movementList },
+    guardLedger: buildGuardLedger(movementList),
   };
+}
+
+/**
+ * The Guard Activity Ledger, read straight off the movements: one row per gate
+ * stamp — which security account scanned the truck out or in, and exactly when.
+ * The newest first; stamps taken before the gate signed its work list the actor
+ * as "Unsigned (pre-ledger)" so the ledger never pretends accountability it
+ * does not have.
+ */
+function buildGuardLedger(movements: SecTrip[]): SecurityOversight["guardLedger"] {
+  const rows: SecurityOversight["guardLedger"]["list"] = [];
+  let departures = 0;
+  let returns = 0;
+  let unsigned = 0;
+  for (const t of movements) {
+    if (t.departedAt) {
+      departures++;
+      const guard = (t.gateOutBy ?? "").trim();
+      if (!guard) unsigned++;
+      rows.push({
+        id: `${t.id}-out`,
+        label: t.label,
+        truck: t.truck,
+        driver: t.driver,
+        guard: guard || "Unsigned (pre-ledger)",
+        action: "Logged Out",
+        at: t.departedAt,
+      });
+    }
+    if (t.returnedAt) {
+      returns++;
+      const guard = (t.gateInBy ?? "").trim();
+      if (!guard) unsigned++;
+      rows.push({
+        id: `${t.id}-in`,
+        label: t.label,
+        truck: t.truck,
+        driver: t.driver,
+        guard: guard || "Unsigned (pre-ledger)",
+        action: "Logged In",
+        at: t.returnedAt,
+      });
+    }
+  }
+  rows.sort((a, b) => {
+    const at = parseGateStamp(a.at)?.getTime() ?? 0;
+    const bt = parseGateStamp(b.at)?.getTime() ?? 0;
+    return bt - at;
+  });
+  return { departures, returns, unsigned, list: rows.slice(0, 80) };
 }
 
 /** `31.4h` / `2.3d` — a duration in the unit that reads best at its size. */

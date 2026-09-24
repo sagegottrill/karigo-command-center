@@ -204,6 +204,8 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     durationLabel: String(t.durationLabel ?? "—"),
     scheduledDate: String(t.scheduledDate ?? t.createdAt ?? new Date().toISOString()),
     startTime: String(t.startTime ?? ""),
+    gateOutBy: t.gateOutBy ? String(t.gateOutBy) : null,
+    gateInBy: t.gateInBy ? String(t.gateInBy) : null,
     estimatedDate: t.estimatedDate != null && String(t.estimatedDate).trim() !== "" ? String(t.estimatedDate) : null,
     estimatedDays:
       t.estimatedDays != null && String(t.estimatedDays).trim() !== "" && !Number.isNaN(Number(t.estimatedDays))
@@ -281,6 +283,9 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   if (input.startTime !== undefined) out.startTime = input.startTime || null;
   // The return stamp — written when the truck is back and the trip closes.
   if (input.eta !== undefined) out.eta = input.eta || null;
+  // WHO stamped the gate — the Guard Activity Ledger's accountability pair.
+  if (input.gateOutBy !== undefined) out.gateOutBy = input.gateOutBy || null;
+  if (input.gateInBy !== undefined) out.gateInBy = input.gateInBy || null;
   if (input.partnerNote !== undefined) out.partnerNote = input.partnerNote || null;
   return out;
 }

@@ -117,6 +117,8 @@ export interface LubricantDisbursalRow extends LubricantTripRow {
   amount: number;
   dispensedBy: string;
   destination?: string | null;
+  /** The receiving driver's signature captured at dispense (data URL), when taken. */
+  signature?: string | null;
   createdAt: string;
   trip?: LubricantTripRow | null;
   /** The authority in force when it was pumped, if there was one. */

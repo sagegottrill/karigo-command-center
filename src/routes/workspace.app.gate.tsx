@@ -197,13 +197,56 @@ function SecurityLogPage() {
     setLogOpen(true);
   };
 
+  /**
+   * Asset-mismatch guard: what the guard typed must match what the TM approved
+   * on the ticket. A driver, plate or tail that differs is exactly the
+   * "wrong truck left the yard" scenario the oversight spec calls out — the
+   * gate is stopped and must confirm the mismatch deliberately.
+   */
+  const compareAgainstTicket = (t: Trip | undefined) => {
+    if (!t) return [] as string[];
+    const diffs: string[] = [];
+    const driverOk =
+      !t.driverName ||
+      t.driverName.trim().toLowerCase() === logForm.driverName.trim().toLowerCase();
+    if (!driverOk) diffs.push(`Driver: ticket says ${t.driverName}, gate typed ${logForm.driverName || "—"}`);
+    const plate = plateOf(t);
+    const plateOk = !plate || plate.replace(/\s/g, "").toLowerCase() === logForm.plateNumber.replace(/\s/g, "").toLowerCase();
+    if (!plateOk) diffs.push(`Plate: ticket says ${plate}, gate typed ${logForm.plateNumber || "—"}`);
+    const tail = tailOf(t);
+    const tailOk = tail === "—" || !logForm.tailNumber.trim() || tail.replace(/\s/g, "").toLowerCase() === logForm.tailNumber.replace(/\s/g, "").toLowerCase();
+    if (!tailOk) diffs.push(`Tail: ticket says ${tail}, gate typed ${logForm.tailNumber || "—"}`);
+    return diffs;
+  };
+
   const handleLogDeparture = async () => {
     if (!selectedTripId) {
       toast.error("Select a dispatch to log.");
       return;
     }
+    // Unauthorized-exit guard: only a dispatch the Transport Manager has fully
+    // released (Scheduled) may leave the yard. A Requested/Awaiting-Approval
+    // request reaching the gate is an unauthorized exit attempt — refused and
+    // named as such, per the Security oversight spec.
+    const attempting = trips.find((x) => x.id === selectedTripId);
+    if (attempting && attempting.status !== "Scheduled") {
+      toast.error(
+        `Refused — no final dispatch approval. ${dispatchId(attempting)} is still "${attempting.status}"; the Transport Manager must release it before the gate can log it out.`,
+      );
+      return;
+    }
     if (!logForm.driverName.trim() || !logForm.truckHead.trim() || !logForm.plateNumber.trim()) {
       toast.error("Driver, truck head, and plate are required.");
+      return;
+    }
+    const ticket = trips.find((x) => x.id === selectedTripId);
+    const diffs = compareAgainstTicket(ticket);
+    if (
+      diffs.length > 0 &&
+      !window.confirm(
+        `MISMATCH against the approved ticket:\n\n${diffs.map((d) => "\u2022 " + d).join("\n")}\n\nLog the departure anyway? Only confirm if the physical truck matches what you see.`,
+      )
+    ) {
       return;
     }
     setSaving(true);
@@ -217,6 +260,8 @@ function SecurityLogPage() {
           : logForm.plateNumber.trim(),
         tailNumber: logForm.tailNumber.trim() || undefined,
         startTime: stamp,
+        // WHO logged it — the Guard Activity Ledger on the TM's Security view.
+        gateOutBy: authService.getCurrentUser()?.name || "Security",
       });
       toast.success("Departure logged");
       setLogOpen(false);

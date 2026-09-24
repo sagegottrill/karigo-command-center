@@ -3318,6 +3318,262 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               )}
             </DrillPopover>
           </div>
+
+          {/* 7 — approved parts waiting on the store floor (Pending Handoffs). */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Pending Handoffs"
+              value={parts?.stops.count ?? "—"}
+              hint="Approved, not yet on the truck"
+              tone={parts && parts.stops.count > 0 ? "amber" : "green"}
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("inv-handoff")}
+              detail={
+                <TileNote tone="grey">
+                  {parts && parts.stops.count > 0
+                    ? "The store floor still owes these trucks their parts"
+                    : "Every approved part has been handed over"}
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-handoff")}
+              onClose={drill.close}
+              title={`Awaiting Handover (${parts?.stops.count ?? 0})`}
+              width={420}
+              footer={<span>Approved requisitions the Inventory team has not released</span>}
+            >
+              {!parts || parts.stops.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing is waiting on the store floor.
+                </p>
+              ) : (
+                parts.stops.list.map((row, i) => (
+                  <DrillRow
+                    key={`hd-${row.job}-${i}`}
+                    title={row.truck}
+                    variant="status"
+                    tone="amber"
+                    meta={[row.defect, row.job].filter(Boolean).join(" · ")}
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 8 — vendor price watch: the WAC guard the spec asks for. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Price Fluctuation"
+              value={parts?.priceFluctuation.count ?? "—"}
+              hint={
+                parts && parts.priceFluctuation.worstPct !== null
+                  ? `Worst +${parts.priceFluctuation.worstPct}%`
+                  : "No vendor spike"
+              }
+              tone={parts && parts.priceFluctuation.count > 0 ? "red" : "green"}
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("inv-price")}
+              detail={
+                <TileNote tone="grey">
+                  Inbound batches that repriced a part more than 15% above its
+                  weighted cost — a vendor quietly inflating prices.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-price")}
+              onClose={drill.close}
+              title={`Vendor Price Increases (${parts?.priceFluctuation.count ?? 0})`}
+              width={440}
+              footer={<span>Flagged when a purchase lands more than 15% above the line's weighted cost</span>}
+            >
+              {!parts || parts.priceFluctuation.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No purchase repriced its part abnormally.
+                </p>
+              ) : (
+                parts.priceFluctuation.list.map((row, i) => (
+                  <DrillRow
+                    key={`pf-${row.sku}-${i}`}
+                    title={row.item}
+                    variant="status"
+                    tone="red"
+                    meta={`${row.vendor} · ${money(row.priorCost)} → ${money(row.newCost)}`}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        +{row.pct}%
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 9 — shrinkage: every manual count correction, signed. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Shrinkage Flags"
+              value={parts?.shrinkage.count ?? "—"}
+              hint={
+                parts && parts.shrinkage.units > 0
+                  ? `${countLabel(parts.shrinkage.units, "unit")} · ${money(parts.shrinkage.value)}`
+                  : "Counts are clean"
+              }
+              tone={parts && parts.shrinkage.count > 0 ? "red" : "green"}
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("inv-shrink")}
+              detail={
+                <TileNote tone="grey">
+                  Stock adjustments and write-offs — stock that left the shelf
+                  without a truck taking it. Every flag is signed.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-shrink")}
+              onClose={drill.close}
+              title={`Stock Variances (${parts?.shrinkage.count ?? 0})`}
+              width={440}
+              footer={
+                <span>
+                  {parts ? `${countLabel(parts.shrinkage.units, "unit")} unaccounted · ${money(parts.shrinkage.value)}` : ""}
+                </span>
+              }
+            >
+              {!parts || parts.shrinkage.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No count variance recorded in this window.
+                </p>
+              ) : (
+                parts.shrinkage.list.map((row) => (
+                  <DrillRow
+                    key={`sh-${row.id}`}
+                    title={row.item}
+                    variant="status"
+                    tone="red"
+                    meta={[row.sku, row.actedBy || "unsigned", row.note || row.kind]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {Math.abs(row.quantity)} {row.quantity < 0 ? "out" : "in"}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 10 — dead stock radar: value that has not moved. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Dead Stock"
+              value={parts?.deadStock.lines ?? "—"}
+              hint={
+                parts && parts.deadStock.lines > 0
+                  ? `${money(parts.deadStock.value)} sitting idle`
+                  : "Everything moves"
+              }
+              tone={parts && parts.deadStock.lines > 0 ? "amber" : "green"}
+              icon={Package}
+              hasDrill
+              onClick={() => drill.toggle("inv-dead")}
+              detail={
+                <TileNote tone="grey">
+                  Lines that issued nothing in the window — capital parked on a
+                  shelf. Reallocate, discount or scrap.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-dead")}
+              onClose={drill.close}
+              title={`Dead Stock Radar (${parts?.deadStock.lines ?? 0})`}
+              width={420}
+              footer={<span>{money(parts?.deadStock.value)} in lines with no issue in the window</span>}
+            >
+              {!parts || parts.deadStock.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No idle stock — every line issued in this window.
+                </p>
+              ) : (
+                parts.deadStock.list.map((row) => (
+                  <DrillRow
+                    key={`ds-${row.id}`}
+                    title={row.name}
+                    variant="status"
+                    tone="amber"
+                    meta={[row.sku, row.supplier || "no supplier", `${countLabel(row.stock, "unit")} held`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-[11px] font-semibold text-white">
+                        {money(row.value)}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 11 — the part checkout ledger: who released what, to which truck. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Checkout Ledger"
+              value={parts?.checkoutLedger.count ?? "—"}
+              hint="Part handoffs, signed"
+              tone="blue"
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("inv-ledger")}
+              detail={
+                <TileNote tone="grey">
+                  Every part issued to a truck — which attendant released it, for
+                  which job, at what cost. Immutable by design.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("inv-ledger")}
+              onClose={drill.close}
+              title={`Part Checkouts (${parts?.checkoutLedger.count ?? 0})`}
+              width={460}
+              footer={<span>Every Issue in the store's ledger — the record stands as written</span>}
+            >
+              {!parts || parts.checkoutLedger.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No part has been issued in this window.
+                </p>
+              ) : (
+                parts.checkoutLedger.list.map((row) => (
+                  <DrillRow
+                    key={`cl-${row.id}`}
+                    title={row.item}
+                    meta={[row.truckReg || "no truck", row.actedBy || "—", row.actedAt]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span className="block text-white">{Math.abs(row.quantity)} unit(s)</span>
+                        {row.value ? (
+                          <span className="block text-[10px] font-normal text-white/60">
+                            {money(Math.abs(row.value))}
+                          </span>
+                        ) : null}
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
         </div>
       </section>
 
@@ -3568,6 +3824,69 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 sec.movements.list.map((t) =>
                   gateTripRow(t, t.returnedAt ? "RETURNED" : "DEPARTED"),
                 )
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 7 — the Guard Activity Ledger: WHO scanned each movement. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Guard Activity Log"
+              value={sec?.guardLedger.departures ?? "—"}
+              hint={`${sec?.guardLedger.returns ?? 0} returns logged in`}
+              tone="grey"
+              icon={ShieldCheck}
+              hasDrill
+              onClick={() => drill.toggle("sec-guard")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    {
+                      label: "Stamps signed:",
+                      value:
+                        (sec?.guardLedger.departures ?? 0) + (sec?.guardLedger.returns ?? 0) -
+                        (sec?.guardLedger.unsigned ?? 0),
+                      tone: "green",
+                    },
+                    { label: "Unsigned:", value: sec?.guardLedger.unsigned ?? 0, tone: "amber" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("sec-guard")}
+              onClose={drill.close}
+              title="Guard Activity Ledger"
+              width={460}
+              footer={
+                <span>
+                  Which security account scanned which truck, and exactly when —
+                  absolute personnel accountability.
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Stamps taken before the gate began signing its work read
+                "Unsigned (pre-ledger)" — the ledger never invents accountability
+                it does not have.
+              </p>
+              {!sec || sec.guardLedger.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  The gate logged no movement in this window.
+                </p>
+              ) : (
+                sec.guardLedger.list.map((row) => (
+                  <DrillRow
+                    key={row.id}
+                    title={`${row.action} · ${row.label}`}
+                    meta={[row.truck, row.driver, row.at].filter(Boolean).join(" · ")}
+                    right={
+                      <span className="shrink-0 max-w-[140px] truncate text-right text-[11px] font-semibold text-white">
+                        {row.guard}
+                      </span>
+                    }
+                  />
+                ))
               )}
             </DrillPopover>
           </div>
@@ -4621,10 +4940,120 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               )}
             </DrillPopover>
           </div>
+
+          {/* 9 — what the fuel in the tank is worth (Total Inventory Value). */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Fuel Inventory Value"
+              value={fuel?.tanks.value ? money(fuel.tanks.value) : "—"}
+              hint={
+                fuel?.tanks.basis === "inbound"
+                  ? "Priced from inbound supply"
+                  : fuel?.tanks.basis === "price"
+                    ? "Priced at the set pump price"
+                    : "No price on file"
+              }
+              tone={fuel?.tanks.basis === "unpriced" ? "grey" : "green"}
+              icon={Fuel}
+              hasDrill
+              onClick={() => drill.toggle("fuel-value")}
+              detail={
+                <TileNote tone="grey">
+                  Opening balance + inbound supply − dispensed, at the latest
+                  purchase price — the capital sitting in the tank.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-value")}
+              onClose={drill.close}
+              title="Total Fuel Inventory Value"
+              width={400}
+              footer={
+                <span>
+                  {fuel?.tanks.lastInboundAt
+                    ? `Last inbound supply ${fuel.tanks.lastInboundAt}`
+                    : "No inbound supply recorded yet"}
+                </span>
+              }
+            >
+              <p className="pb-2 text-[10px] leading-4 text-white/50">
+                Every tank line valued at its most recent inbound purchase price,
+                never a typed-in guess — the same rule the store's valuation uses.
+              </p>
+              {!fuel || fuel.tanks.lines.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No tank line is on file.</p>
+              ) : (
+                fuel.tanks.lines.map((line) => (
+                  <DrillRow
+                    key={line.fuelType}
+                    title={line.fuelType}
+                    meta={`safety ${formatQuantity(line.minLevel)} ${line.unit}`}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span className="block text-white">{formatQuantity(line.quantity)} {line.unit}</span>
+                        <span className="block text-[10px] font-normal text-white/60">
+                          {line.low ? "below safety level" : "above safety level"}
+                        </span>
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
+
+          {/* 10 — the dispensing ledger: attendant, driver, quantity, time. */}
+          <div className="relative">
+            <LiveMetricTile
+              label="Dispensing Ledger"
+              value={fuel?.ledger.count ?? "—"}
+              hint="Who pumped, who signed"
+              tone="blue"
+              icon={ClipboardList}
+              hasDrill
+              onClick={() => drill.toggle("fuel-ledger")}
+              detail={
+                <TileNote tone="grey">
+                  Every dispense: the attendant who pumped it, the truck and
+                  driver it went to, the exact quantity and timestamp.
+                </TileNote>
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("fuel-ledger")}
+              onClose={drill.close}
+              title={`Dispensing Ledger (${fuel?.ledger.count ?? 0})`}
+              width={460}
+              footer={<span>The unalterable record — one row per dispense, as pumped</span>}
+            >
+              {!fuel || fuel.ledger.list.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  Nothing has been dispensed in this window.
+                </p>
+              ) : (
+                fuel.ledger.list.map((row) => (
+                  <DrillRow
+                    key={row.tripId + row.at}
+                    title={`${row.truck} · ${row.fuelType}`}
+                    meta={[row.attendant || "attendant —", row.driver, row.route]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      <span className="shrink-0 text-right text-[11px] font-semibold">
+                        <span className="block text-white">{formatQuantity(row.litres)} {row.unit}</span>
+                        <span className="block text-[10px] font-normal text-white/60">
+                          {money(row.value)} · {row.at}
+                        </span>
+                      </span>
+                    }
+                  />
+                ))
+              )}
+            </DrillPopover>
+          </div>
         </div>
       </section>
-
-      {/* ---------------------------------------- fuel audit — the TM's own sheet */}
       <AuditDialog
         open={audit === "fuel"}
         onClose={() => setAudit(null)}

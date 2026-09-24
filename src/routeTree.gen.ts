@@ -42,6 +42,7 @@ import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppHrComplianceRouteImport } from './routes/workspace.app.hr-compliance'
 import { Route as WorkspaceAppHrRosterRouteImport } from './routes/workspace.app.hr-roster'
 import { Route as WorkspaceAppInventoryRouteImport } from './routes/workspace.app.inventory'
+import { Route as WorkspaceAppInventoryDeskRouteImport } from './routes/workspace.app.inventory-desk'
 import { Route as WorkspaceAppLiveTrackingRouteImport } from './routes/workspace.app.live-tracking'
 import { Route as WorkspaceAppLubricantRouteImport } from './routes/workspace.app.lubricant'
 import { Route as WorkspaceAppLubricantDisbursalRouteImport } from './routes/workspace.app.lubricant-disbursal'
@@ -244,6 +245,12 @@ const WorkspaceAppInventoryRoute = WorkspaceAppInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppInventoryDeskRoute =
+  WorkspaceAppInventoryDeskRouteImport.update({
+    id: '/inventory-desk',
+    path: '/inventory-desk',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppLiveTrackingRoute =
   WorkspaceAppLiveTrackingRouteImport.update({
     id: '/live-tracking',
@@ -455,6 +462,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
   '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
@@ -517,6 +525,7 @@ export interface FileRoutesByTo {
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
   '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
@@ -583,6 +592,7 @@ export interface FileRoutesById {
   '/workspace/app/hr-compliance': typeof WorkspaceAppHrComplianceRoute
   '/workspace/app/hr-roster': typeof WorkspaceAppHrRosterRoute
   '/workspace/app/inventory': typeof WorkspaceAppInventoryRoute
+  '/workspace/app/inventory-desk': typeof WorkspaceAppInventoryDeskRoute
   '/workspace/app/live-tracking': typeof WorkspaceAppLiveTrackingRoute
   '/workspace/app/lubricant': typeof WorkspaceAppLubricantRoute
   '/workspace/app/lubricant-disbursal': typeof WorkspaceAppLubricantDisbursalRoute
@@ -651,6 +661,7 @@ export interface FileRouteTypes {
     | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
+    | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
     | '/workspace/app/lubricant-disbursal'
@@ -713,6 +724,7 @@ export interface FileRouteTypes {
     | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
+    | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
     | '/workspace/app/lubricant-disbursal'
@@ -778,6 +790,7 @@ export interface FileRouteTypes {
     | '/workspace/app/hr-compliance'
     | '/workspace/app/hr-roster'
     | '/workspace/app/inventory'
+    | '/workspace/app/inventory-desk'
     | '/workspace/app/live-tracking'
     | '/workspace/app/lubricant'
     | '/workspace/app/lubricant-disbursal'
@@ -1054,6 +1067,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppInventoryRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/inventory-desk': {
+      id: '/workspace/app/inventory-desk'
+      path: '/inventory-desk'
+      fullPath: '/workspace/app/inventory-desk'
+      preLoaderRoute: typeof WorkspaceAppInventoryDeskRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/live-tracking': {
       id: '/workspace/app/live-tracking'
       path: '/live-tracking'
@@ -1313,6 +1333,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppHrComplianceRoute: typeof WorkspaceAppHrComplianceRoute
   WorkspaceAppHrRosterRoute: typeof WorkspaceAppHrRosterRoute
   WorkspaceAppInventoryRoute: typeof WorkspaceAppInventoryRoute
+  WorkspaceAppInventoryDeskRoute: typeof WorkspaceAppInventoryDeskRoute
   WorkspaceAppLiveTrackingRoute: typeof WorkspaceAppLiveTrackingRoute
   WorkspaceAppLubricantRoute: typeof WorkspaceAppLubricantRoute
   WorkspaceAppLubricantDisbursalRoute: typeof WorkspaceAppLubricantDisbursalRoute
@@ -1360,6 +1381,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppHrComplianceRoute: WorkspaceAppHrComplianceRoute,
   WorkspaceAppHrRosterRoute: WorkspaceAppHrRosterRoute,
   WorkspaceAppInventoryRoute: WorkspaceAppInventoryRoute,
+  WorkspaceAppInventoryDeskRoute: WorkspaceAppInventoryDeskRoute,
   WorkspaceAppLiveTrackingRoute: WorkspaceAppLiveTrackingRoute,
   WorkspaceAppLubricantRoute: WorkspaceAppLubricantRoute,
   WorkspaceAppLubricantDisbursalRoute: WorkspaceAppLubricantDisbursalRoute,

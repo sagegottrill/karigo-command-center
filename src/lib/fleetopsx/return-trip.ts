@@ -35,9 +35,22 @@ export function returnStampNow(): string {
 }
 
 export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean }> {
+  // WHO logged the return — the Gate Security account that stamped it, carried
+  // onto the Guard Activity Ledger the Transport Manager audits.
+  const gateInBy = (() => {
+    try {
+      // Imported lazily: services imports this module for its trip surface, so a
+      // top-level authService import here would read as a cycle to some bundlers.
+      const { authService: auth } = require("./services") as typeof import("./services");
+      return auth.getCurrentUser()?.name || "Security";
+    } catch {
+      return "Security";
+    }
+  })();
   await tripService.update(trip.id, {
     status: "Completed",
     eta: returnStampNow(),
+    gateInBy,
   });
 
   // The plate as every screen reads it (roster-resolved), normalised for matching

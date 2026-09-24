@@ -81,7 +81,6 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
       { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
-      { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
       { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
@@ -97,9 +96,24 @@ export function departmentPortal(key: DepartmentKey) {
 const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   hr: /^(hr|hr & personnel|hr and personnel|personnel)$/i,
   engineering: /^(engineering|engineering and maintenance|engineering & maintenance)$/i,
+  // Inventory ONLY — "Parts & Store" is Engineering's own store view and must
+  // keep the workshop's shell, not be swallowed by the store floor's portal.
   inventory:
-    /^(inventory|head of inventory|store floor attendant|inventory & store|parts & inventory)$/i,
+    /^(inventory|head of inventory|store floor attendant|inventory & store|inventory manager)$/i,
 };
+
+/**
+ * The Engineering department ALSO holds the workshop's parts view — a Parts &
+ * Store login is an engineering-side role and gets Engineering's shell with the
+ * store inside it (its sidebar already carries Parts & Store). The two are
+ * different departments: Inventory (the storehouse) ≠ Parts & Store (the
+ * workshop's shelf), and conflating them is what put an Inventory login on the
+ * manager's dashboard.
+ */
+export function shouldUsePartsStoreShell(roles: string[]) {
+  if (shouldUseDepartmentShell(roles, "engineering")) return true;
+  return roles.some((r) => /^(parts & store|parts and store)$/i.test(r));
+}
 
 /**
  * Does this session belong in the department's own portal?

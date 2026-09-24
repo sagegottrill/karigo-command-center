@@ -135,6 +135,49 @@ export type PartsOversight = {
     count: number;
     list: { job: string; truck: string; defect: string; status: string }[];
   };
+  /**
+   * Weighted-Average-Cost watch: inbound batches that repriced a line upward by
+   * more than the vendor spike threshold. A vendor quietly inflating a price is
+   * exactly the pattern WAC is there to expose.
+   */
+  priceFluctuation: {
+    /** Purchases in the window whose unit price beat the line's prior WAC by >15%. */
+    count: number;
+    /** The worst single jump, for the tile hint. */
+    worstPct: number | null;
+    list: { item: string; sku: string; vendor: string; priorCost: number; newCost: number; pct: number; at: string }[];
+  };
+  /**
+   * Manual stock corrections — the shrinkage the TM must investigate. Every
+   * Adjustment/Write-off is an unalterable variance flag, not a bookkeeping
+   * nicety: stock went missing or was damaged and somebody signed for it.
+   */
+  shrinkage: {
+    count: number;
+    /** Units and value that left the shelf without a truck taking them. */
+    units: number;
+    value: number;
+    list: MovementRow[];
+  };
+  /**
+   * Dead stock radar: value that has not issued a single unit in the window
+   * (≥90 days). Idle capital with a name, so obsolete lines surface instead of
+   * hiding inside the valuation total.
+   */
+  deadStock: {
+    value: number;
+    lines: number;
+    list: StoreLineRow[];
+  };
+  /**
+   * The part checkout ledger: every Issue row is a handoff of a specific part
+   * to a specific truck, signed by the person who moved it. Immutable by design
+   * — the store's own movement history is the record.
+   */
+  checkoutLedger: {
+    count: number;
+    list: MovementRow[];
+  };
 };
 
 /** `P073 (APP857YL) / B039` and `p073` are the same truck. */
@@ -349,6 +392,78 @@ export function buildPartsOversight(input: {
       status: job.status,
     }));
 
+  /* --------------------------------------------- vendor price watch ------ */
+
+  /**
+   * The spec's WAC guard: an inbound batch repricing a line more than 15% above
+   * its prior weighted cost is a vendor price increase, and the TM sees it. The
+   * prior cost is the line's latest unit cost BEFORE this purchase — i.e. the
+   * previous purchase on the ledger, or the line's book price when this is the
+   * first.
+   */
+  const VENDOR_SPIKE_PCT = 15;
+  const priorCostByItem = new Map<string, number>();
+  for (const item of items) {
+    if (item.unitCost > 0) priorCostByItem.set(String(item.id), item.unitCost);
+  }
+  const fluctuationRows: PartsOversight["priceFluctuation"]["list"] = [];
+  const chronological = [...movements]
+    .filter((m) => m.kind === "Purchase" && (m.unitCost ?? 0) > 0)
+    .sort((a, b) => (a.actedAt < b.actedAt ? -1 : 1));
+  for (const m of chronological) {
+    const prior = priorCostByItem.get(String(m.itemId));
+    if (prior && prior > 0) {
+      const pct = ((m.unitCost! - prior) / prior) * 100;
+      if (pct > VENDOR_SPIKE_PCT) {
+        fluctuationRows.push({
+          item: m.itemName,
+          sku: m.sku,
+          vendor: m.vendor || "—",
+          priorCost: prior,
+          newCost: m.unitCost!,
+          pct: Math.round(pct),
+          at: m.actedAt,
+        });
+      }
+    }
+    priorCostByItem.set(String(m.itemId), m.unitCost!);
+  }
+  const fluctuationInWindow = fluctuationRows.filter((r) => inPeriod(r.at, range));
+
+  /* --------------------------------------------------- the shrinkage ----- */
+
+  /**
+   * Adjustments and write-offs are the count variances: the shelf said one
+   * thing, the physical count said less. They never cancel silently — every
+   * row is a flag with the person who signed it on display.
+   */
+  const shrinkRows = movements
+    .filter((m) => (m.kind === "Adjustment" || m.kind === "Write-off") && inPeriod(m.actedAt, range))
+    .map(readRow)
+    .sort((a, b) => (a.actedAt < b.actedAt ? 1 : -1));
+  const shrinkUnits = shrinkRows.reduce((total, r) => total + Math.abs(r.quantity), 0);
+  const shrinkValue = shrinkRows.reduce(
+    (total, r) => total + Math.abs((r.value ?? 0) || (r.quantity ?? 0) * (r.unitCost ?? 0)),
+    0,
+  );
+
+  /* ---------------------------------------------------- dead stock ------- */
+
+  /**
+   * Idle capital with a time dimension: lines that issued nothing in the window
+   * AND carry real value. The idle tile above is the same population — this
+   * names it for what the spec calls it, so the radar is a list the TM can act
+   * on (reallocate, discount, scrap) rather than a number in a tile.
+   */
+  const deadList = idleLines.filter((line) => line.value > 0);
+
+  /* ---------------------------------------------- the checkout ledger ---- */
+
+  const issueLedger = movements
+    .filter((m) => m.kind === "Issue")
+    .map(readRow)
+    .sort((a, b) => (a.actedAt < b.actedAt ? 1 : -1));
+
   return {
     read: true,
     valuation: {
@@ -392,5 +507,25 @@ export function buildPartsOversight(input: {
       list: reorderRows,
     },
     stops: { count: stops.length, list: stops },
+    priceFluctuation: {
+      count: fluctuationInWindow.length,
+      worstPct: fluctuationInWindow.length ? Math.max(...fluctuationInWindow.map((r) => r.pct)) : null,
+      list: fluctuationInWindow.sort((a, b) => b.pct - a.pct).slice(0, 20),
+    },
+    shrinkage: {
+      count: shrinkRows.length,
+      units: shrinkUnits,
+      value: Math.round(shrinkValue),
+      list: shrinkRows.slice(0, 50),
+    },
+    deadStock: {
+      value: idleValue,
+      lines: deadList.length,
+      list: deadList.slice(0, 50),
+    },
+    checkoutLedger: {
+      count: issueLedger.length,
+      list: issueLedger.slice(0, 50),
+    },
   } satisfies PartsOversight;
 }

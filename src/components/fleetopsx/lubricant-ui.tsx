@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertOctagon, ArrowDownToLine, ChevronLeft, ChevronRight, Download, Fuel, Search } from "lucide-react";
 import { toast } from "sonner";
+import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import { adminService, driverService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   driverLabel,
@@ -426,6 +427,7 @@ export function DispatchDetailsModal({
   const [fuelType, setFuelType] = useState<LubricantFuel>("Diesel");
   const [quantity, setQuantity] = useState("");
   const [dispensedBy, setDispensedBy] = useState("");
+  const [signature, setSignature] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const staff = useStaffOptions();
@@ -435,6 +437,7 @@ export function DispatchDetailsModal({
       setFuelType(requested?.fuelType ?? "Diesel");
       setQuantity(requested?.quantity ? String(requested.quantity) : "");
       setDispensedBy("");
+      setSignature(null);
       setConfirming(false);
     }
   }, [open, row, requested?.fuelType, requested?.quantity]);
@@ -457,6 +460,7 @@ export function DispatchDetailsModal({
         fuelType,
         quantity: amount,
         dispensedBy: dispensedBy.trim(),
+        signature: signature ?? undefined,
       });
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       onDone(
@@ -529,6 +533,18 @@ export function DispatchDetailsModal({
           options={staff}
           placeholder="Select who dispensed"
         />
+
+        {/*
+          The receiving driver signs for the exact quantity — the same
+          accountability the spec asks of the parts store, applied to fuel. The
+          signature rides onto the dispense record and surfaces in history.
+        */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[13px] font-semibold text-[#141A1F]">
+            Driver signature <span className="font-normal text-[#5C6470]">(receiving driver signs for the quantity)</span>
+          </p>
+          <SignaturePad onChange={setSignature} />
+        </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <button

@@ -265,6 +265,13 @@ export interface Trip {
   scheduledDate: string;
   startTime: string;
   eta: string;
+  /**
+   * Which security account stamped Log Out / Log In at the gate — the Guard
+   * Activity Ledger's accountability pair. Null on dispatches the gate has
+   * never touched.
+   */
+  gateOutBy?: string | null;
+  gateInBy?: string | null;
   progress: number;
   lat: number;
   lng: number;

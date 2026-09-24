@@ -34,7 +34,13 @@ const ROLE_HOME: Record<string, string> = {
   Diesel: "/workspace/app",
   "Fuel Manager": "/workspace/app",
   Procurement: "/workspace/app",
-  Inventory: "/workspace/app",
+  // The store is its own department — a store login must land on the store's
+  // own desk, not the Transport Manager's overview (it used to fall through to
+  // the admin dashboard with the manager's chrome).
+  Inventory: "/workspace/app/inventory-desk",
+  "Head of Inventory": "/workspace/app/inventory-desk",
+  "Store Floor Attendant": "/workspace/app/inventory-desk",
+  "Parts & Store": "/workspace/app/parts",
   "Customer Portals (External)": "/workspace/customer-portal/dashboard",
 };
 
