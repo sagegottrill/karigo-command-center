@@ -835,7 +835,22 @@ export const inventoryService = {
 
 export const procurementService = {
   list: () => fetchApi('/procurement'),
+  /**
+   * The Transport Manager's buy, raised from the low-tank drill: litres, the
+   * vendor, the agreed price and his authorisation. Posts a PO into the
+   * procurement ledger — the tank is only written when the delivery is
+   * received, so the vendor record stays on the procurement side and the tank
+   * keeps one figure.
+   */
+  raiseFuelRestockOrder: (input: { fuelType: 'Diesel' | 'Gas'; quantity: number; unitPrice: number; vendor?: string; note?: string }) =>
+    fetchApi<unknown>('/fuel-restock-orders', { method: 'POST', body: JSON.stringify(input) }),
+  /** The store's inbound deliveries: fuel POs the TM raised, newest first. */
+  fuelRestockOrders: () =>
+    fetchApi<unknown[]>('/procurement')
+      .then((res) => (Array.isArray(res) ? res : ((res as any)?.data ?? [])))
+      .then((rows) => rows.filter((r: any) => r?.kind === 'Fuel')),
   // Backend expects PATCH /procurement/:id { status: 'Procured' } (no /procure sub-route).
+  // Receiving a fuel PO is server-side: it writes the tank row at the PO's price.
   markProcured: (id: string) => fetchApi(`/procurement/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Procured' }) }).then(res => {
     notificationService.create({ title: 'Items Procured', body: `Procurement request ${id.substring(0,6)} fulfilled.`, category: 'Compliance', module: 'Engineering', audience: 'Engineering,Parts & Store,Transport Manager,Platform Admin' });
     return res;

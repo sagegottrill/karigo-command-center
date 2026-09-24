@@ -435,6 +435,12 @@ export interface ProcurementRequest {
   linkedId: ID; // WO or TruckReg
   status: "Requested" | "Sourcing" | "Procured";
   date: string;
+  /** "Part" (workshop store) or "Fuel" (a tank restock PO the TM raised). */
+  kind?: "Part" | "Fuel";
+  /** Agreed price per unit — the price receiving posts to the tank. */
+  unitPrice?: number | null;
+  /** Who the buy is from — procurement owns the vendor record. */
+  vendor?: string | null;
 }
 
 export type ExpenseStatus = "Pending" | "Approved" | "Disbursed" | "Rejected" | "Clarification";

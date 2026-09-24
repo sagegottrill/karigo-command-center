@@ -28,6 +28,7 @@ import {
   fuelService,
   inventoryService,
   lubricantService,
+  procurementService,
 } from "@/lib/fleetopsx/services";
 import {
   formatClockTime,
@@ -104,6 +105,7 @@ import type {
   TruckTail,
   User,
   WorkOrder,
+  ProcurementRequest,
 } from "@/lib/fleetopsx/types";
 import { DashboardLiveMap } from "./dashboard-live-map";
 import { LiveMetricTile, TileCostColumns, TileDetailRows } from "./live-metric-tile";
@@ -391,6 +393,56 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [disbursals, setDisbursals] = useState<LubricantDisbursalRow[]>([]);
   const [fuelAsks, setFuelAsks] = useState<LubricantRequestRow[]>([]);
   const [fuelPrices, setFuelPrices] = useState<Record<string, number>>({});
+  /** The restock POs he has raised — the trigger, and what is still undelivered. */
+  const [fuelOrders, setFuelOrders] = useState<ProcurementRequest[]>([]);
+  /**
+   * The Transport Manager's answer to a low tank: raise the buy himself.
+   * Quantity, vendor and the agreed price, posted as a purchase order into the
+   * store's procurement ledger — procurement owns the vendor record and the
+   * receiving, and the tank is only written when the delivery lands.
+   */
+  const [restockForm, setRestockForm] = useState<{
+    fuelType: "Diesel" | "Gas";
+    quantity: string;
+    vendor: string;
+    unitPrice: string;
+  } | null>(null);
+  const [restockSaving, setRestockSaving] = useState(false);
+
+  const submitRestockOrder = async () => {
+    if (!restockForm) return;
+    const quantity = Number(restockForm.quantity.replace(/[^0-9.]/g, ""));
+    const unitPrice = Number(restockForm.unitPrice.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast.error("Enter the quantity to buy.");
+      return;
+    }
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      toast.error("Enter the agreed price per unit.");
+      return;
+    }
+    setRestockSaving(true);
+    try {
+      await procurementService.raiseFuelRestockOrder({
+        fuelType: restockForm.fuelType,
+        quantity,
+        unitPrice,
+        vendor: restockForm.vendor.trim() || undefined,
+      });
+      toast.success(
+        `Restock order for ${formatQuantity(quantity)} ${restockForm.fuelType.toLowerCase()} posted to procurement.`,
+      );
+      setRestockForm(null);
+      procurementService
+        .fuelRestockOrders()
+        .then((rows) => setFuelOrders(rows as unknown as ProcurementRequest[]))
+        .catch(() => {});
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The order was not saved.");
+    } finally {
+      setRestockSaving(false);
+    }
+  };
   /**
    * Whether each half of the department's ledger has actually been read.
    *
@@ -544,6 +596,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           if (cancelled) return;
           setFuelAsks(rows ?? []);
           setAsksRead(true);
+        })
+        .catch(() => {});
+      void procurementService
+        .fuelRestockOrders()
+        .then((rows) => {
+          if (!cancelled) setFuelOrders(rows as unknown as ProcurementRequest[]);
         })
         .catch(() => {});
       if (canListUsers) {
@@ -794,6 +852,18 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         : null,
     [workOrders, live.trucks, clock, range, partRequests, storeItems, fuelRecords],
   );
+
+  /**
+   * His restock POs, newest first, undelivered on top — the drill reads this so
+   * the order he raised stays visible until the litres are in the tank.
+   */
+  const fuelOrdersView = useMemo(() => {
+    const order = (a: ProcurementRequest, b: ProcurementRequest) =>
+      (b.date || "").localeCompare(a.date || "");
+    const pending = fuelOrders.filter((o) => o.status !== "Procured").sort(order);
+    const received = fuelOrders.filter((o) => o.status === "Procured").sort(order);
+    return { pending, received, all: [...pending, ...received] };
+  }, [fuelOrders]);
 
   /**
    * Diesel and lubricant, as the Transport Manager reconciles them: what is
@@ -4620,7 +4690,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               onClose={drill.close}
               title="Reorder Warnings"
               width={380}
-              footer={<span>A bulk purchase is a procurement decision, not a tank figure</span>}
+              footer={
+                <span>
+                  {fuelOrdersView.pending.length > 0
+                    ? `${fuelOrdersView.pending.length} restock order${fuelOrdersView.pending.length === 1 ? "" : "s"} with procurement`
+                    : "A bulk purchase is a procurement decision, not a tank figure"}
+                </span>
+              }
             >
               <p className="pb-2 text-[10px] leading-4 text-white/50">
                 Triggered the moment a tank drops under the level the department set, so a reorder
@@ -4629,22 +4705,126 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               {!fuel || fuel.tanks.low === 0 ? (
                 <p className="py-3 text-[12px] text-white/60">No tank is below its safety level.</p>
               ) : (
-                fuel.tanks.lines
-                  .filter((line) => line.low)
-                  .map((line) => (
+                <>
+                  {fuel.tanks.lines
+                    .filter((line) => line.low)
+                    .map((line) => (
+                      <div key={`low-${line.fuelType}`}>
+                        <DrillRow
+                          title={line.fuelType}
+                          meta={`${formatQuantity(line.quantity)} ${line.unit.toLowerCase()} left · minimum ${formatQuantity(
+                            line.minLevel,
+                          )}`}
+                          right={
+                            <span className="shrink-0 text-[11px] font-semibold text-[#FF6B57]">
+                              short {formatQuantity(line.shortfall)}
+                            </span>
+                          }
+                        />
+                        <div className="pb-2.5 pr-1">
+                          {restockForm?.fuelType === line.fuelType ? (
+                            <div className="rounded-md border border-white/12 bg-black/25 p-2.5">
+                              <p className="pb-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-white/60">
+                                Raise restock order — {line.fuelType}
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <label className="col-span-2 text-[10px] text-white/50">
+                                  Quantity ({line.unit.toLowerCase()})
+                                  <input
+                                    autoFocus
+                                    value={restockForm.quantity}
+                                    onChange={(e) =>
+                                      setRestockForm({ ...restockForm, quantity: e.target.value })
+                                    }
+                                    className="mt-1 w-full rounded-md border border-white/15 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none focus:border-white/40"
+                                    placeholder={`e.g. ${formatQuantity(line.shortfall)}`}
+                                  />
+                                </label>
+                                <label className="text-[10px] text-white/50">
+                                  Vendor
+                                  <input
+                                    value={restockForm.vendor}
+                                    onChange={(e) =>
+                                      setRestockForm({ ...restockForm, vendor: e.target.value })
+                                    }
+                                    className="mt-1 w-full rounded-md border border-white/15 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none focus:border-white/40"
+                                    placeholder="Who you are buying from"
+                                  />
+                                </label>
+                                <label className="text-[10px] text-white/50">
+                                  Price per {line.unit.toLowerCase()} (₦)
+                                  <input
+                                    value={restockForm.unitPrice}
+                                    onChange={(e) =>
+                                      setRestockForm({ ...restockForm, unitPrice: e.target.value })
+                                    }
+                                    className="mt-1 w-full rounded-md border border-white/15 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none focus:border-white/40"
+                                    placeholder="Agreed price"
+                                  />
+                                </label>
+                              </div>
+                              <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setRestockForm(null)}
+                                  className="rounded-md border border-white/15 px-2.5 py-1 text-[11px] font-medium text-white/70 hover:bg-white/10"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={restockSaving}
+                                  onClick={() => void submitRestockOrder()}
+                                  className="rounded-md bg-[#E8FF57] px-2.5 py-1 text-[11px] font-semibold text-[#15202E] hover:brightness-95 disabled:opacity-50"
+                                >
+                                  {restockSaving ? "Posting…" : "Post to procurement"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRestockForm({
+                                  fuelType: line.fuelType === "Gas" ? "Gas" : "Diesel",
+                                  quantity: String(line.shortfall || ""),
+                                  vendor: "",
+                                  unitPrice: "",
+                                })
+                              }
+                              className="w-full rounded-md border border-[#E8FF57]/40 px-2.5 py-1.5 text-[11px] font-semibold text-[#E8FF57] hover:bg-[#E8FF57]/10"
+                            >
+                              Raise restock order for {line.fuelType}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </>
+              )}
+              {fuelOrdersView.all.length > 0 && (
+                <div className="border-t border-white/10 pt-2">
+                  <p className="pb-1.5 text-[10px] font-semibold uppercase tracking-[0.5px] text-white/50">
+                    Restock orders raised
+                  </p>
+                  {fuelOrdersView.all.map((order) => (
                     <DrillRow
-                      key={`low-${line.fuelType}`}
-                      title={line.fuelType}
-                      meta={`${formatQuantity(line.quantity)} ${line.unit.toLowerCase()} left · minimum ${formatQuantity(
-                        line.minLevel,
-                      )}`}
+                      key={order.id}
+                      title={`${order.partName}${order.vendor ? ` — ${order.vendor}` : ""}`}
+                      meta={`${formatQuantity(order.quantity)} ${
+                        order.partName.toLowerCase().includes("gas") ? "kg" : "litres"
+                      }${order.unitPrice ? ` @ ₦${order.unitPrice.toLocaleString()}` : ""} · ${
+                        order.date ? formatTableDate(order.date) : ""
+                      }`}
                       right={
-                        <span className="shrink-0 text-[11px] font-semibold text-[#FF6B57]">
-                          short {formatQuantity(line.shortfall)}
-                        </span>
+                        <StatusPill
+                          label={order.status === "Procured" ? "Received" : "With procurement"}
+                          tone={order.status === "Procured" ? "green" : "amber"}
+                        />
                       }
                     />
-                  ))
+                  ))}
+                </div>
               )}
             </DrillPopover>
           </div>
