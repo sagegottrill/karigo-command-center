@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, History, MoreVertical, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -288,7 +289,11 @@ function SecurityLogPage() {
     return diffs;
   };
 
-  const handleLogDeparture = async () => {
+  /** The mismatch question, asked in-app — a dismissed native dialog means the
+departure silently never logs. */
+  const [mismatchDiffs, setMismatchDiffs] = useState<string[] | null>(null);
+
+  const handleLogDeparture = async (force = false) => {
     if (!selectedTripId) {
       toast.error("Select a dispatch to log.");
       return;
@@ -310,12 +315,8 @@ function SecurityLogPage() {
     }
     const ticket = trips.find((x) => x.id === selectedTripId);
     const diffs = compareAgainstTicket(ticket);
-    if (
-      diffs.length > 0 &&
-      !window.confirm(
-        `MISMATCH against the approved ticket:\n\n${diffs.map((d) => "\u2022 " + d).join("\n")}\n\nLog the departure anyway? Only confirm if the physical truck matches what you see.`,
-      )
-    ) {
+    if (diffs.length > 0 && !force) {
+      setMismatchDiffs(diffs);
       return;
     }
     setSaving(true);
@@ -626,6 +627,25 @@ function SecurityLogPage() {
         }
         facts={details ? movementFacts(details) : []}
         note="Read-only view — Security logs this gate. A departure or a return can only be stamped by the gate house."
+      />
+
+      {/* The physical truck does not match the approved ticket. */}
+      <ConfirmDialog
+        open={mismatchDiffs !== null}
+        busy={saving}
+        tone="danger"
+        title="Mismatch against the approved ticket"
+        confirmLabel="Log the departure"
+        body={
+          mismatchDiffs
+            ? `${mismatchDiffs.map((d) => "\u2022 " + d).join("\n")}\n\nOnly continue if the physical truck and driver in front of you match the ticket.`
+            : ""
+        }
+        onCancel={() => setMismatchDiffs(null)}
+        onConfirm={() => {
+          setMismatchDiffs(null);
+          void handleLogDeparture(true);
+        }}
       />
 
       {/* RECONCILIATION: a truck that left before the app went live. */}

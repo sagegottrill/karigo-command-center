@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Pencil, Search, Upload, UserPlus } from "luc
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -14,7 +15,13 @@ import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { displayDutyStatus, dutyTally, liveTripsFor } from "@/lib/fleetopsx/driver-duty";
+import {
+  displayDutyStatus,
+  dutyTally,
+  driverHasOpenDispatches,
+  liveTripsFor,
+  releaseConfirmBody,
+} from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
@@ -204,6 +211,12 @@ function HrStaffDirectory() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [newStaff, setNewStaff] = useState<StaffDraft>(() => emptyStaffDraft());
   const [idEdit, setIdEdit] = useState<{ driver: Driver; draft: StaffDraft } | null>(null);
+  /** The "close his open dispatch?" question, asked in-app (see handleSaveEdits). */
+  const [pendingFree, setPendingFree] = useState<{
+    driver: Driver;
+    status: DriverStatus;
+    openDispatches: Trip[];
+  } | null>(null);
   /** Which row's 3-dots is open, and which record the read-only dialog shows. */
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [details, setDetails] = useState<Driver | null>(null);
@@ -368,7 +381,10 @@ function HrStaffDirectory() {
         licenseCategory: driver.licenseCategory ?? "",
         truckReg: driver.assignedTruck ?? "",
         truckReg2: driver.assignedTail ?? "",
-        status: driver.status,
+        // The form must never silently read "Available" for a man who is out:
+        // the option list has no "On Trip", so the stored word is resolved to
+        // the duty actually shown on the board.
+        status: displayDutyStatus(driver, trips) as DriverStatus,
         licenseNumber: driver.licenseNumber ?? "",
         // <input type="date"> needs yyyy-mm-dd; the API may return a full stamp.
         licenseExpiry: (driver.licenseExpiry ?? "").slice(0, 10),
@@ -382,7 +398,7 @@ function HrStaffDirectory() {
    * fix a misspelt name, a wrong phone or a renewed licence without deleting and
    * re-onboarding.
    */
-  const handleSaveEdits = async () => {
+  const handleSaveEdits = async (forceClose = false) => {
     if (!idEdit) return;
     const { draft } = idEdit;
     const staffId = draft.staffId.trim().toUpperCase();
@@ -414,20 +430,21 @@ function HrStaffDirectory() {
      */
     const openDispatches = liveTripsFor(idEdit.driver, trips);
     const freeing = dutyStatusForWrite(draft.status) !== "On Trip";
-    let closeDispatches = false;
-    if (freeing && openDispatches.length > 0) {
-      const named = openDispatches
-        .slice(0, 3)
-        .map((t) => `${displayDispatchId(t)} (${t.status})`)
-        .join(", ");
-      const more = openDispatches.length > 3 ? ` and ${openDispatches.length - 3} more` : "";
-      const ok = window.confirm(
-        `${name} is still named on ${openDispatches.length} open dispatch${openDispatches.length === 1 ? "" : "es"}: ${named}${more}.\n\n` +
-          `Saving him as ${draft.status} will close ${openDispatches.length === 1 ? "that dispatch" : "those dispatches"} as Completed so the fleet desk can hand him a truck. Continue?`,
-      );
-      if (!ok) return;
-      closeDispatches = true;
+    let closeDispatches = forceClose;
+    /*
+     * Asked in the app, NOT with window.confirm: a native dialog the browser
+     * dismisses returns false, which made this save do nothing at all — the
+     * reported "make available from HR does not work".
+     *
+     * And the question is raised from the SERVER's open-dispatch count, so a
+     * trip list that failed to load can no longer turn the release into a
+     * silent no-op that leaves the driver committed.
+     */
+    if (!forceClose && freeing && driverHasOpenDispatches(idEdit.driver, trips)) {
+      setPendingFree({ driver: idEdit.driver, status: draft.status, openDispatches });
+      return;
     }
+    if (forceClose) closeDispatches = true;
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
       // Anything HR empties is sent as "" (never left out, which would silently
@@ -1095,6 +1112,20 @@ function HrStaffDirectory() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingFree !== null}
+        title="Close his open dispatch?"
+        body={
+          pendingFree ? releaseConfirmBody(pendingFree.driver, trips, pendingFree.status) : ""
+        }
+        confirmLabel={`Save as ${pendingFree?.status ?? "Available"}`}
+        onCancel={() => setPendingFree(null)}
+        onConfirm={() => {
+          setPendingFree(null);
+          void handleSaveEdits(true);
+        }}
+      />
     </>
   );
 }

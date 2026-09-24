@@ -1,3 +1,4 @@
+import { displayDispatchId } from "./request-id";
 import type { Driver, DriverStatus, Trip } from "./types";
 
 /**
@@ -91,6 +92,50 @@ export function driverIsOnLiveTrip(driver: Driver, trips: Trip[]): boolean {
 }
 
 /**
+ * How many dispatches still name this driver, counted from the SERVER's own
+ * figure when the row carries one (`openDispatches` on GET /api/drivers) and
+ * from the trip list as a floor.
+ *
+ * This exists because the release used to be decided from the browser's copy of
+ * the dispatch list. When that fetch failed or lagged, the screen concluded
+ * "nothing to close", saved the man Available and left his dispatch running —
+ * so the fleet desk still refused him and HR had to go Off Duty and back to get
+ * anything to happen. The server's count cannot be missing.
+ */
+export function driverOpenDispatchCount(driver: Driver, trips: Trip[]): number {
+  const fromServer = Number((driver as { openDispatches?: unknown }).openDispatches);
+  const server = Number.isFinite(fromServer) && fromServer > 0 ? fromServer : 0;
+  return Math.max(server, liveTripsFor(driver, trips).length);
+}
+
+/** Is this driver still committed to a dispatch the platform has not closed? */
+export function driverHasOpenDispatches(driver: Driver, trips: Trip[]): boolean {
+  return driverOpenDispatchCount(driver, trips) > 0;
+}
+
+/**
+ * The sentence a release confirmation shows: who he is, what is still open and
+ * what agreeing will do. Names the dispatches when this screen has them; when
+ * the trip list never loaded it still reports the count, because the release
+ * must not be blocked by a fetch that failed.
+ */
+export function releaseConfirmBody(driver: Driver, trips: Trip[], targetWord: string): string {
+  const open = liveTripsFor(driver, trips);
+  const count = driverOpenDispatchCount(driver, trips);
+  const plural = count === 1 ? "dispatch" : "dispatches";
+  const named = open
+    .slice(0, 3)
+    .map((t) => `${displayDispatchId(t)} (${t.status})`)
+    .join(", ");
+  const tail = open.length > 3 ? ` and ${open.length - 3} more` : "";
+  const list = named ? `: ${named}${tail}` : "";
+  return (
+    `${driver.name} is still named on ${count} open ${plural}${list}.\n\n` +
+    `Saving him as ${targetWord} will close ${count === 1 ? "that dispatch" : "those dispatches"} as Completed, so the fleet desk can hand him a truck.`
+  );
+}
+
+/**
  * The duty word a roster, a staff record or a headcount should carry: the four
  * HR words, plus IN TRANSIT for a man the dispatch list says is on the road.
  */
@@ -111,7 +156,7 @@ export type DutyWord = DriverStatus | "In Transit";
  *                                  the man is standing in the yard
  */
 export function displayDutyStatus(driver: Driver, trips: Trip[]): DutyWord {
-  if (driverIsOnLiveTrip(driver, trips)) return "In Transit";
+  if (driverHasOpenDispatches(driver, trips)) return "In Transit";
   if (driver.status === "Off Duty" || driver.status === "Suspended") return driver.status;
   return "Available";
 }
@@ -136,7 +181,7 @@ export function dutyTally(
   let offDuty = 0;
   let suspended = 0;
   for (const driver of drivers) {
-    if (driverIsOnLiveTrip(driver, trips)) {
+    if (driverHasOpenDispatches(driver, trips)) {
       inTransit += 1;
     } else if (driver.status === "Suspended") {
       suspended += 1;
@@ -158,7 +203,14 @@ export function dutyTally(
  */
 export function driverIsAssignable(driver: Driver, trips: Trip[], excludeTripId?: string): boolean {
   if (driver.status === "Suspended" || driver.status === "Off Duty") return false;
-  return liveTripFor(driver, trips, excludeTripId) === undefined;
+  if (liveTripFor(driver, trips, excludeTripId) !== undefined) return false;
+  // With no dispatch in hand to exclude, the server's count is the truth: a man
+  // the platform still has on the road is never offered a second truck, even if
+  // this browser never managed to load the trip list.
+  if (!excludeTripId && Number((driver as { openDispatches?: unknown }).openDispatches) > 0) {
+    return false;
+  }
+  return true;
 }
 
 /** The assignable roster, in the order it arrived (the roster's own ranking). */

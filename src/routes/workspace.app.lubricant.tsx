@@ -111,6 +111,8 @@ function LubricantReportPage() {
   const [releasing, setReleasing] = useState<LubricantRequestRow | null>(null);
   const [releaseValue, setReleaseValue] = useState("");
   const [releaseSaving, setReleaseSaving] = useState(false);
+  /** The queue used to dead-end at "and N more" — it opens fully on demand. */
+  const [releaseQueueOpen, setReleaseQueueOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -271,8 +273,13 @@ function LubricantReportPage() {
               </p>
             </div>
           </div>
-          <div className="flex flex-col divide-y divide-[#E2E5E9]">
-            {pendingAsks.slice(0, 8).map((ask) => (
+          <div
+            className={cn(
+              "flex flex-col divide-y divide-[#E2E5E9]",
+              releaseQueueOpen && "max-h-[420px] overflow-y-auto pr-1",
+            )}
+          >
+            {(releaseQueueOpen ? pendingAsks : pendingAsks.slice(0, 8)).map((ask) => (
               <div key={ask.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <span className="min-w-0 flex-1 text-[13.5px] text-[#344256]">
                   {ask.request.quantity} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
@@ -289,7 +296,15 @@ function LubricantReportPage() {
             ))}
           </div>
           {pendingAsks.length > 8 ? (
-            <p className="text-[12px] text-[#5C6470]">and {pendingAsks.length - 8} more…</p>
+            <button
+              type="button"
+              onClick={() => setReleaseQueueOpen((open) => !open)}
+              className="w-fit text-[12.5px] font-semibold text-[#1B2432] underline underline-offset-2 hover:text-[#ED351D]"
+            >
+              {releaseQueueOpen
+                ? "Show fewer"
+                : `Show all ${pendingAsks.length} awaiting release`}
+            </button>
           ) : null}
         </div>
       ) : null}

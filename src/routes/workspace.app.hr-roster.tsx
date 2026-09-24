@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -17,9 +18,11 @@ import {
 } from "@/lib/fleetopsx/hr-helpers";
 import {
   displayDutyStatus,
+  driverHasOpenDispatches,
   driverIsOnLiveTrip,
   dutyTally,
   liveTripsFor,
+  releaseConfirmBody,
 } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { licenseToneClass } from "@/lib/fleetopsx/license";
@@ -166,6 +169,21 @@ function DutyRoster() {
    * out and the fleet desk must not be offered a driver who is on the road. The
    * dispatch ends through the gate (returned) or the tracking desk, not here.
    */
+  /*
+   * The "yes" that used to be window.confirm.
+   *
+   * Native dialogs were being silently dismissed in the browser, so choosing
+   * "Make Available (close open dispatch)" did NOTHING at all — no write, no
+   * error — while "Off Duty" (which never asks) worked. The department's
+   * workaround was Off Duty and back, which is exactly the report. The
+   * question now lives in the app, so it always gets asked and always lands.
+   */
+  const [pendingDuty, setPendingDuty] = useState<{
+    driver: Driver;
+    status: DriverStatus;
+    openDispatches: Trip[];
+  } | null>(null);
+
   const setDuty = async (driver: Driver, status: DriverStatus) => {
     if (status === driver.status) {
       setMenuFor(null);
@@ -183,23 +201,22 @@ function DutyRoster() {
      * authority now ends those dispatches with the man, after naming them.
      */
     const openDispatches = liveTripsFor(driver, trips);
-    let closeDispatches = false;
-    if (status === "Available" && openDispatches.length > 0) {
-      const named = openDispatches
-        .slice(0, 3)
-        .map((t) => `${displayDispatchId(t)} (${t.status})`)
-        .join(", ");
-      const more = openDispatches.length > 3 ? ` and ${openDispatches.length - 3} more` : "";
-      const ok = window.confirm(
-        `${driver.name} is still named on ${openDispatches.length} open dispatch${openDispatches.length === 1 ? "" : "es"}: ${named}${more}.\n\n` +
-          `Making him Available will close ${openDispatches.length === 1 ? "that dispatch" : "those dispatches"} as Completed so the fleet desk can hand him a truck. Continue?`,
-      );
-      if (!ok) {
-        setMenuFor(null);
-        return;
-      }
-      closeDispatches = true;
+    /*
+     * The question hangs on the SERVER's count, not the browser's trip list:
+     * when the list failed to load, the old check saw nothing to close and the
+     * release silently did nothing. A standalone "Mark Available" for a driver
+     * who is already shown Available is skipped as a no-op, but the release is
+     * always reachable from the menu item that names it.
+     */
+    if (status === "Available" && driverHasOpenDispatches(driver, trips)) {
+      setMenuFor(null);
+      setPendingDuty({ driver, status, openDispatches });
+      return;
     }
+    await applyDuty(driver, status, false);
+  };
+
+  const applyDuty = async (driver: Driver, status: DriverStatus, closeDispatches: boolean) => {
     setBusy(driver.id);
     try {
       const updated = await driverService.update(driver.id, {
@@ -207,7 +224,11 @@ function DutyRoster() {
         ...(closeDispatches ? { closeDispatches: true } : {}),
       } as never);
       setDrivers((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-      toast.success(`${updated.name} is now ${status}.`);
+      toast.success(
+        closeDispatches
+          ? `${updated.name} is now Available — his open dispatch was closed.`
+          : `${updated.name} is now ${status}.`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not change the duty status");
     } finally {
@@ -251,7 +272,7 @@ function DutyRoster() {
        * and the driver stayed off the board. Choosing it now names the
        * dispatches and ends them with him.
        */
-      label: driverIsOnLiveTrip(driver, trips)
+      label: driverHasOpenDispatches(driver, trips)
         ? "Make Available (close open dispatch)"
         : "Mark Available",
       onSelect: () => void setDuty(driver, "Available"),
@@ -462,6 +483,23 @@ function DutyRoster() {
         }
         facts={details ? driverFacts(details) : []}
         note="Read-only view — HR & Personnel sets duty status. A driver can only be moved on or off duty from the Duty Roster by HR."
+      />
+
+      <ConfirmDialog
+        open={pendingDuty !== null}
+        busy={busy !== null}
+        title="Close his open dispatch?"
+        body={
+          pendingDuty ? releaseConfirmBody(pendingDuty.driver, trips, "Available") : ""
+        }
+        confirmLabel="Make him Available"
+        onCancel={() => setPendingDuty(null)}
+        onConfirm={() => {
+          if (!pendingDuty) return;
+          const { driver, status } = pendingDuty;
+          setPendingDuty(null);
+          void applyDuty(driver, status, true);
+        }}
       />
     </>
   );
