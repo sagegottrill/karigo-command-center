@@ -234,6 +234,20 @@ export const driverService = {
   update: (id: string, updates: Partial<Driver> & { closeDispatches?: boolean }) =>
     fetchApi(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }).then(mapDriver),
   delete: (id: string) => fetchApi(`/drivers/${id}`, { method: 'DELETE' }),
+  /**
+   * The licence document, attached and read on its own request — a staff list
+   * must never carry the scans themselves.
+   */
+  attachLicence: (id: string, fileName: string, dataUrl: string) =>
+    fetchApi<{ ok: boolean; licenseDocName?: string | null; licenseDocAt?: string | null }>(
+      `/drivers/${id}/licence`,
+      { method: 'POST', body: JSON.stringify({ fileName, dataUrl }) },
+    ),
+  readLicence: (id: string) =>
+    fetchApi<{ fileName: string | null; attachedAt: string | null; dataUrl: string | null }>(
+      `/drivers/${id}/licence`,
+    ),
+  removeLicence: (id: string) => fetchApi(`/drivers/${id}/licence`, { method: 'DELETE' }),
 };
 
 /**

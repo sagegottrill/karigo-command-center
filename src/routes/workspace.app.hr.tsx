@@ -573,9 +573,9 @@ function HrStaffDirectory() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">HR and Personnel</h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              manage staff records and license status
+              staff records, licences, guarantors and duty status
             </p>
             {!canEdit && (
               <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
@@ -671,8 +671,11 @@ function HrStaffDirectory() {
             />
           </div>
 
-          <div className="hidden grid-cols-[180px_140px_140px_1fr_110px_120px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
-            {["Name", "Phone", "License", "Assigned Truck", "Status", "Staff ID"].map((h) => (
+          {/* Salary ID leads, the way HR files a man; the department says which
+              side of the business he belongs to. The assigned truck moved off
+              this register — it belongs to the fleet board, where it moves. */}
+          <div className="hidden grid-cols-[110px_150px_130px_1fr_130px_160px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
+            {["Salary ID", "Staff Name", "Phone No", "Department", "Status", "License No"].map((h) => (
               <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {h}
               </span>
@@ -757,9 +760,13 @@ function HrStaffDirectory() {
                   )}
                 </div>
 
-                <div className="hidden grid-cols-[180px_140px_140px_1fr_110px_120px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
+                <div className="hidden grid-cols-[110px_150px_130px_1fr_130px_160px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
                   <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone || "—"}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {driver.department || "—"}
+                  </span>
                   {/* Licence number over its expiry date — the column he reads to
                       know whether a driver can still be put on a truck. */}
                   <span className="flex flex-col gap-0.5 text-[14px] tracking-[0.4px]">
@@ -781,15 +788,6 @@ function HrStaffDirectory() {
                       </span>
                     )}
                   </span>
-                  {/* Head over tail — the pairing HR records and dispatch reads. */}
-                  <span className="flex flex-col gap-0.5 text-[14px] tracking-[0.4px]">
-                    <span className="text-[#5C6470]">{driver.assignedTruck || "—"}</span>
-                    {driver.assignedTail ? (
-                      <span className="text-[11px] leading-none text-[#5C6470]">
-                        Tail: {driver.assignedTail}
-                      </span>
-                    ) : null}
-                  </span>
                   <span className="flex flex-col items-start gap-0.5">
                     <span
                       className={cn(
@@ -801,9 +799,6 @@ function HrStaffDirectory() {
                     </span>
 
                   </span>
-                  {/* The ID closes the row — the reference you quote once the
-                      driver you were looking for is found. */}
-                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
                   {canEdit ? (
                     <button
                       type="button"

@@ -149,6 +149,17 @@ export interface Driver {
    * and only ever shown next to the head it belongs to.
    */
   assignedTail?: string | null;
+  /** Who stands for the staff member, and how to reach them. */
+  guarantorName?: string;
+  guarantorPhone?: string;
+  /**
+   * The licence document on file — its name and whether the bytes are
+   * attached. The document itself never travels with the list: a roster of 120
+   * people must not ship 120 scans, so the row carries the flag and the
+   * document is fetched only when somebody opens it.
+   */
+  licenseDocName?: string;
+  hasLicenseDoc?: boolean;
   currentTripId: ID | null;
   tripsCompleted: number;
   safetyScore: number;

@@ -128,7 +128,7 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     name,
     employeeId: salary || String(d["employeeId"] ?? d["staffId"] ?? d["id"] ?? ""),
     phone: String(d["phone"] ?? ""),
-    department: String(d["department"] ?? "Transport Operations"),
+    department: String(d["department"] ?? ""),
     dateJoined: String(d["dateJoined"] ?? d["createdAt"] ?? ""),
     licenseNumber: String(d["licenseNumber"] ?? d["license"] ?? ""),
     licenseCategory: String(d["licenseCategory"] ?? d["category"] ?? "Professional"),
@@ -139,6 +139,13 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     assignedTruck: d["truckReg"] || d["assignedTruck"] ? String(d["truckReg"] ?? d["assignedTruck"]) : null,
     // The tail HR paired with the head — a separate live column (truckReg2).
     assignedTail: d["truckReg2"] ? String(d["truckReg2"]) : null,
+    // HR's own filing: who stands for the man, and what licence document is on
+    // file. `department` used to be invented as "Transport Operations" when the
+    // field was empty, which read as a fact nobody had recorded.
+    guarantorName: d["guarantorName"] ? String(d["guarantorName"]) : undefined,
+    guarantorPhone: d["guarantorPhone"] ? String(d["guarantorPhone"]) : undefined,
+    licenseDocName: d["licenseDocName"] ? String(d["licenseDocName"]) : undefined,
+    hasLicenseDoc: Boolean(d["hasLicenseDoc"]),
     currentTripId: d["currentTripId"] ? String(d["currentTripId"]) : null,
     tripsCompleted: Number(d["tripsCompleted"] ?? 0),
     safetyScore: Number(d["safetyScore"] ?? 100),
@@ -497,8 +504,22 @@ export async function liveCreateDriver(body: Record<string, unknown>): Promise<D
     name: body.name,
     phone: body.phone || null,
     truckReg: body.truckReg || body.assignedTruck || null,
+    truckReg2: body.truckReg2 || null,
     category: body.category || body.licenseCategory || null,
     status: body.status || "Active",
+    /*
+     * THE LICENCE WAS BEING THROWN AWAY.
+     *
+     * The form collected a licence number and its expiry, sent both, and this
+     * payload named neither — so HR could type a licence into Staff Records and
+     * watch it save as nothing. A staff file that cannot hold the licence date
+     * cannot answer the one question HR is asked: may this man drive?
+     */
+    licenseNumber: body.licenseNumber || null,
+    licenseExpiry: body.licenseExpiry || null,
+    department: body.department || null,
+    guarantorName: body.guarantorName || null,
+    guarantorPhone: body.guarantorPhone || null,
   };
   return mapDriver(await api.post("/drivers", payload));
 }
@@ -513,11 +534,42 @@ export async function liveUpdateDriver(id: string, body: Record<string, unknown>
     payload.status = body.status === "Available" ? "Active" : body.status;
   }
   if (body.employeeId != null || body.staffId != null) payload.staffId = body.staffId || body.employeeId;
+  // Same omission as create: the licence columns the form edits were never
+  // sent, so an edited licence silently reverted offline.
+  if (body.licenseNumber != null) payload.licenseNumber = body.licenseNumber;
+  if (body.licenseExpiry != null) payload.licenseExpiry = body.licenseExpiry;
+  if (body.department != null) payload.department = body.department;
+  if (body.guarantorName != null) payload.guarantorName = body.guarantorName;
+  if (body.guarantorPhone != null) payload.guarantorPhone = body.guarantorPhone;
   await api.patch(`/drivers/${id}`, payload);
 }
 
 export async function liveDeleteDriver(id: string): Promise<void> {
   await api.delete(`/drivers/${id}`);
+}
+
+/**
+ * The licence document itself, as a data URL.
+ *
+ * The bytes are only ever sent on their own request, never with a roster load —
+ * the server keeps them out of the list response for exactly that reason.
+ */
+export async function liveAttachDriverLicence(
+  id: string,
+  fileName: string,
+  dataUrl: string,
+): Promise<{ licenseDocName?: string | null; licenseDocAt?: string | null }> {
+  return api.post(`/drivers/${id}/licence`, { fileName, dataUrl });
+}
+
+export async function liveReadDriverLicence(
+  id: string,
+): Promise<{ fileName: string | null; attachedAt: string | null; dataUrl: string | null }> {
+  return api.get(`/drivers/${id}/licence`);
+}
+
+export async function liveRemoveDriverLicence(id: string): Promise<void> {
+  await api.delete(`/drivers/${id}/licence`);
 }
 
 export async function liveListTrips(): Promise<Trip[]> {
