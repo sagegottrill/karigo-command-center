@@ -158,7 +158,7 @@ function AdminAddAccount() {
         navigate({ to: "/workspace/app/manage-account" });
         return;
       }
-      await adminService.createUser({
+      const created = await adminService.createUser({
         firstName,
         surname,
         roles: chosen,
@@ -168,6 +168,18 @@ function AdminAddAccount() {
         companyId: currentUser?.companyId,
         password: generatedPassword,
       });
+      // The server reports OTHER ACTIVE ACCOUNTS sharing this username — the
+      // sign-in confusion this page used to create silently. Warned at creation,
+      // the TM can rename one side before it bites.
+      if (created?.usernameConflict?.length) {
+        const others = created.usernameConflict
+          .map((c: { email?: string; role?: string }) => `${c.email} (${c.role})`)
+          .join(", ");
+        toast.warning(
+          `Username "${generatedUsername}" is also used by: ${others}. Both accounts stay, but each person must pick their department at sign-in — consider a different username.`,
+          { duration: 12000 },
+        );
+      }
       toast.success("Staff account created.");
       setShowConfirmModal(false);
       setShowShareModal(true);

@@ -356,8 +356,11 @@ export const assignmentReleaseService = {
 };
 
 export const authService = {
-  login: async (username: string, password?: string) => {
-    const res = await fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+  login: async (username: string, password?: string, department?: string) => {
+    // The department picked on the sign-in form travels to the server: with a
+    // shared username it decides WHICH account the credentials open, and the
+    // server refuses an account that does not hold the picked department.
+    const res = await fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, department }) });
     if (res.token) {
       setToken(res.token);
       setStoredUser(res.user);

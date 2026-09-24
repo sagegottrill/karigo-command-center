@@ -81,7 +81,7 @@ function LoginPage() {
     setLoginError(false);
     setDeptError("");
     try {
-      const user = await authService.login(username, password);
+      const user = await authService.login(username, password, department || undefined);
       if (!user) {
         setLoginError(true);
         toast.error("Invalid credentials or suspended account.");
