@@ -10,13 +10,19 @@ import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal"
 import { RowActionMenu, type RowMenuItem } from "@/components/fleetopsx/row-action-menu";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import {
-  DUTY_STATUSES,
   HR_ACCESS_ROLES,
   dutyPillClass,
   dutyStatusForWrite,
   rolesCanMaintainStaff,
 } from "@/lib/fleetopsx/hr-helpers";
-import { driverIsOnLiveTrip, liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import {
+  displayDutyStatus,
+  driverIsOnLiveTrip,
+  dutyTally,
+  liveTripsFor,
+  staleDutyStatus,
+  type DutyWord,
+} from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { licenseToneClass } from "@/lib/fleetopsx/license";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
@@ -42,7 +48,12 @@ export const Route = createFileRoute("/workspace/app/hr-roster")({
   component: DutyRoster,
 });
 
-const ROSTER_FILTERS = ["All", ...DUTY_STATUSES] as const;
+/*
+ * The duty list as the roster prints it: "On Trip" is replaced by IN TRANSIT,
+ * which is the word for a man the dispatch list says is on the road. HR's own
+ * three decisions keep their names.
+ */
+const ROSTER_FILTERS = ["All", "Available", "In Transit", "Off Duty", "Suspended"] as const;
 
 function DutyRoster() {
   const navigate = useNavigate();
@@ -101,33 +112,48 @@ function DutyRoster() {
   }, [navigate]);
 
   const counts = useMemo(() => {
-    const by = (status: DriverStatus) => drivers.filter((d) => d.status === status).length;
+    // Counted from the dispatches, not the stored words: the pills below say
+    // In Transit for exactly these men, so the summary has to agree with them.
+    const tally = dutyTally(drivers, trips);
     return {
-      total: drivers.length,
-      available: by("Available"),
-      onTrip: by("On Trip"),
-      offDuty: by("Off Duty"),
-      suspended: by("Suspended"),
+      total: tally.total,
+      available: tally.available,
+      onTrip: tally.inTransit,
+      offDuty: tally.offDuty,
+      suspended: tally.suspended,
       paired: drivers.filter((d) => !!d.assignedTruck).length,
     };
-  }, [drivers]);
+  }, [drivers, trips]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return drivers
-      .filter((d) => filter === "All" || d.status === filter)
-      .filter((d) => {
-        if (!q) return true;
-        return `${d.name} ${displayDriverSalary(d)} ${d.employeeId} ${d.phone} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""}`
-          .toLowerCase()
-          .includes(q);
-      })
-      .sort((a, b) => {
-        // Available first — the people the fleet desk can actually use today.
-        const rank = (d: Driver) => (d.status === "Available" ? 0 : d.status === "On Trip" ? 1 : d.status === "Off Duty" ? 2 : 3);
-        return rank(a) - rank(b) || a.name.localeCompare(b.name);
-      });
-  }, [drivers, filter, query]);
+    return (
+      drivers
+        // Filtered on the word the row PRINTS, not the stored one: picking
+        // "In Transit" has to return the men the pills show as In Transit.
+        .filter((d) => filter === "All" || displayDutyStatus(d, trips) === filter)
+        .filter((d) => {
+          if (!q) return true;
+          return `${d.name} ${displayDriverSalary(d)} ${d.employeeId} ${d.phone} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""}`
+            .toLowerCase()
+            .includes(q);
+        })
+        .sort((a, b) => {
+          // Available first — the people the fleet desk can actually use today.
+          const rank = (d: Driver) => {
+            const word = displayDutyStatus(d, trips);
+            return word === "Available"
+              ? 0
+              : word === "In Transit"
+                ? 1
+                : word === "Off Duty"
+                  ? 2
+                  : 3;
+          };
+          return rank(a) - rank(b) || a.name.localeCompare(b.name);
+        })
+    );
+  }, [drivers, filter, query, trips]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -265,7 +291,7 @@ function DutyRoster() {
           {[
             { label: "Total Staff", value: counts.total, tone: "text-[#1B2432]" },
             { label: "Available", value: counts.available, tone: "text-[#0A8F4D]" },
-            { label: "On Trip", value: counts.onTrip, tone: "text-[#B26A00]" },
+            { label: "In Transit", value: counts.onTrip, tone: "text-[#B26A00]" },
             { label: "Off Duty", value: counts.offDuty, tone: "text-[#5C6470]" },
             { label: "Suspended", value: counts.suspended, tone: "text-[#ED351D]" },
             { label: "Paired To A Truck", value: counts.paired, tone: "text-[#1B2432]" },
@@ -346,23 +372,26 @@ function DutyRoster() {
                     <span
                       className={cn(
                         "w-fit rounded px-2 py-0.5 text-[12px] font-medium tracking-[0.4px]",
-                        dutyPillClass(driver.status),
+                        dutyPillClass(displayDutyStatus(driver, trips)),
                       )}
                     >
-                      {driver.status}
+                      {displayDutyStatus(driver, trips)}
                     </span>
                     {/*
-                     * The duty word against the dispatch list. A driver parked
-                     * on "On Trip" with no job is invisible to the fleet desk,
-                     * and a driver who is out on one is the opposite danger —
-                     * both are HR's to fix, so both are named here.
+                     * The duty word against the dispatch list. A driver the list
+                     * names reads IN TRANSIT above and the dispatch is named here,
+                     * so "Available" never sits beside a live trip again; a driver
+                     * parked on a trip word with no job is the opposite problem
+                     * and is named too. Both are HR's to fix.
                      */}
                     {staleDutyStatus(driver, trips) === "should-be-free" ? (
                       <span className="text-[11px] text-[#B26A00]">No live dispatch</span>
                     ) : null}
-                    {staleDutyStatus(driver, trips) === "should-be-on-trip" ? (
-                      <span className="text-[11px] text-[#B26A00]">On a live dispatch</span>
-                    ) : null}
+                    {liveTripsFor(driver, trips).slice(0, 1).map((trip) => (
+                      <span key={trip.id} className="text-[11px] text-[#B26A00]">
+                        {displayDispatchId(trip)} · {trip.status}
+                      </span>
+                    ))}
                   </span>
 
                   {canEdit ? (

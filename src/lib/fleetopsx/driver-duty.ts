@@ -1,4 +1,4 @@
-import type { Driver, Trip } from "./types";
+import type { Driver, DriverStatus, Trip } from "./types";
 
 /**
  * Who may be put on a dispatch, decided by the LIVE DISPATCH and not by the
@@ -88,6 +88,59 @@ export function liveTripFor(
 /** Is this driver genuinely out on a live dispatch? */
 export function driverIsOnLiveTrip(driver: Driver, trips: Trip[]): boolean {
   return liveTripFor(driver, trips) !== undefined;
+}
+
+/**
+ * The duty word a roster, a staff record or a headcount should carry: the four
+ * HR words, plus IN TRANSIT for a man the dispatch list says is on the road.
+ */
+export type DutyWord = DriverStatus | "In Transit";
+
+/**
+ * What a screen must PRINT for this driver.
+ *
+ * "Available" has to mean one thing only — the man is on the ground and can be
+ * handed a truck — and it used to be printed beside the line "On a live
+ * dispatch", a contradiction the yard cannot act on. So the dispatch list
+ * decides the word: a driver it names reads IN TRANSIT, and only a driver it
+ * does not name can read Available. The stored duty word is still what HR set;
+ * this is what the record ACTUALLY is right now.
+ */
+export function displayDutyStatus(driver: Driver, trips: Trip[]): DutyWord {
+  return driverIsOnLiveTrip(driver, trips) ? "In Transit" : driver.status;
+}
+
+/**
+ * The headcount, split the way the boards print it: who is on the road, who is
+ * on the ground, and HR's two own decisions. Counted from the dispatches rather
+ * than the stored words, so the summary cannot contradict the pills beneath it.
+ */
+export function dutyTally(
+  drivers: Driver[],
+  trips: Trip[],
+): {
+  total: number;
+  available: number;
+  inTransit: number;
+  offDuty: number;
+  suspended: number;
+} {
+  let available = 0;
+  let inTransit = 0;
+  let offDuty = 0;
+  let suspended = 0;
+  for (const driver of drivers) {
+    if (driverIsOnLiveTrip(driver, trips)) {
+      inTransit += 1;
+    } else if (driver.status === "Suspended") {
+      suspended += 1;
+    } else if (driver.status === "Off Duty") {
+      offDuty += 1;
+    } else {
+      available += 1;
+    }
+  }
+  return { total: drivers.length, available, inTransit, offDuty, suspended };
 }
 
 /**

@@ -36,11 +36,14 @@ export function rolesCanMaintainStaff() {
 }
 
 /** Duty status → its pill, in the portal's own tones. */
-export function dutyPillClass(status: DriverStatus) {
+export function dutyPillClass(status: DriverStatus | "In Transit") {
   switch (status) {
     case "Available":
       return "bg-[#34C759] text-white";
+    // "On Trip" and "In Transit" share one amber: a man on the road wears the
+    // same colour whether the word came from HR or from his live dispatch.
     case "On Trip":
+    case "In Transit":
       return "bg-[#F99E1F] text-white";
     case "Off Duty":
       return "bg-[#627084] text-white";

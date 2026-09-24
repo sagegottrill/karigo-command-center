@@ -14,7 +14,7 @@ import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { dutyStatusForWrite } from "@/lib/fleetopsx/hr-helpers";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
+import { displayDutyStatus, dutyTally, liveTripsFor, staleDutyStatus } from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import { HR_ACCESS_ROLES, rolesCanMaintainStaff } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
@@ -33,7 +33,12 @@ export const Route = createFileRoute("/workspace/app/hr")({
 
 // Rows per page — the shared portal setting (lib/fleetopsx/pagination).
 
-const DRIVER_STATUS_FILTERS = ["All", "Available", "On Trip", "Off Duty", "Suspended"] as const;
+/*
+ * "On Trip" is replaced by IN TRANSIT on the staff board: the word HR sets and
+ * the word the dispatch line proves are now one status, so Available can only
+ * ever mean a man who is on the ground.
+ */
+const DRIVER_STATUS_FILTERS = ["All", "Available", "In Transit", "Off Duty", "Suspended"] as const;
 
 /**
  * Who maintains the staff record, and who may only read it.
@@ -147,11 +152,14 @@ function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-function statusPillClass(status: DriverStatus) {
+function statusPillClass(status: DriverStatus | "In Transit") {
   switch (status) {
     case "Available":
       return "bg-[#34C759] text-white";
+    // One amber for "out on the road", whether the word came from HR or from
+    // the dispatch the man is on.
     case "On Trip":
+    case "In Transit":
       return "bg-[#F99E1F] text-white";
     case "Off Duty":
       return "bg-[#627084] text-white";
@@ -188,7 +196,9 @@ function HrStaffDirectory() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DriverStatus | "All">("All");
+  // "In Transit" is a filter in its own right now — the word a driver on a live
+  // dispatch prints — so the filter state carries it alongside HR's own words.
+  const [statusFilter, setStatusFilter] = useState<DriverStatus | "In Transit" | "All">("All");
   const [page, setPage] = useState(0);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -260,7 +270,9 @@ function HrStaffDirectory() {
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
-      if (statusFilter !== "All" && d.status !== statusFilter) return false;
+      // The printed word decides: a driver on a live dispatch is In Transit even
+      // while his stored word still reads Available.
+      if (statusFilter !== "All" && displayDutyStatus(d, trips) !== statusFilter) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
       // be found without knowing whose licence it is; so are the truck pairing
@@ -269,7 +281,7 @@ function HrStaffDirectory() {
         `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${d.status}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
-  }, [drivers, query, statusFilter]);
+  }, [drivers, query, statusFilter, trips]);
 
   /**
    * The headcount the department is asked about, counted from the records on
@@ -289,17 +301,20 @@ function HrStaffDirectory() {
       // "expiring" would report the whole roster as about to lapse.
       else if (state.tone === "missing") notRecorded += 1;
     }
+    // Split by the dispatches, not the stored words, so the headcount and the
+    // pills beneath it can never tell two different stories.
+    const tally = dutyTally(drivers, trips);
     return {
-      total: drivers.length,
-      available: by("Available"),
-      onTrip: by("On Trip"),
-      offDuty: by("Off Duty"),
-      suspended: by("Suspended"),
+      total: tally.total,
+      available: tally.available,
+      onTrip: tally.inTransit,
+      offDuty: tally.offDuty,
+      suspended: tally.suspended,
       expiring,
       expired,
       notRecorded,
     };
-  }, [drivers]);
+  }, [drivers, trips]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -595,7 +610,7 @@ function HrStaffDirectory() {
           {[
             { label: "Total Staff", value: summary.total, tone: "text-[#1B2432]" },
             { label: "Available", value: summary.available, tone: "text-[#0A8F4D]" },
-            { label: "On Trip", value: summary.onTrip, tone: "text-[#B26A00]" },
+            { label: "In Transit", value: summary.onTrip, tone: "text-[#B26A00]" },
             { label: "Off Duty", value: summary.offDuty, tone: "text-[#5C6470]" },
             { label: "Suspended", value: summary.suspended, tone: "text-[#ED351D]" },
             { label: "Licence Expiring", value: summary.expiring, tone: "text-[#B26A00]" },
@@ -692,8 +707,13 @@ function HrStaffDirectory() {
                     </div>
                   </div>
                   {driver.status !== "Suspended" && (
-                    <span className={cn("mt-1 inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
-                      {driver.status}
+                    <span
+                      className={cn(
+                        "mt-1 inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
+                        statusPillClass(displayDutyStatus(driver, trips)),
+                      )}
+                    >
+                      {displayDutyStatus(driver, trips)}
                     </span>
                   )}
                   {/* The ID closes the card, exactly like the table's last column. */}
@@ -754,17 +774,31 @@ function HrStaffDirectory() {
                     ) : null}
                   </span>
                   <span className="flex flex-col items-start gap-0.5">
-                    <span className={cn("inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium", statusPillClass(driver.status))}>
-                      {driver.status}
+                    <span
+                      className={cn(
+                        "inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
+                        statusPillClass(displayDutyStatus(driver, trips)),
+                      )}
+                    >
+                      {displayDutyStatus(driver, trips)}
                     </span>
-                    {/* The duty word against the live dispatch list — the row
-                        HR has to correct so the fleet desk can use him. */}
+                    {/*
+                     * The duty word against the live dispatch list. A driver the
+                     * list names already reads IN TRANSIT above, so the row names
+                     * the dispatch instead of repeating the fact; a driver parked
+                     * on a trip word with no job is the opposite problem and is
+                     * named too. Both are HR's to correct.
+                     */}
                     {staleDutyStatus(driver, trips) === "should-be-free" ? (
                       <span className="text-[11px] leading-none text-[#B26A00]">No live dispatch</span>
                     ) : null}
-                    {staleDutyStatus(driver, trips) === "should-be-on-trip" ? (
-                      <span className="text-[11px] leading-none text-[#B26A00]">On a live dispatch</span>
-                    ) : null}
+                    {liveTripsFor(driver, trips)
+                      .slice(0, 1)
+                      .map((trip) => (
+                        <span key={trip.id} className="text-[11px] leading-none text-[#B26A00]">
+                          {displayDispatchId(trip)} · {trip.status}
+                        </span>
+                      ))}
                   </span>
                   {/* The ID closes the row — the reference you quote once the
                       driver you were looking for is found. */}
