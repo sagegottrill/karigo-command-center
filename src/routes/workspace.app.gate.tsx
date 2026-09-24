@@ -15,7 +15,7 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { authService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import {
   gateDepartureStamp,
   gateReturnStamp,
@@ -126,9 +126,6 @@ function SecurityLogPage() {
 
   useEffect(() => {
     setCanWorkGate(rolesCanWorkTheGate());
-    setCanFilePreApp(
-      rolesCanWorkTheGate() || authService.getRoles().includes("Transport Manager"),
-    );
   }, []);
 
   /**
@@ -160,67 +157,57 @@ function SecurityLogPage() {
   // Returned" action — see lib/fleetopsx/return-trip.ts. One implementation, so
   // the gate and the tracking crew can never close a dispatch differently.
   /*
-   * PRE-APP RECONCILIATION. The company ran the yard on paper until Tuesday,
-   * so trucks already on the road have no dispatch to stamp — and a truck with
-   * no departure cannot be returned, which left them "out of yard" forever.
-   * Security files the departure it never got, then works the return normally.
+   * THE TRUCK'S OWN RETURN.
+   *
+   * A dispatch return closes its own circle. This is for the trucks that left
+   * before the app went live: they are physically out, the yard register knows
+   * it, and there is no dispatch to stamp — so the guard names the truck in
+   * front of him and the platform closes anything naming it, frees the driver
+   * and sends the truck to engineering. Nothing is typed that the system can
+   * work out for itself.
    */
-  const [backfillOpen, setBackfillOpen] = useState(false);
-  /*
-   * Who may file a pre-app truck. Security owns the gate, but this is the
-   * reconciliation of the yard's history — the Transport Manager needs it too
-   * (he is the one chasing the trucks that left before go-live). Logging an
-   * ordinary departure or return stays between the gate house and no one else.
-   */
-  const [canFilePreApp, setCanFilePreApp] = useState(false);
-  const [backfillSaving, setBackfillSaving] = useState(false);
-  const [backfillForm, setBackfillForm] = useState({
-    plate: "",
-    head: "",
-    tailNumber: "",
-    driverName: "",
-    customer: "",
-    dropoff: "",
-    leftAt: "",
-    note: "",
-  });
+  const [returnTruckOpen, setReturnTruckOpen] = useState(false);
+  const [returnTruckQuery, setReturnTruckQuery] = useState("");
+  const [returnTruckBusy, setReturnTruckBusy] = useState<string | null>(null);
+  const [yardTrucks, setYardTrucks] = useState<
+    { id: string; capId: string; registration: string; status: string }[]
+  >([]);
 
-  const handleBackfill = async () => {
-    if (!backfillForm.plate.trim()) {
-      toast.error("The plate number or cap number is required.");
-      return;
-    }
-    setBackfillSaving(true);
+  /** The yard register, out-of-yard trucks first: that is who comes home. */
+  const openReturnTruck = async () => {
+    setReturnTruckOpen(true);
+    setReturnTruckQuery("");
     try {
-      const res = await tripService.backfillGateDeparture({
-        plate: backfillForm.plate.trim(),
-        head: backfillForm.head.trim() || undefined,
-        tailNumber: backfillForm.tailNumber.trim() || undefined,
-        driverName: backfillForm.driverName.trim() || undefined,
-        customer: backfillForm.customer.trim() || undefined,
-        dropoff: backfillForm.dropoff.trim() || undefined,
-        leftAt: backfillForm.leftAt ? new Date(backfillForm.leftAt).toISOString() : undefined,
-        note: backfillForm.note.trim() || undefined,
-      });
-      toast.success(
-        `${res.reference} filed as out of the yard — log its Return when the truck comes home.`,
+      const heads = await fleetService.listHeads();
+      setYardTrucks(
+        heads.map((h) => ({
+          id: String(h.id),
+          capId: String(h.capNumber ?? h.number ?? ""),
+          registration: String(h.registration ?? ""),
+          status: String(h.status ?? ""),
+        })),
       );
-      setBackfillOpen(false);
-      setBackfillForm({
-        plate: "",
-        head: "",
-        tailNumber: "",
-        driverName: "",
-        customer: "",
-        dropoff: "",
-        leftAt: "",
-        note: "",
-      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not read the yard register");
+    }
+  };
+
+  const handleReturnTruck = async (truck: { id: string; capId: string; registration: string }) => {
+    setReturnTruckBusy(truck.id);
+    try {
+      const res = await tripService.returnTruckToYard(truck.registration || truck.capId);
+      const named = res.truck ? `${res.truck.capId} (${res.truck.registration})` : truck.registration;
+      toast.success(
+        res.dispatchClosed
+          ? `${named} is back — ${res.dispatchClosed} open dispatch${res.dispatchClosed === 1 ? "" : "es"} closed, driver freed, truck to Check Up.`
+          : `${named} is back and sent to Check Up.`,
+      );
+      setReturnTruckOpen(false);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to file the truck as out");
+      toast.error(err instanceof Error ? err.message : "Could not log the truck back in");
     } finally {
-      setBackfillSaving(false);
+      setReturnTruckBusy(null);
     }
   };
 
@@ -420,18 +407,15 @@ departure silently never logs. */
           ) : null}
         </div>
         <div className="flex items-center gap-2.5">
-          {/* Trucks that left before go-live: file them as out so their return
-              can close the circle like any other dispatch. */}
+          {/* A truck that left without a dispatch still has to be able to come
+              home: name it and the platform does the rest. */}
           <button
             type="button"
-            onClick={() => setBackfillOpen(true)}
-            className={cn(
-              "flex h-9 items-center gap-1.5 rounded border border-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-[#1B2432] hover:bg-[#F1F2F4]",
-              !canFilePreApp && "hidden",
-            )}
+            onClick={() => void openReturnTruck()}
+            className="flex h-9 items-center gap-1.5 rounded border border-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-[#1B2432] hover:bg-[#F1F2F4]"
           >
             <History className="size-4" strokeWidth={2} />
-            Log pre-app truck
+            Return a truck
           </button>
           <button
             type="button"
@@ -651,74 +635,65 @@ departure silently never logs. */
         }}
       />
 
-      {/* RECONCILIATION: a truck that left before the app went live. */}
-      {canFilePreApp && backfillOpen && (
+      {/* RETURN A TRUCK: for the fleet that left before the app went live. */}
+      {returnTruckOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
-          <div className="flex max-h-[90vh] w-[430px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
+          <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <div className="flex flex-col gap-1">
-              <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                Truck already out
-              </h3>
+              <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Return a truck</h3>
               <p className="text-[12.5px] text-[#5C6470]">
-                For trucks that left before we started logging the gate. Filing it as out is what lets you
-                log its Return later — and that return frees the driver and moves the truck to Check Up.
+                Pick the truck at the gate. Anything still open against it is closed, its driver goes back on
+                the board, and the truck goes to engineering as Check Up — no dates to type.
               </p>
             </div>
-            <div className="flex flex-col gap-3">
-              {(
-                [
-                  ["plate", "Plate Number / Cap No *", "example: KSF 72 YF or P0841"],
-                  ["head", "Truck Head", "example: P002"],
-                  ["tailNumber", "Tail Number", "example: B001"],
-                  ["driverName", "Driver Name", "example: J.Doe"],
-                  ["customer", "Company", "example: Saba Steel"],
-                  ["dropoff", "Destination", "example: Ikorodu"],
-                ] as const
-              ).map(([key, label, placeholder]) => (
-                <label key={key} className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
-                  {label}
-                  <input
-                    className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
-                    placeholder={placeholder}
-                    value={backfillForm[key]}
-                    onChange={(e) => setBackfillForm((f) => ({ ...f, [key]: e.target.value }))}
-                  />
-                </label>
-              ))}
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
-                Date it left (leave blank for now)
-                <input
-                  type="datetime-local"
-                  className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
-                  value={backfillForm.leftAt}
-                  onChange={(e) => setBackfillForm((f) => ({ ...f, leftAt: e.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
-                Note
-                <input
-                  className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
-                  placeholder="example: left before go-live"
-                  value={backfillForm.note}
-                  onChange={(e) => setBackfillForm((f) => ({ ...f, note: e.target.value }))}
-                />
-              </label>
+            <input
+              className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"
+              placeholder="Search cap number or plate"
+              value={returnTruckQuery}
+              onChange={(e) => setReturnTruckQuery(e.target.value)}
+            />
+            <div className="flex max-h-[320px] flex-col divide-y divide-[#E2E5E9] overflow-y-auto rounded border border-[#E2E5E9]">
+              {yardTrucks.length === 0 ? (
+                <p className="p-4 text-center text-[13px] text-[#8E95A1]">Reading the yard register…</p>
+              ) : (
+                (() => {
+                  const q = returnTruckQuery.trim().toLowerCase();
+                  const ranked = [...yardTrucks].sort((a, b) => {
+                    const rank = (t: { status: string }) => (/out of yard|assigned/i.test(t.status) ? 0 : 1);
+                    return rank(a) - rank(b) || a.capId.localeCompare(b.capId);
+                  });
+                  const list = q
+                    ? ranked.filter((t) => `${t.capId} ${t.registration}`.toLowerCase().includes(q))
+                    : ranked;
+                  if (list.length === 0) {
+                    return <p className="p-4 text-center text-[13px] text-[#8E95A1]">No truck matches that.</p>;
+                  }
+                  return list.slice(0, 60).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={returnTruckBusy !== null}
+                      onClick={() => void handleReturnTruck(t)}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-[#F7F8F9] disabled:opacity-60"
+                    >
+                      <span className="text-[13.5px] text-[#344256]">
+                        {t.capId} {t.registration ? `(${t.registration})` : ""}
+                      </span>
+                      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                        {returnTruckBusy === t.id ? "Returning…" : t.status}
+                      </span>
+                    </button>
+                  ));
+                })()
+              )}
             </div>
-            <div className="flex items-center justify-end gap-4 pt-2">
+            <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => setBackfillOpen(false)}
+                onClick={() => setReturnTruckOpen(false)}
                 className="text-[14px] font-bold text-[#ED351D]"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={backfillSaving}
-                onClick={() => void handleBackfill()}
-                className="h-11 rounded-lg bg-[#1B2432] px-6 text-[14px] font-bold text-white disabled:opacity-60"
-              >
-                {backfillSaving ? "Filing…" : "File as out of yard"}
+                Close
               </button>
             </div>
           </div>

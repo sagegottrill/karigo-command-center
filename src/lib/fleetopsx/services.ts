@@ -514,6 +514,23 @@ export const tripService = {
     leftAt?: string;
     note?: string;
   }) => fetchApi<{ ok: boolean; tripId: string; reference: string }>('/gate/backfill', { method: 'POST', body: JSON.stringify(input) }),
+  /**
+   * THE GATE'S RETURN, BY TRUCK.
+   *
+   * Security sees a truck, not a dispatch id — and for the fleet that left before
+   * the app went live there may be no dispatch at all. Naming the truck is
+   * enough: the server closes any open dispatch that names it (freeing the
+   * driver), sets the truck to Check Up, and stamps the movement. Returns that
+   * the gate used to have to work out by hand now happen in one action.
+   */
+  returnTruckToYard: (truck: string) =>
+    fetchApi<{
+      ok: boolean;
+      truck: { id: string; capId: string; registration: string; status: string } | null;
+      dispatchClosed: number;
+      driversFreed: string[];
+      stamp: string;
+    }>('/gate/return', { method: 'POST', body: JSON.stringify({ truck }) }),
   update: (id: string, updates: Omit<Partial<Trip>, keyof ClearableTripFields> & ClearableTripFields) => {
     // Sanitize payload for Prisma API which throws 500 on unknown fields
     const payload = { ...updates } as any;
