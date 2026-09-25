@@ -40,7 +40,7 @@ export const Route = createFileRoute("/workspace/app/lubricant-disbursal")({
   },
   head: () => ({
     meta: [
-      { title: "Log Disbursal | FleetOpsX" },
+      { title: "Disburse Request | FleetOpsX" },
       { name: "description", content: "Dispense diesel and gas against an active dispatch." },
     ],
   }),
@@ -107,7 +107,7 @@ function LogDisbursalPage() {
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px]">
         <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#141A1F] md:text-[24px] md:font-medium md:leading-8 md:text-[#1B2432]">
-          Log Disbursal
+          Disburse Request
         </h2>
         <p className="text-[12px] uppercase tracking-[0.4px] text-[#5C6470] md:text-[11.4px] md:text-[rgba(92,100,112,0.6)]">
           Log disbursement for active dispatch

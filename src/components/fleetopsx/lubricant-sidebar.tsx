@@ -14,12 +14,12 @@ type LubricantNavItem = {
 
 /**
  * The Lubricant department's own portal — four pages, exactly the Figma set:
- * what is in the tank, dispensing against a dispatch, what was dispensed, and
+ * dispensing against a dispatch, what is in the tank, what was dispensed, and
  * what needs attention.
  */
 export const LUBRICANT_NAV: LubricantNavItem[] = [
+  { label: "Disburse Request", to: "/workspace/app/lubricant-disbursal", icon: NotebookPen },
   { label: "Lubricant Inventory", to: "/workspace/app/lubricant-inventory", icon: Droplets },
-  { label: "Log Disbursal", to: "/workspace/app/lubricant-disbursal", icon: NotebookPen },
   { label: "Disbursal History", to: "/workspace/app/lubricant-history", icon: History },
   { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
 ];

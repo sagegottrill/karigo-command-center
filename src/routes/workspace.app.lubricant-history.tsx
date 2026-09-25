@@ -191,7 +191,7 @@ function DisbursalHistoryPage() {
             ) : slice.length === 0 ? (
               <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
                 {rows.length === 0
-                  ? "No lubricant has been dispensed yet. Log Disbursal records what leaves the tank."
+                  ? "No lubricant has been dispensed yet. Disburse Request records what leaves the tank."
                   : `Nothing matches “${query.trim()}” in ${range.toLowerCase()}.`}
               </p>
             ) : (
