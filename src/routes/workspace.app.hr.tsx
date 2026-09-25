@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Trash2, UserPlus } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +19,11 @@ import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleetopsx/license";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
-import { driverHasOpenDispatches, liveTripsFor, releaseConfirmBody } from "@/lib/fleetopsx/driver-duty";
+import {
+  driverHasOpenDispatches,
+  liveTripsFor,
+  releaseConfirmBody,
+} from "@/lib/fleetopsx/driver-duty";
 import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import {
   HR_ACCESS_ROLES,
@@ -56,6 +60,9 @@ export const Route = createFileRoute("/workspace/app/hr")({
  */
 const STAFF_STATUS_FILTERS = ["All", "Active", "On Leave", "Suspended"] as const;
 type StaffStatusWord = (typeof STAFF_STATUS_FILTERS)[number];
+
+/** The roles whose portal this page is when they open it: see `isManager`. */
+const MANAGER_ROLES = ["Transport Manager", "Platform Admin"];
 
 /**
  * Who maintains the staff record, and who may only read it.
@@ -100,12 +107,22 @@ function HrStaffDirectory() {
   // Decided after mount: the session lives in localStorage, so the server render
   // cannot know the role, and a first-paint guess would hydrate mismatched.
   const [canEdit, setCanEdit] = useState(false);
+  /**
+   * The Manager reads this register as "HR and Personnel" — his own page in the
+   * Transport Manager Portal, with the card's own heading and a row menu that
+   * VIEWS, EDITS or DELETES — where the department opens the same rows as
+   * "Staff Records" and works the pencil. One page, drawn for whoever is looking
+   * at it, because the TM is a second pair of hands on this desk and not a
+   * visitor to it.
+   */
+  const [isManager, setIsManager] = useState(false);
 
   useEffect(() => {
     // beforeLoad cannot see the session on a hard page load (it runs server-side),
     // so the role is re-checked in the browser as well.
     const roles = authService.getRoles();
     setCanEdit(rolesCanMaintainStaff());
+    setIsManager(roles.some((r: string) => MANAGER_ROLES.includes(r)));
     if (!roles.some((r: any) => HR_ACCESS_ROLES.includes(r))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
     }
@@ -183,7 +200,9 @@ function HrStaffDirectory() {
 
   useEffect(() => {
     void refreshDrivers()
-      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load staff directory"))
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Failed to load staff directory"),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -265,7 +284,9 @@ function HrStaffDirectory() {
       return;
     }
     if (!draft.phone.trim()) {
-      toast.error("Phone Number is required — it is the number dispatchers and the tracking desk call.");
+      toast.error(
+        "Phone Number is required — it is the number dispatchers and the tracking desk call.",
+      );
       return;
     }
     if (!draft.department.trim()) {
@@ -352,7 +373,11 @@ function HrStaffDirectory() {
       await refreshDrivers();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save staff details";
-      toast.error(/unique|409/i.test(msg) ? "That Staff Salary Number is already assigned to another driver." : msg);
+      toast.error(
+        /unique|409/i.test(msg)
+          ? "That Staff Salary Number is already assigned to another driver."
+          : msg,
+      );
     }
   };
 
@@ -412,9 +437,15 @@ function HrStaffDirectory() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
+            {/* The Manager's page is titled the way HIS portal draws it, with the
+                department's own heading left inside the card below. */}
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              {isManager ? "HR and Personnel" : "Staff Records"}
+            </h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              Manage staff records and license status
+              {isManager
+                ? "Take action on dispatch requests"
+                : "Manage staff records and license status"}
             </p>
             {!canEdit && (
               <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
@@ -441,40 +472,60 @@ function HrStaffDirectory() {
         </div>
 
         <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-          <div className="mb-4 flex items-center gap-5 border-b border-[#E2E5E9] pb-5">
-            <div className="relative w-full max-w-[400px]">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
-              <input
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-5 border-b border-[#E2E5E9] pb-5">
+            {/* The card names itself for the Manager — heading plus the count of
+                records the filter is showing, the shape every other board of his
+                uses. The department's own screen carries no heading here. */}
+            {isManager ? (
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+                  Staff Records
+                </h3>
+                <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white">
+                  {filtered.length}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-5">
+              <div className="relative w-full max-w-[400px]">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
+                  strokeWidth={1.5}
+                />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(0);
+                  }}
+                  placeholder="Search"
+                  className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+                />
+              </div>
+              <FilterButton
+                options={STAFF_STATUS_FILTERS}
+                value={statusFilter}
+                onChange={(s) => {
+                  setStatusFilter(s);
                   setPage(0);
                 }}
-                placeholder="Search"
-                className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+                allLabel="All Statuses"
+                iconOnly
               />
             </div>
-            <FilterButton
-              options={STAFF_STATUS_FILTERS}
-              value={statusFilter}
-              onChange={(s) => {
-                setStatusFilter(s);
-                setPage(0);
-              }}
-              allLabel="All Statuses"
-              iconOnly
-            />
           </div>
 
           {/* Salary ID leads, the way HR files a man; the department says which
               side of the business he belongs to. The assigned truck moved off
               this register — it belongs to the fleet board, where it moves. */}
           <div className="hidden grid-cols-[110px_150px_130px_1fr_130px_160px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px] md:grid">
-            {["Salary ID", "Staff Name", "Phone No", "Department", "Status", "License No"].map((h) => (
-              <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {h}
-              </span>
-            ))}
+            {["Salary ID", "Staff Name", "Phone No", "Department", "Status", "License No"].map(
+              (h) => (
+                <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  {h}
+                </span>
+              ),
+            )}
           </div>
 
           {slice.map((driver, index) => {
@@ -487,10 +538,14 @@ function HrStaffDirectory() {
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
                   <div className="flex items-center justify-between">
-                    <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">#{sn}</span>
+                    <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
+                      #{sn}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{driver.name}</p>
+                    <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">
+                      {driver.name}
+                    </p>
                     {driver.status === "Suspended" && (
                       <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
                         Suspended
@@ -508,7 +563,9 @@ function HrStaffDirectory() {
                     </div>
                     <div className="flex gap-2">
                       <span className="w-20 font-medium text-[#5C6470]">Expires:</span>
-                      <span className={cn("flex-1", licenseToneClass(licence.tone))}>{licence.text}</span>
+                      <span className={cn("flex-1", licenseToneClass(licence.tone))}>
+                        {licence.text}
+                      </span>
                     </div>
                     <div className="flex gap-2">
                       <span className="w-20 font-medium text-[#5C6470]">Truck:</span>
@@ -558,9 +615,15 @@ function HrStaffDirectory() {
                 </div>
 
                 <div className="hidden grid-cols-[110px_150px_130px_1fr_130px_160px_44px] items-center gap-4 border-b border-[#E2E5E9] py-2.5 md:grid">
-                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffId}</span>
-                  <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{driver.name}</span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{driver.phone || "—"}</span>
+                  <span className="text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                    {staffId}
+                  </span>
+                  <span className="text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                    {driver.name}
+                  </span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {driver.phone || "—"}
+                  </span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {driver.department || "—"}
                   </span>
@@ -597,25 +660,27 @@ function HrStaffDirectory() {
                       </span>
                     )}
                   </span>
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(driver)}
-                      className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
-                      aria-label={`Edit staff details for ${driver.name}`}
-                      title={staffId === "—" ? "Add Driver ID" : "Edit staff details"}
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                  ) : (
-                    <RowActionMenu
-                      items={[{ label: "View staff details", onSelect: () => setDetails(driver) }]}
-                      open={menuFor === driver.id}
-                      onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
-                      label={`Details for ${driver.name}`}
-                      width={190}
-                    />
-                  )}
+                  {/* One control per row, the way the design draws it: the 3-dots
+                      opens View Details, and a person who maintains the register
+                      also gets Edit and Delete. It replaced a bare pencil, which
+                      offered the Manager no way to read a record or remove one
+                      without opening the edit sheet first. */}
+                  <RowActionMenu
+                    items={[
+                      { label: "View Details", onSelect: () => setDetails(driver) },
+                      { label: "Edit", onSelect: () => openEdit(driver), hidden: !canEdit },
+                      {
+                        label: "Delete",
+                        onSelect: () => setDeleteFor(driver),
+                        danger: true,
+                        hidden: !canEdit,
+                      },
+                    ]}
+                    open={menuFor === driver.id}
+                    onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
+                    label={`Actions for ${driver.name}`}
+                    width={190}
+                  />
                 </div>
               </div>
             );
@@ -625,7 +690,11 @@ function HrStaffDirectory() {
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
               title={query ? "No matching staff" : "No staff records yet"}
-              body={query ? "Try a different name, staff ID, or phone number." : "Staff and driver records will appear here."}
+              body={
+                query
+                  ? "Try a different name, staff ID, or phone number."
+                  : "Staff and driver records will appear here."
+              }
             />
           )}
 
@@ -747,9 +816,7 @@ function HrStaffDirectory() {
       <ConfirmDialog
         open={pendingFree !== null}
         title="Close his open dispatch?"
-        body={
-          pendingFree ? releaseConfirmBody(pendingFree.driver, trips, pendingFree.status) : ""
-        }
+        body={pendingFree ? releaseConfirmBody(pendingFree.driver, trips, pendingFree.status) : ""}
         confirmLabel={`Save as ${pendingFree?.status ?? "Active"}`}
         onCancel={() => setPendingFree(null)}
         onConfirm={() => {
