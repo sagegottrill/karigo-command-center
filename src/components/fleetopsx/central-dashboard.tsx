@@ -68,11 +68,7 @@ import {
   type EngPartRequest,
   type SecTrip,
 } from "@/lib/fleetopsx/dashboard-departments";
-import {
-  buildFuelOversight,
-  type FuelAsk,
-  type FuelLedgerRow,
-} from "@/lib/fleetopsx/dashboard-fuel";
+import { buildFuelOversight, type FuelLedgerRow } from "@/lib/fleetopsx/dashboard-fuel";
 import {
   buildPartsOversight,
   type MovementRow,
@@ -1220,100 +1216,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         </button>
         {request.reason ? (
           <span className="truncate text-[10px] text-white/50">{request.reason}</span>
-        ) : null}
-      </div>
-    </div>
-  );
-
-  /**
-   * The Transport Manager releasing litres to a dispatch.
-   *
-   * Fleet Ops' figure is what the trip needs; this is what the yard may pump,
-   * and the pump refuses to exceed it. He may release a different number — a
-   * shortfall is a decision, and releasing it here is what makes the department
-   * able to draw from a controlled tank at all.
-   */
-  const releaseFuel = async (ask: FuelAsk) => {
-    const answer = window.prompt(
-      `How many ${ask.unit.toLowerCase()} of ${ask.fuelType} for ${ask.truck} (${ask.reference})?\nFleet Ops asked for ${formatQuantity(ask.litres)}. The pump cannot exceed what you release.`,
-      String(ask.litres),
-    );
-    if (answer === null) return;
-    const litres = Number(answer.replace(/[^0-9.]/g, ""));
-    if (!Number.isFinite(litres) || litres <= 0) {
-      toast.error("Enter a positive number of litres.");
-      return;
-    }
-    try {
-      await lubricantService.authorize(
-        ask.tripId,
-        litres,
-        authService.getCurrentUser()?.name || "Transport Manager",
-      );
-      toast.success(
-        `${formatQuantity(litres)} ${ask.unit.toLowerCase()} released to ${ask.truck}.`,
-      );
-      refreshRef.current();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The release was not saved.");
-    }
-  };
-
-  /** Withdraw a release the yard has not pumped yet. */
-  const withdrawFuel = async (ask: FuelAsk) => {
-    try {
-      await lubricantService.revokeApproval(ask.tripId);
-      toast.success(`Release withdrawn for ${ask.truck}.`);
-      refreshRef.current();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The release was not withdrawn.");
-    }
-  };
-
-  /** One dispatch waiting on diesel: what it asked for, and his release on it. */
-  const fuelAskRow = (ask: FuelAsk, awaitingRelease: boolean) => (
-    <div
-      key={`${ask.tripId}-${awaitingRelease}`}
-      className="border-b border-white/10 last:border-b-0"
-    >
-      <DrillRow
-        title={`${ask.reference} • ${ask.truck}`}
-        meta={[
-          `${formatQuantity(ask.litres)} ${ask.unit.toLowerCase()} of ${ask.fuelType}`,
-          formatMoney(ask.cost),
-          ask.route,
-          ask.driver,
-          ask.waitingHours === null ? null : `${formatDuration(ask.waitingHours)} waiting`,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        right={
-          <StatusPill
-            label={awaitingRelease ? "Awaiting you" : "Released"}
-            tone={awaitingRelease ? "grey" : "amber"}
-          />
-        }
-      />
-      <div className="flex items-center gap-2 pb-2">
-        {awaitingRelease ? (
-          <button
-            type="button"
-            onClick={() => void releaseFuel(ask)}
-            className="h-7 rounded bg-[#34C759] px-2.5 text-[11px] font-semibold text-white hover:bg-[#2fae50]"
-          >
-            Release litres
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void withdrawFuel(ask)}
-            className="h-7 rounded border border-white/30 px-2.5 text-[11px] font-semibold text-white/80 hover:bg-white/10"
-          >
-            Withdraw
-          </button>
-        )}
-        {!awaitingRelease && ask.authorizedBy ? (
-          <span className="truncate text-[10px] text-white/50">released by {ask.authorizedBy}</span>
         ) : null}
       </div>
     </div>

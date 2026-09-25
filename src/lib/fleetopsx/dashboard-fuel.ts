@@ -2,11 +2,9 @@ import { inPeriod, type PeriodRange } from "./period";
 import { displayRequestId } from "./request-id";
 import { partnerOf } from "./tracking-ops";
 import { displayCapPlateFromTrip } from "./display-ids";
+import { approvalGate, statusIsReleased } from "./lubricant";
 import type { DeptTone } from "./dashboard-departments";
-import type {
-  FuelRequisition,
-  Trip,
-} from "./types";
+import type { FuelRequisition, Trip } from "./types";
 import type {
   LubricantApproval,
   LubricantDisbursalRow,
@@ -69,6 +67,8 @@ export type FuelAsk = {
   authorizedBy: string;
   authorizedAt: string;
   status: string;
+  /** The department has already poured for this dispatch. */
+  poured?: boolean;
   /** Hours waiting: since the release he authorized, or since dispatch if not. */
   waitingHours: number | null;
   tone: DeptTone;
@@ -212,7 +212,9 @@ export function buildFuelOversight(input: {
   }));
 
   const pricedLines = lines.filter(
-    (line) => Number(lastInbound.get(line.fuelType)?.unitCost ?? 0) > 0 || Number(prices[line.fuelType] ?? 0) > 0,
+    (line) =>
+      Number(lastInbound.get(line.fuelType)?.unitCost ?? 0) > 0 ||
+      Number(prices[line.fuelType] ?? 0) > 0,
   );
   const tankValue = lines.reduce((total, line) => {
     const inbound = Number(lastInbound.get(line.fuelType)?.unitCost ?? 0);
@@ -239,6 +241,9 @@ export function buildFuelOversight(input: {
 
   const priceOf = (fuelType: string) => Number(prices[fuelType] ?? 0);
 
+  /** Trips the department has already poured for — one disbursal per dispatch. */
+  const pouredTripIds = new Set(disbursals.map((row) => String(row.tripId ?? "")));
+
   const readAsk = (row: LubricantRequestRow, authorized: boolean): FuelAsk => {
     const trip = row as unknown as Trip;
     const requested = Number(row.request?.quantity ?? 0);
@@ -264,14 +269,26 @@ export function buildFuelOversight(input: {
       authorizedBy: approval?.by ?? "",
       authorizedAt: approval?.at ?? "",
       status: String(trip.status ?? ""),
+      poured: pouredTripIds.has(String(row.id)),
       waitingHours: hoursSince(from, now),
       tone: authorized ? "amber" : "grey",
     };
   };
 
-  const asks = requests.map((row) => readAsk(row, !!row.approval));
-  const awaitingApproval = asks.filter((ask) => ask.authorizedLitres === null);
-  const awaitingPickup = asks.filter((ask) => ask.authorizedLitres !== null);
+  /*
+   * The approval gate is the STATUS, not the legacy litres blob: a dispatch
+   * already Scheduled (the final approval) or on the road was released the
+   * moment the Transport Manager approved it — even when no separate litre
+   * figure was ever recorded on it. Classifying it by the blob instead kept
+   * in-transit trucks stacked in "awaiting your release" forever, the same
+   * lie the fuel board was showing. "Waiting" now means only a dispatch he
+   * has not cleared at all (Requested / Approved / Awaiting Approval);
+   * "released, not pumped" is a Scheduled dispatch the yard has not poured
+   * for yet; anything already moving or finished has left both queues.
+   */
+  const asks = requests.map((row) => readAsk(row, approvalGate(row) === "released"));
+  const awaitingApproval = asks.filter((ask) => !statusIsReleased(ask.status));
+  const awaitingPickup = asks.filter((ask) => statusIsReleased(ask.status) && ask.poured !== true);
 
   /** Longest wait first — the truck that has been sitting is the one to chase. */
   awaitingApproval.sort((a, b) => (b.waitingHours ?? 0) - (a.waitingHours ?? 0));

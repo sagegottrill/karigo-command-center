@@ -5,6 +5,7 @@ import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
+  approvalGate,
   csvStamp,
   formatMoney,
   formatQuantity,
@@ -19,7 +20,11 @@ import {
   type LubricantRange,
 } from "@/lib/fleetopsx/lubricant";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { exportCsv, LubricantSearch, LubricantTableFooter } from "@/components/fleetopsx/lubricant-ui";
+import {
+  exportCsv,
+  LubricantSearch,
+  LubricantTableFooter,
+} from "@/components/fleetopsx/lubricant-ui";
 import { TmLubricant } from "@/components/fleetopsx/tm-lubricant";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { cn } from "@/lib/utils";
@@ -30,7 +35,13 @@ import { cn } from "@/lib/utils";
  * The department dispenses litres; only the Transport Manager, Fleet Operations,
  * Accounts and the platform see what those litres cost.
  */
-const ALLOWED = ["Transport Manager", "Platform Admin", "Fleet Operations", "Accounts", "Accountant"];
+const ALLOWED = [
+  "Transport Manager",
+  "Platform Admin",
+  "Fleet Operations",
+  "Accounts",
+  "Accountant",
+];
 
 export const Route = createFileRoute("/workspace/app/lubricant")({
   beforeLoad: () => {
@@ -44,7 +55,8 @@ export const Route = createFileRoute("/workspace/app/lubricant")({
       { title: "Lubricant | FleetOpsX" },
       {
         name: "description",
-        content: "Diesel and gas in the tank, what was dispensed each day and what it cost, by company and truck.",
+        content:
+          "Diesel and gas in the tank, what was dispensed each day and what it cost, by company and truck.",
       },
     ],
   }),
@@ -79,16 +91,28 @@ function StatBox({
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-      <span className="text-[11.4px] uppercase leading-4 tracking-[0.4px] text-[#627084]">{label}</span>
+      <span className="text-[11.4px] uppercase leading-4 tracking-[0.4px] text-[#627084]">
+        {label}
+      </span>
       <span className="flex items-end gap-1.5">
-        <span className="text-[26px] font-semibold leading-7 tabular-nums text-[#141A1F]">{value}</span>
-        {unit && <span className="pb-0.5 text-[11.4px] uppercase tracking-[0.4px] text-[#627084]">{unit}</span>}
+        <span className="text-[26px] font-semibold leading-7 tabular-nums text-[#141A1F]">
+          {value}
+        </span>
+        {unit && (
+          <span className="pb-0.5 text-[11.4px] uppercase tracking-[0.4px] text-[#627084]">
+            {unit}
+          </span>
+        )}
       </span>
       {note && (
         <span
           className={cn(
             "text-[11.5px] tracking-[0.4px]",
-            accent === "amber" ? "text-[#ED351D]" : accent === "green" ? "text-emerald-600" : "text-[#627084]",
+            accent === "amber"
+              ? "text-[#ED351D]"
+              : accent === "green"
+                ? "text-emerald-600"
+                : "text-[#627084]",
           )}
         >
           {note}
@@ -107,19 +131,8 @@ function LubricantReportPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [companyMenu, setCompanyMenu] = useState(false);
   const [page, setPage] = useState(0);
-  /** Fleet Ops' diesel asks, and the TM's release on each — the desk he works. */
+  /** The TM's diesel asks, read by his release gate — the department's queue. */
   const [asks, setAsks] = useState<LubricantRequestRow[]>([]);
-  /** The ask currently being released — the modal's subject, null when closed. */
-  const [releasing, setReleasing] = useState<LubricantRequestRow | null>(null);
-  const [releaseValue, setReleaseValue] = useState("");
-  const [releaseSaving, setReleaseSaving] = useState(false);
-  /**
-   * The TM's release queue pages, 20 to a page.
-   *
-   * It used to show eight and then dump the rest behind "Show all 62", which
-   * turned the page into a 62-row scroll. A page at a time is scannable and the
-   * count is still exact.
-   */
   const [queuePage, setQueuePage] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -133,7 +146,8 @@ function LubricantReportPage() {
       setRows(history);
       setAsks(pending);
     } catch (err) {
-      if (loading) toast.error(err instanceof Error ? err.message : "Failed to load the lubricant report.");
+      if (loading)
+        toast.error(err instanceof Error ? err.message : "Failed to load the lubricant report.");
     } finally {
       setLoading(false);
     }
@@ -144,55 +158,19 @@ function LubricantReportPage() {
   }, [refresh]);
   useAutoRefresh(() => void refresh(), []);
 
-  /*
-   * THE RELEASE, ON THE DEPARTMENT'S OWN PAGE. Fleet Ops works out what each
-   * dispatch needs; the pump refuses to dispense more than the Transport
-   * Manager released. That decision used to live only on his dashboard, so
-   * opening the module itself gave him nothing to act on — the queue and the
-   * decision now sit together here.
-   */
   const isTm = authService.getRoles().includes("Transport Manager");
-  const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
   /*
-   * ONE number for "still waiting". The stat card and the queue header used to
-   * print the server's count and the loaded list respectively, which is how the
-   * same screen showed 63 and 62 at once. Both now read the list the queue
-   * pages; the server's count is only the fallback for a role whose request
-   * queue does not load at all.
+   * WAITING means the TM has not cleared the dispatch yet (Requested /
+   * Approved / Awaiting Approval). It used to mean "no legacy litres blob on
+   * the trip", which stacked every Scheduled and in-transit dispatch into
+   * this queue forever — the pump only needs the approval gate, and the
+   * gate is the status: his final approval IS the release.
    */
-  const waitingForRelease = asks.length > 0 ? pendingAsks.length : (overview?.counts.requests ?? 0);
-  const queuePageCount = Math.max(1, Math.ceil(pendingAsks.length / PAGE_SIZE));
+  const waitingAsks = useMemo(() => asks.filter((a) => approvalGate(a) === "waiting"), [asks]);
+  const waitingForRelease = waitingAsks.length;
+  const queuePageCount = Math.max(1, Math.ceil(waitingAsks.length / PAGE_SIZE));
   const safeQueuePage = Math.min(queuePage, queuePageCount - 1);
-  const queueRows = pendingAsks.slice(safeQueuePage * PAGE_SIZE, (safeQueuePage + 1) * PAGE_SIZE);
-
-  const openRelease = (ask: LubricantRequestRow) => {
-    setReleasing(ask);
-    setReleaseValue(String(ask.request.quantity));
-  };
-
-  const confirmRelease = async () => {
-    if (!releasing) return;
-    const litres = Number(releaseValue.replace(/[^0-9.]/g, ""));
-    if (!Number.isFinite(litres) || litres <= 0) {
-      toast.error("Enter a positive number.");
-      return;
-    }
-    setReleaseSaving(true);
-    try {
-      await lubricantService.authorize(
-        releasing.id,
-        litres,
-        authService.getCurrentUser()?.name || "Transport Manager",
-      );
-      toast.success(`${formatQuantity(litres)} released — the pump cannot exceed it.`);
-      setReleasing(null);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The release was not saved.");
-    } finally {
-      setReleaseSaving(false);
-    }
-  };
+  const queueRows = waitingAsks.slice(safeQueuePage * PAGE_SIZE, (safeQueuePage + 1) * PAGE_SIZE);
 
   /** Every company that has ever been dispensed to, so the filter can offer them. */
   const companyOptions = useMemo(() => {
@@ -215,8 +193,19 @@ function LubricantReportPage() {
       if (want.length && !want.includes(company.toLowerCase())) return false;
       if (!q) return true;
       const v = resolveVehicle(row);
-      return [row.reference, v.capNumber, v.plate, v.driverName, v.bodyType, row.fuelType, company, row.dropoff].some(
-        (value) => String(value ?? "").toLowerCase().includes(q),
+      return [
+        row.reference,
+        v.capNumber,
+        v.plate,
+        v.driverName,
+        v.bodyType,
+        row.fuelType,
+        company,
+        row.dropoff,
+      ].some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
       );
     });
   }, [rows, query, range, companies]);
@@ -266,14 +255,22 @@ function LubricantReportPage() {
           label="Total Diesel Available"
           value={formatQuantity(diesel?.quantity ?? 0)}
           unit="litres"
-          note={diesel?.low ? `Below the ${formatQuantity(diesel?.minLevel ?? 0)} L minimum` : "Above minimum"}
+          note={
+            diesel?.low
+              ? `Below the ${formatQuantity(diesel?.minLevel ?? 0)} L minimum`
+              : "Above minimum"
+          }
           accent={diesel?.low ? "amber" : "green"}
         />
         <StatBox
           label="Total Gas Available"
           value={formatQuantity(gas?.quantity ?? 0)}
           unit="kg"
-          note={gas?.low ? `Below the ${formatQuantity(gas?.minLevel ?? 0)} KG minimum` : "Above minimum"}
+          note={
+            gas?.low
+              ? `Below the ${formatQuantity(gas?.minLevel ?? 0)} KG minimum`
+              : "Above minimum"
+          }
           accent={gas?.low ? "amber" : "green"}
         />
         <StatBox
@@ -291,15 +288,16 @@ function LubricantReportPage() {
         />
       </div>
 
-      {isTm && pendingAsks.length > 0 ? (
+      {waitingAsks.length > 0 ? (
         <div className="flex flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
               <h3 className="text-[16px] font-medium text-[#1B2432]">
-                Awaiting your release ({pendingAsks.length})
+                Awaiting the Transport Manager ({waitingAsks.length})
               </h3>
               <p className="text-[12px] text-[#5C6470]">
-                Fleet Ops' figure per dispatch — the pump refuses to dispense more than you release.
+                Dispatches he has not approved yet — his approval is the release that clears the
+                pump.
               </p>
             </div>
           </div>
@@ -310,24 +308,20 @@ function LubricantReportPage() {
                   {ask.request.quantity} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
                   {ask.customer || "—"} · {ask.dropoff || "—"}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => openRelease(ask)}
-                  className="h-8 shrink-0 rounded bg-[#1B2432] px-3 text-[12px] font-semibold text-white hover:bg-[#2a3547]"
-                >
-                  Release
-                </button>
+                <span className="shrink-0 rounded-full bg-[#F1F2F4] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                  {ask.status || "Requested"}
+                </span>
               </div>
             ))}
           </div>
-          {pendingAsks.length > PAGE_SIZE ? (
+          {waitingAsks.length > PAGE_SIZE ? (
             <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-4">
               <span className="text-[13.5px] font-semibold tabular-nums text-[#1B2432]">
                 {safeQueuePage * PAGE_SIZE + 1} -{" "}
-                {Math.min((safeQueuePage + 1) * PAGE_SIZE, pendingAsks.length)}
+                {Math.min((safeQueuePage + 1) * PAGE_SIZE, waitingAsks.length)}
               </span>
               <span className="text-[13.5px] font-semibold text-[#1B2432]">
-                of {pendingAsks.length} awaiting release
+                of {waitingAsks.length} awaiting approval
               </span>
               <div className="ml-2 flex items-center gap-2.5">
                 <button
@@ -359,7 +353,9 @@ function LubricantReportPage() {
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispensed Lubricant</h3>
+          <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            Dispensed Lubricant
+          </h3>
           <div className="flex flex-wrap items-center gap-3">
             <select
               value={range}
@@ -384,7 +380,9 @@ function LubricantReportPage() {
                 aria-expanded={companyMenu}
                 className={cn(
                   "flex h-10 items-center gap-2 rounded border bg-white px-3 text-[13.5px] tracking-[0.4px]",
-                  companies.length ? "border-[#ED351D] text-[#ED351D]" : "border-[#E2E5E9] text-[#141A1F]",
+                  companies.length
+                    ? "border-[#ED351D] text-[#ED351D]"
+                    : "border-[#E2E5E9] text-[#141A1F]",
                 )}
               >
                 {companies.length === 0
@@ -409,7 +407,9 @@ function LubricantReportPage() {
                       All companies
                     </button>
                     {companyOptions.length === 0 && (
-                      <p className="px-2 py-1.5 text-[12.5px] text-[#9AA1AC]">No company has been dispensed to yet.</p>
+                      <p className="px-2 py-1.5 text-[12.5px] text-[#9AA1AC]">
+                        No company has been dispensed to yet.
+                      </p>
                     )}
                     {companyOptions.map((name) => {
                       const ticked = companies.some((c) => c.toLowerCase() === name.toLowerCase());
@@ -423,7 +423,9 @@ function LubricantReportPage() {
                             checked={ticked}
                             onChange={() => {
                               setCompanies((prev) =>
-                                ticked ? prev.filter((c) => c.toLowerCase() !== name.toLowerCase()) : [...prev, name],
+                                ticked
+                                  ? prev.filter((c) => c.toLowerCase() !== name.toLowerCase())
+                                  : [...prev, name],
                               );
                               setPage(0);
                             }}
@@ -451,18 +453,39 @@ function LubricantReportPage() {
 
         <div className="overflow-x-auto">
           <div className="min-w-[880px]">
-            <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", REPORT_GRID)}>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Quantity</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Amount</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Company</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
+            <div
+              className={cn(
+                "items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]",
+                REPORT_GRID,
+              )}
+            >
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Date Approved
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Truck
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Driver
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Quantity
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Amount
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Company
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Dispatch ID
+              </span>
             </div>
 
             {loading && rows.length === 0 ? (
-              <p className="py-8 text-center text-[13.5px] text-[#5C6470]">Loading lubricant report…</p>
+              <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
+                Loading lubricant report…
+              </p>
             ) : slice.length === 0 ? (
               <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
                 {rows.length === 0
@@ -475,13 +498,18 @@ function LubricantReportPage() {
                 return (
                   <div
                     key={row.id}
-                    className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0", REPORT_GRID)}
+                    className={cn(
+                      "items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0",
+                      REPORT_GRID,
+                    )}
                   >
                     <ReportDate value={row.trip?.approvedAt ?? row.createdAt} />
                     <span className="truncate text-[13px] tracking-[0.4px] text-[#627084]">
                       {v.capNumber === "—" ? "—" : `${v.capNumber} (${v.plate})`}
                     </span>
-                    <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{v.driverName}</span>
+                    <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                      {v.driverName}
+                    </span>
                     <span className="flex items-baseline gap-1.5 truncate">
                       <span className="text-[14px] font-medium tabular-nums text-[#141A1F]">
                         {formatQuantity(row.quantity)}
@@ -496,7 +524,9 @@ function LubricantReportPage() {
                     <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                       {row.trip?.customer || jobLocation(row.trip)}
                     </span>
-                    <span className="truncate text-[14px] font-medium tracking-[0.4px] text-[#1B2432]">{row.reference}</span>
+                    <span className="truncate text-[14px] font-medium tracking-[0.4px] text-[#1B2432]">
+                      {row.reference}
+                    </span>
                   </div>
                 );
               })
@@ -508,7 +538,10 @@ function LubricantReportPage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg bg-[#F1F2F4] px-4 py-3">
             {(["Diesel", "Gas"] as const).map((t) => (
               <span key={t} className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-                {t}: <span className="font-semibold tabular-nums text-[#141A1F]">{formatQuantity(totals.litres[t] ?? 0)}</span>{" "}
+                {t}:{" "}
+                <span className="font-semibold tabular-nums text-[#141A1F]">
+                  {formatQuantity(totals.litres[t] ?? 0)}
+                </span>{" "}
                 {lubricantUnit(t).toLowerCase()}
               </span>
             ))}
@@ -519,7 +552,10 @@ function LubricantReportPage() {
               </span>
             </span>
             <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-              Total cost: <span className="font-semibold tabular-nums text-[#ED351D]">{formatMoney(totals.amount)}</span>
+              Total cost:{" "}
+              <span className="font-semibold tabular-nums text-[#ED351D]">
+                {formatMoney(totals.amount)}
+              </span>
             </span>
           </div>
         )}
@@ -572,71 +608,6 @@ function LubricantReportPage() {
           }
         />
       </div>
-
-      {/* THE RELEASE MODAL — a real dialog, not a browser prompt the browser
-          swallows: the figure is editable before anything is sent, Enter
-          confirms, Esc backs out, and the button shows the save in flight. */}
-      {releasing ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B111C]/55 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setReleasing(null);
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="flex w-full max-w-[420px] flex-col gap-4 rounded-[12px] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setReleasing(null);
-              if (e.key === "Enter" && !releaseSaving) void confirmRelease();
-            }}
-          >
-            <div className="flex flex-col gap-1">
-              <h4 className="text-[16px] font-semibold text-[#1B2432]">
-                Release {releasing.request.fuelType === "Gas" ? "gas (kg)" : "diesel (litres)"}
-              </h4>
-              <p className="text-[12.5px] text-[#5C6470]">
-                {releasing.customer || "This dispatch"}
-                {releasing.dropoff ? ` · ${releasing.dropoff}` : ""} — Fleet Ops asks for{" "}
-                <strong className="font-semibold text-[#344256]">
-                  {formatQuantity(releasing.request.quantity)}
-                </strong>{" "}
-                {releasing.request.fuelType === "Gas" ? "kg" : "L"}. The pump cannot dispense more than you release.
-              </p>
-            </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
-                Litres to release
-              </span>
-              <input
-                autoFocus
-                value={releaseValue}
-                onChange={(e) => setReleaseValue(e.target.value)}
-                inputMode="decimal"
-                className="h-11 rounded border border-[#E2E5E9] px-3 text-[16px] text-[#141A1F] outline-none focus:border-[#1B2432]"
-              />
-            </label>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReleasing(null)}
-                className="h-9 rounded px-4 text-[13px] font-medium text-[#5C6470] hover:bg-[#F1F2F4]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmRelease()}
-                disabled={releaseSaving}
-                className="h-9 rounded bg-[#1B2432] px-4 text-[13px] font-semibold text-white hover:bg-[#2a3547] disabled:opacity-60"
-              >
-                {releaseSaving ? "Releasing…" : "Confirm release"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

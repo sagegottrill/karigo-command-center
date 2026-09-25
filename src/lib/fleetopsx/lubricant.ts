@@ -85,21 +85,25 @@ export interface LubricantApproval {
  * between the two. A trip still pending (Requested / Approved / Awaiting
  * Approval) has not cleared the driver to fuel.
  */
-export function approvalGate(row: LubricantRequestRow | null | undefined): "released" | "waiting" {
-  const status = String(row?.status ?? "").trim();
+const RELEASED_STATUSES = [
   // Scheduled = his second approval given; anything moving or finished was
   // cleared by it earlier. Requested / Approved / Awaiting Approval have not.
-  return [
-    "Scheduled",
-    "Loaded",
-    "En Route",
-    "Offloading",
-    "Returning",
-    "Delayed",
-    "Completed",
-  ].includes(status)
-    ? "released"
-    : "waiting";
+  "Scheduled",
+  "Loaded",
+  "En Route",
+  "Offloading",
+  "Returning",
+  "Delayed",
+  "Completed",
+];
+
+/** The status test alone — for callers holding only the trip's status word. */
+export function statusIsReleased(status: string | null | undefined): boolean {
+  return RELEASED_STATUSES.includes(String(status ?? "").trim());
+}
+
+export function approvalGate(row: LubricantRequestRow | null | undefined): "released" | "waiting" {
+  return statusIsReleased(row?.status) ? "released" : "waiting";
 }
 
 export interface LubricantOverview {
