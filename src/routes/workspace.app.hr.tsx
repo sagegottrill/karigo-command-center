@@ -7,6 +7,14 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
   StaffRecordForm,
@@ -206,11 +214,20 @@ function HrStaffDirectory() {
       .finally(() => setLoading(false));
   }, []);
 
+  /** The register's own time frame — by the day each hand joined. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
       // The column's word decides, so the filter and the pills can never
       // disagree about who is Active, On Leave or Suspended.
       if (statusFilter !== "All" && staffStatusLabel(d) !== statusFilter) return false;
+      if (!inWindow(d.dateJoined, range)) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
       // be found without knowing whose licence it is; so are the department, the
@@ -219,7 +236,33 @@ function HrStaffDirectory() {
         `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${staffStatusLabel(d)}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
-  }, [drivers, query, statusFilter]);
+  }, [drivers, query, statusFilter, range]);
+
+  /** The roster's footer: heads on file and the licence clock against them. */
+  const staffSummary = (
+    <SummaryBar
+      items={[
+        { label: "Staff", value: String(filtered.length) },
+        {
+          label: "Active",
+          value: String(filtered.filter((d) => staffStatusLabel(d) === "Active").length),
+        },
+        {
+          label: "On leave",
+          value: String(filtered.filter((d) => staffStatusLabel(d) === "On Leave").length),
+        },
+        {
+          label: "Licences expiring soon",
+          value: String(
+            filtered.filter((d) => {
+              const state = licenseState(d);
+              return state.tone === "soon" || state.tone === "expired";
+            }).length,
+          ),
+        },
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -434,22 +477,24 @@ function HrStaffDirectory() {
   return (
     <>
       <DepartmentTabs department="hr" />
-      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex flex-col gap-[5px]">
-              {/* The department's drawn page: one title, one subtitle, and the
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
+        {" "}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-[5px]">
+            {/* The department's drawn page: one title, one subtitle, and the
                   red button on the same row. The Manager sees the same page —
                   his earlier "HR and Personnel" wording came from a different
                   draw; this set is the register's own. */}
-              <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
-              <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-                Manage staff records and license status
-              </p>
-              {!canEdit && (
-                <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                  View only — HR &amp; Personnel maintains these records
-                </span>
-              )}
-            </div>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              Manage staff records and license status
+            </p>
+            {!canEdit && (
+              <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                View only — HR &amp; Personnel maintains these records
+              </span>
+            )}
+          </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
             {/*
               ONE button, the way the department draws it. A second "Import CSV"
@@ -467,7 +512,6 @@ function HrStaffDirectory() {
             </button>
           </div>
         </div>
-
         <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-5 border-b border-[#E2E5E9] pb-5">
             {/* The drawn card carries no heading — search and the red filter are
@@ -488,6 +532,25 @@ function HrStaffDirectory() {
                   className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
                 />
               </div>
+              <PeriodFilter
+                value={periodFilter}
+                onChange={(v) => {
+                  setPeriodFilter(v);
+                  setPage(0);
+                }}
+                custom={rangeCustom.custom}
+                customOpen={rangeCustom.open}
+                onToggleCustom={rangeCustom.setOpen}
+              >
+                <CustomRangePicker
+                  custom={rangeCustom.custom}
+                  onSet={rangeCustom.set}
+                  onClear={() => {
+                    rangeCustom.clear();
+                    setPage(0);
+                  }}
+                />
+              </PeriodFilter>
               <FilterButton
                 options={STAFF_STATUS_FILTERS}
                 value={statusFilter}
@@ -673,6 +736,8 @@ function HrStaffDirectory() {
               </div>
             );
           })}
+
+          {!loading && filtered.length > 0 && staffSummary}
 
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (

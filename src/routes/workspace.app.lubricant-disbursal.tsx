@@ -23,6 +23,14 @@ import {
   printDisbursalTicket,
 } from "@/components/fleetopsx/lubricant-ui";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { cn } from "@/lib/utils";
 
@@ -97,10 +105,19 @@ function LogDisbursalPage() {
   }, [refresh]);
   useAutoRefresh(() => void refresh(), []);
 
+  /** The queue's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return requests.filter((r) => {
       if (fuelFilter !== "All" && r.request?.fuelType !== fuelFilter) return false;
+      if (!inWindow(r.approvedAt ?? r.createdAt, range)) return false;
       if (!q) return true;
       const v = resolveVehicle(r);
       return [
@@ -121,7 +138,7 @@ function LogDisbursalPage() {
           .includes(q),
       );
     });
-  }, [requests, query, fuelFilter]);
+  }, [requests, query, fuelFilter, range]);
 
   /**
    * The queue is APPROVED TICKETS ONLY (PRD §2/§3): a row joins it the moment
@@ -130,6 +147,32 @@ function LogDisbursalPage() {
    */
   const ready = useMemo(() => filtered.filter((r) => approvalGate(r) === "released"), [filtered]);
   const waitingCount = filtered.length - ready.length;
+
+  /** The queue's footer: tickets attendable now, per fuel, litres to pour. */
+  const queueSummary = (
+    <SummaryBar
+      items={[
+        { label: "Tickets", value: String(ready.length) },
+        {
+          label: "Diesel",
+          value: `${formatQuantity(
+            ready
+              .filter((r) => r.request?.fuelType === "Diesel")
+              .reduce((s, r) => s + Number(r.request?.quantity ?? 0), 0),
+          )} L`,
+        },
+        {
+          label: "Gas",
+          value: `${formatQuantity(
+            ready
+              .filter((r) => r.request?.fuelType === "Gas")
+              .reduce((s, r) => s + Number(r.request?.quantity ?? 0), 0),
+          )} KG`,
+        },
+        ...(waitingCount > 0 ? [{ label: "Waiting on the TM", value: String(waitingCount) }] : []),
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(ready.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -170,6 +213,25 @@ function LogDisbursalPage() {
               }}
               placeholder="Search"
             />
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+                setPage(0);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={() => {
+                  rangeCustom.clear();
+                  setPage(0);
+                }}
+              />
+            </PeriodFilter>
             <FilterButton
               iconOnly
               options={FUEL_FILTERS}
@@ -320,6 +382,8 @@ function LogDisbursalPage() {
             )}
           </div>
         </div>
+
+        {ready.length > 0 ? queueSummary : null}
 
         <LubricantTableFooter
           from={ready.length === 0 ? 0 : safePage * PAGE_SIZE + 1}

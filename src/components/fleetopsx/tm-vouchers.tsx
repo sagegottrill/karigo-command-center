@@ -2,6 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Printer, Search, SlidersHorizontal, X } from "lucide-react";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { tripService } from "@/lib/fleetopsx/services";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
@@ -87,10 +95,19 @@ export function TmVouchers() {
   const statusOf = (trip: Trip): "Pending" | "Paid" =>
     disbursalState(sheetOf(trip)) === PENDING_DISBURSAL ? "Pending" : "Paid";
 
+  /** The ledger's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return vouchers.filter((trip) => {
       if (statusFilter !== "All statuses" && statusOf(trip) !== statusFilter) return false;
+      if (!inWindow(trip.createdAt, range)) return false;
       if (!q) return true;
       return [
         voucherRef(trip),
@@ -106,7 +123,30 @@ export function TmVouchers() {
           .includes(q),
       );
     });
-  }, [vouchers, query, statusFilter]);
+  }, [vouchers, query, statusFilter, range]);
+
+  /** The sheet's footer: vouchers and the money in each state. */
+  const voucherSummary = (
+    <SummaryBar
+      items={[
+        { label: "Vouchers", value: String(rows.length) },
+        { label: "Pending", value: String(rows.filter((t) => statusOf(t) === "Pending").length) },
+        { label: "Paid", value: String(rows.filter((t) => statusOf(t) === "Paid").length) },
+        {
+          label: "Total committed",
+          value: money(rows.reduce((total, trip) => total + sum(sheetOf(trip)), 0)),
+        },
+        {
+          label: "Still to pay",
+          value: money(
+            rows
+              .filter((trip) => statusOf(trip) === "Pending")
+              .reduce((total, trip) => total + sum(sheetOf(trip)), 0),
+          ),
+        },
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -180,6 +220,25 @@ export function TmVouchers() {
                 className="h-10 w-full rounded-[6px] border border-[#E2E5E9] bg-white pl-9 pr-3 text-[13.5px] text-[#1B2432] outline-none placeholder:text-[#9CA3AF] focus:border-[#1B2432]"
               />
             </label>
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+                setPage(0);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={() => {
+                  rangeCustom.clear();
+                  setPage(0);
+                }}
+              />
+            </PeriodFilter>
             <div className="relative shrink-0">
               <button
                 type="button"
@@ -304,6 +363,8 @@ export function TmVouchers() {
             })
           )}
         </div>
+
+        {rows.length > 0 ? voucherSummary : null}
 
         <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
           <span className="text-[15px] font-semibold tabular-nums text-[#1B2432]">
