@@ -11,8 +11,10 @@ import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import {
   displayCapFromTrip,
   displayCapPlateFromTrip,
+  displayDriverAssigned,
   displayPlateFromTrip,
 } from "@/lib/fleetopsx/display-ids";
+import { driverForTrip, type TripDriverMatch } from "@/lib/fleetopsx/driver-duty";
 import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import {
@@ -261,16 +263,37 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
 
 function DispatchDetail({
   trip,
-  driver,
+  driverMatch,
   checkpoints,
   onBack,
 }: {
   trip: Trip;
-  driver?: Driver;
+  driverMatch?: TripDriverMatch;
   checkpoints: LocationCheckpoint[];
   onBack: () => void;
 }) {
+  const driver = driverMatch?.driver;
   const displayStatus = toDisplayStatus(trip.status);
+  /**
+   * The driver as the design writes him — name with his staff number in
+   * brackets, "Marcus Sterling (SL-00829)" — and his phone on its own row.
+   *
+   * A dispatch nobody is on reads "—": the trip row stores the literal word
+   * "Unassigned" when no driver was ever picked, and printing that word in a
+   * data row told the reader a man called Unassigned was driving.
+   */
+  const driverLabel = displayDriverAssigned(driver, trip.driverName) || "—";
+  /**
+   * How the roster row was found, when it was not simply the name on the trip.
+   * The details are worth having; they are not worth passing off as something the
+   * dispatch itself said.
+   */
+  const driverNote =
+    driverMatch?.via === "truck"
+      ? `Roster details matched by the truck on this dispatch (${displayCapFromTrip(trip)}).`
+      : driverMatch?.via === "token"
+        ? "Roster details matched by the name typed on this dispatch."
+        : undefined;
   // Fleet Ops configures litres, not price — the TM's fuel cost stays hidden.
   const showTmPricing = canSeeTmPricing(authService.getRoles());
   const sites = tripLoadingSites(trip);
@@ -290,7 +313,7 @@ function DispatchDetail({
       ["Product", trip.cargo],
       ["Truck Head", headCell(trip)],
       ["Body Type", trip.tailType ?? ""],
-      ["Driver", driver?.name || trip.driverName || ""],
+      ["Driver", driverLabel === "—" ? "" : driverLabel],
       ["Driver ID", driver?.employeeId ?? ""],
       ["Driver Phone", driver?.phone ?? ""],
       ["Loading Site(s)", sites.join(" • ")],
@@ -376,13 +399,16 @@ function DispatchDetail({
                     : trip.tailType || undefined
                 }
               />
-              {/* The trip record carries only the driver's name (and their roster
-                  id) — staff number and phone live on the roster. Until that
-                  lookup existed here the phone row silently printed nothing on
-                  every dispatch, assigned or not. */}
-              <DetailRow label="Driver Assigned:" value={driver?.name || trip.driverName} />
-              <DetailRow label="Driver ID:" value={driver?.employeeId} />
-              <DetailRow label="Driver Contact Phone:" value={driver?.phone} />
+              {/* The trip record carries only the driver's name as somebody typed
+                  it — the staff number and phone live on the roster, and the
+                  lookup that reaches them is `driverForTrip`. One row, the way
+                  the design writes it: the name with his staff number beside it,
+                  then the phone. */}
+              <DetailRow label="Driver Assigned:" value={driverLabel} />
+              <DetailRow label="Driver Contact Phone:" value={driver?.phone || "—"} />
+              {driverNote ? (
+                <p className="text-[11px] leading-4 text-[#9CA3AF]">{driverNote}</p>
+              ) : null}
             </div>
 
             {(trip.directCosts || typeof trip.totalCosts === "number") && (
@@ -584,28 +610,13 @@ function DispatchHistoryPage() {
   /**
    * The driver behind a dispatch, resolved from the roster.
    *
-   * A trip stores the driver's NAME plus the roster id, so everything else —
-   * staff number, phone, licence — has to be looked up. That lookup was missing
-   * here, which is why Fleet Ops could see "Driver Assigned: Unassigned" and an
-   * empty phone line and nothing else about who was driving.
+   * A trip stores the driver's name the way the dispatcher typed it and, in
+   * practice, no id at all — so everything else (staff number, phone) has to be
+   * looked up, and the rules for that lookup live in `driverForTrip` so this
+   * page, the staff record and the fleet desk all read one rule.
    */
-  const driverFor = useMemo(() => {
-    const key = (s: string | undefined | null) => (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
-    const byId = new Map<string, Driver>();
-    const byName = new Map<string, Driver>();
-    for (const d of drivers) {
-      byId.set(d.id, d);
-      const name = key(d.name);
-      if (name) byName.set(name, d);
-    }
-    // Dispatches store the driver's NAME — the id is not carried on the trip in
-    // practice — so the name is the real key, with the id tried first when a
-    // row happens to have one. A name that matches nobody (a bare "MUSA" typed
-    // onto an old dispatch) resolves to nothing rather than to another driver:
-    // a wrong phone number on a dispatch is worse than a blank one.
-    return (trip: Trip): Driver | undefined =>
-      (trip.driverId ? byId.get(trip.driverId) : undefined) ?? byName.get(key(trip.driverName));
-  }, [drivers]);
+  const driverMatchFor = useMemo(() => (trip: Trip) => driverForTrip(trip, drivers), [drivers]);
+  const driverFor = (trip: Trip): Driver | undefined => driverMatchFor(trip)?.driver;
 
   const filteredTrips = useMemo(() => {
     const rows = trips.filter((t) => {
@@ -641,7 +652,8 @@ function DispatchHistoryPage() {
     const csv = filteredTrips
       .map((t) => {
         const driver = driverFor(t);
-        return `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)},${driver?.name || t.driverName || ""},${driver?.employeeId ?? ""},${driver?.phone ?? ""}`;
+        const who = displayDriverAssigned(driver, t.driverName);
+        return `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)},${who},${driver?.employeeId ?? ""},${driver?.phone ?? ""}`;
       })
       .join("\n");
     return headers + csv;
@@ -651,7 +663,7 @@ function DispatchHistoryPage() {
     return (
       <DispatchDetail
         trip={selectedTrip}
-        driver={driverFor(selectedTrip)}
+        driverMatch={driverMatchFor(selectedTrip)}
         checkpoints={checkpoints}
         onBack={() => {
           setSelectedTripId(null);
@@ -761,7 +773,7 @@ function DispatchHistoryPage() {
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Driver:</span>
                     <span className="flex-1 text-[#344256]">
-                      {driverFor(trip)?.name || trip.driverName || "—"}
+                      {displayDriverAssigned(driverFor(trip), trip.driverName) || "—"}
                       {driverFor(trip)?.phone ? ` · ${driverFor(trip)!.phone}` : ""}
                     </span>
                   </div>

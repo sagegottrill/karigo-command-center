@@ -1,3 +1,4 @@
+import { displayCapFromTrip } from "./display-ids";
 import { displayDispatchId } from "./request-id";
 import type { Driver, DriverStatus, Trip } from "./types";
 
@@ -49,6 +50,101 @@ export function isLiveTrip(trip: Trip): boolean {
 export function isNamedDriver(value: unknown): boolean {
   const name = normPersonName(value);
   return Boolean(name) && !NOBODY.test(name);
+}
+
+/** Whole words of a name: "Ganiyu Semiu" -> ["GANIYU", "SEMIU"]. */
+function nameTokens(value: unknown): string[] {
+  return normPersonName(value).split(" ").filter(Boolean);
+}
+
+/**
+ * Do the two spellings plausibly belong to the same man? True when every word of
+ * the shorter name appears in the longer one — "SEMIU" fits "Ganiyu Semiu", and
+ * "MUSA ADAMU" does NOT fit "Musa Garuba".
+ *
+ * This is what keeps a lookup from swapping in a stranger: the dispatcher types
+ * a first name or a surname, and only a name that already contains what he typed
+ * is allowed to answer for it.
+ */
+function nameFits(stored: string, rosterName: unknown): boolean {
+  const typed = stored.split(" ").filter(Boolean);
+  const roster = nameTokens(rosterName);
+  if (!typed.length || !roster.length) return false;
+  const [short, long] = typed.length <= roster.length ? [typed, roster] : [roster, typed];
+  return short.every((word) => long.includes(word));
+}
+
+/** The cap code (P064) inside whatever shape a row stores it in: "P064 - GGE105YK". */
+function capCode(value: unknown): string {
+  const hit = /\bP\s?\d{1,4}\b/i.exec(String(value ?? ""));
+  return hit ? hit[0].replace(/\s+/g, "").toUpperCase() : "";
+}
+
+/**
+ * How a dispatch's driver was resolved back to the roster. `id` and `name` are
+ * facts the dispatch itself carries; `token` and `truck` are the roster being
+ * read for a hand-typed name, and the screens that print details resolved that
+ * way say so rather than presenting a guess as a record.
+ */
+export type TripDriverMatchVia = "id" | "name" | "token" | "truck";
+
+export type TripDriverMatch = { driver: Driver; via: TripDriverMatchVia };
+
+/**
+ * The roster row behind a dispatch — the whole reason this exists is that the
+ * live Trip row carries NO driverId and stores the driver's name as somebody
+ * typed it ("saleh", "ali", "MUSA", and the literal "Unassigned").
+ *
+ * Reading the name alone left Fleet Ops with a name and an empty staff number
+ * and phone on most of the register, so the rules go in order of how much the
+ * dispatch itself actually said:
+ *
+ *   1. the driverId, when a row still has one;
+ *   2. exactly one roster row with that name;
+ *   3. exactly one roster row whose name contains what was typed (SEMIU);
+ *   4. among several such rows, the one the roster pairs with the truck this
+ *      dispatch is on — the plate on the dispatch resolves to a cab cap, and HR
+ *      files each driver against that cap.
+ *
+ * Anything ambiguous returns nothing. A wrong staff number and phone on a
+ * dispatch is worse than a blank one, so the lookup never picks between men.
+ */
+/** The only row in a set — nothing when the set is empty or several rows wide. */
+function soleRow(rows: Driver[]): Driver | undefined {
+  return rows.length === 1 ? rows[0] : undefined;
+}
+
+export function driverForTrip(trip: Trip, drivers: Driver[]): TripDriverMatch | undefined {
+  const id = String(trip.driverId ?? "");
+  if (id) {
+    const byId = drivers.find((d) => String(d.id) === id);
+    if (byId) return { driver: byId, via: "id" };
+  }
+
+  const stored = normPersonName(trip.driverName);
+  if (!stored || !isNamedDriver(trip.driverName)) return undefined;
+
+  const exact = soleRow(drivers.filter((d) => normPersonName(d.name) === stored));
+  // Two people on the roster share one name: neither can be handed the dispatch
+  // on the strength of the name alone.
+  if (exact) return { driver: exact, via: "name" };
+  if (drivers.some((d) => normPersonName(d.name) === stored)) return undefined;
+
+  const candidates = drivers.filter((d) => nameFits(stored, d.name));
+  const only = soleRow(candidates);
+  if (only) return { driver: only, via: "token" };
+  if (candidates.length > 1) {
+    const cap = capCode(displayCapFromTrip(trip));
+    if (cap) {
+      const onTruck = soleRow(
+        candidates.filter(
+          (d) => capCode(d.assignedTruck) === cap || capCode(d.assignedTail) === cap,
+        ),
+      );
+      if (onTruck) return { driver: onTruck, via: "truck" };
+    }
+  }
+  return undefined;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   displayCapFromTrip,
   displayPlateFromTrip,
   humanCode,
+  isNoValue,
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
 import { authService, fleetService, tripService } from "@/lib/fleetopsx/services";
@@ -49,7 +50,10 @@ export const Route = createFileRoute("/workspace/app/gate")({
 });
 
 function plateOf(trip: Trip) {
-  return displayPlateFromTrip(trip) || humanCode(trip.truckReg) || "—";
+  // The word "Unassigned" is what an unassigned trip stores in truckReg. It is
+  // not a registration, so the gate log reads "—" instead of printing it as one.
+  const raw = humanCode(trip.truckReg);
+  return displayPlateFromTrip(trip) || (isNoValue(raw) ? "" : raw) || "—";
 }
 
 function headOf(trip: Trip) {

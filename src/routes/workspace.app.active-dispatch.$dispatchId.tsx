@@ -5,10 +5,12 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
   displayCapFromTrip,
+  displayCapPlateFromTrip,
   displayDriverAssigned,
   displayPlateFromTrip,
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
+import { driverForTrip, type TripDriverMatch } from "@/lib/fleetopsx/driver-duty";
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import {
   canLogTracking as canLogTrackingRole,
@@ -64,7 +66,11 @@ function LogLocationPage() {
   const { dispatchId } = Route.useParams();
   const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
-  const [driver, setDriver] = useState<Driver | null>(null);
+  // The roster row behind the dispatch AND how it was found — a driver resolved
+  // from the truck rather than the name is said to be that, not presented as the
+  // name the dispatch itself carries.
+  const [driverMatch, setDriverMatch] = useState<TripDriverMatch | null>(null);
+  const driver = driverMatch?.driver ?? null;
   const [loading, setLoading] = useState(true);
   const [statusOpen, setStatusOpen] = useState(false);
   const [delayStatus, setDelayStatus] = useState<TrackingDelayStatus>("On Schedule");
@@ -96,18 +102,16 @@ function LogLocationPage() {
         setTrip(next);
         setDelayStatus(getTrackingDelayStatus(next));
         setCheckpoints(await listCheckpoints(next.id));
-        // Resolve driver by ID first; fall back to NAME — FO assignments store
-        // the name only, and the phone lives on the driver row.
-        const assignedName = next.driverName && next.driverName !== "Unassigned" ? next.driverName.trim() : "";
-        if (next.driverId || assignedName) {
+        // The driver behind this dispatch, resolved from the roster: FO
+        // assignments store the name as it was typed and no id at all, so the
+        // rules (and why they never guess between two men) live in `driverForTrip`.
+        if (next.driverId || next.driverName?.trim()) {
           void driverService
             .list()
             .then((drivers: Driver[]) => {
               if (cancelled) return;
-              const found = next!.driverId
-                ? drivers.find((d) => d.id === next!.driverId)
-                : drivers.find((d) => d.name.trim().toLowerCase() === assignedName.toLowerCase());
-              if (found) setDriver(found);
+              const match = driverForTrip(next!, drivers);
+              if (match) setDriverMatch(match);
             })
             .catch(() => {});
         }
@@ -250,6 +254,17 @@ function LogLocationPage() {
   const sites = tripLoadingSites(trip);
   const siteProgress = loadingSiteProgress(sites, checkpoints);
   const driverPhone = driver?.phone?.trim() || "";
+  /**
+   * How the roster row was found, when it was not the name the dispatch carries.
+   * The details are worth having; they are not worth passing off as something the
+   * dispatch itself said.
+   */
+  const driverNote =
+    driverMatch?.via === "truck"
+      ? `Roster details matched by the truck on this dispatch (${displayCapFromTrip(trip)}).`
+      : driverMatch?.via === "token"
+        ? "Roster details matched by the name typed on this dispatch."
+        : undefined;
   // Only the Tracking department logs the whole journey and moves the delay
   // status. The Loading department logs ONE thing here — collection — and that
   // entry is the same checkpoint record Tracking writes, so whichever of the two
@@ -403,7 +418,11 @@ function LogLocationPage() {
                 Vehicle & Operator Details
               </p>
               <div className="flex flex-col gap-3">
-                <DetailRow label="Truck Head (Cap Number / Plate):" value={detailFields.vehicle[0]?.value || "—"} />
+                {/* This row used to print `vehicle[0]`, which is the truck TYPE the
+                    partner requested — so a dispatch on P019 read "Truck Head: Flat".
+                    The head is the cap with its plate: the one pairing the gate log
+                    and every board use. */}
+                <DetailRow label="Truck Head (Cap Number / Plate):" value={displayCapPlateFromTrip(trip) || "—"} />
                 <DetailRow
                   label="Truck Tail assigned:"
                   value={
@@ -416,6 +435,9 @@ function LogLocationPage() {
                 />
                 <DetailRow label="Driver Assigned:" value={displayDriverAssigned(driver, trip.driverName) || "—"} />
                 <DetailRow label="Driver Contact Phone:" value={driverPhone || "—"} />
+                {driverNote ? (
+                  <p className="text-[11px] leading-4 text-[#9CA3AF]">{driverNote}</p>
+                ) : null}
               </div>
             </div>
           </div>

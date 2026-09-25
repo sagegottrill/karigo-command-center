@@ -45,6 +45,21 @@ export function normalizePersonName(name: string | null | undefined): string {
   return (name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/**
+ * Words the platform STORES when nothing was ever set — "Unassigned", "TBD".
+ *
+ * They are the absence of a value, not a value, and printing one in a data row
+ * tells the reader a truck or a driver was named "Unassigned". Every helper that
+ * reads a trip's own strings passes them through here first, so a blank field
+ * stays blank and the screen shows "—" instead.
+ */
+const NO_VALUE = /^(unassigned|none|n\/?a|tbd|—|-)$/i;
+
+export function isNoValue(value: string | null | undefined): boolean {
+  const text = (value ?? "").trim();
+  return !text || NO_VALUE.test(text);
+}
+
 const cabByPlate = new Map(
   PETROLINE_CABS.map((c) => [normalizePlate(c.plate), c] as const).filter(([p]) => Boolean(p)),
 );
@@ -156,7 +171,11 @@ export function displayDriverOption(driver: Driver): string {
 }
 
 export function displayDriverAssigned(driver?: Driver | null, nameFallback?: string | null): string {
-  const name = (nameFallback || driver?.name || "").trim();
+  // A name that only says "Unassigned" is the absence of a driver, not a driver
+  // called Unassigned: it is dropped so the row can fall back to the roster name
+  // — or to nothing at all.
+  const fallback = (nameFallback ?? "").trim();
+  const name = (isNoValue(fallback) ? "" : fallback) || (isNoValue(driver?.name) ? "" : (driver?.name ?? "").trim());
   const salary = displayDriverSalary(driver);
   if (name && salary) return `${name} (${salary})`;
   return name || salary || "";
@@ -260,8 +279,11 @@ export function displayPlateFromTrip(
 ): string {
   if (head?.registration?.trim()) return head.registration.trim();
   const plate = (trip.truckReg || "").split("/")[0]?.trim() ?? "";
-  if (plate && !looksLikeUuid(plate)) return plate;
-  return "";
+  // An unassigned trip stores the literal word "Unassigned" in truckReg. It is
+  // not a plate, so it is never handed back as one — the callers' own "—" reads
+  // the truth ("nothing assigned") where the word read as a real plate.
+  if (isNoValue(plate) || looksLikeUuid(plate)) return "";
+  return plate;
 }
 
 /**
