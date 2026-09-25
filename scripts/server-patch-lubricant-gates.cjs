@@ -154,30 +154,36 @@ replaceLine(
   "pending rows carry their gate",
 );
 
-/* 3 — the approvals route warns that the model retired, and refuses the dead.
- * Anchored inside its own route (the litres validation is unique to it). */
-insertAfterWithin(
-  /^app\.post\('\/api\/lubricant\/approvals'/,
-  /^    if \(!trip\) return res\.status\(404\)\.json\(\{ error: 'Dispatch not found' \}\);$/,
-  [
-    "    // The release is the Transport Manager's final approval in the request",
-    "    // lifecycle — there is no separate litres step to record any more.",
-    "    // Refuse the dead (declined / finished) and warn on everything else:",
-    "    // kept only so older clients do not hard-fail while they catch up.",
-    "    const approvalStatus = String(trip.status ?? '').trim();",
-    "    if (['Stopped', 'Declined', 'Completed', 'Returned'].includes(approvalStatus)) {",
-    "      return res.status(409).json({",
-    "        error: dispatchRef(tripId) + ' is ' + (approvalStatus || 'dead') + ' — there is nothing left to release.',",
-    "      });",
-    "    }",
-    "    console.warn(",
-    "      '[lubricant/approvals] legacy litres release on ' + dispatchRef(tripId) +",
-    "        ' — the release is the Transport Manager\\'s final approval; this endpoint is retired.',",
-    "    );",
-    "",
-  ],
-  "approvals route refuses the dead and warns on the retired model",
-);
+/* 3 — the approvals route used to warn that the model retired, and refuse the
+ * dead. The endpoint has since been REMOVED from the box entirely (no screen
+ * calls it — server-patch-remove-lubricant-approvals.cjs), so this guard only
+ * applies if the route is somehow still present. */
+if (findLine(/^app\.post\('\/api\/lubricant\/approvals'/) === -1) {
+  console.log("skip: approvals-route guard (endpoint removed from the box)");
+} else {
+  insertAfterWithin(
+    /^app\.post\('\/api\/lubricant\/approvals'/,
+    /^    if \(!trip\) return res\.status\(404\)\.json\(\{ error: 'Dispatch not found' \}\);$/,
+    [
+      "    // The release is the Transport Manager's final approval in the request",
+      "    // lifecycle — there is no separate litres step to record any more.",
+      "    // Refuse the dead (declined / finished) and warn on everything else:",
+      "    // kept only so older clients do not hard-fail while they catch up.",
+      "    const approvalStatus = String(trip.status ?? '').trim();",
+      "    if (['Stopped', 'Declined', 'Completed', 'Returned'].includes(approvalStatus)) {",
+      "      return res.status(409).json({",
+      "        error: dispatchRef(tripId) + ' is ' + (approvalStatus || 'dead') + ' — there is nothing left to release.',",
+      "      });",
+      "    }",
+      "    console.warn(",
+      "      '[lubricant/approvals] legacy litres release on ' + dispatchRef(tripId) +",
+      "        ' — the release is the Transport Manager\\'s final approval; this endpoint is retired.',",
+      "    );",
+      "",
+    ],
+    "approvals route refuses the dead and warns on the retired model",
+  );
+}
 
 /* 4 — the requests queue names each row's side of the gate. */
 replaceLine(

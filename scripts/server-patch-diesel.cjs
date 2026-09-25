@@ -44,7 +44,12 @@ const must = (ok, label) => {
   must(rEnd !== -1, "LubricantRestock closes");
   // `unitCost` already exists on InventoryItem — the guard has to be this
   // model's own block, not the file at large.
-  if (!raw.split(/\r?\n/).slice(rStart, rEnd).some((l) => /^\s+unitCost\b/.test(l))) {
+  if (
+    !raw
+      .split(/\r?\n/)
+      .slice(rStart, rEnd)
+      .some((l) => /^\s+unitCost\b/.test(l))
+  ) {
     const start = rStart;
     const end = rEnd;
     const loggedBy = lines.findIndex(
@@ -62,7 +67,10 @@ const must = (ok, label) => {
     const check = fs.readFileSync(SCHEMA, "utf8").split(/\r?\n/);
     const s2 = check.findIndex((l) => /^model LubricantRestock\b/.test(l));
     const e2 = check.findIndex((l, i) => i > s2 && /^\}/.test(l));
-    must(check.slice(s2, e2).join("\n").includes("unitCost"), "unitCost inside LubricantRestock only");
+    must(
+      check.slice(s2, e2).join("\n").includes("unitCost"),
+      "unitCost inside LubricantRestock only",
+    );
     console.log("schema written");
   } else {
     console.log("ok: schema already carries unitCost");
@@ -116,59 +124,12 @@ if (!has("function tripLubricantApproval")) {
   );
 }
 
-/* 2 — the authorization route itself. */
-if (!has("app.post('/api/lubricant/approvals'")) {
-  insertBefore(
-    /^app\.get\('\/api\/lubricant\/overview'/,
-    [
-      "// ---- Authorization: the Transport Manager releasing litres to a dispatch --",
-      "//",
-      "// Fleet Ops' number is what the dispatch *needs*; this is what the yard may",
-      "// actually pump. Recorded on the trip's directCosts so the approval travels",
-      "// with the dispatch the gate, the pump and this board all read.",
-      "app.post('/api/lubricant/approvals', authenticate, authorize('Transport Manager', 'Platform Admin'), async (req: any, res) => {",
-      "  const tripId = String(req.body?.tripId || '').trim();",
-      "  const revoke = Boolean(req.body?.revoke);",
-      "  const litres = Number(req.body?.litres);",
-      "  const by = String(req.body?.by || '').trim() || 'Transport Manager';",
-      "  if (!tripId) return res.status(400).json({ error: 'tripId is required' });",
-      "  if (!revoke && (!Number.isFinite(litres) || litres <= 0)) {",
-      "    return res.status(400).json({ error: 'litres must be a positive number' });",
-      "  }",
-      "  try {",
-      "    const trip = await prisma.trip.findUnique({ where: { id: tripId } });",
-      "    if (!trip) return res.status(404).json({ error: 'Dispatch not found' });",
-      "    const dc = trip.directCosts && typeof trip.directCosts === 'object' ? { ...(trip.directCosts as any) } : {};",
-      "    if (revoke) {",
-      "      delete dc.lubricantApprovedLitres;",
-      "      delete dc.lubricantApprovedBy;",
-      "      delete dc.lubricantApprovedAt;",
-      "    } else {",
-      "      dc.lubricantApprovedLitres = litres;",
-      "      dc.lubricantApprovedBy = by;",
-      "      dc.lubricantApprovedAt = new Date().toISOString();",
-      "    }",
-      "    const updated = await prisma.trip.update({ where: { id: tripId }, data: { directCosts: dc } });",
-      "    try {",
-      "      await notify('Lubricant',",
-      "        revoke ? 'Diesel authorization withdrawn' : 'Diesel allocation authorized',",
-      "        revoke",
-      "          ? 'The allocation for ' + dispatchRef(tripId) + ' was withdrawn by ' + by + '.'",
-      "          : litres.toLocaleString() + ' ' + (dc.lubricantType || 'Diesel') + ' authorized for ' +",
-      "            dispatchRef(tripId) + ' by ' + by + '.',",
-      "        revoke ? 'warning' : 'success',",
-      "        'Lubricant,Lubricant Manager,Fleet Operations,Transport Manager');",
-      "    } catch (_) { /* the authorization stands even if the alert fails */ }",
-      "    res.json({ ok: true, tripId, approval: tripLubricantApproval(updated.directCosts) });",
-      "  } catch (e: any) {",
-      "    res.status(500).json({ error: e.message });",
-      "  }",
-      "});",
-      "",
-    ],
-    "lubricant approval route",
-  );
-}
+/* 2 — the authorization route itself. RETIRED: the release is the Transport
+ * Manager's final approval in the request lifecycle, so the litres-release
+ * endpoint is no longer installed anywhere (server-patch-remove-lubricant-
+ * approvals.cjs removed it from the box, and no screen calls it). The helper,
+ * the payload riders and the pump cap below all stay — they READ historical
+ * stamps; nothing writes them any more. */
 
 /* 3 — carry the approval on both queues the TM reads. */
 if (!has("approval: tripLubricantApproval(trip.directCosts)")) {
