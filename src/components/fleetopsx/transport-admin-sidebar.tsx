@@ -20,6 +20,7 @@ import {
   Users,
   Wrench,
   CircleDollarSign,
+  BarChart3,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,12 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "New Account", to: "/workspace/app/add-partner", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-partner", icon: Users },
-      { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CircleHelp, liveDot: "partnerRequests" },
+      {
+        label: "Partner Requests",
+        to: "/workspace/app/partner-requests",
+        icon: CircleHelp,
+        liveDot: "partnerRequests",
+      },
     ],
   },
   {
@@ -64,13 +70,23 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     items: [
       { label: "New Account", to: "/workspace/app/add-account", icon: CirclePlus },
       { label: "Account Management", to: "/workspace/app/manage-account", icon: Users },
-      { label: "Password Request", to: "/workspace/app/password-request", icon: CircleHelp, liveDot: "passwordRequests" },
+      {
+        label: "Password Request",
+        to: "/workspace/app/password-request",
+        icon: CircleHelp,
+        liveDot: "passwordRequests",
+      },
     ],
   },
   {
     label: "DEPARTMENTS",
     items: [
-      { label: "Fleet Operation", to: "/workspace/app/fleet", icon: Truck, liveDot: "fleetDispatch" },
+      {
+        label: "Fleet Operation",
+        to: "/workspace/app/fleet",
+        icon: Truck,
+        liveDot: "fleetDispatch",
+      },
       // The fleet itself: add a head or tail, correct it, block one off or retire
       // it. Transport Manager's call alone — Fleet Ops works the trucks, it does
       // not decide which trucks exist.
@@ -98,17 +114,31 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
     ],
   },
   {
+    label: "OVERSIGHT",
+    items: [
+      // The TM's end-to-end read of every department at once: requests, cost,
+      // litres and destinations in one window, computed from the live truth.
+      { label: "Analytics & Reports", to: "/workspace/app/analytics", icon: BarChart3 },
+    ],
+  },
+  {
     items: [
       { label: "Notification", to: "/workspace/app/notifications", icon: Bell, liveDot: "unread" },
       // One operations thread per dispatch — the TM reads the same conversation
       // the partner and every department in the loop are writing in.
-      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, liveDot: "messages" },
+      {
+        label: "Messages",
+        to: "/workspace/app/messages",
+        icon: MessageSquare,
+        liveDot: "messages",
+      },
     ],
   },
 ];
 
 function isPathActive(pathname: string, to: string) {
-  if (to === "/workspace/app") return pathname === "/workspace/app" || pathname === "/workspace/app/";
+  if (to === "/workspace/app")
+    return pathname === "/workspace/app" || pathname === "/workspace/app/";
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
@@ -151,7 +181,8 @@ export function TransportAdminSidebar({
   const displayLogo = logoBroken ? "/figma/petroline-logo.png" : logoSrc;
 
   const handleLogout = () => {
-    hardLogout("/workspace/login");};
+    hardLogout("/workspace/login");
+  };
 
   return (
     <>
@@ -182,7 +213,12 @@ export function TransportAdminSidebar({
         </Link>
 
         <nav className="sleek-scrollbar flex flex-1 flex-col items-center overflow-y-auto py-5">
-          <div className={cn("flex w-full flex-col gap-5", collapsed ? "items-center px-2" : "w-[224px]")}>
+          <div
+            className={cn(
+              "flex w-full flex-col gap-5",
+              collapsed ? "items-center px-2" : "w-[224px]",
+            )}
+          >
             {ADMIN_GROUPS.map((group, gi) => (
               <div key={group.label ?? `top-${gi}`} className="flex w-full flex-col gap-[5px]">
                 {group.label && !collapsed && (
@@ -249,20 +285,28 @@ export function TransportAdminSidebar({
             role="button"
             tabIndex={0}
             onClick={() => setShowLogout((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v);
+            }}
             className={cn(
               "flex h-12 w-full cursor-pointer items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
-              collapsed && "justify-center"
+              collapsed && "justify-center",
             )}
           >
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
-              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">{userInitials}</span>
+              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+                {userInitials}
+              </span>
             </div>
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="truncate text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-white">{userName}</p>
-                  <p className="truncate text-[12px] font-normal leading-4 tracking-[0.4px] text-[#5C6470]">{userEmail}</p>
+                  <p className="truncate text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-white">
+                    {userName}
+                  </p>
+                  <p className="truncate text-[12px] font-normal leading-4 tracking-[0.4px] text-[#5C6470]">
+                    {userEmail}
+                  </p>
                 </div>
                 <div className="shrink-0 p-0.5">
                   <MoreVertical className="size-4 text-white/70" />
@@ -283,13 +327,21 @@ const ADMIN_MOBILE_NAV = [
     label: "Partners",
     to: "/workspace/app/manage-partner",
     icon: Briefcase,
-    matchPrefixes: ["/workspace/app/manage-partner", "/workspace/app/add-partner", "/workspace/app/partner-requests"],
+    matchPrefixes: [
+      "/workspace/app/manage-partner",
+      "/workspace/app/add-partner",
+      "/workspace/app/partner-requests",
+    ],
   },
   {
     label: "Internal Staff",
     to: "/workspace/app/manage-account",
     icon: Users,
-    matchPrefixes: ["/workspace/app/manage-account", "/workspace/app/add-account", "/workspace/app/password-request"],
+    matchPrefixes: [
+      "/workspace/app/manage-account",
+      "/workspace/app/add-account",
+      "/workspace/app/password-request",
+    ],
   },
   {
     label: "Department",
@@ -302,8 +354,18 @@ const ADMIN_MOBILE_NAV = [
       "/workspace/app/fuel-pricing",
     ],
   },
-  { label: "Notification", to: "/workspace/app/notifications", icon: Bell, matchPrefixes: ["/workspace/app/notifications"] },
-  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare, matchPrefixes: ["/workspace/app/messages"] },
+  {
+    label: "Notification",
+    to: "/workspace/app/notifications",
+    icon: Bell,
+    matchPrefixes: ["/workspace/app/notifications"],
+  },
+  {
+    label: "Messages",
+    to: "/workspace/app/messages",
+    icon: MessageSquare,
+    matchPrefixes: ["/workspace/app/messages"],
+  },
 ] as const;
 
 function isMobileNavActive(pathname: string, item: (typeof ADMIN_MOBILE_NAV)[number]) {
@@ -362,7 +424,9 @@ export function TransportAdminMobileNav() {
                 </span>
               )}
             </span>
-            <span className="w-full text-center text-[10px] font-medium leading-tight">{item.label}</span>
+            <span className="w-full text-center text-[10px] font-medium leading-tight">
+              {item.label}
+            </span>
           </Link>
         );
       })}

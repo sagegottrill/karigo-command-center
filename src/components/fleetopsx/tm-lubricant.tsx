@@ -16,9 +16,11 @@ import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubricant-ui";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
+import { inPeriod, REPORT_PERIODS, reportWindow } from "@/lib/fleetopsx/period";
 import { authService, fuelPriceService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   approvalGate,
+  formatMoney,
   formatQuantity,
   lubricantDispatchId,
   lubricantUnit,
@@ -258,7 +260,7 @@ function DisbursedPill({ done, at }: { done: boolean; at?: string | null }) {
         done ? "bg-[#22C55E] text-white" : "bg-[#F2C200] text-[#1B2432]",
       )}
     >
-      {done ? "Disbursed" : "Awaiting Disbursement"}
+      {done ? "Dispensed" : "Awaiting Dispense"}
     </span>
   );
 }
@@ -401,6 +403,11 @@ export function TmLubricant() {
   /** The releases board's own search and filter — never the restock card's. */
   const [releaseQuery, setReleaseQuery] = useState("");
   const [releaseFuel, setReleaseFuel] = useState<string>("All lubricants");
+  /** The releases board's own time frame and company. */
+  const [releasePeriod, setReleasePeriod] = useState<string>("All time");
+  const [releaseCompany, setReleaseCompany] = useState<string>("All companies");
+  /** The restock ledger's own time frame. */
+  const [restockPeriod, setRestockPeriod] = useState<string>("All time");
   /** The approval whose details the ⋮ opened — a read, not a review. */
   const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
 
@@ -448,8 +455,10 @@ export function TmLubricant() {
 
   const restockRows = useMemo(() => {
     const q = restockQuery.trim().toLowerCase();
+    const range = reportWindow(restockPeriod);
     return restocks.filter((r) => {
       if (restockFuel !== "All lubricants" && r.fuelType !== restockFuel) return false;
+      if (range && !inPeriod(r.createdAt, range)) return false;
       if (!q) return true;
       return [r.reference, r.fuelType, r.loggedBy, dayLabel(r.createdAt)].some((v) =>
         String(v ?? "")
@@ -457,7 +466,7 @@ export function TmLubricant() {
           .includes(q),
       );
     });
-  }, [restocks, restockQuery, restockFuel]);
+  }, [restocks, restockQuery, restockFuel, restockPeriod]);
 
   const restockPageCount = Math.max(1, Math.ceil(restockRows.length / PAGE_SIZE));
   const safeRestockPage = Math.min(restockPage, restockPageCount - 1);
@@ -545,6 +554,21 @@ export function TmLubricant() {
     }
   };
 
+  /** Companies the board can filter by — everyone he has ever released to. */
+  const releaseCompanies = useMemo(() => {
+    const seen = new Set<string>();
+    for (const a of asks) if (a.customer?.trim()) seen.add(a.customer.trim());
+    return ["All companies", ...Array.from(seen).sort((x, y) => x.localeCompare(y))];
+  }, [asks]);
+  /** The window "Two weeks"/"One month" etc. resolves to — null is all time. */
+  const releaseRange = useMemo(() => reportWindow(releasePeriod), [releasePeriod]);
+  /** Which of his releases the department has actually poured, by trip. */
+  const pouredByTrip = useMemo(() => {
+    const map = new Map<string, LubricantDisbursalRow>();
+    for (const d of disbursals) if (!map.has(d.tripId)) map.set(d.tripId, d);
+    return map;
+  }, [disbursals]);
+
   /**
    * HIS BOARD, drawn as the sheet he reads from (Date Approved · Date
    * Dispensed · … · Status: Pending or Dispensed): every trip his FINAL
@@ -557,6 +581,17 @@ export function TmLubricant() {
     return asks
       .filter((a) => approvalGate(a) === "released")
       .filter((a) => releaseFuel === "All lubricants" || a.request.fuelType === releaseFuel)
+      .filter(
+        (a) => releaseCompany === "All companies" || (a.customer?.trim() || "—") === releaseCompany,
+      )
+      .filter((a) => {
+        if (!releaseRange) return true;
+        // A release belongs to the day it was DISPENSED once poured; before
+        // that, to the day it was approved. "Two weeks of Diesel for Saba
+        // Steel" sums the pours — the figure the reconciliation needs.
+        const pour = pouredByTrip.get(a.id);
+        return inPeriod(pour?.createdAt ?? a.approvedAt ?? a.createdAt, releaseRange);
+      })
       .filter((a) => {
         if (!q) return true;
         const v = resolveVehicle(a);
@@ -575,13 +610,7 @@ export function TmLubricant() {
         );
       })
       .sort((a, b) => String(b.approvedAt ?? "").localeCompare(String(a.approvedAt ?? "")));
-  }, [asks, releaseQuery, releaseFuel]);
-  /** Which of his releases the department has actually poured, by trip. */
-  const pouredByTrip = useMemo(() => {
-    const map = new Map<string, LubricantDisbursalRow>();
-    for (const d of disbursals) if (!map.has(d.tripId)) map.set(d.tripId, d);
-    return map;
-  }, [disbursals]);
+  }, [asks, releaseQuery, releaseFuel, releaseCompany, releaseRange, pouredByTrip]);
   const approvedPageCount = Math.max(1, Math.ceil(approvedRows.length / PAGE_SIZE));
   const safeApprovedPage = Math.min(approvedPage, approvedPageCount - 1);
   const approvedSlice = approvedRows.slice(
@@ -694,6 +723,36 @@ export function TmLubricant() {
               }}
               placeholder="Search"
             />
+            <select
+              value={releaseCompany}
+              onChange={(e) => {
+                setReleaseCompany(e.target.value);
+                setApprovedPage(0);
+              }}
+              aria-label="Filter by company"
+              className="h-10 max-w-[170px] rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            >
+              {releaseCompanies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
+              value={releasePeriod}
+              onChange={(e) => {
+                setReleasePeriod(e.target.value);
+                setApprovedPage(0);
+              }}
+              aria-label="Filter by period"
+              className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            >
+              {REPORT_PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={releaseFuel}
@@ -706,13 +765,14 @@ export function TmLubricant() {
         </div>
 
         <div className="flex flex-col">
-          <TableHead className="grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr_44px] text-[13.5px] font-semibold text-[#1B2432]">
+          <TableHead className="grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_0.8fr_0.9fr_1fr_1.1fr_0.9fr_44px] text-[13.5px] font-semibold text-[#1B2432]">
             <span>Date Approved</span>
             <span>Date Dispensed</span>
             <span>Customer</span>
             <span>Truck Head (Cap/Plate No.)</span>
             <span>Driver Details (Salary No./Name)</span>
             <span>Quantity</span>
+            <span>Cost</span>
             <span>Destination</span>
             <span>Dispensed by</span>
             <span>Status</span>
@@ -723,7 +783,7 @@ export function TmLubricant() {
           ) : approvedSlice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
               Nothing is waiting on the pump. A dispatch lands here the moment your final approval
-              schedules it, and leaves the Pending state once the department dispenses it.
+              schedules it, and turns Dispensed once the department pours it.
             </p>
           ) : (
             approvedSlice.map((ask) => {
@@ -732,7 +792,7 @@ export function TmLubricant() {
               return (
                 <div
                   key={ask.id}
-                  className="grid grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr_44px] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
+                  className="grid grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_0.8fr_0.9fr_1fr_1.1fr_0.9fr_44px] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
                 >
                   <span>{dayLabel(ask.approvedAt)}</span>
                   <span>{pour ? dayLabel(pour.createdAt) : "—"}</span>
@@ -750,6 +810,9 @@ export function TmLubricant() {
                     <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
                       {unitLabel(ask.request.fuelType)}
                     </span>
+                  </span>
+                  <span className="font-medium text-[#1B2432]">
+                    {formatMoney(ask.estimatedAmount)}
                   </span>
                   <span className="truncate">{ask.dropoff || "—"}</span>
                   <span className="truncate">{pour?.dispensedBy || "—"}</span>
@@ -790,6 +853,7 @@ export function TmLubricant() {
                 "Driver Details (Salary No./Name)",
                 "Quantity",
                 "Unit",
+                "Cost",
                 "Destination",
                 "Dispensed by",
                 "Status",
@@ -807,6 +871,7 @@ export function TmLubricant() {
                     .join(" · "),
                   ask.request.quantity,
                   unitLabel(ask.request.fuelType),
+                  ask.estimatedAmount,
                   ask.dropoff ?? "",
                   pour?.dispensedBy ?? "",
                   pour ? "Dispensed" : "Pending",
@@ -835,6 +900,21 @@ export function TmLubricant() {
               }}
               placeholder="Search"
             />
+            <select
+              value={restockPeriod}
+              onChange={(e) => {
+                setRestockPeriod(e.target.value);
+                setRestockPage(0);
+              }}
+              aria-label="Filter restocks by period"
+              className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            >
+              {REPORT_PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={restockFuel}
@@ -893,13 +973,14 @@ export function TmLubricant() {
           onExport={() =>
             exportCsv(
               "lubricant-restocks.csv",
-              ["Restock ID", "Date", "Lubricant", "Quantity", "Unit", "Logged by"],
+              ["Restock ID", "Date", "Lubricant", "Quantity", "Unit", "Cost per unit", "Logged by"],
               restockRows.map((r) => [
                 r.reference,
                 dayLabel(r.createdAt),
                 r.fuelType,
                 r.quantity,
                 unitLabel(r.fuelType),
+                r.unitCost ?? "",
                 r.loggedBy,
               ]),
             )

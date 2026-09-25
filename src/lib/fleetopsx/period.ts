@@ -57,7 +57,12 @@ const shortDay = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", mo
 
 /** The day the dashboard reports on, in the operator's own calendar. */
 const dayLabel = (d: Date) =>
-  d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
 /**
  * Resolve the picker into a concrete window.
@@ -134,6 +139,36 @@ export function inPeriod(value: string | Date | null | undefined, range: PeriodR
   return t >= range.from.getTime() && t <= range.to.getTime();
 }
 
+/** The time frames every report board offers — the same words, same windows. */
+export const REPORT_PERIODS = ["All time", "Today", "One week", "Two weeks", "One month"] as const;
+
+export type ReportPeriod = (typeof REPORT_PERIODS)[number];
+
+/** `YYYY-MM-DD` — the only date shape the custom-range parser accepts. */
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** The last `days` days ending today, as one window. */
+function lastDays(now: Date, days: number): PeriodRange {
+  const from = new Date(now);
+  from.setDate(from.getDate() - (days - 1));
+  return periodRange("custom", now, isoDay(from), isoDay(now));
+}
+
+/**
+ * Resolve one report period to its window — null means all time. Every board
+ * that offers "how long?" answers through here so "two weeks" is the same two
+ * weeks on the lubricant board, the analytics page and every export they print.
+ */
+export function reportWindow(period: ReportPeriod | string, now = new Date()): PeriodRange | null {
+  if (period === "All time") return null;
+  if (period === "Today") return periodRange("day", now);
+  if (period === "One week") return lastDays(now, 7);
+  if (period === "Two weeks") return lastDays(now, 14);
+  if (period === "One month") return periodRange("month", now);
+  return null;
+}
+
 export type PeriodActivity = {
   /** Requests raised inside the window. */
   requests: number;
@@ -161,8 +196,10 @@ export function periodActivity(trips: Trip[], range: PeriodRange): PeriodActivit
     requests: trips.filter((t) => isCustomerRequest(t) && inPeriod(t.createdAt, range)).length,
     approved: trips.filter((t) => inPeriod(t.approvedAt, range)).length,
     dispatched: trips.filter((t) => inPeriod(t.dispatchedAt, range)).length,
-    declined: trips.filter((t) => tripBucket(t) === "declined" && inPeriod(t.updatedAt, range)).length,
-    completed: trips.filter((t) => tripBucket(t) === "completed" && inPeriod(t.updatedAt, range)).length,
+    declined: trips.filter((t) => tripBucket(t) === "declined" && inPeriod(t.updatedAt, range))
+      .length,
+    completed: trips.filter((t) => tripBucket(t) === "completed" && inPeriod(t.updatedAt, range))
+      .length,
   };
 }
 
