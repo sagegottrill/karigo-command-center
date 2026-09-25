@@ -60,7 +60,10 @@ function PartnerNewRequest() {
 
     const finalSites = loadingSites.map(resolvePartnerLoadingSite).filter(Boolean);
 
-    if (finalSites.length === 0 || (routingType === "Multiple" && finalSites.length !== loadingSites.length)) {
+    if (
+      finalSites.length === 0 ||
+      (routingType === "Multiple" && finalSites.length !== loadingSites.length)
+    ) {
       toast.error("Please specify all loading sites");
       return;
     }
@@ -163,7 +166,9 @@ function PartnerNewRequest() {
                   }}
                   className={cn(inputClass, "flex items-center justify-between")}
                 >
-                  <span className={truckType ? "text-[#1B2432]" : "text-[#5C6470]"}>{truckType || "Select"}</span>
+                  <span className={truckType ? "text-[#1B2432]" : "text-[#5C6470]"}>
+                    {truckType || "Select"}
+                  </span>
                   <ChevronDown className="size-4 text-[#5C6470]" />
                 </button>
                 {showTruckDropdown && (
@@ -178,7 +183,9 @@ function PartnerNewRequest() {
                         }}
                         className={cn(
                           "w-full px-3 py-2.5 text-left text-[14px]",
-                          truckType === opt ? "bg-[#ED351D] text-white" : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                          truckType === opt
+                            ? "bg-[#ED351D] text-white"
+                            : "text-[#1B2432] hover:bg-[#F1F2F4]",
                         )}
                       >
                         {opt}
@@ -203,8 +210,7 @@ function PartnerNewRequest() {
 
               <label className="flex flex-col gap-3">
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
-                  Destination Address{" "}
-                  <span className="text-[#5C6470]">(optional)</span>
+                  Destination Address <span className="text-[#5C6470]">(optional)</span>
                 </span>
                 <input
                   value={destinationAddress}
@@ -226,7 +232,9 @@ function PartnerNewRequest() {
             </h3>
             <div className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-3">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Routing Type</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Routing Type
+                </span>
                 <div className="flex flex-wrap gap-5">
                   {(["Single", "Multiple"] as const).map((type) => (
                     <button
@@ -235,7 +243,13 @@ function PartnerNewRequest() {
                       onClick={() => {
                         setRoutingType(type);
                         if (type === "Single") {
-                          setLoadingSites([loadingSites[0] ?? { id: crypto.randomUUID(), type: "", customValue: "" }]);
+                          setLoadingSites([
+                            loadingSites[0] ?? {
+                              id: crypto.randomUUID(),
+                              type: "",
+                              customValue: "",
+                            },
+                          ]);
                         }
                       }}
                       className="flex items-center gap-3 rounded-md p-3"
@@ -246,7 +260,9 @@ function PartnerNewRequest() {
                           routingType === type ? "border-[#ED351D]" : "border-[#E2E5E9]",
                         )}
                       >
-                        {routingType === type ? <span className="size-2.5 rounded-full bg-[#ED351D]" /> : null}
+                        {routingType === type ? (
+                          <span className="size-2.5 rounded-full bg-[#ED351D]" />
+                        ) : null}
                       </span>
                       <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                         {type === "Single" ? "Single Site Loading" : "Multiple Site Loading"}
@@ -257,9 +273,17 @@ function PartnerNewRequest() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Select Loading Site</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Select Loading Site
+                </span>
                 {loadingSites.map((site, index) => (
-                  <div key={site.id} className={cn("relative flex flex-col gap-2", openDropdownIndex === index ? "z-50" : "z-10")}>
+                  <div
+                    key={site.id}
+                    className={cn(
+                      "relative flex flex-col gap-2",
+                      openDropdownIndex === index ? "z-50" : "z-10",
+                    )}
+                  >
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
@@ -269,13 +293,17 @@ function PartnerNewRequest() {
                         }}
                         className={cn(inputClass, "flex flex-1 items-center justify-between")}
                       >
-                        <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>{site.type || "Select"}</span>
+                        <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>
+                          {site.type || "Select"}
+                        </span>
                         <ChevronDown className="size-4 text-[#5C6470]" />
                       </button>
                       {routingType === "Multiple" && loadingSites.length > 1 ? (
                         <button
                           type="button"
-                          onClick={() => setLoadingSites(loadingSites.filter((_, i) => i !== index))}
+                          onClick={() =>
+                            setLoadingSites(loadingSites.filter((_, i) => i !== index))
+                          }
                           className="rounded p-2 hover:bg-black/5"
                         >
                           <Trash2 className="size-5 text-[#ED351D]" />
@@ -283,7 +311,7 @@ function PartnerNewRequest() {
                       ) : null}
                     </div>
                     {openDropdownIndex === index ? (
-                      <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[220px] overflow-y-auto overscroll-contain rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
                         {loadingSiteChoices(savedSites).map((opt) => {
                           const takenElsewhere = loadingSites.some((s, i) => {
                             if (i === index) return false;
@@ -303,7 +331,9 @@ function PartnerNewRequest() {
                                       ? {
                                           id: s.id,
                                           type: opt,
-                                          customValue: isAddingLoadingSite(opt) ? s.customValue : "",
+                                          customValue: isAddingLoadingSite(opt)
+                                            ? s.customValue
+                                            : "",
                                         }
                                       : s,
                                   ),
@@ -340,7 +370,9 @@ function PartnerNewRequest() {
                           if (!custom) return;
                           const duplicate = loadingSites.some((s, i) => {
                             if (i === index) return false;
-                            const other = (s.type === "Others" ? s.customValue : s.type).trim().toLowerCase();
+                            const other = (s.type === "Others" ? s.customValue : s.type)
+                              .trim()
+                              .toLowerCase();
                             return Boolean(other) && other === custom;
                           });
                           if (duplicate) {
@@ -360,8 +392,8 @@ function PartnerNewRequest() {
                     below still opens with "Add your loading site" in it. */}
                 {savedSites.length === 0 ? (
                   <p className="text-[11px] tracking-[0.4px] text-[#5C6470]">
-                    You have no saved loading sites yet — choose “{ADD_LOADING_SITE_LABEL}” and type the
-                    site. It is saved to your account and offered on your next request.
+                    You have no saved loading sites yet — choose “{ADD_LOADING_SITE_LABEL}” and type
+                    the site. It is saved to your account and offered on your next request.
                   </p>
                 ) : null}
                 <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />
@@ -369,7 +401,10 @@ function PartnerNewRequest() {
                   <button
                     type="button"
                     onClick={() =>
-                      setLoadingSites([...loadingSites, { id: crypto.randomUUID(), type: "", customValue: "" }])
+                      setLoadingSites([
+                        ...loadingSites,
+                        { id: crypto.randomUUID(), type: "", customValue: "" },
+                      ])
                     }
                     className="flex h-10 items-center justify-center rounded bg-[#1B2432] px-6 text-[14px] font-medium text-white"
                   >
