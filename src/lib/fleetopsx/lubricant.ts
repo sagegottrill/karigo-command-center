@@ -8,7 +8,13 @@
  * server from the Transport Manager's price per litre and snapshotted onto the
  * disbursal, so a price change never re-prices history.
  */
-import { displayDriverAssigned, displayHeadCap, displayTailOption } from "./display-ids";
+import {
+  displayDriverAssigned,
+  displayHeadCap,
+  displayTailOption,
+  looksLikeUuid,
+} from "./display-ids";
+import { displayDispatchId } from "./request-id";
 import { mapDriver, mapTail, mapTruckHead } from "./live-api";
 
 export type LubricantFuel = "Diesel" | "Gas";
@@ -25,7 +31,10 @@ export function formatQuantity(value: number | null | undefined): string {
 }
 
 /** `Diesel (60)` — the Lubricant column on the history table. */
-export function lubricantWithQuantity(fuelType: string, quantity: number | null | undefined): string {
+export function lubricantWithQuantity(
+  fuelType: string,
+  quantity: number | null | undefined,
+): string {
   return `${fuelType} (${formatQuantity(quantity)})`;
 }
 
@@ -166,7 +175,15 @@ const dash = "—";
 
 export function resolveVehicle(row: LubricantTripRow | null | undefined): LubricantVehicle {
   if (!row) {
-    return { capNumber: dash, plate: dash, bodyType: dash, tailNumber: dash, driverName: dash, driverCode: "", driverPhone: dash };
+    return {
+      capNumber: dash,
+      plate: dash,
+      bodyType: dash,
+      tailNumber: dash,
+      driverName: dash,
+      driverCode: "",
+      driverPhone: dash,
+    };
   }
   const head = row.head ? mapTruckHead(row.head) : null;
   const tail = row.tail ? mapTail(row.tail) : null;
@@ -193,20 +210,52 @@ export function resolveVehicle(row: LubricantTripRow | null | undefined): Lubric
     bodyType,
     tailNumber,
     driverName: driver?.name?.trim() || row.driverName?.trim() || dash,
-    driverCode: driver ? displayDriverAssigned(driver, row.driverName ?? null).replace(driver.name, "").replace(/[()]/g, "").trim() : "",
+    driverCode: driver
+      ? displayDriverAssigned(driver, row.driverName ?? null)
+          .replace(driver.name, "")
+          .replace(/[()]/g, "")
+          .trim()
+      : "",
     driverPhone: driver?.phone?.trim() || dash,
   };
 }
 
 /** "Marcus Sterling (SL-00829)" — the Driver Assigned line. */
 export function driverLabel(vehicle: LubricantVehicle): string {
-  return vehicle.driverName === dash ? dash : `${vehicle.driverName}${vehicle.driverCode ? ` (${vehicle.driverCode})` : ""}`;
+  return vehicle.driverName === dash
+    ? dash
+    : `${vehicle.driverName}${vehicle.driverCode ? ` (${vehicle.driverCode})` : ""}`;
 }
 
 /** What the department is being asked to hand over, e.g. "Diesel · 60 LITRES". */
-export function requestLabel(request: { fuelType: string; quantity: number } | null | undefined): string {
+export function requestLabel(
+  request: { fuelType: string; quantity: number } | null | undefined,
+): string {
   if (!request) return dash;
   return `${request.fuelType} · ${formatQuantity(request.quantity)} ${lubricantUnit(request.fuelType)}`;
+}
+
+/**
+ * The dispatch ticket a lubricant row files under — DIS-xxxxx, everywhere.
+ *
+ * A REQUEST row's `reference` is the trip's own ticket when the API carries
+ * one; when it doesn't (production trips store null there, which is why the
+ * column printed a dash on every row) the id derives it, the same way every
+ * other board names the job. A DISPENSE row's `reference` instead names the
+ * pour itself, so history reads the dispatch off the trip it was poured for —
+ * never off the dispense record.
+ */
+export function lubricantDispatchId(
+  row: LubricantRequestRow | LubricantDisbursalRow | null | undefined,
+): string {
+  if (!row) return dash;
+  const isPour = "tripId" in row;
+  if (isPour) {
+    const tripId = (row as LubricantDisbursalRow).tripId || row.trip?.id || row.id;
+    return tripId ? displayDispatchId(tripId) : row.reference?.trim() || dash;
+  }
+  const reference = row.reference?.trim() ?? "";
+  return reference && !looksLikeUuid(reference) ? reference : displayDispatchId(row.id);
 }
 
 /**
@@ -218,9 +267,17 @@ export function jobLocation(row: LubricantTripRow | null | undefined): string {
 }
 
 /** Date range presets the reporting screens offer. */
-export type LubricantRange = "All time" | "Today" | "This week" | "2 weeks" | "This month" | "2 months";
+export type LubricantRange =
+  "All time" | "Today" | "This week" | "2 weeks" | "This month" | "2 months";
 
-export const LUBRICANT_RANGES: LubricantRange[] = ["All time", "Today", "This week", "2 weeks", "This month", "2 months"];
+export const LUBRICANT_RANGES: LubricantRange[] = [
+  "All time",
+  "Today",
+  "This week",
+  "2 weeks",
+  "This month",
+  "2 months",
+];
 
 /** Start of the window for a preset, or null for all time. */
 export function rangeStart(range: LubricantRange, now = new Date()): Date | null {
@@ -269,6 +326,9 @@ export function csvStamp(iso: string | null | undefined): string {
 }
 
 /** The date the reporting table keys on: when the TM approved the dispatch. */
-export function approvedDate(row: LubricantTripRow | null | undefined, fallback?: string | null): string | null {
+export function approvedDate(
+  row: LubricantTripRow | null | undefined,
+  fallback?: string | null,
+): string | null {
   return row?.approvedAt ?? fallback ?? null;
 }

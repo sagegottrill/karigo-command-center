@@ -7,14 +7,11 @@ import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   csvStamp,
   formatQuantity,
-  jobLocation,
-  LUBRICANT_RANGES,
+  lubricantDispatchId,
   lubricantUnit,
   lubricantWithQuantity,
   resolveVehicle,
-  withinRange,
   type LubricantDisbursalRow,
-  type LubricantRange,
 } from "@/lib/fleetopsx/lubricant";
 import {
   DisbursalViewModal,
@@ -22,6 +19,8 @@ import {
   LubricantSearch,
   LubricantTableFooter,
 } from "@/components/fleetopsx/lubricant-ui";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { cn } from "@/lib/utils";
 
@@ -46,18 +45,26 @@ export const Route = createFileRoute("/workspace/app/lubricant-history")({
   head: () => ({
     meta: [
       { title: "Disbursal History | FleetOpsX" },
-      { name: "description", content: "Every diesel and gas disbursal: which truck, which driver, how much and who dispensed it." },
+      {
+        name: "description",
+        content:
+          "Every diesel and gas disbursal: which truck, which driver, how much and who dispensed it.",
+      },
     ],
   }),
   component: DisbursalHistoryPage,
 });
 
 /**
- * Column order is the order the row is read in: the date the Transport Manager
- * approved leads, and what leaves the tank closes it.
+ * The ledger the department drew: the ticket leads, the pour closes it.
+ * The date is WHEN IT WAS POUMPED — the record is what came off the tank,
+ * not the paperwork that allowed it.
  */
 const HISTORY_GRID =
-  "grid grid-cols-[minmax(96px,0.75fr)_minmax(0,0.85fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(96px,0.75fr)_minmax(0,0.85fr)]";
+  "grid grid-cols-[minmax(110px,0.9fr)_minmax(96px,0.75fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,1fr)_44px]";
+
+type FuelFilter = "All" | "Diesel" | "Gas";
+const FUEL_FILTERS: readonly FuelFilter[] = ["All", "Diesel", "Gas"];
 
 function HistoryDate({ value }: { value?: string | null }) {
   const { date, time } = formatDateLines(value);
@@ -73,15 +80,17 @@ function DisbursalHistoryPage() {
   const [rows, setRows] = useState<LubricantDisbursalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [range, setRange] = useState<LubricantRange>("All time");
+  const [fuelFilter, setFuelFilter] = useState<FuelFilter>("All");
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<LubricantDisbursalRow | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setRows(await lubricantService.disbursals());
     } catch (err) {
-      if (loading) toast.error(err instanceof Error ? err.message : "Failed to load the disbursal history.");
+      if (loading)
+        toast.error(err instanceof Error ? err.message : "Failed to load the disbursal history.");
     } finally {
       setLoading(false);
     }
@@ -95,10 +104,11 @@ function DisbursalHistoryPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((row) => {
-      if (!withinRange(row.createdAt, range)) return false;
+      if (fuelFilter !== "All" && row.fuelType !== fuelFilter) return false;
       if (!q) return true;
       const v = resolveVehicle(row);
       return [
+        lubricantDispatchId(row),
         row.reference,
         v.capNumber,
         v.plate,
@@ -109,9 +119,13 @@ function DisbursalHistoryPage() {
         row.dropoff,
         row.trip?.pickup,
         row.trip?.customer,
-      ].some((value) => String(value ?? "").toLowerCase().includes(q));
+      ].some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
     });
-  }, [rows, query, range]);
+  }, [rows, query, fuelFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -137,62 +151,82 @@ function DisbursalHistoryPage() {
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">Logged Disbursal</h3>
-            {rows.length > 0 && (
+            <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              Logged Disbursal
+            </h3>
+            {filtered.length > 0 && (
               <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#ED351D] px-1.5 text-[12px] font-medium text-white">
-                {rows.length}
+                {filtered.length}
               </span>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={range}
-              onChange={(e) => {
-                setRange(e.target.value as LubricantRange);
-                setPage(0);
-              }}
-              aria-label="Date range"
-              className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#141A1F] outline-none focus:border-[#1B2432]"
-            >
-              {LUBRICANT_RANGES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
             <LubricantSearch
               value={query}
               onChange={(v) => {
                 setQuery(v);
                 setPage(0);
               }}
-              placeholder="Search dispatch, truck (cap or plate), driver…"
+              placeholder="Search"
+            />
+            <FilterButton
+              iconOnly
+              options={FUEL_FILTERS}
+              value={fuelFilter}
+              onChange={(next) => {
+                setFuelFilter(next);
+                setPage(0);
+              }}
+              noun="lubricant"
+              allLabel="All lubricants"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[1180px]">
-            <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", HISTORY_GRID)}>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Body Type</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Phone Number</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Lubricant</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Job Location</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispensed by</span>
+          <div className="min-w-[1040px]">
+            <div
+              className={cn(
+                "items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]",
+                HISTORY_GRID,
+              )}
+            >
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Dispatch ID
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Date
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Driver
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Truck Head
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Tail Type
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Phone Number
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Lubricant
+              </span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Dispensed by
+              </span>
+              <span />
             </div>
 
             {loading && rows.length === 0 ? (
-              <p className="py-8 text-center text-[13.5px] text-[#5C6470]">Loading disbursal history…</p>
+              <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
+                Loading disbursal history…
+              </p>
             ) : slice.length === 0 ? (
               <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
                 {rows.length === 0
                   ? "No lubricant has been dispensed yet. Disburse Request records what leaves the tank."
-                  : `Nothing matches “${query.trim()}” in ${range.toLowerCase()}.`}
+                  : `Nothing matches “${query.trim()}”.`}
               </p>
             ) : (
               slice.map((row) => {
@@ -206,24 +240,42 @@ function DisbursalHistoryPage() {
                       HISTORY_GRID,
                     )}
                   >
-                    <HistoryDate value={row.trip?.approvedAt ?? row.createdAt} />
-                    <span className="truncate text-[13px] tracking-[0.4px] text-[#627084]">
-                      {v.capNumber === "—" ? "—" : `${v.capNumber} (${v.plate})`}
+                    <span className="truncate text-[14px] font-medium tracking-[0.4px] text-[#1B2432]">
+                      {lubricantDispatchId(row)}
                     </span>
-                    <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{v.bodyType}</span>
-                    <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{v.driverName}</span>
-                    <span className="truncate text-[14px] tabular-nums tracking-[0.4px] text-[#5C6470]">{v.driverPhone}</span>
+                    <HistoryDate value={row.createdAt} />
                     <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                      {row.dropoff || "—"}
+                      {v.driverName}
                     </span>
-                    <span className="truncate text-[14px] medium tracking-[0.4px] text-[#141A1F]">
+                    <span className="truncate text-[13px] tracking-[0.4px] text-[#627084]">
+                      {v.capNumber}
+                    </span>
+                    <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {v.bodyType}
+                    </span>
+                    <span className="truncate text-[14px] tabular-nums tracking-[0.4px] text-[#5C6470]">
+                      {v.driverPhone}
+                    </span>
+                    <span className="truncate text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                       {lubricantWithQuantity(row.fuelType, row.quantity)}
                     </span>
-                    <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
-                      {jobLocation(row.trip)}
+                    <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {row.dispensedBy}
                     </span>
-                    <span className="truncate text-[14px] font-medium tracking-[0.4px] text-[#1B2432]">{row.reference}</span>
-                    <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{row.dispensedBy}</span>
+                    <span className="justify-self-end" onClick={(e) => e.stopPropagation()}>
+                      <RowActionMenu
+                        open={menuFor === row.id}
+                        onOpenChange={(o) => setMenuFor(o ? row.id : null)}
+                        label={`Options for ${lubricantDispatchId(row)}`}
+                        width={180}
+                        items={[
+                          {
+                            label: "View Details",
+                            onSelect: () => setActive(row),
+                          },
+                        ]}
+                      />
+                    </span>
                   </div>
                 );
               })
@@ -234,11 +286,12 @@ function DisbursalHistoryPage() {
         {filtered.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg bg-[#F1F2F4] px-4 py-3">
             <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-              {filtered.length} disbursal{filtered.length === 1 ? "" : "s"} in {range.toLowerCase()}
+              {filtered.length} disbursal{filtered.length === 1 ? "" : "s"} poured
             </span>
             {Object.entries(totals).map(([fuelType, total]) => (
               <span key={fuelType} className="text-[12.5px] tracking-[0.4px] text-[#141A1F]">
-                {fuelType}: <span className="font-semibold tabular-nums">{formatQuantity(total)}</span>{" "}
+                {fuelType}:{" "}
+                <span className="font-semibold tabular-nums">{formatQuantity(total)}</span>{" "}
                 {lubricantUnit(fuelType).toLowerCase()}
               </span>
             ))}
@@ -257,36 +310,30 @@ function DisbursalHistoryPage() {
             exportCsv(
               "lubricant-disbursal-history.csv",
               [
-                "Date Approved",
-                "Truck Head (Cap)",
-                "Truck Head Plate",
-                "Body Type",
+                "Dispatch ID",
+                "Date",
                 "Driver",
+                "Truck Head",
+                "Tail Type",
                 "Phone Number",
-                "Drop-off Location",
                 "Lubricant",
                 "Quantity",
                 "Unit",
-                "Job Location",
-                "Dispatch ID",
                 "Dispensed by",
                 "Dispensed At",
               ],
               filtered.map((r) => {
                 const v = resolveVehicle(r);
                 return [
-                  csvStamp(r.trip?.approvedAt ?? r.createdAt),
-                  v.capNumber,
-                  v.plate,
-                  v.bodyType,
+                  lubricantDispatchId(r),
+                  csvStamp(r.createdAt),
                   v.driverName,
+                  v.capNumber,
+                  v.bodyType,
                   v.driverPhone,
-                  r.dropoff ?? "",
                   r.fuelType,
                   r.quantity,
                   lubricantUnit(r.fuelType),
-                  jobLocation(r.trip),
-                  r.reference,
                   r.dispensedBy,
                   csvStamp(r.createdAt),
                 ];
