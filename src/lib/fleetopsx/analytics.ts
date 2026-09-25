@@ -1,6 +1,7 @@
 import { inPeriod, type PeriodRange } from "./period";
 import { partnerOf } from "./tracking-ops";
 import { tripBucket, type TripBucket } from "./status-buckets";
+import { displayCapPlateFromTrip } from "./display-ids";
 import type { Trip } from "./types";
 import type { LubricantDisbursalRow, LubricantRestock, LubricantStock } from "./lubricant";
 
@@ -12,15 +13,16 @@ import type { LubricantDisbursalRow, LubricantRestock, LubricantStock } from "./
  * somebody typed. Three rules carry the whole module:
  *
  *  - **A window or it is not a report.** Every section filters through the
- *    same `inPeriod` over the same range, so "diesel to Saba Steel in two
- *    weeks" means the same two weeks everywhere on the page.
+ *    same window over the same range — presets or a custom 1–15 Sept pair —
+ *    so "diesel to Saba Steel in two weeks" means the same two weeks
+ *    everywhere on the page.
  *  - **Money is what the platform actually recorded.** Direct cost is the
  *    allowances Fleet Ops committed per dispatch; fuel cost is what the
  *    department's own dispense rows cost at the TM's rate; the tank is worth
  *    its balance at the last recorded delivery price. Nothing is estimated.
  *  - **A figure the platform cannot compute is labelled, not invented.** An
- *    all-zero table prints its empty line; a utilisation with no heads is
- *    drawn as "—" by the screen, never guessed at a percentage here.
+ *    all-zero table prints its empty line; utilisation with no fleet is drawn
+ *    as "—" by the screen, never guessed at a percentage here.
  */
 
 /** The allowance keys the platform commits per dispatch (directCosts). */
@@ -65,6 +67,37 @@ export type DestinationReport = {
   litres: number;
 };
 
+export type RouteReport = {
+  route: string;
+  trips: number;
+  completed: number;
+  directCost: number;
+  litres: number;
+};
+
+export type TruckReport = {
+  truck: string;
+  trips: number;
+  completed: number;
+  litres: number;
+  fuelCost: number;
+};
+
+/** One slice of the lifecycle, with the money and litres sitting in it. */
+export type StatusSlice = {
+  label: string;
+  count: number;
+  directCost: number;
+  litres: number;
+};
+
+export type MonthSlice = {
+  month: string;
+  requests: number;
+  litres: number;
+  cost: number;
+};
+
 export type FuelReport = {
   fuelType: string;
   unit: string;
@@ -98,6 +131,11 @@ export type FleetReport = {
   drivers: number;
   /** Trucks of the fleet currently on the road — live snapshot, no window. */
   trucksOnRoad: number;
+  /** Committed cost per request in the window — the ask has a going rate. */
+  avgDirectPerRequest: number | null;
+  /** Litres (and kg) the window's pours handed out, all fuels together. */
+  litresDispensed: number;
+  pours: number;
 };
 
 export type AnalyticsReport = {
@@ -109,6 +147,10 @@ export type AnalyticsReport = {
   companies: CompanyReport[];
   drivers: DriverReport[];
   destinations: DestinationReport[];
+  routes: RouteReport[];
+  trucks: TruckReport[];
+  statusMix: StatusSlice[];
+  months: MonthSlice[];
   fuels: FuelReport[];
   trend: TrendPoint[];
 };
@@ -116,6 +158,16 @@ export type AnalyticsReport = {
 const round = (n: number) => Math.round(n * 100) / 100;
 
 const DAY_MS = 86_400_000;
+
+const STATUS_LABELS: Array<{ bucket: TripBucket; label: string }> = [
+  { bucket: "pending", label: "Requested" },
+  { bucket: "approved", label: "With Fleet Ops" },
+  { bucket: "awaiting", label: "Awaiting FO confirmation" },
+  { bucket: "scheduled", label: "Scheduled" },
+  { bucket: "inTransit", label: "In transit" },
+  { bucket: "completed", label: "Completed" },
+  { bucket: "declined", label: "Declined" },
+];
 
 export function buildAnalyticsReport(input: {
   trips: Trip[];
@@ -129,12 +181,12 @@ export function buildAnalyticsReport(input: {
 }): AnalyticsReport {
   const { trips, heads, drivers, stocks, restocks, disbursals, window: range, company } = input;
 
-  /** The company a trip belongs to — the partner portal's own answer. */
-  const companyOf = (trip: Trip): string => partnerOf(trip).trim() || "Unattributed";
-
   /** Inside the report window — an "All time" report has no window to fail. */
   const inWindow = (value: string | Date | null | undefined): boolean =>
     range ? inPeriod(value, range) : true;
+
+  /** The company a trip belongs to — the partner portal's own answer. */
+  const companyOf = (trip: Trip): string => partnerOf(trip).trim() || "Unattributed";
 
   /** Trips in the window, and (when a company filter is on) that company's. */
   const tripsIn = trips.filter((t) => inWindow(t.createdAt));
@@ -142,10 +194,12 @@ export function buildAnalyticsReport(input: {
 
   /** Pours in the window — attributed by the trip's company when filtered. */
   const tripById = new Map(trips.map((t) => [t.id, t]));
+  const tripOf = (row: LubricantDisbursalRow): Trip | null =>
+    row.trip ? (row.trip as unknown as Trip) : (tripById.get(row.tripId) ?? null);
   const poursIn = disbursals.filter((d) => {
     if (!inWindow(d.createdAt)) return false;
     if (!company) return true;
-    const trip = d.trip ? (d.trip as Trip) : tripById.get(d.tripId);
+    const trip = tripOf(d);
     return (trip ? companyOf(trip) : "Unattributed") === company;
   });
 
@@ -153,6 +207,13 @@ export function buildAnalyticsReport(input: {
     row.fuelType === "Gas" ? 0 : Number(row.quantity ?? 0);
   const gasOf = (row: LubricantDisbursalRow): number =>
     row.fuelType === "Gas" ? Number(row.quantity ?? 0) : 0;
+  const allUnits = (row: LubricantDisbursalRow): number => litresOf(row) + gasOf(row);
+
+  /** Window pours by trip — the litres a dispatch actually drew. */
+  const pourLitresByTrip = new Map<string, number>();
+  for (const pour of poursIn) {
+    pourLitresByTrip.set(pour.tripId, (pourLitresByTrip.get(pour.tripId) ?? 0) + allUnits(pour));
+  }
 
   /* ------------------------------------------------------------ the fleet -- */
 
@@ -161,6 +222,8 @@ export function buildAnalyticsReport(input: {
     buckets.set(tripBucket(trip), (buckets.get(tripBucket(trip)) ?? 0) + 1);
   const completed = scoped.filter((t) => tripBucket(t) === "completed");
   const onRoad = trips.filter((t) => ["scheduled", "inTransit"].includes(tripBucket(t))).length;
+  const directTotal = scoped.reduce((sum, t) => sum + directCostOf(t), 0);
+  const pourLitres = poursIn.reduce((sum, d) => sum + allUnits(d), 0);
 
   const fleet: FleetReport = {
     requests: scoped.length,
@@ -173,11 +236,14 @@ export function buildAnalyticsReport(input: {
     inTransit: (buckets.get("inTransit") ?? 0) + (buckets.get("scheduled") ?? 0),
     completed: completed.length,
     declined: buckets.get("declined") ?? 0,
-    directCost: round(scoped.reduce((sum, t) => sum + directCostOf(t), 0)),
+    directCost: round(directTotal),
     fuelCost: round(poursIn.reduce((sum, d) => sum + Number(d.amount ?? 0), 0)),
     trucks: heads.length,
     drivers: drivers.length,
     trucksOnRoad: onRoad,
+    avgDirectPerRequest: scoped.length ? round(directTotal / scoped.length) : null,
+    litresDispensed: round(pourLitres),
+    pours: poursIn.length,
   };
 
   /* --------------------------------------------------------- by company ---- */
@@ -210,7 +276,7 @@ export function buildAnalyticsReport(input: {
     row.directCost += directCostOf(trip);
   }
   for (const pour of poursIn) {
-    const trip = pour.trip ? (pour.trip as Trip) : tripById.get(pour.tripId);
+    const trip = tripOf(pour);
     const row = companyRow(trip ? companyOf(trip) : "Unattributed");
     row.dieselQty += litresOf(pour);
     row.gasQty += gasOf(pour);
@@ -248,11 +314,10 @@ export function buildAnalyticsReport(input: {
     if (tripBucket(trip) === "completed") row.completed += 1;
   }
   for (const pour of poursIn) {
-    const trip = pour.trip ? (pour.trip as Trip) : tripById.get(pour.tripId);
-    const name = trip?.driverName?.trim();
+    const name = tripOf(pour)?.driverName?.trim();
     if (!name) continue;
     const row = driverRow(name);
-    row.litres += litresOf(pour) + gasOf(pour);
+    row.litres += allUnits(pour);
     row.fuelCost += Number(pour.amount ?? 0);
   }
   const driversReport = Array.from(driverMap.values())
@@ -271,13 +336,6 @@ export function buildAnalyticsReport(input: {
     }
     return row;
   };
-  const pourLitresByTrip = new Map<string, number>();
-  for (const pour of poursIn) {
-    pourLitresByTrip.set(
-      pour.tripId,
-      (pourLitresByTrip.get(pour.tripId) ?? 0) + litresOf(pour) + gasOf(pour),
-    );
-  }
   for (const trip of scoped) {
     const name = (trip.dropoff ?? "").trim() || trip.loadingSite?.[0]?.trim();
     if (!name) continue;
@@ -291,6 +349,114 @@ export function buildAnalyticsReport(input: {
     .map((row) => ({ ...row, directCost: round(row.directCost), litres: round(row.litres) }))
     .sort((a, b) => b.trips - a.trips || b.directCost - a.directCost)
     .slice(0, 20);
+
+  /* ---------------------------------------------------------- by route ----- */
+
+  /**
+   * Lane performance: pickup → dropoff pairs, the haulage company's real
+   * product. The pickup falls back through the named site list the same way
+   * the loading-sites module reads it.
+   */
+  const routeMap = new Map<string, RouteReport>();
+  for (const trip of scoped) {
+    const dropoff = (trip.dropoff ?? "").trim();
+    if (!dropoff) continue;
+    const pickup = (trip.pickup ?? "").trim() || trip.loadingSite?.[0]?.trim() || "—";
+    const key = `${pickup} → ${dropoff}`;
+    let row = routeMap.get(key);
+    if (!row) {
+      row = { route: key, trips: 0, completed: 0, directCost: 0, litres: 0 };
+      routeMap.set(key, row);
+    }
+    row.trips += 1;
+    if (tripBucket(trip) === "completed") row.completed += 1;
+    row.directCost += directCostOf(trip);
+    row.litres += pourLitresByTrip.get(trip.id) ?? 0;
+  }
+  const routes = Array.from(routeMap.values())
+    .map((row) => ({ ...row, directCost: round(row.directCost), litres: round(row.litres) }))
+    .sort((a, b) => b.trips - a.trips || b.directCost - a.directCost)
+    .slice(0, 12);
+
+  /* ---------------------------------------------------------- by truck ----- */
+
+  const truckMap = new Map<string, TruckReport>();
+  for (const trip of scoped) {
+    if (!trip.truckReg?.trim()) continue;
+    const name = displayCapPlateFromTrip(trip) || trip.truckReg.trim();
+    let row = truckMap.get(name);
+    if (!row) {
+      row = { truck: name, trips: 0, completed: 0, litres: 0, fuelCost: 0 };
+      truckMap.set(name, row);
+    }
+    row.trips += 1;
+    if (tripBucket(trip) === "completed") row.completed += 1;
+    row.litres += pourLitresByTrip.get(trip.id) ?? 0;
+  }
+  for (const pour of poursIn) {
+    const trip = tripOf(pour);
+    if (!trip?.truckReg?.trim()) continue;
+    const name = displayCapPlateFromTrip(trip) || trip.truckReg.trim();
+    const row = truckMap.get(name);
+    if (!row) continue;
+    row.fuelCost += Number(pour.amount ?? 0);
+  }
+  const trucks = Array.from(truckMap.values())
+    .map((row) => ({ ...row, litres: round(row.litres), fuelCost: round(row.fuelCost) }))
+    .sort((a, b) => b.trips - a.trips || b.fuelCost - a.fuelCost)
+    .slice(0, 12);
+
+  /* ------------------------------------------------------- status mix ------ */
+
+  const statusMix: StatusSlice[] = STATUS_LABELS.map(({ bucket, label }) => {
+    const inBucket = scoped.filter((t) => tripBucket(t) === bucket);
+    return {
+      label,
+      count: inBucket.length,
+      directCost: round(inBucket.reduce((sum, t) => sum + directCostOf(t), 0)),
+      litres: round(inBucket.reduce((sum, t) => sum + (pourLitresByTrip.get(t.id) ?? 0), 0)),
+    };
+  });
+
+  /* ---------------------------------------------------- monthly compare ---- */
+
+  const now = new Date();
+  const months: MonthSlice[] = [];
+  const monthKeys = new Map<string, MonthSlice>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const slice: MonthSlice = {
+      month: d.toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
+      requests: 0,
+      litres: 0,
+      cost: 0,
+    };
+    months.push(slice);
+    monthKeys.set(key, slice);
+  }
+  const monthKeyOf = (value: string | Date | null | undefined): string | null => {
+    const d = new Date(String(value ?? ""));
+    return Number.isNaN(d.getTime())
+      ? null
+      : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  for (const trip of scoped) {
+    const key = monthKeyOf(trip.createdAt);
+    const slice = key ? monthKeys.get(key) : undefined;
+    if (slice) slice.requests += 1;
+  }
+  for (const pour of poursIn) {
+    const key = monthKeyOf(pour.createdAt);
+    const slice = key ? monthKeys.get(key) : undefined;
+    if (!slice) continue;
+    slice.litres += allUnits(pour);
+    slice.cost += Number(pour.amount ?? 0);
+  }
+  for (const slice of months) {
+    slice.litres = round(slice.litres);
+    slice.cost = round(slice.cost);
+  }
 
   /* -------------------------------------------------------------- fuel ----- */
 
@@ -330,7 +496,6 @@ export function buildAnalyticsReport(input: {
   /* ------------------------------------------------------------- trend ----- */
 
   /** The last 14 days, oldest first — every day present, zero or not. */
-  const now = new Date();
   const trend: TrendPoint[] = [];
   const byDay = new Map<string, TrendPoint>();
   for (let i = 13; i >= 0; i--) {
@@ -355,7 +520,7 @@ export function buildAnalyticsReport(input: {
     const key = stamp(pour.createdAt);
     const point = key ? byDay.get(key) : undefined;
     if (!point) continue;
-    point.litres += litresOf(pour) + gasOf(pour);
+    point.litres += allUnits(pour);
     point.cost += Number(pour.amount ?? 0);
   }
   for (const point of trend) {
@@ -370,6 +535,10 @@ export function buildAnalyticsReport(input: {
     companies,
     drivers: driversReport,
     destinations,
+    routes,
+    trucks,
+    statusMix,
+    months,
     fuels,
     trend,
   };

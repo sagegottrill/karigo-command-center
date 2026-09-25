@@ -16,7 +16,14 @@ import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubricant-ui";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { inPeriod, REPORT_PERIODS, reportWindow } from "@/lib/fleetopsx/period";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { authService, fuelPriceService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   approvalGate,
@@ -406,8 +413,11 @@ export function TmLubricant() {
   /** The releases board's own time frame and company. */
   const [releasePeriod, setReleasePeriod] = useState<string>("All time");
   const [releaseCompany, setReleaseCompany] = useState<string>("All companies");
+  /** Custom 1 – 15 Sept style ranges, per board. */
+  const releaseCustom = useCustomRange();
   /** The restock ledger's own time frame. */
   const [restockPeriod, setRestockPeriod] = useState<string>("All time");
+  const restockCustom = useCustomRange();
   /** The approval whose details the ⋮ opened — a read, not a review. */
   const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
 
@@ -455,10 +465,10 @@ export function TmLubricant() {
 
   const restockRows = useMemo(() => {
     const q = restockQuery.trim().toLowerCase();
-    const range = reportWindow(restockPeriod);
+    const range = resolvePeriod(restockPeriod, restockCustom.custom);
     return restocks.filter((r) => {
       if (restockFuel !== "All lubricants" && r.fuelType !== restockFuel) return false;
-      if (range && !inPeriod(r.createdAt, range)) return false;
+      if (!inWindow(r.createdAt, range)) return false;
       if (!q) return true;
       return [r.reference, r.fuelType, r.loggedBy, dayLabel(r.createdAt)].some((v) =>
         String(v ?? "")
@@ -466,7 +476,24 @@ export function TmLubricant() {
           .includes(q),
       );
     });
-  }, [restocks, restockQuery, restockFuel, restockPeriod]);
+  }, [restocks, restockQuery, restockFuel, restockPeriod, restockCustom.custom]);
+
+  /** The delivery totals the restock ledger's footer sums. */
+  const restockTotals = useMemo(() => {
+    let dieselQty = 0;
+    let gasQty = 0;
+    let cost = 0;
+    let priced = 0;
+    for (const r of restockRows) {
+      if (r.fuelType === "Gas") gasQty += r.quantity;
+      else dieselQty += r.quantity;
+      if (Number(r.unitCost) > 0) {
+        cost += r.quantity * Number(r.unitCost);
+        priced += 1;
+      }
+    }
+    return { dieselQty, gasQty, cost, priced };
+  }, [restockRows]);
 
   const restockPageCount = Math.max(1, Math.ceil(restockRows.length / PAGE_SIZE));
   const safeRestockPage = Math.min(restockPage, restockPageCount - 1);
@@ -560,8 +587,11 @@ export function TmLubricant() {
     for (const a of asks) if (a.customer?.trim()) seen.add(a.customer.trim());
     return ["All companies", ...Array.from(seen).sort((x, y) => x.localeCompare(y))];
   }, [asks]);
-  /** The window "Two weeks"/"One month" etc. resolves to — null is all time. */
-  const releaseRange = useMemo(() => reportWindow(releasePeriod), [releasePeriod]);
+  /** The window the selection resolves to — null is all time. */
+  const releaseRange = useMemo(
+    () => resolvePeriod(releasePeriod, releaseCustom.custom),
+    [releasePeriod, releaseCustom.custom],
+  );
   /** Which of his releases the department has actually poured, by trip. */
   const pouredByTrip = useMemo(() => {
     const map = new Map<string, LubricantDisbursalRow>();
@@ -585,12 +615,11 @@ export function TmLubricant() {
         (a) => releaseCompany === "All companies" || (a.customer?.trim() || "—") === releaseCompany,
       )
       .filter((a) => {
-        if (!releaseRange) return true;
         // A release belongs to the day it was DISPENSED once poured; before
         // that, to the day it was approved. "Two weeks of Diesel for Saba
         // Steel" sums the pours — the figure the reconciliation needs.
         const pour = pouredByTrip.get(a.id);
-        return inPeriod(pour?.createdAt ?? a.approvedAt ?? a.createdAt, releaseRange);
+        return inWindow(pour?.createdAt ?? a.approvedAt ?? a.createdAt, releaseRange);
       })
       .filter((a) => {
         if (!q) return true;
@@ -611,6 +640,21 @@ export function TmLubricant() {
       })
       .sort((a, b) => String(b.approvedAt ?? "").localeCompare(String(a.approvedAt ?? "")));
   }, [asks, releaseQuery, releaseFuel, releaseCompany, releaseRange, pouredByTrip]);
+  /** The sheet's footer: what the FILTERED releases add up to. */
+  const releaseTotals = useMemo(() => {
+    let dieselQty = 0;
+    let gasQty = 0;
+    let cost = 0;
+    let dispensed = 0;
+    for (const a of approvedRows) {
+      if (a.request.fuelType === "Gas") gasQty += a.request.quantity;
+      else dieselQty += a.request.quantity;
+      cost += a.estimatedAmount;
+      if (pouredByTrip.has(a.id)) dispensed += 1;
+    }
+    return { dieselQty, gasQty, cost, dispensed };
+  }, [approvedRows, pouredByTrip]);
+
   const approvedPageCount = Math.max(1, Math.ceil(approvedRows.length / PAGE_SIZE));
   const safeApprovedPage = Math.min(approvedPage, approvedPageCount - 1);
   const approvedSlice = approvedRows.slice(
@@ -738,21 +782,25 @@ export function TmLubricant() {
                 </option>
               ))}
             </select>
-            <select
+            <PeriodFilter
               value={releasePeriod}
-              onChange={(e) => {
-                setReleasePeriod(e.target.value);
+              onChange={(v) => {
+                setReleasePeriod(v);
                 setApprovedPage(0);
               }}
-              aria-label="Filter by period"
-              className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+              custom={releaseCustom.custom}
+              customOpen={releaseCustom.open}
+              onToggleCustom={releaseCustom.setOpen}
             >
-              {REPORT_PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              <CustomRangePicker
+                custom={releaseCustom.custom}
+                onSet={releaseCustom.set}
+                onClear={() => {
+                  releaseCustom.clear();
+                  setApprovedPage(0);
+                }}
+              />
+            </PeriodFilter>
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={releaseFuel}
@@ -834,6 +882,21 @@ export function TmLubricant() {
           )}
         </div>
 
+        {approvedRows.length > 0 ? (
+          <SummaryBar
+            items={[
+              {
+                label: releaseCompany === "All companies" ? "Total releases" : releaseCompany,
+                value: `${approvedRows.length} release${approvedRows.length === 1 ? "" : "s"}`,
+              },
+              { label: "Diesel", value: `${formatQuantity(releaseTotals.dieselQty)} L` },
+              { label: "Gas", value: `${formatQuantity(releaseTotals.gasQty)} KG` },
+              { label: "Dispensed", value: `${releaseTotals.dispensed} of ${approvedRows.length}` },
+              { label: "Total cost", value: formatMoney(releaseTotals.cost) },
+            ]}
+          />
+        ) : null}
+
         <Pager
           from={approvedRows.length === 0 ? 0 : safeApprovedPage * PAGE_SIZE + 1}
           to={Math.min((safeApprovedPage + 1) * PAGE_SIZE, approvedRows.length)}
@@ -900,21 +963,25 @@ export function TmLubricant() {
               }}
               placeholder="Search"
             />
-            <select
+            <PeriodFilter
               value={restockPeriod}
-              onChange={(e) => {
-                setRestockPeriod(e.target.value);
+              onChange={(v) => {
+                setRestockPeriod(v);
                 setRestockPage(0);
               }}
-              aria-label="Filter restocks by period"
-              className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+              custom={restockCustom.custom}
+              customOpen={restockCustom.open}
+              onToggleCustom={restockCustom.setOpen}
             >
-              {REPORT_PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              <CustomRangePicker
+                custom={restockCustom.custom}
+                onSet={restockCustom.set}
+                onClear={() => {
+                  restockCustom.clear();
+                  setRestockPage(0);
+                }}
+              />
+            </PeriodFilter>
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={restockFuel}
@@ -961,6 +1028,23 @@ export function TmLubricant() {
             ))
           )}
         </div>
+
+        {restockRows.length > 0 ? (
+          <SummaryBar
+            items={[
+              { label: "Deliveries", value: String(restockRows.length) },
+              { label: "Diesel in", value: `${formatQuantity(restockTotals.dieselQty)} L` },
+              { label: "Gas in", value: `${formatQuantity(restockTotals.gasQty)} KG` },
+              {
+                label: "Delivery cost",
+                value:
+                  restockTotals.priced === restockRows.length
+                    ? formatMoney(restockTotals.cost)
+                    : `${formatMoney(restockTotals.cost)} (${restockRows.length - restockTotals.priced} unpriced)`,
+              },
+            ]}
+          />
+        ) : null}
 
         <Pager
           from={restockRows.length === 0 ? 0 : safeRestockPage * PAGE_SIZE + 1}
@@ -1203,18 +1287,22 @@ export function TmLubricant() {
         </div>
 
         {logRows.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-[6px] bg-[#F1F2F4] px-4 py-3">
-            <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-              {logRows.length} disbursal{logRows.length === 1 ? "" : "s"}
-              {logClient !== "All clients" ? ` for ${logClient}` : ""}
-            </span>
-            {Object.entries(logTotals).map(([fuel, total]) => (
-              <span key={fuel} className="text-[12.5px] tracking-[0.4px] text-[#1B2432]">
-                {fuel}: <span className="font-semibold tabular-nums">{formatQuantity(total)}</span>{" "}
-                {unitWord(fuel)}
-              </span>
-            ))}
-          </div>
+          <SummaryBar
+            items={[
+              {
+                label: logClient !== "All clients" ? logClient : "Total entries",
+                value: `${logRows.length} entr${logRows.length === 1 ? "y" : "ies"}`,
+              },
+              ...Object.entries(logTotals).map(([fuel, total]) => ({
+                label: fuel,
+                value: `${formatQuantity(total)} ${unitWord(fuel)}`,
+              })),
+              {
+                label: "Total cost",
+                value: formatMoney(logRows.reduce((sum, d) => sum + Number(d.amount ?? 0), 0)),
+              },
+            ]}
+          />
         ) : null}
 
         <Pager

@@ -9,24 +9,32 @@ import {
   tripService,
 } from "@/lib/fleetopsx/services";
 import { buildAnalyticsReport, type AnalyticsReport } from "@/lib/fleetopsx/analytics";
-import { REPORT_PERIODS, reportWindow } from "@/lib/fleetopsx/period";
-import { partnerOf } from "@/lib/fleetopsx/tracking-ops";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  resolvePeriod,
+  useCustomRange,
+  windowLabel,
+} from "@/lib/fleetopsx/report-kit";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { printSheet } from "@/components/fleetopsx/dashboard-drill";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { formatQuantity } from "@/lib/fleetopsx/lubricant";
+import { partnerOf } from "@/lib/fleetopsx/tracking-ops";
 import { cn } from "@/lib/utils";
 
 /**
  * Analytics & Reports — the Transport Manager's end-to-end read of the whole
  * operation, in one place and one window at a time.
  *
- * Everything on this page is computed from the live truth (trips, the fleet,
- * drivers, the tank, the pour ledger) by `buildAnalyticsReport` — the same
- * lists the departments work from, filtered through the SAME time frames the
- * boards offer, so "diesel to Saba Steel in two weeks" here is the same two
- * weeks and the same litres the lubricant board sums. Every table exports to
- * CSV, and the whole report prints as one sheet for the boardroom.
+ * The two filters at the top answer the whole page: every partner or one of
+ * them, and any window — presets or a custom 1 – 15 Sept pair. Every table
+ * carries an Excel-style summary at its foot (totals over the FILTERED rows,
+ * so the numbers reconcile with the screen), exports to CSV, and the whole
+ * report prints as one sheet for the boardroom. Figures come from the live
+ * truth via `buildAnalyticsReport` — the same lists the departments work
+ * from, through the same windows the boards offer.
  *
  * The route is the TM's alone: every department's numbers, and the money on
  * them, are his to read — no department sees another's ledger here.
@@ -44,11 +52,14 @@ function ReportCard({
   title,
   subtitle,
   children,
+  summary,
   onExport,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  /** The Excel-style totals row printed under the table. */
+  summary?: React.ReactNode;
   onExport?: () => void;
 }) {
   return (
@@ -69,6 +80,7 @@ function ReportCard({
         ) : null}
       </div>
       {children}
+      {summary}
     </div>
   );
 }
@@ -123,9 +135,10 @@ function AnalyticsPage() {
   const [restocks, setRestocks] = useState<any[]>([]);
   const [disbursals, setDisbursals] = useState<any[]>([]);
 
-  /** The two filters the whole page answers to. */
+  /** The two filters the whole page answers to — plus the custom date pair. */
   const [period, setPeriod] = useState<string>("Two weeks");
   const [company, setCompany] = useState<string>("All companies");
+  const custom = useCustomRange();
   const [pages, setPages] = useState<Record<string, number>>({});
 
   const refresh = useCallback(async () => {
@@ -155,8 +168,7 @@ function AnalyticsPage() {
     void refresh();
   }, [refresh]);
 
-  /** The report's window — named `range` so the global `window` survives. */
-  const range = useMemo(() => reportWindow(period), [period]);
+  const range = useMemo(() => resolvePeriod(period, custom.custom), [period, custom.custom]);
 
   const companies = useMemo(() => {
     const seen = new Set<string>();
@@ -188,11 +200,101 @@ function AnalyticsPage() {
 
   const slice = <T,>(key: string, rows: T[]) => {
     const page = pageOf(key, rows.length);
-    return { page, rows: rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), total: rows.length };
+    return {
+      page,
+      rows: rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+      total: rows.length,
+    };
   };
 
-  const rangeLabel = range ? range.label : "All time";
+  const rangeText = windowLabel(period, range);
   const companyLabel = company === "All companies" ? "every partner" : company;
+
+  /* ---------------------------------------------------------- summaries -- */
+
+  const partnerSummary = (
+    <SummaryBar
+      items={[
+        { label: "Partners", value: String(report.companies.length) },
+        { label: "Requests", value: String(report.fleet.requests) },
+        {
+          label: "Diesel out",
+          value: `${formatQuantity(report.fuels.find((f) => f.fuelType === "Diesel")?.dispensedQty ?? 0)} L`,
+        },
+        {
+          label: "Gas out",
+          value: `${formatQuantity(report.fuels.find((f) => f.fuelType === "Gas")?.dispensedQty ?? 0)} KG`,
+        },
+        { label: "Direct cost", value: money(report.fleet.directCost) },
+        { label: "Fuel cost", value: money(report.fleet.fuelCost) },
+      ]}
+    />
+  );
+
+  const driverSummary = (
+    <SummaryBar
+      items={[
+        { label: "Drivers", value: String(report.drivers.length) },
+        { label: "Trips", value: String(report.drivers.reduce((s, d) => s + d.trips, 0)) },
+        { label: "Completed", value: String(report.drivers.reduce((s, d) => s + d.completed, 0)) },
+        {
+          label: "Dispensed",
+          value: formatQuantity(report.drivers.reduce((s, d) => s + d.litres, 0)),
+        },
+        { label: "Fuel cost", value: money(report.drivers.reduce((s, d) => s + d.fuelCost, 0)) },
+      ]}
+    />
+  );
+
+  const destinationSummary = (
+    <SummaryBar
+      items={[
+        { label: "Destinations", value: String(report.destinations.length) },
+        { label: "Trips", value: String(report.destinations.reduce((s, d) => s + d.trips, 0)) },
+        {
+          label: "Direct cost",
+          value: money(report.destinations.reduce((s, d) => s + d.directCost, 0)),
+        },
+        {
+          label: "Dispensed",
+          value: formatQuantity(report.destinations.reduce((s, d) => s + d.litres, 0)),
+        },
+      ]}
+    />
+  );
+
+  const fuelSummary = (
+    <SummaryBar
+      items={[
+        { label: "Dispensed", value: `${formatQuantity(report.fleet.litresDispensed)} units` },
+        { label: "Pours", value: String(report.fleet.pours) },
+        { label: "Fuel cost", value: money(report.fleet.fuelCost) },
+        {
+          label: "Restocked",
+          value: `${formatQuantity(report.fuels.reduce((s, f) => s + f.restockedQty, 0))} units`,
+        },
+        {
+          label: "Restock cost",
+          value: money(report.fuels.reduce((s, f) => s + f.restockedCost, 0)),
+        },
+      ]}
+    />
+  );
+
+  const trendSummary = (
+    <SummaryBar
+      items={[
+        { label: "Days", value: "14" },
+        { label: "Requests", value: String(report.trend.reduce((s, p) => s + p.requests, 0)) },
+        { label: "Completed", value: String(report.trend.reduce((s, p) => s + p.completed, 0)) },
+        {
+          label: "Dispensed",
+          value: formatQuantity(report.trend.reduce((s, p) => s + p.litres, 0)),
+        },
+        { label: "Fuel cost", value: money(report.trend.reduce((s, p) => s + p.cost, 0)) },
+      ]}
+    />
+  );
 
   /* ------------------------------------------------------------ printing -- */
 
@@ -202,9 +304,20 @@ function AnalyticsPage() {
       values.map((v) => `<tr>${v.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
     printSheet(
       "Analytics & Reports",
-      `${companyLabel} · ${rangeLabel} · printed ${new Date().toLocaleString("en-NG")}`,
+      `${companyLabel} · ${rangeText} · printed ${new Date().toLocaleString("en-NG")}`,
       `<p><strong>Requests:</strong> ${kpi.requests} · completed ${kpi.completed} · on the road ${kpi.inTransit} · declined ${kpi.declined}</p>
-       <p><strong>Direct cost committed:</strong> ${money(kpi.directCost)} · <strong>Fuel dispensed:</strong> ${money(kpi.fuelCost)} across ${report.fuels.reduce((s, f) => s + f.pours, 0)} pour(s)</p>
+       <p><strong>Direct cost committed:</strong> ${money(kpi.directCost)}${kpi.avgDirectPerRequest === null ? "" : ` (avg ${money(kpi.avgDirectPerRequest)}/request)`} · <strong>Fuel dispensed:</strong> ${money(kpi.fuelCost)} across ${kpi.pours} pour(s), ${formatQuantity(kpi.litresDispensed)} units</p>
+       <h2>Lifecycle mix</h2>
+       <table><thead><tr><th>Stage</th><th>Dispatches</th><th>Direct cost</th><th>Dispensed</th></tr></thead><tbody>${
+         rows(
+           report.statusMix.map((s) => [
+             s.label,
+             s.count,
+             money(s.directCost),
+             formatQuantity(s.litres),
+           ]),
+         ) || `<tr><td colspan="4">Nothing in the window.</td></tr>`
+       }</tbody></table>
        <h2>By partner</h2>
        <table><thead><tr><th>Partner</th><th>Requests</th><th>Completed</th><th>On the road</th><th>Direct cost</th><th>Diesel (L)</th><th>Gas (KG)</th><th>Fuel cost</th></tr></thead><tbody>${
          rows(
@@ -227,7 +340,7 @@ function AnalyticsPage() {
              d.driver,
              d.trips,
              d.completed,
-             `${formatQuantity(d.litres)}`,
+             formatQuantity(d.litres),
              money(d.fuelCost),
            ]),
          ) || `<tr><td colspan="5">No driver ran in this window.</td></tr>`
@@ -244,6 +357,30 @@ function AnalyticsPage() {
            ]),
          ) || `<tr><td colspan="5">No destination served in this window.</td></tr>`
        }</tbody></table>
+       <h2>Top lanes</h2>
+       <table><thead><tr><th>Lane</th><th>Trips</th><th>Completed</th><th>Direct cost</th><th>Dispensed</th></tr></thead><tbody>${
+         rows(
+           report.routes.map((r) => [
+             r.route,
+             r.trips,
+             r.completed,
+             money(r.directCost),
+             formatQuantity(r.litres),
+           ]),
+         ) || `<tr><td colspan="5">No lane ran in this window.</td></tr>`
+       }</tbody></table>
+       <h2>By truck</h2>
+       <table><thead><tr><th>Truck</th><th>Trips</th><th>Completed</th><th>Dispensed</th><th>Fuel cost</th></tr></thead><tbody>${
+         rows(
+           report.trucks.map((t) => [
+             t.truck,
+             t.trips,
+             t.completed,
+             formatQuantity(t.litres),
+             money(t.fuelCost),
+           ]),
+         ) || `<tr><td colspan="5">No truck ran in this window.</td></tr>`
+       }</tbody></table>
        <h2>Fuel &amp; tank</h2>
        <table><thead><tr><th>Fuel</th><th>Dispensed</th><th>Cost</th><th>Pours</th><th>Restocked</th><th>Restock cost</th><th>In tank</th><th>Minimum</th></tr></thead><tbody>${
          rows(
@@ -258,6 +395,24 @@ function AnalyticsPage() {
              formatQuantity(f.tankMin),
            ]),
          ) || `<tr><td colspan="8">No fuel recorded.</td></tr>`
+       }</tbody></table>
+       <h2>Six-month comparison</h2>
+       <table><thead><tr><th>Month</th><th>Requests</th><th>Dispensed</th><th>Fuel cost</th></tr></thead><tbody>${
+         rows(
+           report.months.map((m) => [m.month, m.requests, formatQuantity(m.litres), money(m.cost)]),
+         ) || `<tr><td colspan="4">No month on record.</td></tr>`
+       }</tbody></table>
+       <h2>Daily trend</h2>
+       <table><thead><tr><th>Day</th><th>Requests</th><th>Completed</th><th>Dispensed</th><th>Fuel cost</th></tr></thead><tbody>${
+         rows(
+           report.trend.map((p) => [
+             p.day,
+             p.requests,
+             p.completed,
+             formatQuantity(p.litres),
+             money(p.cost),
+           ]),
+         ) || `<tr><td colspan="5">No day on record.</td></tr>`
        }</tbody></table>`,
     );
   };
@@ -274,6 +429,7 @@ function AnalyticsPage() {
         "Diesel (L)",
         "Gas (KG)",
         "Fuel cost",
+        "Destinations",
       ],
       report.companies.map((c) => [
         c.partner,
@@ -284,6 +440,7 @@ function AnalyticsPage() {
         c.dieselQty,
         c.gasQty,
         c.fuelCost,
+        c.destinations,
       ]),
     );
   const exportDrivers = () =>
@@ -298,6 +455,30 @@ function AnalyticsPage() {
       ["Destination", "Trips", "Completed", "Direct cost", "Dispensed"],
       report.destinations.map((d) => [d.destination, d.trips, d.completed, d.directCost, d.litres]),
     );
+  const exportRoutes = () =>
+    exportCsv(
+      "analytics-lanes.csv",
+      ["Lane", "Trips", "Completed", "Direct cost", "Dispensed"],
+      report.routes.map((r) => [r.route, r.trips, r.completed, r.directCost, r.litres]),
+    );
+  const exportTrucks = () =>
+    exportCsv(
+      "analytics-trucks.csv",
+      ["Truck", "Trips", "Completed", "Dispensed", "Fuel cost"],
+      report.trucks.map((t) => [t.truck, t.trips, t.completed, t.litres, t.fuelCost]),
+    );
+  const exportStatus = () =>
+    exportCsv(
+      "analytics-lifecycle.csv",
+      ["Stage", "Dispatches", "Direct cost", "Dispensed"],
+      report.statusMix.map((s) => [s.label, s.count, s.directCost, s.litres]),
+    );
+  const exportMonths = () =>
+    exportCsv(
+      "analytics-months.csv",
+      ["Month", "Requests", "Dispensed", "Fuel cost"],
+      report.months.map((m) => [m.month, m.requests, m.litres, m.cost]),
+    );
   const exportTrend = () =>
     exportCsv(
       "analytics-daily-trend.csv",
@@ -308,23 +489,26 @@ function AnalyticsPage() {
   /* -------------------------------------------------------------- view ---- */
 
   const kpis = [
-    {
-      label: "Requests",
-      value: String(report.fleet.requests),
-      sub: range ? range.label : "All time",
-    },
-    {
-      label: "Completed",
-      value: String(report.fleet.completed),
-      sub: range ? "in the window" : "of all time",
-    },
+    { label: "Requests", value: String(report.fleet.requests), sub: rangeText },
+    { label: "Completed", value: String(report.fleet.completed), sub: "in the window" },
     { label: "On the Road", value: String(report.fleet.inTransit), sub: "scheduled + moving" },
-    { label: "Direct Cost", value: money(report.fleet.directCost), sub: "committed on loads" },
-    { label: "Fuel Dispensed", value: money(report.fleet.fuelCost), sub: "what the pours cost" },
+    {
+      label: "Direct Cost",
+      value: money(report.fleet.directCost),
+      sub:
+        report.fleet.avgDirectPerRequest === null
+          ? "committed on loads"
+          : `avg ${money(report.fleet.avgDirectPerRequest)}/load`,
+    },
+    {
+      label: "Fuel Dispensed",
+      value: money(report.fleet.fuelCost),
+      sub: `${formatQuantity(report.fleet.litresDispensed)} units · ${report.fleet.pours} pour(s)`,
+    },
     {
       label: "Fleet & Crew",
       value: `${report.fleet.trucks} · ${report.fleet.drivers}`,
-      sub: "heads · drivers",
+      sub: `${report.fleet.trucksOnRoad} on the road now`,
     },
   ];
 
@@ -336,7 +520,7 @@ function AnalyticsPage() {
             Analytics &amp; Reports
           </h2>
           <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-            The whole operation, end to end · {companyLabel} · {rangeLabel}
+            The whole operation, end to end · {companyLabel} · {rangeText}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -355,21 +539,18 @@ function AnalyticsPage() {
               </option>
             ))}
           </select>
-          <select
+          <PeriodFilter
             value={period}
-            onChange={(e) => {
-              setPeriod(e.target.value);
+            onChange={(v) => {
+              setPeriod(v);
               setPages({});
             }}
-            aria-label="Filter by period"
-            className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            custom={custom.custom}
+            customOpen={custom.open}
+            onToggleCustom={custom.setOpen}
           >
-            {REPORT_PERIODS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+            <CustomRangePicker custom={custom.custom} onSet={custom.set} onClear={custom.clear} />
+          </PeriodFilter>
           <button
             type="button"
             onClick={printReport}
@@ -403,8 +584,30 @@ function AnalyticsPage() {
           </div>
 
           <ReportCard
+            title="Lifecycle Mix"
+            subtitle="Where every dispatch in the window stands, with the money and litres in each stage"
+            onExport={exportStatus}
+          >
+            <Table columns={["Stage", "Dispatches", "Direct cost", "Dispensed"]}>
+              {report.statusMix.every((s) => s.count === 0) ? (
+                <Empty text="Nothing is in the window yet." />
+              ) : (
+                report.statusMix
+                  .filter((s) => s.count > 0)
+                  .map((s) => (
+                    <Row
+                      key={s.label}
+                      values={[s.label, s.count, money(s.directCost), formatQuantity(s.litres)]}
+                    />
+                  ))
+              )}
+            </Table>
+          </ReportCard>
+
+          <ReportCard
             title="By Partner"
-            subtitle={`Requests, cost and every litre dispensed per partner · ${rangeLabel}`}
+            subtitle={`Requests, cost and every litre dispensed per partner · ${rangeText}`}
+            summary={partnerSummary}
             onExport={exportCompanies}
           >
             <Table
@@ -439,21 +642,20 @@ function AnalyticsPage() {
                 ))
               )}
             </Table>
-            {report.companies.length > PAGE_SIZE ? (
-              <MiniPager
-                page={pageOf("companies", report.companies.length)}
-                pageCount={Math.max(1, Math.ceil(report.companies.length / PAGE_SIZE))}
-                onPage={(p) => setPage("companies", p)}
-                total={report.companies.length}
-                unit="partner"
-              />
-            ) : null}
+            <MiniPager
+              page={pageOf("companies", report.companies.length)}
+              pageCount={Math.max(1, Math.ceil(report.companies.length / PAGE_SIZE))}
+              onPage={(p) => setPage("companies", p)}
+              total={report.companies.length}
+              unit="partner"
+            />
           </ReportCard>
 
           <div className="grid gap-5 xl:grid-cols-2">
             <ReportCard
               title="By Driver"
-              subtitle={`Trips run and litres dispensed per driver · top 20 · ${rangeLabel}`}
+              subtitle={`Trips run and litres dispensed per driver · top 20 · ${rangeText}`}
+              summary={driverSummary}
               onExport={exportDrivers}
             >
               <Table columns={["Driver", "Trips", "Completed", "Dispensed", "Fuel cost"]}>
@@ -478,7 +680,8 @@ function AnalyticsPage() {
 
             <ReportCard
               title="By Destination"
-              subtitle={`Where the loads went and what they cost · top 20 · ${rangeLabel}`}
+              subtitle={`Where the loads went and what they cost · top 20 · ${rangeText}`}
+              summary={destinationSummary}
               onExport={exportDestinations}
             >
               <Table columns={["Destination", "Trips", "Completed", "Direct cost", "Dispensed"]}>
@@ -500,11 +703,62 @@ function AnalyticsPage() {
                 )}
               </Table>
             </ReportCard>
+
+            <ReportCard
+              title="Top Lanes"
+              subtitle={`Pickup → dropoff performance · top 12 · ${rangeText}`}
+              onExport={exportRoutes}
+            >
+              <Table columns={["Lane", "Trips", "Completed", "Direct cost", "Dispensed"]}>
+                {report.routes.length === 0 ? (
+                  <Empty text="No lane ran in this window." />
+                ) : (
+                  report.routes.map((r) => (
+                    <Row
+                      key={r.route}
+                      values={[
+                        r.route,
+                        r.trips,
+                        r.completed,
+                        money(r.directCost),
+                        formatQuantity(r.litres),
+                      ]}
+                    />
+                  ))
+                )}
+              </Table>
+            </ReportCard>
+
+            <ReportCard
+              title="By Truck"
+              subtitle={`Which heads are pulling and what they draw · top 12 · ${rangeText}`}
+              onExport={exportTrucks}
+            >
+              <Table columns={["Truck", "Trips", "Completed", "Dispensed", "Fuel cost"]}>
+                {report.trucks.length === 0 ? (
+                  <Empty text="No truck ran in this window." />
+                ) : (
+                  report.trucks.map((t) => (
+                    <Row
+                      key={t.truck}
+                      values={[
+                        t.truck,
+                        t.trips,
+                        t.completed,
+                        formatQuantity(t.litres),
+                        money(t.fuelCost),
+                      ]}
+                    />
+                  ))
+                )}
+              </Table>
+            </ReportCard>
           </div>
 
           <ReportCard
             title="Fuel & Tank"
             subtitle="What was dispensed, what was delivered into the tank, and what stands"
+            summary={fuelSummary}
           >
             <Table
               columns={[
@@ -536,20 +790,44 @@ function AnalyticsPage() {
             </Table>
           </ReportCard>
 
-          <ReportCard
-            title="Daily Trend"
-            subtitle={`The last 14 days, one row per day · ${rangeLabel}`}
-            onExport={exportTrend}
-          >
-            <Table columns={["Day", "Requests", "Completed", "Dispensed", "Fuel cost"]}>
-              {report.trend.map((p) => (
-                <Row
-                  key={p.day}
-                  values={[p.day, p.requests, p.completed, formatQuantity(p.litres), money(p.cost)]}
-                />
-              ))}
-            </Table>
-          </ReportCard>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <ReportCard
+              title="Six-Month Comparison"
+              subtitle="Requests, litres and fuel money month by month"
+              onExport={exportMonths}
+            >
+              <Table columns={["Month", "Requests", "Dispensed", "Fuel cost"]}>
+                {report.months.map((m) => (
+                  <Row
+                    key={m.month}
+                    values={[m.month, m.requests, formatQuantity(m.litres), money(m.cost)]}
+                  />
+                ))}
+              </Table>
+            </ReportCard>
+
+            <ReportCard
+              title="Daily Trend"
+              subtitle={`The last 14 days, one row per day · ${rangeText}`}
+              summary={trendSummary}
+              onExport={exportTrend}
+            >
+              <Table columns={["Day", "Requests", "Completed", "Dispensed", "Fuel cost"]}>
+                {report.trend.map((p) => (
+                  <Row
+                    key={p.day}
+                    values={[
+                      p.day,
+                      p.requests,
+                      p.completed,
+                      formatQuantity(p.litres),
+                      money(p.cost),
+                    ]}
+                  />
+                ))}
+              </Table>
+            </ReportCard>
+          </div>
         </>
       )}
     </div>
