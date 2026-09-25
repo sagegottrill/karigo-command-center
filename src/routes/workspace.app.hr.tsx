@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { ChevronLeft, ChevronRight, Search, Trash2, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -434,25 +434,22 @@ function HrStaffDirectory() {
   return (
     <>
       <DepartmentTabs department="hr" />
-      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-col gap-[5px]">
-            {/* The Manager's page is titled the way HIS portal draws it, with the
-                department's own heading left inside the card below. */}
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
-              {isManager ? "HR and Personnel" : "Staff Records"}
-            </h2>
-            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              {isManager
-                ? "Take action on dispatch requests"
-                : "Manage staff records and license status"}
-            </p>
-            {!canEdit && (
-              <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                View only — HR &amp; Personnel maintains these records
-              </span>
-            )}
-          </div>
+      <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-col gap-[5px]">
+              {/* The department's drawn page: one title, one subtitle, and the
+                  red button on the same row. The Manager sees the same page —
+                  his earlier "HR and Personnel" wording came from a different
+                  draw; this set is the register's own. */}
+              <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Staff Records</h2>
+              <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+                Manage staff records and license status
+              </p>
+              {!canEdit && (
+                <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                  View only — HR &amp; Personnel maintains these records
+                </span>
+              )}
+            </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
             {/*
               ONE button, the way the department draws it. A second "Import CSV"
@@ -473,19 +470,8 @@ function HrStaffDirectory() {
 
         <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-5 border-b border-[#E2E5E9] pb-5">
-            {/* The card names itself for the Manager — heading plus the count of
-                records the filter is showing, the shape every other board of his
-                uses. The department's own screen carries no heading here. */}
-            {isManager ? (
-              <div className="flex items-center gap-2.5">
-                <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
-                  Staff Records
-                </h3>
-                <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white">
-                  {filtered.length}
-                </span>
-              </div>
-            ) : null}
+            {/* The drawn card carries no heading — search and the red filter are
+                the whole header row, for every viewer. */}
             <div className="flex items-center gap-5">
               <div className="relative w-full max-w-[400px]">
                 <Search
@@ -660,27 +646,29 @@ function HrStaffDirectory() {
                       </span>
                     )}
                   </span>
-                  {/* One control per row, the way the design draws it: the 3-dots
-                      opens View Details, and a person who maintains the register
-                      also gets Edit and Delete. It replaced a bare pencil, which
-                      offered the Manager no way to read a record or remove one
-                      without opening the edit sheet first. */}
-                  <RowActionMenu
-                    items={[
-                      { label: "View Details", onSelect: () => setDetails(driver) },
-                      { label: "Edit", onSelect: () => openEdit(driver), hidden: !canEdit },
-                      {
-                        label: "Delete",
-                        onSelect: () => setDeleteFor(driver),
-                        danger: true,
-                        hidden: !canEdit,
-                      },
-                    ]}
-                    open={menuFor === driver.id}
-                    onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
-                    label={`Actions for ${driver.name}`}
-                    width={190}
-                  />
+                  {/* One control per row, the way the design draws it: the
+                      department's screen shows a bare pencil — the edit sheet
+                      carries Delete and its own confirm — while the Manager's
+                      screen keeps the 3-dots (View Details / Edit / Delete),
+                      which is how his board reads an action. */}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(driver)}
+                      aria-label={`Edit ${driver.name}`}
+                      className="grid size-8 place-items-center justify-self-end rounded text-[#1B2432] hover:bg-[#F1F2F4]"
+                    >
+                      <Pencil className="size-4" strokeWidth={1.5} />
+                    </button>
+                  ) : (
+                    <RowActionMenu
+                      items={[{ label: "View Details", onSelect: () => setDetails(driver) }]}
+                      open={menuFor === driver.id}
+                      onOpenChange={(open) => setMenuFor(open ? driver.id : null)}
+                      label={`Actions for ${driver.name}`}
+                      width={190}
+                    />
+                  )}
                 </div>
               </div>
             );
