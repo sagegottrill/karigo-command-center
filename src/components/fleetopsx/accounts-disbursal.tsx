@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronRight,
-  CircleDot,
+  Pencil,
   Printer,
   Search,
   SlidersHorizontal,
@@ -55,9 +55,11 @@ import { cn } from "@/lib/utils";
  * total and why the voucher it produces can never disagree with the money.
  */
 
-/** The board's tracks: everything the row has to say, plus its three actions. */
+/** The board's tracks: everything the row has to say, plus its actions —
+ *  the capture action is a word, not a dot: "Pay" until the money has left,
+ *  "Edit" once Accounts has recorded the payment and may correct it. */
 const BOARD_GRID =
-  "grid min-w-[1040px] grid-cols-[92px_140px_0.8fr_1.9fr_104px_132px_32px_32px_32px] items-center gap-3";
+  "grid min-w-[1080px] grid-cols-[92px_140px_0.8fr_1.9fr_104px_120px_72px_32px_32px] items-center gap-3";
 
 const TABS = ["All", PENDING_DISBURSAL, "Disbursed", "Reconciled"] as const;
 
@@ -371,14 +373,26 @@ export function AccountsDisbursal() {
                     <DisbursalPill state={state} />
                   </span>
                   <span className="flex justify-end">
-                    <button
-                      type="button"
-                      aria-label={`Capture disbursal for ${truckDetails(trip)}`}
-                      onClick={() => setCapture(trip)}
-                      className="grid size-8 place-items-center rounded-[4px] border border-[#E2E5E9] text-[#1B2432] hover:bg-[#F1F2F4]"
-                    >
-                      <CircleDot className="size-4" />
-                    </button>
+                    {state === PENDING_DISBURSAL ? (
+                      <button
+                        type="button"
+                        aria-label={`Pay disbursal for ${truckDetails(trip)}`}
+                        onClick={() => setCapture(trip)}
+                        className="h-8 rounded-[4px] bg-[#ED351D] px-3.5 text-[12.5px] font-semibold text-white hover:bg-[#d92c15]"
+                      >
+                        Pay
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`Edit disbursal for ${truckDetails(trip)}`}
+                        onClick={() => setCapture(trip)}
+                        className="flex h-8 items-center gap-1.5 rounded-[4px] border border-[#E2E5E9] px-3 text-[12.5px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4]"
+                      >
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </button>
+                    )}
                   </span>
                   <span className="flex justify-end">
                     <button
