@@ -18,6 +18,7 @@ import {
   RestockModal,
   TankCard,
 } from "@/components/fleetopsx/lubricant-ui";
+import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,10 @@ export const Route = createFileRoute("/workspace/app/lubricant-inventory")({
   component: LubricantInventoryPage,
 });
 
+/** The fuel the register is filtered to — the department's own two words. */
+const RESTOCK_FILTERS = ["All", "Diesel", "Gas"] as const;
+type RestockFilter = (typeof RESTOCK_FILTERS)[number];
+
 /** Restock Records — every purchase that put lubricant back in a tank. */
 const RESTOCK_GRID =
   "grid grid-cols-[minmax(120px,0.9fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)]";
@@ -68,6 +73,7 @@ function LubricantInventoryPage() {
   const [restocks, setRestocks] = useState<LubricantRestock[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [fuelFilter, setFuelFilter] = useState<RestockFilter>("All");
   const [page, setPage] = useState(0);
   const [restocking, setRestocking] = useState<false | "Diesel" | "Gas">(false);
 
@@ -91,11 +97,14 @@ function LubricantInventoryPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return restocks;
-    return restocks.filter((r) =>
-      [r.reference, r.fuelType, r.loggedBy, String(r.quantity)].some((v) => String(v ?? "").toLowerCase().includes(q)),
-    );
-  }, [restocks, query]);
+    return restocks.filter((r) => {
+      if (fuelFilter !== "All" && r.fuelType !== fuelFilter) return false;
+      if (!q) return true;
+      return [r.reference, r.fuelType, r.loggedBy, String(r.quantity)].some((v) =>
+        String(v ?? "").toLowerCase().includes(q),
+      );
+    });
+  }, [restocks, query, fuelFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -137,9 +146,30 @@ function LubricantInventoryPage() {
       )}
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">Restock Records</h3>
-          <LubricantSearch value={query} onChange={setQuery} placeholder="Search reference, lubricant or who logged it…" />
+        {/* Title, the search, and the department's own red filter — the shape the
+            design draws for every one of its three registers. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E5E9] pb-5">
+          <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Restock Records</h3>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <LubricantSearch
+              value={query}
+              onChange={(v) => {
+                setQuery(v);
+                setPage(0);
+              }}
+              placeholder="Search"
+            />
+            <FilterButton
+              options={RESTOCK_FILTERS}
+              value={fuelFilter}
+              onChange={(f) => {
+                setFuelFilter(f);
+                setPage(0);
+              }}
+              allLabel="All Lubricants"
+              iconOnly
+            />
+          </div>
         </div>
 
         <div className="overflow-x-auto">

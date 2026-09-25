@@ -43,7 +43,25 @@ export function TankCard({ stock, onClick }: { stock: LubricantStock; onClick?: 
   const percent = Math.max(0, Math.min(100, (Number(stock.quantity) || 0) / ceiling * 100));
   const isDiesel = stock.fuelType === "Diesel";
   return (
-    <div className="flex w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+    <div
+      className={cn(
+        "flex w-full flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]",
+        onClick && "cursor-pointer",
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <span className="text-[16px] font-medium tracking-[0.4px] text-[#1B2432]">
           Bulk {stock.fuelType} Storage
@@ -67,6 +85,14 @@ export function TankCard({ stock, onClick }: { stock: LubricantStock; onClick?: 
         </span>
       </div>
 
+      {/**
+       * The level and its bar, nothing else. The card used to print a word
+       * ("Healthy" / "Below minimum") over the bar and carry its own "Restock
+       * Diesel" button: the word repeated what the bar's colour already says,
+       * and the button repeated the page's own Restock Inventory control. The
+       * tank is still a way in — clicking it opens the restock form on this fuel
+       * — but the card reads the way the department draws it.
+       */}
       <div className="flex flex-col gap-1.5">
         <div className="h-2 w-full overflow-hidden rounded-full bg-[#E2E5E9]">
           <div
@@ -74,25 +100,12 @@ export function TankCard({ stock, onClick }: { stock: LubricantStock; onClick?: 
             style={{ width: `${percent}%` }}
           />
         </div>
-        <div className="flex items-center justify-between">
-          <span className={cn("text-[11px] tracking-[0.4px]", stock.low ? "text-[#ED351D]" : "text-[#627084]")}>
-            {stock.low ? "Below minimum" : "Healthy"}
-          </span>
+        <div className="flex items-center justify-end">
           <span className="text-[11px] tracking-[0.4px] text-[#627084]">
             Min: {formatQuantity(stock.minLevel)} {lubricantUnit(stock.fuelType).toLowerCase()}
           </span>
         </div>
       </div>
-
-      {onClick && (
-        <button
-          type="button"
-          onClick={onClick}
-          className="flex h-9 w-full items-center justify-center rounded border border-[#E2E5E9] text-[13px] font-medium tracking-[0.4px] text-[#1B2432] hover:border-[#1B2432]"
-        >
-          Restock {stock.fuelType}
-        </button>
-      )}
     </div>
   );
 }
@@ -699,12 +712,14 @@ export function LubricantTableFooter({
 }) {
   if (total === 0) return null;
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
-      <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[16px]">
-        {from} - {to}
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-2.5 border-t border-[#E2E5E9] pt-5">
+      <span className="flex items-center gap-2.5">
+        <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[16px]">
+          {from} - {to}
+        </span>
+        <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[16px]">of {total}</span>
       </span>
-      <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432] md:text-[16px]">of {total}</span>
-      <div className="ml-2 flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5">
         <button
           type="button"
           disabled={page === 0}
@@ -728,6 +743,7 @@ export function LubricantTableFooter({
           rows={total}
           title={`${from}–${to} of ${total}`}
           fileNameBase="lubricant"
+          label="Export CSV"
         />
       </div>
     </div>
