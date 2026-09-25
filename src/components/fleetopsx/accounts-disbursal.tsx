@@ -64,7 +64,12 @@ function DisbursalPill({ state }: { state: string }) {
         ? "bg-[#DCE4FB] text-[#2E4A9E]"
         : "border border-[#F2C200] bg-[#FDF6E3] text-[#B26B00]";
   return (
-    <span className={cn("inline-block whitespace-nowrap rounded-[4px] px-2.5 py-1 text-[11px] font-bold", tone)}>
+    <span
+      className={cn(
+        "inline-block whitespace-nowrap rounded-[4px] px-2.5 py-1 text-[11px] font-bold",
+        tone,
+      )}
+    >
       {state}
     </span>
   );
@@ -114,7 +119,11 @@ export function AccountsDisbursal() {
         driverOf(trip),
         state,
         sheetOf(trip).disbursement?.officer,
-      ].some((value) => String(value ?? "").toLowerCase().includes(q));
+      ].some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
     });
   }, [payable, query, tab]);
 
@@ -189,7 +198,9 @@ export function AccountsDisbursal() {
                   >
                     {option === PENDING_DISBURSAL ? "Pending" : option}
                     {option !== "All" ? (
-                      <span className={cn("tabular-nums", active ? "text-white/70" : "text-[#9CA3AF]")}>
+                      <span
+                        className={cn("tabular-nums", active ? "text-white/70" : "text-[#9CA3AF]")}
+                      >
                         {counts[option] ?? 0}
                       </span>
                     ) : null}
@@ -215,28 +226,30 @@ export function AccountsDisbursal() {
                     onClick={() => setFilterOpen(false)}
                   />
                   <div className="absolute right-0 z-20 mt-2 w-[230px] overflow-hidden rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
-                    {["All costs", "Not yet paid", "Paid, journey open", "Reconciled"].map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => {
-                          setTab(
-                            option === "Not yet paid"
-                              ? PENDING_DISBURSAL
-                              : option === "Paid, journey open"
-                                ? "Disbursed"
-                                : option === "Reconciled"
-                                  ? "Reconciled"
-                                  : "All",
-                          );
-                          setPage(0);
-                          setFilterOpen(false);
-                        }}
-                        className="block w-full px-3 py-2 text-left text-[13px] text-[#5C6470] hover:bg-[#F1F2F4]"
-                      >
-                        {option}
-                      </button>
-                    ))}
+                    {["All costs", "Not yet paid", "Paid, journey open", "Reconciled"].map(
+                      (option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setTab(
+                              option === "Not yet paid"
+                                ? PENDING_DISBURSAL
+                                : option === "Paid, journey open"
+                                  ? "Disbursed"
+                                  : option === "Reconciled"
+                                    ? "Reconciled"
+                                    : "All",
+                            );
+                            setPage(0);
+                            setFilterOpen(false);
+                          }}
+                          className="block w-full px-3 py-2 text-left text-[13px] text-[#5C6470] hover:bg-[#F1F2F4]"
+                        >
+                          {option}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </>
               ) : null}
@@ -267,7 +280,7 @@ export function AccountsDisbursal() {
           ) : slice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
               {payable.length === 0
-                ? "No dispatch carries a direct-cost breakdown yet. Every trip Fleet Ops configures with allowances, waybill, motor boy, tickets, contingency or bonus appears here to be paid."
+                ? "No dispatch carries a direct-cost breakdown yet. Every trip Fleet Ops configures with allowances, waybill, motor boy, tickets, extra allowance or bonus appears here to be paid."
                 : "No dispatch matches this view."}
             </p>
           ) : (
@@ -276,7 +289,13 @@ export function AccountsDisbursal() {
               const state = disbursalState(sheet);
               const method = paymentMethodShort(sheet.disbursement?.paymentMethod);
               return (
-                <div key={trip.id} className={cn(BOARD_GRID, "border-b border-[#E2E5E9] py-3.5 text-[13px] text-[#344256]")}>
+                <div
+                  key={trip.id}
+                  className={cn(
+                    BOARD_GRID,
+                    "border-b border-[#E2E5E9] py-3.5 text-[13px] text-[#344256]",
+                  )}
+                >
                   <span className="text-[#5C6470]">{longDay(trip.createdAt)}</span>
                   <span>{truckDetails(trip)}</span>
                   <span>{trip.dropoff || "—"}</span>
@@ -609,7 +628,9 @@ function CaptureDisbursementModal({
             <span className="text-[13px] text-[#344256]">{category.label}</span>
             <input
               value={amounts[category.key]}
-              onChange={(e) => setAmounts((current) => ({ ...current, [category.key]: e.target.value }))}
+              onChange={(e) =>
+                setAmounts((current) => ({ ...current, [category.key]: e.target.value }))
+              }
               inputMode="numeric"
               className={cn(FIELD, "tabular-nums")}
             />
@@ -620,7 +641,10 @@ function CaptureDisbursementModal({
       {(sheet.extras ?? []).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 rounded-[4px] bg-[#F1F2F4] p-3 text-[12px] text-[#344256]">
           {(sheet.extras ?? []).map((line, index) => (
-            <span key={`${line.label}-${index}`} className="flex items-center justify-between gap-3">
+            <span
+              key={`${line.label}-${index}`}
+              className="flex items-center justify-between gap-3"
+            >
               <span>{line.label}</span>
               <span className="tabular-nums">{money(line.amount)}</span>
             </span>
@@ -632,7 +656,9 @@ function CaptureDisbursementModal({
         <span className="text-[10px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">
           Total Direct Disbursement
         </span>
-        <span className="text-[26px] font-semibold tabular-nums text-[#2BB673]">{money(total)}</span>
+        <span className="text-[26px] font-semibold tabular-nums text-[#2BB673]">
+          {money(total)}
+        </span>
       </div>
 
       <h4 className="mt-5 text-[16px] font-bold text-[#1B2432]">Disbursement Details</h4>
@@ -719,7 +745,7 @@ function AddDirectCostModal({
   const [busy, setBusy] = useState(false);
 
   const chosen = DIRECT_COST_CATEGORIES.find((item) => item.key === category);
-  const name = creating ? newLabel.trim() : chosen?.label ?? "";
+  const name = creating ? newLabel.trim() : (chosen?.label ?? "");
 
   const save = async () => {
     const value = Number(amount);
@@ -733,7 +759,12 @@ function AddDirectCostModal({
     }
     setBusy(true);
     try {
-      await tripService.addDirectCost(trip.id, creating ? { label: name, amount: value } : { key: category as DirectCostKey, amount: value });
+      await tripService.addDirectCost(
+        trip.id,
+        creating
+          ? { label: name, amount: value }
+          : { key: category as DirectCostKey, amount: value },
+      );
       toast.success(`${name} — ${money(value)} recorded against ${truckDetails(trip)}.`);
       await onSaved();
     } catch (err) {

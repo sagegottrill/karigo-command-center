@@ -1,16 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
-  CircleDollarSign,
   LogOut,
   MessageSquare,
   MoreVertical,
   Package,
   PackageCheck,
   Receipt,
-  TicketCheck,
   Truck,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -117,8 +116,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     title: "Accounts Portal",
     subtitle: "Capture and manage costs disbursal",
     items: [
-      { label: "Dispatch Disbursal", to: "/workspace/app/disbursal", icon: CircleDollarSign },
-      { label: "Disbursal Voucher", to: "/workspace/app/disbursal-voucher", icon: TicketCheck },
+      { label: "Dispatch Disbursal", to: "/workspace/app/disbursal", icon: Wallet },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
     ],
   },

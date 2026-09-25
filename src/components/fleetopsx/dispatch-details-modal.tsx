@@ -15,7 +15,10 @@ import { Printer } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 function ticketId(trip: Trip) {
@@ -92,7 +95,12 @@ export function dispatchFields(
   const sitesRaw = trip.loadingSite?.filter(Boolean) ?? [];
   const sites =
     sitesRaw.length > 0
-      ? sitesRaw.flatMap((s) => s.split(/[;,]/).map((x) => x.trim()).filter(Boolean))
+      ? sitesRaw.flatMap((s) =>
+          s
+            .split(/[;,]/)
+            .map((x) => x.trim())
+            .filter(Boolean),
+        )
       : (trip.pickup ?? "")
           .split(/[;,]/)
           .map((x) => x.trim())
@@ -148,7 +156,7 @@ export function dispatchFields(
           { label: "Return Waybill", value: money(costs.returnWaybill) },
           { label: "Motor Boy Allowance", value: money(costs.motorBoy) },
           { label: "Transit Road Tickets", value: money(costs.ticket) },
-          { label: "Extra Contingency", value: money(costs.extraAllowance) },
+          { label: "Extra Allowance", value: money(costs.extraAllowance) },
           { label: "Bonus", value: money(costs.bonus ?? 0) },
           { label: "Lubricant", value: costs.lubricantType },
           // TM printout must show the priced fuel: litres and its cost.
@@ -156,7 +164,12 @@ export function dispatchFields(
             ? [{ label: "Lubricant Quantity", value: `${costs.lubricantQuantity} Litres` }]
             : []),
           ...(!hideTmPricing && typeof costs.lubricantCost === "number" && costs.lubricantCost > 0
-            ? [{ label: `${costs.lubricantType || "Lubricant"} Cost`, value: money(costs.lubricantCost) }]
+            ? [
+                {
+                  label: `${costs.lubricantType || "Lubricant"} Cost`,
+                  value: money(costs.lubricantCost),
+                },
+              ]
             : []),
           ...(typeof total === "number"
             ? [
@@ -215,7 +228,8 @@ export function printDispatch(fields: ReturnType<typeof dispatchFields>) {
     toast.error("Allow pop-ups for this site to print.");
     return;
   }
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>${fields.ticket} — Dispatch Details</title>
+  w.document
+    .write(`<!doctype html><html><head><meta charset="utf-8" /><title>${fields.ticket} — Dispatch Details</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; margin: 32px; color: #1B2432; }
@@ -272,7 +286,12 @@ export function DispatchDetailsModal({
   const sitesRaw = trip.loadingSite?.filter(Boolean) ?? [];
   const sites =
     sitesRaw.length > 0
-      ? sitesRaw.flatMap((s) => s.split(/[;,]/).map((x) => x.trim()).filter(Boolean))
+      ? sitesRaw.flatMap((s) =>
+          s
+            .split(/[;,]/)
+            .map((x) => x.trim())
+            .filter(Boolean),
+        )
       : (trip.pickup ?? "")
           .split(/[;,]/)
           .map((x) => x.trim())
@@ -298,21 +317,30 @@ export function DispatchDetailsModal({
   const total = expenseTotal(trip, hideTmPricing);
   const hasCustomer = Boolean(customerName || trip.dropoff || sites.length > 0 || trip.pickup);
   const hasVehicle = Boolean(
-    capNumber || plate || tailAssigned || driverLabel || driverPhone || displayRequestedTruckType(trip),
+    capNumber ||
+    plate ||
+    tailAssigned ||
+    driverLabel ||
+    driverPhone ||
+    displayRequestedTruckType(trip),
   );
   const hasExpense = Boolean(costs || typeof total === "number");
   const canAct = trip.status === "Requested";
   // TM can modify what FO configured while the dispatch is still pre-road.
   const canEdit =
     Boolean(onEdit) &&
-    (trip.status === "Awaiting Approval" || trip.status === "Approved" || trip.status === "Scheduled");
+    (trip.status === "Awaiting Approval" ||
+      trip.status === "Approved" ||
+      trip.status === "Scheduled");
   const fields = dispatchFields(trip, driver, head, hideTmPricing);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
       <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-auto rounded-[10px] border border-[#E2E5E9] bg-white p-[15px] shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
         <div className="rounded border-b border-[#E2E5E9] px-2.5 py-2 shadow-[0px_1px_4px_rgba(12,12,13,0.1)]">
-          <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Dispatch Details</h3>
+          <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+            Dispatch Details
+          </h3>
           <div className="mt-1 flex flex-wrap items-center gap-2.5">
             <span className="text-[11.4px] uppercase tracking-[0.4px] text-[#5C6470]">
               Ticket {ticketId(trip)}
@@ -320,7 +348,9 @@ export function DispatchDetailsModal({
             {partner && (
               <>
                 <span className="inline-block size-1.5 rounded-full bg-[#5C6470]" aria-hidden />
-                <span className="text-[11.4px] uppercase tracking-[0.4px] text-[#5C6470]">{partner}</span>
+                <span className="text-[11.4px] uppercase tracking-[0.4px] text-[#5C6470]">
+                  {partner}
+                </span>
               </>
             )}
           </div>
@@ -364,7 +394,9 @@ export function DispatchDetailsModal({
 
         {hasExpense && (
           <div className="flex w-full flex-col gap-4 rounded-[6px] bg-[#F1F2F4] p-4">
-            <span className="text-[14px] font-bold text-[#1B2432]">Expense Configuration Breakdown</span>
+            <span className="text-[14px] font-bold text-[#1B2432]">
+              Expense Configuration Breakdown
+            </span>
             <div className="flex w-full flex-col gap-2.5">
               {costs && (
                 <>
@@ -372,15 +404,23 @@ export function DispatchDetailsModal({
                   <DetailRow label="Return Waybill:" value={formatMoney(costs.returnWaybill)} />
                   <DetailRow label="Motor Boy Allowance:" value={formatMoney(costs.motorBoy)} />
                   <DetailRow label="Transit Road Tickets:" value={formatMoney(costs.ticket)} />
-                  <DetailRow label="Extra Contingency:" value={formatMoney(costs.extraAllowance)} />
+                  <DetailRow label="Extra Allowance:" value={formatMoney(costs.extraAllowance)} />
                   <DetailRow label="Bonus:" value={formatMoney(costs.bonus ?? 0)} />
                   <DetailRow label="Lubricant:" value={costs.lubricantType} />
                   {typeof costs.lubricantQuantity === "number" && costs.lubricantQuantity > 0 && (
-                    <DetailRow label="Lubricant Quantity:" value={`${costs.lubricantQuantity} Litres`} />
+                    <DetailRow
+                      label="Lubricant Quantity:"
+                      value={`${costs.lubricantQuantity} Litres`}
+                    />
                   )}
-                  {!hideTmPricing && typeof costs.lubricantCost === "number" && costs.lubricantCost > 0 && (
-                    <DetailRow label={`${costs.lubricantType || "Lubricant"} Cost:`} value={formatMoney(costs.lubricantCost)} />
-                  )}
+                  {!hideTmPricing &&
+                    typeof costs.lubricantCost === "number" &&
+                    costs.lubricantCost > 0 && (
+                      <DetailRow
+                        label={`${costs.lubricantType || "Lubricant"} Cost:`}
+                        value={formatMoney(costs.lubricantCost)}
+                      />
+                    )}
                 </>
               )}
               {hideTmPricing ? (

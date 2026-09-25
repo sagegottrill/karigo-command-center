@@ -2435,7 +2435,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                             ["Return Waybill", c?.returnWaybill],
                             ["Motor Boy", c?.motorBoy],
                             ["Road Tickets", c?.ticket],
-                            ["Contingency", c?.extraAllowance],
+                            ["Extra Allowance", c?.extraAllowance],
                             ["Bonus", c?.bonus ?? 0],
                           ] as const
                         )

@@ -593,7 +593,7 @@ export const tripService = {
    * The Transport Manager's decision on a dispatch's direct-cost voucher.
    *
    * The voucher is the dispatch's own cost sheet — trip allowance, waybill,
-   * motor boy, tickets, contingency, bonus — so the decision is recorded beside
+   * motor boy, tickets, extra allowance, bonus — so the decision is recorded beside
    * those figures rather than in a ledger of its own that could drift from them.
    */
   reviewVoucher: (id: string, status: 'Pending' | 'Approved' | 'Declined', note?: string) =>

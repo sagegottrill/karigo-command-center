@@ -150,7 +150,10 @@ function companyName(trip: Trip) {
 }
 
 function formatN(num: number) {
-  return new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+  return new Intl.NumberFormat("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
 }
 
 function DetailRow({ label, value }: { label: string; value?: string | undefined }) {
@@ -158,7 +161,9 @@ function DetailRow({ label, value }: { label: string; value?: string | undefined
   return (
     <div className="flex items-start justify-between gap-4 text-[13px]">
       <span className="shrink-0 text-[#5C6470]">{label}</span>
-      <span className="max-w-[58%] text-right font-semibold whitespace-pre-line text-[#1B2432]">{value}</span>
+      <span className="max-w-[58%] text-right font-semibold whitespace-pre-line text-[#1B2432]">
+        {value}
+      </span>
     </div>
   );
 }
@@ -178,7 +183,10 @@ type TimelineStep = {
 };
 
 /** Newest checkpoint logged against a stage, or nothing if Tracking has not been there yet. */
-function newestCheckpoint(checkpoints: LocationCheckpoint[], stage: TrackingLeg): LocationCheckpoint | undefined {
+function newestCheckpoint(
+  checkpoints: LocationCheckpoint[],
+  stage: TrackingLeg,
+): LocationCheckpoint | undefined {
   return checkpoints
     .filter((cp) => normalizeLeg(cp.leg) === stage)
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
@@ -210,7 +218,14 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
 
   const status = String(trip.status);
   const assigned = hasAssignment(trip);
-  const leftYard = ["Loaded", "En Route", "Delayed", "Offloading", "Returning", "Completed"].includes(status);
+  const leftYard = [
+    "Loaded",
+    "En Route",
+    "Delayed",
+    "Offloading",
+    "Returning",
+    "Completed",
+  ].includes(status);
   const moving = ["En Route", "Delayed", "Offloading", "Returning", "Completed"].includes(status);
   const arrived = ["Offloading", "Returning", "Completed"].includes(status);
   const offloaded = ["Returning", "Completed"].includes(status);
@@ -233,7 +248,11 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
       label: "Truck & Driver Assigned",
       done: assigned,
       at: assigned ? (trip.assignedAt ?? undefined) : undefined,
-      meta: assigned ? (trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : undefined) : undefined,
+      meta: assigned
+        ? trip.driverName && trip.driverName !== "Unassigned"
+          ? trip.driverName
+          : undefined
+        : undefined,
     },
     {
       label: "Left the Yard",
@@ -248,7 +267,12 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
       at: destination?.at,
       stage: "At Destination",
     },
-    { label: "Offloaded", done: offloaded || Boolean(offload), at: offload?.at, stage: "Offloaded" },
+    {
+      label: "Offloaded",
+      done: offloaded || Boolean(offload),
+      at: offload?.at,
+      stage: "Offloaded",
+    },
     { label: "Returned", done: returned || Boolean(back), at: back?.at, stage: "Return" },
   ];
 
@@ -257,7 +281,12 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
   const lastDone = steps.reduce((acc, s, i) => (s.done ? i : acc), 0);
   return steps.map((step, i) => ({
     ...step,
-    state: i <= lastDone ? ("done" as const) : i === lastDone + 1 ? ("current" as const) : ("pending" as const),
+    state:
+      i <= lastDone
+        ? ("done" as const)
+        : i === lastDone + 1
+          ? ("current" as const)
+          : ("pending" as const),
   }));
 }
 
@@ -325,7 +354,11 @@ function DispatchDetail({
     for (const step of timeline) {
       rows.push([
         step.label,
-        step.at ? formatMovementStamp(step.at) : step.state === "done" ? "Done (no stamp)" : "Not yet",
+        step.at
+          ? formatMovementStamp(step.at)
+          : step.state === "done"
+            ? "Done (no stamp)"
+            : "Not yet",
       ]);
       for (const dot of step.stage ? stageDots(step.stage, sites, checkpoints) : []) {
         rows.push([
@@ -363,7 +396,9 @@ function DispatchDetail({
         <div className="flex-1 overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="flex items-start justify-between gap-3 border-b border-[#E2E5E9] p-5">
             <div>
-              <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch Details</h2>
+              <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Dispatch Details
+              </h2>
               <p className="mt-1 text-[11.4px] uppercase tracking-[0.4px] text-[#5C6470]">
                 Ticket {dispatchId(trip)}
                 {companyName(trip) ? `  •  ${companyName(trip)}` : ""}
@@ -384,7 +419,9 @@ function DispatchDetail({
             </div>
 
             <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
-              <span className="text-[14px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
+              <span className="text-[14px] font-bold text-[#1B2432]">
+                Vehicle & Operator Details
+              </span>
               {/* truckReg is "PLATE / TAILCODE" — the head rows show the head's own
                   identifiers only; the tail lives on its own row. */}
               <DetailRow label="Truck Head (Cap Number):" value={displayCapFromTrip(trip)} />
@@ -413,21 +450,44 @@ function DispatchDetail({
 
             {(trip.directCosts || typeof trip.totalCosts === "number") && (
               <div className="flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
-                <span className="text-[14px] font-bold text-[#1B2432]">Expense Configuration Breakdown</span>
+                <span className="text-[14px] font-bold text-[#1B2432]">
+                  Expense Configuration Breakdown
+                </span>
                 {trip.directCosts && (
                   <>
-                    <DetailRow label="Trip Allowance:" value={formatN(trip.directCosts.tripAllowance)} />
-                    <DetailRow label="Return Waybill:" value={formatN(trip.directCosts.returnWaybill)} />
-                    <DetailRow label="Motor Boy Allowance:" value={formatN(trip.directCosts.motorBoy)} />
-                    <DetailRow label="Transit Road Tickets:" value={formatN(trip.directCosts.ticket)} />
-                    <DetailRow label="Extra Contingency:" value={formatN(trip.directCosts.extraAllowance)} />
+                    <DetailRow
+                      label="Trip Allowance:"
+                      value={formatN(trip.directCosts.tripAllowance)}
+                    />
+                    <DetailRow
+                      label="Return Waybill:"
+                      value={formatN(trip.directCosts.returnWaybill)}
+                    />
+                    <DetailRow
+                      label="Motor Boy Allowance:"
+                      value={formatN(trip.directCosts.motorBoy)}
+                    />
+                    <DetailRow
+                      label="Transit Road Tickets:"
+                      value={formatN(trip.directCosts.ticket)}
+                    />
+                    <DetailRow
+                      label="Extra Allowance:"
+                      value={formatN(trip.directCosts.extraAllowance)}
+                    />
                     <DetailRow label="Bonus:" value={formatN(trip.directCosts.bonus ?? 0)} />
                     <DetailRow label="Lubricant:" value={trip.directCosts.lubricantType} />
                     {typeof trip.directCosts.lubricantQuantity === "number" ? (
-                      <DetailRow label="Lubricant Quantity:" value={String(trip.directCosts.lubricantQuantity)} />
+                      <DetailRow
+                        label="Lubricant Quantity:"
+                        value={String(trip.directCosts.lubricantQuantity)}
+                      />
                     ) : null}
                     {showTmPricing && typeof trip.directCosts.lubricantCost === "number" ? (
-                      <DetailRow label="Lubricant Cost:" value={formatN(trip.directCosts.lubricantCost)} />
+                      <DetailRow
+                        label="Lubricant Cost:"
+                        value={formatN(trip.directCosts.lubricantCost)}
+                      />
                     ) : null}
                   </>
                 )}
@@ -456,7 +516,9 @@ function DispatchDetail({
 
         <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)] lg:max-w-[480px]">
           <div className="border-b border-[#E2E5E9] p-5">
-            <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch Timeline</h2>
+            <h2 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              Dispatch Timeline
+            </h2>
           </div>
           <div className="p-4 md:p-5">
             <ol className="relative ml-2 space-y-0 border-l-2 border-[#E2E5E9] pl-6 md:ml-3 md:pl-7">
@@ -480,7 +542,9 @@ function DispatchDetail({
                             : "border-[#D1D5DB] bg-white",
                       )}
                     >
-                      {done ? <span className="absolute inset-[3px] rounded-full bg-white md:inset-1" /> : null}
+                      {done ? (
+                        <span className="absolute inset-[3px] rounded-full bg-white md:inset-1" />
+                      ) : null}
                       {current ? (
                         <span className="absolute inset-[3px] rounded-full bg-[#ED351D] md:inset-1" />
                       ) : null}
@@ -492,19 +556,26 @@ function DispatchDetail({
                       )}
                     >
                       {step.label}
-                      {current ? <span className="ml-2 text-[11px] font-medium text-[#5C6470]">in progress</span> : null}
+                      {current ? (
+                        <span className="ml-2 text-[11px] font-medium text-[#5C6470]">
+                          in progress
+                        </span>
+                      ) : null}
                     </p>
                     {/* Only real stamps are printed: a step nobody reached carries
                         no date at all. */}
                     {step.at ? (
-                      <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{formatMovementStamp(step.at)}</p>
+                      <p className="mt-0.5 text-[11px] text-[#9CA3AF]">
+                        {formatMovementStamp(step.at)}
+                      </p>
                     ) : null}
                     {step.meta ? (
                       <p className="mt-0.5 text-[11px] font-medium text-[#5C6470]">{step.meta}</p>
                     ) : null}
                     {step.label === "Loading" && siteProgress ? (
                       <p className="mt-0.5 text-[11px] text-[#5C6470]">
-                        {siteProgress.logged} of {siteProgress.total} site{siteProgress.total === 1 ? "" : "s"} loaded
+                        {siteProgress.logged} of {siteProgress.total} site
+                        {siteProgress.total === 1 ? "" : "s"} loaded
                       </p>
                     ) : null}
                     {dots.length > 0 ? (
@@ -514,7 +585,9 @@ function DispatchDetail({
                             <span
                               className={cn(
                                 "absolute -left-[21px] top-1 size-2 rounded-full border md:-left-[23px]",
-                                dot.logged ? "border-[#ED351D] bg-[#ED351D]" : "border-[#D1D5DB] bg-white",
+                                dot.logged
+                                  ? "border-[#ED351D] bg-[#ED351D]"
+                                  : "border-[#D1D5DB] bg-white",
                               )}
                             />
                             <p
@@ -526,7 +599,9 @@ function DispatchDetail({
                               {dot.label}
                             </p>
                             {dot.at ? (
-                              <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{formatMovementStamp(dot.at)}</p>
+                              <p className="mt-0.5 text-[10px] text-[#9CA3AF]">
+                                {formatMovementStamp(dot.at)}
+                              </p>
                             ) : null}
                           </li>
                         ))}
@@ -562,16 +637,27 @@ function DispatchHistoryPage() {
     void tripService
       .list()
       .then(setTrips)
-      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load dispatch history"))
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Failed to load dispatch history"),
+      )
       .finally(() => setLoading(false));
-    void driverService.list().then(setDrivers).catch(() => {});
+    void driverService
+      .list()
+      .then(setDrivers)
+      .catch(() => {});
   }, []);
 
   // Near real-time: status changes (departed, returned, completed) appear live
   // on the history tables (10s poll + focus / tab-visible refresh).
   useAutoRefresh(() => {
-    void tripService.list().then(setTrips).catch(() => {});
-    void driverService.list().then(setDrivers).catch(() => {});
+    void tripService
+      .list()
+      .then(setTrips)
+      .catch(() => {});
+    void driverService
+      .list()
+      .then(setDrivers)
+      .catch(() => {});
   });
 
   const openTrip = (trip: Trip) => {
@@ -701,7 +787,9 @@ function DispatchHistoryPage() {
       <div className="w-full overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="mb-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E5E9] pb-2.5">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">History</h3>
+            <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+              History
+            </h3>
             <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white">
               {filteredTrips.length}
             </span>
@@ -733,7 +821,17 @@ function DispatchHistoryPage() {
         <div className="hidden grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 md:grid">
           {/* This column is the body the load rides in (Flat, Flatbed Tail, Side
               Guide) — calling it "Head Type" made operators read it as the cab. */}
-          {["Date", "Company", "Customer", "Product", "Truck Head", "Body Type", "Drop-off Location", "Dispatch ID", "Status"].map((h) => (
+          {[
+            "Date",
+            "Company",
+            "Customer",
+            "Product",
+            "Truck Head",
+            "Body Type",
+            "Drop-off Location",
+            "Dispatch ID",
+            "Status",
+          ].map((h) => (
             <span key={h} className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
               {h}
             </span>
@@ -756,7 +854,9 @@ function DispatchHistoryPage() {
                   </span>
                   <StatusPill status={status} />
                 </div>
-                <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{companyName(trip) || "—"}</p>
+                <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">
+                  {companyName(trip) || "—"}
+                </p>
                 <div className="flex flex-col gap-1 text-[12px]">
                   <div className="flex gap-2">
                     <span className="w-24 font-medium text-[#5C6470]">Customer:</span>
@@ -801,14 +901,30 @@ function DispatchHistoryPage() {
                 onClick={() => openTrip(trip)}
                 className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
-                <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">{formatHistoryDate(trip)}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{companyName(trip)}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.customerConsignee || "—"}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.cargo}</span>
-                <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{headCell(trip)}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.tailType}</span>
-                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
-                <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{dispatchId(trip)}</span>
+                <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">
+                  {formatHistoryDate(trip)}
+                </span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                  {companyName(trip)}
+                </span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                  {trip.customerConsignee || "—"}
+                </span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                  {trip.cargo}
+                </span>
+                <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                  {headCell(trip)}
+                </span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                  {trip.tailType}
+                </span>
+                <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                  {trip.dropoff}
+                </span>
+                <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                  {dispatchId(trip)}
+                </span>
                 <StatusPill status={status} />
               </button>
             );

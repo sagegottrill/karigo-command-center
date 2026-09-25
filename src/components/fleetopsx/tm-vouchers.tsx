@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
  *
  * A voucher is not a separate money document here: it IS a dispatch's own cost
  * sheet, the six figures Fleet Ops committed when the trip was configured
- * (trip allowance, return waybill, motor boy, transit tickets, contingency and
+ * (trip allowance, return waybill, motor boy, transit tickets, extra allowance and
  * bonus). Reading it from the dispatch means the screen can never disagree with
  * what the trip actually costs, and the decision — endorse or decline — is
  * recorded beside those figures rather than in a ledger that could drift.
@@ -110,7 +110,11 @@ export function TmVouchers() {
         trip.customerConsignee,
         driverOf(trip),
         statusOf(trip),
-      ].some((value) => String(value ?? "").toLowerCase().includes(q));
+      ].some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
     });
   }, [vouchers, query, statusFilter]);
 
@@ -145,7 +149,9 @@ export function TmVouchers() {
       await tripService.reviewVoucher(
         trip.id,
         status,
-        status === "Declined" ? `Declined by ${authService.getCurrentUser()?.name || "Transport Manager"}` : undefined,
+        status === "Declined"
+          ? `Declined by ${authService.getCurrentUser()?.name || "Transport Manager"}`
+          : undefined,
       );
       toast.success(
         status === "Approved"
@@ -176,7 +182,7 @@ export function TmVouchers() {
 
       {/* The day's commitments, by the six things a dispatch can be paid. */}
       <DirectCostBanner
-        subtitle="Aggregate across all trucks: Trip Allowance, Return Waybill, motor boy, transit tickets, contingency and bonus."
+        subtitle="Aggregate across all trucks: Trip Allowance, Return Waybill, motor boy, transit tickets, extra allowance and bonus."
         sheets={todaySheets}
       />
 
@@ -276,8 +282,8 @@ export function TmVouchers() {
           ) : slice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
               No dispatch carries a direct-cost breakdown yet. Every trip Fleet Ops configures with
-              allowances, waybill, motor boy, tickets, contingency or bonus appears here for you to
-              authorize.
+              allowances, waybill, motor boy, tickets, extra allowance or bonus appears here for you
+              to authorize.
             </p>
           ) : (
             slice.map((trip) => {
@@ -299,7 +305,10 @@ export function TmVouchers() {
                     {CELL_COLUMNS.map((column, index) => (
                       <span key={index} className="flex flex-col gap-0.5">
                         {column.map((item) => (
-                          <span key={item.key} className="flex items-baseline justify-between gap-2">
+                          <span
+                            key={item.key}
+                            className="flex items-baseline justify-between gap-2"
+                          >
                             <span className="text-[#9CA3AF]">{item.label}:</span>
                             <span className="whitespace-nowrap font-medium tabular-nums text-[#344256]">
                               {money(sheet[item.key])}
@@ -309,7 +318,9 @@ export function TmVouchers() {
                       </span>
                     ))}
                   </span>
-                  <span className="font-semibold tabular-nums text-[#1B2432]">{money(sum(sheet))}</span>
+                  <span className="font-semibold tabular-nums text-[#1B2432]">
+                    {money(sum(sheet))}
+                  </span>
                   <span>
                     <StatusPill status={status} />
                   </span>
@@ -405,7 +416,15 @@ export function TmVouchers() {
               onClick={() =>
                 exportCsv(
                   "direct-cost-vouchers.csv",
-                  ["Date", "Voucher ID", "Truck Details", "Destination", ...CATEGORIES.map((c) => c.label), "Total Cost", "Status"],
+                  [
+                    "Date",
+                    "Voucher ID",
+                    "Truck Details",
+                    "Destination",
+                    ...CATEGORIES.map((c) => c.label),
+                    "Total Cost",
+                    "Status",
+                  ],
                   rows.map((trip) => {
                     const sheet = sheetOf(trip);
                     return [
@@ -465,7 +484,9 @@ export function TmVouchers() {
               <span className="rounded-[4px] border border-[#2BB673] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px] text-[#2BB673]">
                 Official Voucher
               </span>
-              <span className="text-[14px] font-semibold text-[#1B2432]">{voucherRef(preview)}</span>
+              <span className="text-[14px] font-semibold text-[#1B2432]">
+                {voucherRef(preview)}
+              </span>
             </div>
 
             <div className="mt-4 grid gap-3 rounded-[6px] bg-[#F1F2F4] p-4 sm:grid-cols-3">

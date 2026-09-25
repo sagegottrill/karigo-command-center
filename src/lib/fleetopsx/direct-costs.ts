@@ -14,12 +14,7 @@ import type { Trip } from "./types";
  */
 
 export type DirectCostKey =
-  | "tripAllowance"
-  | "returnWaybill"
-  | "motorBoy"
-  | "ticket"
-  | "extraAllowance"
-  | "bonus";
+  "tripAllowance" | "returnWaybill" | "motorBoy" | "ticket" | "extraAllowance" | "bonus";
 
 export type DirectCostItem = { label: string; key: DirectCostKey };
 
@@ -29,7 +24,7 @@ export const DIRECT_COST_CATEGORIES: DirectCostItem[] = [
   { label: "Return Waybill", key: "returnWaybill" },
   { label: "Motor Boy", key: "motorBoy" },
   { label: "Road Tickets", key: "ticket" },
-  { label: "Contingency", key: "extraAllowance" },
+  { label: "Extra Allowance", key: "extraAllowance" },
   { label: "Trip Bonus", key: "bonus" },
 ];
 
@@ -41,7 +36,7 @@ export const COST_COLUMNS: DirectCostItem[][] = [
   [
     { label: "Trip Allowance", key: "tripAllowance" },
     { label: "Motor Boy", key: "motorBoy" },
-    { label: "Contingency", key: "extraAllowance" },
+    { label: "Extra Allowance", key: "extraAllowance" },
   ],
   [
     { label: "Waybill", key: "returnWaybill" },
@@ -61,7 +56,7 @@ export const COST_PAIRS: DirectCostItem[][] = [
     { label: "Return Waybill", key: "returnWaybill" },
   ],
   [
-    { label: "Extra Contingency", key: "extraAllowance" },
+    { label: "Extra Allowance", key: "extraAllowance" },
     { label: "Bonus Allowance", key: "bonus" },
   ],
 ];
@@ -118,7 +113,7 @@ export const PENDING_DISBURSAL = "Pending Disbursal";
  * dispatch carrying a sheet, which is the money it still owes.
  */
 export const COST_SUBTITLE_ALL =
-  "Aggregate across all dispatch: Trip Allowance, Return Waybill, motor boy, transit tickets, contingency and bonus.";
+  "Aggregate across all dispatch: Trip Allowance, Return Waybill, motor boy, transit tickets, extra allowance and bonus.";
 
 export const sheetOf = (trip: Trip): CostSheet => (trip.directCosts ?? {}) as CostSheet;
 
@@ -173,7 +168,10 @@ export const longDay = (iso?: string | null) => {
 export const truckDetails = (trip: Trip) => {
   const label = displayCapPlateFromTrip(trip);
   if (label) return label;
-  const plate = String(trip.truckReg ?? "").split("/")[0]?.trim() ?? "";
+  const plate =
+    String(trip.truckReg ?? "")
+      .split("/")[0]
+      ?.trim() ?? "";
   return plate && !/^unassigned$/i.test(plate) ? plate : "—";
 };
 
