@@ -18,6 +18,14 @@ import { driverForTrip, type TripDriverMatch } from "@/lib/fleetopsx/driver-duty
 import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
 import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
 import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
+import {
   listCheckpoints,
   loadingSiteProgress,
   normalizeLeg,
@@ -704,9 +712,18 @@ function DispatchHistoryPage() {
   const driverMatchFor = useMemo(() => (trip: Trip) => driverForTrip(trip, drivers), [drivers]);
   const driverFor = (trip: Trip): Driver | undefined => driverMatchFor(trip)?.driver;
 
+  /** The history's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const filteredTrips = useMemo(() => {
     const rows = trips.filter((t) => {
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
+      if (!inWindow(t.createdAt, range)) return false;
       // The shared matcher, so what is typed finds what is on screen: the
       // dispatch id as shown, every column's text, the date as displayed, and
       // the truck/driver numbers however they are punctuated.
@@ -730,7 +747,7 @@ function DispatchHistoryPage() {
       if (byRank !== 0) return byRank;
       return dateValue(b) - dateValue(a);
     });
-  }, [trips, searchQuery, statusFilter]);
+  }, [trips, searchQuery, statusFilter, range]);
 
   const exportCSV = () => {
     const headers =
@@ -807,6 +824,21 @@ function DispatchHistoryPage() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={rangeCustom.clear}
+              />
+            </PeriodFilter>
             <FilterButton
               options={HISTORY_STATUS_FILTERS}
               value={statusFilter}
@@ -930,6 +962,38 @@ function DispatchHistoryPage() {
             );
           })}
         </div>
+
+        {filteredTrips.length > 0 && (
+          <SummaryBar
+            items={[
+              { label: "Dispatches", value: String(filteredTrips.length) },
+              {
+                label: "Companies",
+                value: String(
+                  new Set(filteredTrips.map((t) => companyName(t)).filter(Boolean)).size,
+                ),
+              },
+              {
+                label: "Completed",
+                value: String(
+                  filteredTrips.filter((t) => toDisplayStatus(t.status) === "Completed").length,
+                ),
+              },
+              {
+                label: "In transit",
+                value: String(
+                  filteredTrips.filter((t) => toDisplayStatus(t.status) === "In Transit").length,
+                ),
+              },
+              {
+                label: "Destinations",
+                value: String(
+                  new Set(filteredTrips.map((t) => (t.dropoff ?? "").trim()).filter(Boolean)).size,
+                ),
+              },
+            ]}
+          />
+        )}
 
         {filteredTrips.length === 0 && (
           <FigmaEmptyState

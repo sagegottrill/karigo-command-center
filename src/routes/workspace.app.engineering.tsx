@@ -5,6 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RaisePartsRequestModal } from "@/components/fleetopsx/raise-parts-request-modal";
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
@@ -180,7 +188,9 @@ function EngineeringWorkOrders() {
 
   useEffect(() => {
     void refresh()
-      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load the workshop"))
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Failed to load the workshop"),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -194,7 +204,9 @@ function EngineeringWorkOrders() {
   // this dialog already pointed at it, so the two modules read as one department.
   useEffect(() => {
     if (!truckParam || !truckOptions.length) return;
-    const head = truckOptions.find((h) => truckLabel(h) === truckParam || h.registration === truckParam);
+    const head = truckOptions.find(
+      (h) => truckLabel(h) === truckParam || h.registration === truckParam,
+    );
     if (!head) return;
     setEditingId(null);
     setDraft({ ...emptyDraft(), truckReg: truckLabel(head) });
@@ -222,30 +234,72 @@ function EngineeringWorkOrders() {
     };
   }, [orders, openOrders]);
 
+  /** The workshop's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const filteredOrders = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return orders
-      .filter((o) => statusFilter === "All" || o.status === statusFilter)
-      .filter((o) => {
-        if (!q) return true;
-        const head = resolveTruck(o, heads);
-        const hay = [
-          o.truckReg,
-          o.defect,
-          o.category,
-          o.mechanic,
-          o.reportedBy,
-          o.notes,
-          head ? truckLabel(head) : "",
-          head ? head.make : "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(q);
-      })
-      // Newest first, always — the job raised a minute ago is the one being worked.
-      .sort((a, b) => new Date(b.reportedAt || 0).getTime() - new Date(a.reportedAt || 0).getTime());
-  }, [orders, statusFilter, query, heads]);
+    return (
+      orders
+        .filter((o) => statusFilter === "All" || o.status === statusFilter)
+        .filter((o) => inWindow(o.reportedAt, range))
+        .filter((o) => {
+          if (!q) return true;
+          const head = resolveTruck(o, heads);
+          const hay = [
+            o.truckReg,
+            o.defect,
+            o.category,
+            o.mechanic,
+            o.reportedBy,
+            o.notes,
+            head ? truckLabel(head) : "",
+            head ? head.make : "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          return hay.includes(q);
+        })
+        // Newest first, always — the job raised a minute ago is the one being worked.
+        .sort(
+          (a, b) => new Date(b.reportedAt || 0).getTime() - new Date(a.reportedAt || 0).getTime(),
+        )
+    );
+  }, [orders, statusFilter, query, heads, range]);
+
+  /** The board's footer: jobs, trucks held and repair spend in the window. */
+  const orderSummary = (
+    <SummaryBar
+      items={[
+        { label: "Work orders", value: String(filteredOrders.length) },
+        {
+          label: "Trucks held",
+          value: String(new Set(filteredOrders.map((o) => o.truckReg).filter(Boolean)).size),
+        },
+        {
+          label: "Completed",
+          value: String(filteredOrders.filter((o) => o.status === "Completed").length),
+        },
+        {
+          label: "Awaiting parts",
+          value: String(filteredOrders.filter((o) => o.status === "Awaiting Parts").length),
+        },
+        {
+          label: "Repair spend",
+          value: formatNairaFull(
+            filteredOrders
+              .filter((o) => o.status !== "Cancelled")
+              .reduce((sum, o) => sum + (Number(o.cost) || 0), 0),
+          ),
+        },
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -253,7 +307,11 @@ function EngineeringWorkOrders() {
   const from = filteredOrders.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filteredOrders.length, currentPage * PAGE_SIZE + PAGE_SIZE);
 
-  const patchOrder = async (order: WorkOrder, updates: Record<string, unknown>, message: string) => {
+  const patchOrder = async (
+    order: WorkOrder,
+    updates: Record<string, unknown>,
+    message: string,
+  ) => {
     try {
       const updated = await engineeringService.updateWorkOrder(order.id, updates);
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
@@ -266,7 +324,9 @@ function EngineeringWorkOrders() {
   const saveDraft = async () => {
     if (!draft) return;
     const truck = truckOptions.find((h) => truckLabel(h) === draft.truckReg);
-    const truckReg = truck ? truck.registration : (/\(([^)]+)\)/.exec(draft.truckReg)?.[1] ?? draft.truckReg).trim();
+    const truckReg = truck
+      ? truck.registration
+      : (/\(([^)]+)\)/.exec(draft.truckReg)?.[1] ?? draft.truckReg).trim();
     if (!truckReg || !draft.defect.trim()) {
       toast.error("Truck and defect are required.");
       return;
@@ -299,7 +359,9 @@ function EngineeringWorkOrders() {
         setOrders((prev) => [created, ...prev]);
         if (draft.sendToMaintenance && truck && truck.status !== "Maintenance") {
           await fleetService.updateHeadStatus(truck.id, "Maintenance", truckReg).catch(() => {});
-          setHeads((prev) => prev.map((h) => (h.id === truck.id ? { ...h, status: "Maintenance" } : h)));
+          setHeads((prev) =>
+            prev.map((h) => (h.id === truck.id ? { ...h, status: "Maintenance" } : h)),
+          );
         }
         toast.success(`Work order raised for ${truckReg}.`);
       }
@@ -393,17 +455,24 @@ function EngineeringWorkOrders() {
           void engineeringService
             .advance(order)
             .then((updated) => {
-              if (updated) setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+              if (updated)
+                setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
               toast.success(next ? `Moved to ${next}.` : "Job is closed.");
             })
-            .catch((err) => toast.error(err instanceof Error ? err.message : "Could not advance the job"));
+            .catch((err) =>
+              toast.error(err instanceof Error ? err.message : "Could not advance the job"),
+            );
         },
       },
       {
         label: "Mark completed",
         hidden: order.status === "Completed",
         onSelect: () =>
-          void patchOrder(order, { status: "Completed", completedAt: new Date().toISOString() }, "Job closed."),
+          void patchOrder(
+            order,
+            { status: "Completed", completedAt: new Date().toISOString() },
+            "Job closed.",
+          ),
       },
       {
         label: "Request parts…",
@@ -418,14 +487,20 @@ function EngineeringWorkOrders() {
       {
         label: "Reopen job",
         hidden: order.status !== "Completed" && order.status !== "Cancelled",
-        onSelect: () => void patchOrder(order, { status: "Reported", completedAt: null }, "Job reopened at Reported."),
+        onSelect: () =>
+          void patchOrder(
+            order,
+            { status: "Reported", completedAt: null },
+            "Job reopened at Reported.",
+          ),
       },
       {
         label: "Cancel job",
         danger: true,
         hidden: order.status === "Cancelled" || order.status === "Completed",
         onSelect: () => {
-          const reason = window.prompt("Why is this job being cancelled? (goes on the record)") ?? "";
+          const reason =
+            window.prompt("Why is this job being cancelled? (goes on the record)") ?? "";
           void patchOrder(
             order,
             { status: "Cancelled", notes: reason, completedAt: new Date().toISOString() },
@@ -453,7 +528,12 @@ function EngineeringWorkOrders() {
             )}
           </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
-            <ExportMenu csv={exportCSV} rows={filteredOrders.length} title="Engineering Work Orders" fileNameBase="engineering_work_orders" />
+            <ExportMenu
+              csv={exportCSV}
+              rows={filteredOrders.length}
+              title="Engineering Work Orders"
+              fileNameBase="engineering_work_orders"
+            />
             <button
               type="button"
               onClick={() => {
@@ -477,7 +557,11 @@ function EngineeringWorkOrders() {
             { label: "In Repair", value: summary.repairing, tone: "text-[#ED351D]" },
             { label: "Testing", value: summary.testing, tone: "text-[#1B2432]" },
             { label: "Completed", value: summary.completed, tone: "text-[#0A8F4D]" },
-            { label: "Repair Spend", value: formatNairaFull(summary.spend), tone: "text-[#1B2432]" },
+            {
+              label: "Repair Spend",
+              value: formatNairaFull(summary.spend),
+              tone: "text-[#1B2432]",
+            },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -486,7 +570,9 @@ function EngineeringWorkOrders() {
               <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                 {stat.label}
               </span>
-              <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>{stat.value}</span>
+              <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>
+                {stat.value}
+              </span>
             </div>
           ))}
         </div>
@@ -508,6 +594,25 @@ function EngineeringWorkOrders() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+                setPage(0);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={() => {
+                  rangeCustom.clear();
+                  setPage(0);
+                }}
+              />
+            </PeriodFilter>
             <FilterButton
               options={WORK_ORDER_FILTERS}
               value={statusFilter}
@@ -536,7 +641,10 @@ function EngineeringWorkOrders() {
                   "Cost",
                   "Status",
                 ].map((h) => (
-                  <span key={h} className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  <span
+                    key={h}
+                    className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]"
+                  >
                     {h}
                   </span>
                 ))}
@@ -556,11 +664,15 @@ function EngineeringWorkOrders() {
                     </span>
                     <span className="flex flex-col gap-0.5 text-[14px] text-[#344256]">
                       <span>{head ? displayHeadCap(head) || head.number : order.truckReg}</span>
-                      <span className="text-[11px] text-[#5C6470]">{head?.registration || "—"}</span>
+                      <span className="text-[11px] text-[#5C6470]">
+                        {head?.registration || "—"}
+                      </span>
                     </span>
                     <span className="flex flex-col gap-0.5">
                       <span className="text-[14px] capitalize text-[#344256]">{order.defect}</span>
-                      {order.notes ? <span className="text-[11px] text-[#5C6470]">{order.notes}</span> : null}
+                      {order.notes ? (
+                        <span className="text-[11px] text-[#5C6470]">{order.notes}</span>
+                      ) : null}
                     </span>
                     <span className="text-[14px] text-[#5C6470]">{order.category}</span>
                     <span
@@ -572,7 +684,9 @@ function EngineeringWorkOrders() {
                       {order.priority}
                     </span>
                     <span className="text-[14px] text-[#5C6470]">
-                      {order.mechanic && order.mechanic !== "Unassigned" ? order.mechanic : "Unassigned"}
+                      {order.mechanic && order.mechanic !== "Unassigned"
+                        ? order.mechanic
+                        : "Unassigned"}
                     </span>
                     <span className="text-[14px] text-[#5C6470]">{order.reportedBy}</span>
                     <span className="text-[14px] text-[#344256]">
@@ -614,10 +728,14 @@ function EngineeringWorkOrders() {
             </div>
           </div>
 
+          {!loading && filteredOrders.length > 0 && orderSummary}
+
           {loading && <FigmaLoadingState />}
           {!loading && filteredOrders.length === 0 && (
             <FigmaEmptyState
-              title={query || statusFilter !== "All" ? "No matching work orders" : "No work orders yet"}
+              title={
+                query || statusFilter !== "All" ? "No matching work orders" : "No work orders yet"
+              }
               body={
                 query || statusFilter !== "All"
                   ? "Try another truck, defect or mechanic, or clear the status filter."
@@ -668,7 +786,11 @@ function EngineeringWorkOrders() {
                 {editingId ? "Edit Work Order" : "Raise Work Order"}
               </h3>
             </div>
-            <Field label="Truck Head" required hint="Cap number with its plate — the truck the job is for.">
+            <Field
+              label="Truck Head"
+              required
+              hint="Cap number with its plate — the truck the job is for."
+            >
               <select
                 value={draft.truckReg}
                 onChange={(e) => setDraft({ ...draft, truckReg: e.target.value })}
@@ -687,7 +809,11 @@ function EngineeringWorkOrders() {
                 )}
               </select>
             </Field>
-            <Field label="Defect / Job" required hint="What is wrong, in the words the workshop will read.">
+            <Field
+              label="Defect / Job"
+              required
+              hint="What is wrong, in the words the workshop will read."
+            >
               <input
                 value={draft.defect}
                 onChange={(e) => setDraft({ ...draft, defect: e.target.value })}
@@ -712,7 +838,9 @@ function EngineeringWorkOrders() {
               <Field label="Priority">
                 <select
                   value={draft.priority}
-                  onChange={(e) => setDraft({ ...draft, priority: e.target.value as WorkOrder["priority"] })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, priority: e.target.value as WorkOrder["priority"] })
+                  }
                   className={selectClass}
                 >
                   {PRIORITIES.map((p) => (
@@ -828,11 +956,15 @@ function EngineeringWorkOrders() {
                 },
                 {
                   label: "Work started",
-                  value: details.startedAt ? formatDateLines(details.startedAt).date : "Not started",
+                  value: details.startedAt
+                    ? formatDateLines(details.startedAt).date
+                    : "Not started",
                 },
                 {
                   label: "Completed",
-                  value: details.completedAt ? formatDateLines(details.completedAt).date : "Still open",
+                  value: details.completedAt
+                    ? formatDateLines(details.completedAt).date
+                    : "Still open",
                 },
                 {
                   label: "Return to service",

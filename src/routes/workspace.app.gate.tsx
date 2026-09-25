@@ -6,6 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RecordDetailsModal } from "@/components/fleetopsx/record-details-modal";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -43,7 +51,10 @@ export const Route = createFileRoute("/workspace/app/gate")({
   head: () => ({
     meta: [
       { title: "Security Log | Gate Security Portal" },
-      { name: "description", content: "Log departure and return timestamps for dispatch and vehicles." },
+      {
+        name: "description",
+        content: "Log departure and return timestamps for dispatch and vehicles.",
+      },
     ],
   }),
   component: SecurityLogPage,
@@ -146,8 +157,14 @@ function SecurityLogPage() {
     { label: "Truck head", value: headOf(trip) },
     { label: "Plate number", value: plateOf(trip) },
     { label: "Tail number", value: tailOf(trip) },
-    { label: "Departure", value: departureStamp(trip) ? stampCsv(departureStamp(trip), "Not Departed") : "Not Departed" },
-    { label: "Return", value: returnStamp(trip) ? stampCsv(returnStamp(trip), "Not Returned") : "Not Returned" },
+    {
+      label: "Departure",
+      value: departureStamp(trip) ? stampCsv(departureStamp(trip), "Not Departed") : "Not Departed",
+    },
+    {
+      label: "Return",
+      value: returnStamp(trip) ? stampCsv(returnStamp(trip), "Not Returned") : "Not Returned",
+    },
     { label: "Route", value: trip.dropoff || "—" },
   ];
 
@@ -203,7 +220,9 @@ function SecurityLogPage() {
     setReturnTruckBusy(truck.id);
     try {
       const res = await tripService.returnTruckToYard(truck.registration || truck.capId);
-      const named = res.truck ? `${res.truck.capId} (${res.truck.registration})` : truck.registration;
+      const named = res.truck
+        ? `${res.truck.capId} (${res.truck.registration})`
+        : truck.registration;
       toast.success(
         res.dispatchClosed
           ? `${named} is back — ${res.dispatchClosed} open dispatch${res.dispatchClosed === 1 ? "" : "es"} closed, driver freed, truck to Check Up.`
@@ -236,7 +255,9 @@ function SecurityLogPage() {
 
   useEffect(() => {
     void refresh()
-      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load security log"))
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Failed to load security log"),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -274,12 +295,20 @@ function SecurityLogPage() {
     const driverOk =
       !t.driverName ||
       t.driverName.trim().toLowerCase() === logForm.driverName.trim().toLowerCase();
-    if (!driverOk) diffs.push(`Driver: ticket says ${t.driverName}, gate typed ${logForm.driverName || "—"}`);
+    if (!driverOk)
+      diffs.push(`Driver: ticket says ${t.driverName}, gate typed ${logForm.driverName || "—"}`);
     const plate = plateOf(t);
-    const plateOk = !plate || plate.replace(/\s/g, "").toLowerCase() === logForm.plateNumber.replace(/\s/g, "").toLowerCase();
-    if (!plateOk) diffs.push(`Plate: ticket says ${plate}, gate typed ${logForm.plateNumber || "—"}`);
+    const plateOk =
+      !plate ||
+      plate.replace(/\s/g, "").toLowerCase() ===
+        logForm.plateNumber.replace(/\s/g, "").toLowerCase();
+    if (!plateOk)
+      diffs.push(`Plate: ticket says ${plate}, gate typed ${logForm.plateNumber || "—"}`);
     const tail = tailOf(t);
-    const tailOk = tail === "—" || !logForm.tailNumber.trim() || tail.replace(/\s/g, "").toLowerCase() === logForm.tailNumber.replace(/\s/g, "").toLowerCase();
+    const tailOk =
+      tail === "—" ||
+      !logForm.tailNumber.trim() ||
+      tail.replace(/\s/g, "").toLowerCase() === logForm.tailNumber.replace(/\s/g, "").toLowerCase();
     if (!tailOk) diffs.push(`Tail: ticket says ${tail}, gate typed ${logForm.tailNumber || "—"}`);
     return diffs;
   };
@@ -346,6 +375,14 @@ departure silently never logs. */
     return trips.filter((t) => logged.includes(t.status));
   }, [trips]);
 
+  /** The log's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All") {
       const departed = departureStamp(t) !== null;
@@ -354,10 +391,34 @@ departure silently never logs. */
       if (statusFilter === "Departed" && (!departed || returned)) return false;
       if (statusFilter === "Returned" && !returned) return false;
     }
+    if (!inWindow(t.createdAt, range)) return false;
     const hay =
       `${dispatchId(t)} ${t.driverName ?? ""} ${headOf(t)} ${plateOf(t)} ${tailOf(t)} ${t.dropoff}`.toLowerCase();
     return !query || hay.includes(query.toLowerCase());
   });
+
+  /** The log's footer: movements, departures, returns and trucks still out. */
+  const gateSummary = (
+    <SummaryBar
+      items={[
+        { label: "Movements", value: String(filtered.length) },
+        {
+          label: "Departed",
+          value: String(filtered.filter((t) => departureStamp(t) !== null).length),
+        },
+        {
+          label: "Returned",
+          value: String(filtered.filter((t) => returnStamp(t) !== null).length),
+        },
+        {
+          label: "Still out",
+          value: String(
+            filtered.filter((t) => departureStamp(t) !== null && returnStamp(t) === null).length,
+          ),
+        },
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -451,6 +512,25 @@ departure silently never logs. */
             className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
           />
         </div>
+        <PeriodFilter
+          value={periodFilter}
+          onChange={(v) => {
+            setPeriodFilter(v);
+            setPage(0);
+          }}
+          custom={rangeCustom.custom}
+          customOpen={rangeCustom.open}
+          onToggleCustom={rangeCustom.setOpen}
+        >
+          <CustomRangePicker
+            custom={rangeCustom.custom}
+            onSet={rangeCustom.set}
+            onClear={() => {
+              rangeCustom.clear();
+              setPage(0);
+            }}
+          />
+        </PeriodFilter>
         <FilterButton
           options={GATE_STATUS_FILTERS}
           value={statusFilter}
@@ -476,13 +556,20 @@ departure silently never logs. */
         <div className="hidden grid-cols-[88px_140px_92px_92px_76px_1fr_1fr_118px_48px] items-center gap-4 border-b border-[#E2E5E9] px-5 py-3 md:grid">
           {/* The dispatch ID leads, as the board draws it: the guard reads the
               ticket number off the paper and finds the row by it. */}
-          {["Dispatch ID", "Driver", "Truck Head", "Plate No", "Tail No", "Departure", "Return", "Logged By"].map(
-            (h) => (
-              <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                {h}
-              </span>
-            ),
-          )}
+          {[
+            "Dispatch ID",
+            "Driver",
+            "Truck Head",
+            "Plate No",
+            "Tail No",
+            "Departure",
+            "Return",
+            "Logged By",
+          ].map((h) => (
+            <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {h}
+            </span>
+          ))}
           <span />
         </div>
 
@@ -498,7 +585,9 @@ departure silently never logs. */
                 <span className="text-[#627084] md:hidden">Dispatch ID: </span>
                 {dispatchId(trip)}
               </span>
-              <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.driverName || "—"}</span>
+              <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
+                {trip.driverName || "—"}
+              </span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{headOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{plateOf(trip)}</span>
               <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{tailOf(trip)}</span>
@@ -548,6 +637,8 @@ departure silently never logs. */
             </div>
           );
         })}
+
+        {filtered.length > 0 && gateSummary}
 
         {filtered.length === 0 && (
           <FigmaEmptyState
@@ -615,7 +706,11 @@ departure silently never logs. */
         badge={
           details ? (
             <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-              {returnStamp(details) ? "Returned" : departureStamp(details) ? "Departed" : "Not Departed"}
+              {returnStamp(details)
+                ? "Returned"
+                : departureStamp(details)
+                  ? "Departed"
+                  : "Not Departed"}
             </span>
           ) : null
         }
@@ -647,10 +742,13 @@ departure silently never logs. */
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
           <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
             <div className="flex flex-col gap-1">
-              <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Return a truck</h3>
+              <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Return a truck
+              </h3>
               <p className="text-[12.5px] text-[#5C6470]">
-                Pick the truck at the gate. Anything still open against it is closed, its driver goes back on
-                the board, and the truck goes to engineering as Check Up — no dates to type.
+                Pick the truck at the gate. Anything still open against it is closed, its driver
+                goes back on the board, and the truck goes to engineering as Check Up — no dates to
+                type.
               </p>
             </div>
             <input
@@ -661,19 +759,26 @@ departure silently never logs. */
             />
             <div className="flex max-h-[320px] flex-col divide-y divide-[#E2E5E9] overflow-y-auto rounded border border-[#E2E5E9]">
               {yardTrucks.length === 0 ? (
-                <p className="p-4 text-center text-[13px] text-[#8E95A1]">Reading the yard register…</p>
+                <p className="p-4 text-center text-[13px] text-[#8E95A1]">
+                  Reading the yard register…
+                </p>
               ) : (
                 (() => {
                   const q = returnTruckQuery.trim().toLowerCase();
                   const ranked = [...yardTrucks].sort((a, b) => {
-                    const rank = (t: { status: string }) => (/out of yard|assigned/i.test(t.status) ? 0 : 1);
+                    const rank = (t: { status: string }) =>
+                      /out of yard|assigned/i.test(t.status) ? 0 : 1;
                     return rank(a) - rank(b) || a.capId.localeCompare(b.capId);
                   });
                   const list = q
                     ? ranked.filter((t) => `${t.capId} ${t.registration}`.toLowerCase().includes(q))
                     : ranked;
                   if (list.length === 0) {
-                    return <p className="p-4 text-center text-[13px] text-[#8E95A1]">No truck matches that.</p>;
+                    return (
+                      <p className="p-4 text-center text-[13px] text-[#8E95A1]">
+                        No truck matches that.
+                      </p>
+                    );
                   }
                   return list.slice(0, 60).map((t) => (
                     <button
@@ -710,7 +815,9 @@ departure silently never logs. */
       {canWorkGate && logOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4">
           <div className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]">
-            <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Log Vehicle</h3>
+            <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              Log Vehicle
+            </h3>
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
                 Dispatch *
@@ -733,7 +840,9 @@ departure silently never logs. */
                 >
                   <option value="">Select dispatch</option>
                   {trips
-                    .filter((t) => ["Scheduled", "En Route", "Loaded", "Returning"].includes(t.status))
+                    .filter((t) =>
+                      ["Scheduled", "En Route", "Loaded", "Returning"].includes(t.status),
+                    )
                     .map((t) => (
                       <option key={t.id} value={t.id}>
                         {dispatchId(t)} · {t.driverName || "Driver TBD"}
@@ -749,7 +858,10 @@ departure silently never logs. */
                   ["plateNumber", "Plate Number *", "example: KSF 72 YF"],
                 ] as const
               ).map(([key, label, placeholder]) => (
-                <label key={key} className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]">
+                <label
+                  key={key}
+                  className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#141A1F]"
+                >
                   {label}
                   <input
                     className="h-10 rounded border border-[#E2E5E9] px-3 text-sm"

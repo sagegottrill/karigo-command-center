@@ -21,6 +21,14 @@ import {
   displayTruckAssigned,
 } from "@/lib/fleetopsx/display-ids";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
@@ -269,6 +277,14 @@ function AdminPartnerRequests() {
   // row for row.
   const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
 
+  /** The board's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   // Every partner company that actually has a request on this board — the filter
   // never offers a company with nothing behind it, and it stays in sync by itself
   // as partners are added.
@@ -284,6 +300,7 @@ function AdminPartnerRequests() {
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
     if (companyFilter.length > 0 && !companyFilter.includes(partnerNameOf(t))) return false;
+    if (!inWindow(t.createdAt, range)) return false;
     // Search reaches the TRUCK as the operators name it — the cap code on the cab
     // and the plate beside it — plus the tail, the assigned driver, the loading
     // sites and both ends of the run. Spaces and punctuation in the query are
@@ -298,6 +315,33 @@ function AdminPartnerRequests() {
   const slice = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const from = filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
+
+  /** The sheet's footer: what the FILTERED requests add up to, by stage. */
+  const requestSummary = (
+    <SummaryBar
+      items={[
+        { label: "Requests", value: String(filtered.length) },
+        {
+          label: "Partners",
+          value: String(new Set(filtered.map((t) => partnerNameOf(t)).filter(Boolean)).size),
+        },
+        {
+          label: "In transit",
+          value: String(filtered.filter((t) => toPartnerUiStatus(t) === "In transit").length),
+        },
+        {
+          label: "Completed",
+          value: String(filtered.filter((t) => toPartnerUiStatus(t) === "Completed").length),
+        },
+        {
+          label: "Waiting on you",
+          value: String(
+            filtered.filter((t) => ["Pending", "Returned"].includes(toPartnerUiStatus(t))).length,
+          ),
+        },
+      ]}
+    />
+  );
 
   // An empty table has to say WHY it is empty: no requests yet, nothing matching
   // the search, or nothing matching the ticked filter buttons — otherwise a filter
@@ -547,6 +591,25 @@ function AdminPartnerRequests() {
               </option>
             ))}
           </select>
+          <PeriodFilter
+            value={periodFilter}
+            onChange={(v) => {
+              setPeriodFilter(v);
+              setPage(0);
+            }}
+            custom={rangeCustom.custom}
+            customOpen={rangeCustom.open}
+            onToggleCustom={rangeCustom.setOpen}
+          >
+            <CustomRangePicker
+              custom={rangeCustom.custom}
+              onSet={rangeCustom.set}
+              onClear={() => {
+                rangeCustom.clear();
+                setPage(0);
+              }}
+            />
+          </PeriodFilter>
           <CheckboxFilterButton
             options={companyOptions}
             selected={companyFilter}
@@ -681,6 +744,25 @@ function AdminPartnerRequests() {
                 className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
               />
             </div>
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+                setPage(0);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={() => {
+                  rangeCustom.clear();
+                  setPage(0);
+                }}
+              />
+            </PeriodFilter>
             <FilterButton
               options={STATUS_FILTERS}
               value={statusFilter}
@@ -848,6 +930,8 @@ function AdminPartnerRequests() {
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState title={emptyTitle} body={emptyBody} />
           )}
+
+          {!loading && filtered.length > 0 && requestSummary}
 
           {!loading && filtered.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">

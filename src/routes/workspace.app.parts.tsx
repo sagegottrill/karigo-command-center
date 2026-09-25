@@ -4,6 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RaisePartsRequestModal } from "@/components/fleetopsx/raise-parts-request-modal";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -170,7 +178,9 @@ function PartsAndStore() {
     let note = "";
     if (!approve) {
       note = (
-        window.prompt(`Why is "${request.part}" for ${request.truckReg} rejected? Attached to the record.`) ?? ""
+        window.prompt(
+          `Why is "${request.part}" for ${request.truckReg} rejected? Attached to the record.`,
+        ) ?? ""
       ).trim();
       if (!note) return;
     }
@@ -242,17 +252,82 @@ function PartsAndStore() {
       });
   }, [items, query, stockFilter]);
 
+  /** The store's requisition window — presets or a custom 1 – 15 Sept pair. */
+  const [requestPeriod, setRequestPeriod] = useState<string>("All time");
+  const requestCustom = useCustomRange();
+  const requestRange = useMemo(
+    () => resolvePeriod(requestPeriod, requestCustom.custom),
+    [requestPeriod, requestCustom.custom],
+  );
+
   const filteredRequests = useMemo(() => {
     return requests
       .filter((r) => requestFilter === "All" || r.status === requestFilter)
+      .filter((r) => inWindow(r.date, requestRange))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [requests, requestFilter]);
+  }, [requests, requestFilter, requestRange]);
+
+  /** The shelf's footer: lines, units on the shelf and what they are worth. */
+  const stockSummary = (
+    <SummaryBar
+      items={[
+        { label: "Lines", value: String(filteredItems.length) },
+        {
+          label: "Units",
+          value: String(filteredItems.reduce((s, i) => s + Number(i.stock ?? 0), 0)),
+        },
+        {
+          label: "Stock value",
+          value: formatNairaFull(
+            filteredItems.reduce(
+              (s, i) => s + Number(i.stock ?? 0) * Number(i.unitCost ?? 0),
+              0,
+            ),
+          ),
+        },
+        {
+          label: "Low",
+          value: String(filteredItems.filter((i) => i.status === "Low Stock").length),
+        },
+        {
+          label: "Out of stock",
+          value: String(filteredItems.filter((i) => i.status === "Out of Stock").length),
+        },
+      ]}
+    />
+  );
 
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const pageRows = filteredItems.slice(
     currentPage * PAGE_SIZE,
     currentPage * PAGE_SIZE + PAGE_SIZE,
+  );
+
+  /** The requisitions' footer: asks, value and what the TM still owes a decision. */
+  const requestSummary = (
+    <SummaryBar
+      items={[
+        { label: "Requests", value: String(filteredRequests.length) },
+        {
+          label: "Units asked",
+          value: String(filteredRequests.reduce((s, r) => s + Number(r.quantity ?? 0), 0)),
+        },
+        {
+          label: "Estimated value",
+          value: formatNairaFull(
+            filteredRequests.reduce(
+              (s, r) => s + Number(r.quantity ?? 0) * Number(r.unitCost ?? 0),
+              0,
+            ),
+          ),
+        },
+        {
+          label: "Pending",
+          value: String(filteredRequests.filter((r) => r.status === "Pending").length),
+        },
+      ]}
+    />
   );
 
   const emptyDraft = () => ({
@@ -442,6 +517,19 @@ function PartsAndStore() {
                 {formatNairaFull(counts.pendingValue)} in pending requests
               </p>
             </div>
+            <PeriodFilter
+              value={requestPeriod}
+              onChange={setRequestPeriod}
+              custom={requestCustom.custom}
+              customOpen={requestCustom.open}
+              onToggleCustom={requestCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={requestCustom.custom}
+                onSet={requestCustom.set}
+                onClear={requestCustom.clear}
+              />
+            </PeriodFilter>
             <div className="ml-auto">
               <FilterButton
                 options={REQUEST_FILTERS}
@@ -574,6 +662,7 @@ function PartsAndStore() {
                 })
               )}
             </div>
+            {filteredRequests.length > 0 ? requestSummary : null}
           </div>
         </div>
 
@@ -713,6 +802,8 @@ function PartsAndStore() {
               )}
             </div>
           </div>
+
+          {filteredItems.length > 0 ? stockSummary : null}
 
           {pageCount > 1 ? (
             <div className="flex items-center justify-between border-t border-[#E2E5E9] pt-4">

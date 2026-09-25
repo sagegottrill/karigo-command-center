@@ -1,24 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical,
-  Printer,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Search, SlidersHorizontal, X } from "lucide-react";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { tripService } from "@/lib/fleetopsx/services";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
 import {
   COST_COLUMNS as CELL_COLUMNS,
   COST_PAIRS as BREAKDOWN_PAIRS,
   DIRECT_COST_CATEGORIES as CATEGORIES,
+  PENDING_DISBURSAL,
   costTotal as sum,
   dayLabel,
+  disbursalState,
   driverOf,
   money,
   sheetOf,
@@ -35,27 +29,25 @@ import { cn } from "@/lib/utils";
  * sheet, the six figures Fleet Ops committed when the trip was configured
  * (trip allowance, return waybill, motor boy, transit tickets, extra allowance and
  * bonus). Reading it from the dispatch means the screen can never disagree with
- * what the trip actually costs, and the decision — endorse or decline — is
- * recorded beside those figures rather than in a ledger that could drift.
+ * what the trip actually costs.
  *
- * The money itself is the Accounts department's to pay and enter — see the
- * Accounts portal, which pays against the very same sheet.
+ * There is NO approve/decline here: every sheet on this table was already
+ * approved the moment the Transport Manager approved the dispatch — a second
+ * decision layer answered "what is he approving?" with nothing (Daniel). The
+ * only fact this table tracks is whether the money has LEFT: Pending until
+ * Accounts records the payment, Paid once they have — read from Accounts' own
+ * disbursement entry, never from a decision blob.
  */
 
 /**
- * The voucher table's nine tracks, sized to fit the card it lives in (the two
- * 32px ends are the row menu and the print button).
+ * The voucher table's eight tracks, sized to fit the card it lives in (the
+ * 32px end is the print button).
  */
 const VOUCHER_GRID =
-  "grid min-w-[1040px] grid-cols-[96px_102px_136px_0.7fr_1.95fr_108px_88px_32px_32px] items-center gap-3";
+  "grid min-w-[1000px] grid-cols-[96px_102px_136px_0.7fr_1.95fr_108px_88px_32px] items-center gap-3";
 
 function StatusPill({ status }: { status: string }) {
-  const tone =
-    status === "Approved"
-      ? "bg-[#22C55E] text-white"
-      : status === "Declined"
-        ? "bg-[#ED351D] text-white"
-        : "bg-[#F2C200] text-[#1B2432]";
+  const tone = status === "Paid" ? "bg-[#22C55E] text-white" : "bg-[#F2C200] text-[#1B2432]";
   return (
     <span className={cn("inline-block rounded-[4px] px-2.5 py-1 text-[11px] font-bold", tone)}>
       {status}
@@ -70,10 +62,7 @@ export function TmVouchers() {
   const [statusFilter, setStatusFilter] = useState("All statuses");
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [preview, setPreview] = useState<Trip | null>(null);
-  const [busy, setBusy] = useState(false);
-
   const refresh = useCallback(async () => {
     try {
       setTrips(await tripService.list());
@@ -94,8 +83,9 @@ export function TmVouchers() {
     [trips],
   );
 
-  const statusOf = (trip: Trip) => String(sheetOf(trip).voucher?.status ?? "Pending");
-  const decisionOf = (trip: Trip) => sheetOf(trip).voucher;
+  /** Pending until Accounts records the payment — their entry, not a decision. */
+  const statusOf = (trip: Trip): "Pending" | "Paid" =>
+    disbursalState(sheetOf(trip)) === PENDING_DISBURSAL ? "Pending" : "Paid";
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -143,30 +133,6 @@ export function TmVouchers() {
       .map(sheetOf);
   }, [vouchers]);
 
-  const review = async (trip: Trip, status: "Approved" | "Declined") => {
-    setBusy(true);
-    try {
-      await tripService.reviewVoucher(
-        trip.id,
-        status,
-        status === "Declined"
-          ? `Declined by ${authService.getCurrentUser()?.name || "Transport Manager"}`
-          : undefined,
-      );
-      toast.success(
-        status === "Approved"
-          ? `${voucherRef(trip)} approved — ${money(sum(sheetOf(trip)))} authorised.`
-          : `${voucherRef(trip)} declined.`,
-      );
-      setMenuFor(null);
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The decision was not saved.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const previewSheet = preview ? sheetOf(preview) : null;
 
   return (
@@ -194,10 +160,10 @@ export function TmVouchers() {
             </h3>
             <span className="grid h-7 min-w-[28px] place-items-center rounded-[4px] bg-[#ED351D] px-2 text-[13px] font-bold text-white">
               {vouchers.length}
-            </span>
+            </span>{" "}
             {pendingCount > 0 ? (
               <span className="text-[12.5px] text-[#5C6470]">
-                {pendingCount} awaiting your decision
+                {pendingCount} awaiting Accounts' payment
               </span>
             ) : null}
           </div>
@@ -235,7 +201,7 @@ export function TmVouchers() {
                     onClick={() => setFilterOpen(false)}
                   />
                   <div className="absolute right-0 z-20 mt-2 w-[180px] overflow-hidden rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
-                    {["All statuses", "Pending", "Approved", "Declined"].map((opt) => (
+                    {["All statuses", "Pending", "Paid"].map((opt) => (
                       <button
                         key={opt}
                         type="button"
@@ -274,7 +240,6 @@ export function TmVouchers() {
             <span>Total Cost</span>
             <span>Status</span>
             <span />
-            <span />
           </div>
 
           {loading ? (
@@ -282,8 +247,8 @@ export function TmVouchers() {
           ) : slice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
               No dispatch carries a direct-cost breakdown yet. Every trip Fleet Ops configures with
-              allowances, waybill, motor boy, tickets, extra allowance or bonus appears here for you
-              to authorize.
+              allowances, waybill, motor boy, tickets, extra allowance or bonus appears here, with
+              whether Accounts has paid it.
             </p>
           ) : (
             slice.map((trip) => {
@@ -323,44 +288,6 @@ export function TmVouchers() {
                   </span>
                   <span>
                     <StatusPill status={status} />
-                  </span>
-                  <span className="relative flex justify-end">
-                    <button
-                      type="button"
-                      aria-label={`Decision for ${voucherRef(trip)}`}
-                      onClick={() => setMenuFor((cur) => (cur === trip.id ? null : trip.id))}
-                      className="grid size-8 place-items-center rounded-[4px] text-[#1B2432] hover:bg-[#F1F2F4]"
-                    >
-                      <MoreVertical className="size-4" />
-                    </button>
-                    {menuFor === trip.id ? (
-                      <>
-                        <button
-                          type="button"
-                          aria-label="Close menu"
-                          className="fixed inset-0 z-10 cursor-default"
-                          onClick={() => setMenuFor(null)}
-                        />
-                        <div className="absolute right-0 top-9 z-20 flex w-[150px] flex-col gap-2 rounded-[10px] border border-[#E2E5E9] bg-white p-2.5 shadow-[0px_14px_40px_rgba(12,12,13,0.22)]">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void review(trip, "Approved")}
-                            className="h-9 rounded-[4px] bg-[#ED351D] text-[13px] font-semibold text-white hover:bg-[#d92c15] disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void review(trip, "Declined")}
-                            className="h-9 rounded-[4px] border border-[#E2E5E9] bg-white text-[13px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4] disabled:opacity-50"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      </>
-                    ) : null}
                   </span>
                   <span className="flex justify-end">
                     <button
@@ -551,10 +478,12 @@ export function TmVouchers() {
               ))}
             </div>
 
-            {decisionOf(preview)?.by ? (
+            {sheetOf(preview).disbursement?.officer ? (
               <p className="mt-4 text-[11px] text-[#9CA3AF]">
-                {statusOf(preview)} by {decisionOf(preview)?.by}
-                {decisionOf(preview)?.at ? ` · ${dayLabel(decisionOf(preview)?.at ?? null)}` : ""}
+                Paid by {sheetOf(preview).disbursement?.officer}
+                {sheetOf(preview).disbursement?.at
+                  ? ` · ${dayLabel(sheetOf(preview).disbursement?.at ?? null)}`
+                  : ""}
               </p>
             ) : null}
           </div>

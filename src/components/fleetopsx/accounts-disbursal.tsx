@@ -10,6 +10,14 @@ import {
   X,
 } from "lucide-react";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  SummaryBar,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+} from "@/lib/fleetopsx/report-kit";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { CostBreakdownCell, DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
@@ -104,11 +112,20 @@ export function AccountsDisbursal() {
     [trips],
   );
 
+  /** The ledger's own time frame — presets or a custom 1 – 15 Sept pair. */
+  const [periodFilter, setPeriodFilter] = useState<string>("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(periodFilter, rangeCustom.custom),
+    [periodFilter, rangeCustom.custom],
+  );
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return payable.filter((trip) => {
       const state = disbursalState(sheetOf(trip));
       if (tab !== "All" && state !== tab) return false;
+      if (!inWindow(trip.createdAt, range)) return false;
       if (!q) return true;
       return [
         truckDetails(trip),
@@ -123,7 +140,32 @@ export function AccountsDisbursal() {
           .includes(q),
       );
     });
-  }, [payable, query, tab]);
+  }, [payable, query, tab, range]);
+
+  /** The ledger's footer: vouchers and the money in each state. */
+  const ledgerSummary = (
+    <SummaryBar
+      items={[
+        { label: "Vouchers", value: String(rows.length) },
+        {
+          label: "Total committed",
+          value: money(rows.reduce((sum, trip) => sum + costTotal(sheetOf(trip)), 0)),
+        },
+        {
+          label: "Pending",
+          value: String(
+            rows.filter((trip) => disbursalState(sheetOf(trip)) === PENDING_DISBURSAL).length,
+          ),
+        },
+        {
+          label: "Reconciled",
+          value: String(
+            rows.filter((trip) => disbursalState(sheetOf(trip)) === "Reconciled").length,
+          ),
+        },
+      ]}
+    />
+  );
 
   const counts = useMemo(() => {
     const by: Record<string, number> = {};
@@ -176,6 +218,25 @@ export function AccountsDisbursal() {
                 className="h-10 w-full rounded-[6px] border border-[#E2E5E9] bg-white pl-9 pr-3 text-[13.5px] text-[#1B2432] outline-none placeholder:text-[#9CA3AF] focus:border-[#1B2432]"
               />
             </label>
+            <PeriodFilter
+              value={periodFilter}
+              onChange={(v) => {
+                setPeriodFilter(v);
+                setPage(0);
+              }}
+              custom={rangeCustom.custom}
+              customOpen={rangeCustom.open}
+              onToggleCustom={rangeCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={rangeCustom.custom}
+                onSet={rangeCustom.set}
+                onClear={() => {
+                  rangeCustom.clear();
+                  setPage(0);
+                }}
+              />
+            </PeriodFilter>
             <div className="flex items-center gap-2">
               {TABS.map((option) => {
                 const active = option === tab;
@@ -334,6 +395,8 @@ export function AccountsDisbursal() {
             })
           )}
         </div>
+
+        {rows.length > 0 ? ledgerSummary : null}
 
         <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
           <span className="text-[15px] font-semibold tabular-nums text-[#1B2432]">

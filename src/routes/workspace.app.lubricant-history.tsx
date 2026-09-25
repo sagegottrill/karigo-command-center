@@ -7,6 +7,7 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   csvStamp,
+  formatMoney,
   formatQuantity,
   lubricantDispatchId,
   lubricantUnit,
@@ -14,6 +15,7 @@ import {
   resolveVehicle,
   type LubricantDisbursalRow,
 } from "@/lib/fleetopsx/lubricant";
+import { SummaryBar } from "@/lib/fleetopsx/report-kit";
 import {
   DisbursalViewModal,
   exportCsv,
@@ -167,8 +169,12 @@ function DisbursalHistoryPage() {
 
   const totals = useMemo(() => {
     const litres: Record<string, number> = {};
-    for (const r of filtered) litres[r.fuelType] = (litres[r.fuelType] ?? 0) + r.quantity;
-    return litres;
+    let money = 0;
+    for (const r of filtered) {
+      litres[r.fuelType] = (litres[r.fuelType] ?? 0) + r.quantity;
+      money += Number(r.amount ?? 0);
+    }
+    return { litres, money };
   }, [filtered]);
 
   return (
@@ -392,19 +398,19 @@ function DisbursalHistoryPage() {
         </div>
 
         {filtered.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg bg-[#F1F2F4] px-4 py-3">
-            <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-              {filtered.length} disbursal{filtered.length === 1 ? "" : "s"}
-              {client !== "All clients" ? ` for ${client}` : ""}
-            </span>
-            {Object.entries(totals).map(([fuelType, total]) => (
-              <span key={fuelType} className="text-[12.5px] tracking-[0.4px] text-[#141A1F]">
-                {fuelType}:{" "}
-                <span className="font-semibold tabular-nums">{formatQuantity(total)}</span>{" "}
-                {lubricantUnit(fuelType).toLowerCase()}
-              </span>
-            ))}
-          </div>
+          <SummaryBar
+            items={[
+              {
+                label: client !== "All clients" ? client : "Total entries",
+                value: `${filtered.length} entr${filtered.length === 1 ? "y" : "ies"}`,
+              },
+              ...Object.entries(totals.litres).map(([fuelType, total]) => ({
+                label: fuelType,
+                value: `${formatQuantity(total)} ${lubricantUnit(fuelType).toLowerCase()}`,
+              })),
+              { label: "Total cost", value: formatMoney(totals.money) },
+            ]}
+          />
         )}
 
         <LubricantTableFooter
