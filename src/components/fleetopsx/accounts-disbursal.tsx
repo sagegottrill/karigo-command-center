@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDot,
-  CirclePlus,
   Printer,
   Search,
   SlidersHorizontal,
@@ -83,7 +82,6 @@ export function AccountsDisbursal() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [capture, setCapture] = useState<Trip | null>(null);
-  const [addCost, setAddCost] = useState<Trip | null>(null);
   const [preview, setPreview] = useState<Trip | null>(null);
 
   const refresh = useCallback(async () => {
@@ -324,16 +322,6 @@ export function AccountsDisbursal() {
                   <span className="flex justify-end">
                     <button
                       type="button"
-                      aria-label={`Add a direct cost for ${truckDetails(trip)}`}
-                      onClick={() => setAddCost(trip)}
-                      className="grid size-8 place-items-center rounded-[4px] border border-[#E2E5E9] text-[#1B2432] hover:bg-[#F1F2F4]"
-                    >
-                      <CirclePlus className="size-4" />
-                    </button>
-                  </span>
-                  <span className="flex justify-end">
-                    <button
-                      type="button"
                       aria-label={`Print voucher for ${truckDetails(trip)}`}
                       onClick={() => setPreview(trip)}
                       className="grid size-8 place-items-center rounded-[4px] border border-[#E2E5E9] text-[#1B2432] hover:bg-[#F1F2F4]"
@@ -426,17 +414,6 @@ export function AccountsDisbursal() {
           onClose={() => setCapture(null)}
           onSaved={async () => {
             setCapture(null);
-            await refresh();
-          }}
-        />
-      ) : null}
-
-      {addCost ? (
-        <AddDirectCostModal
-          trip={addCost}
-          onClose={() => setAddCost(null)}
-          onSaved={async () => {
-            setAddCost(null);
             await refresh();
           }}
         />
@@ -718,140 +695,6 @@ function CaptureDisbursementModal({
           Withdraw this disbursal and mark the dispatch unpaid again
         </button>
       ) : null}
-    </ModalShell>
-  );
-}
-
-/**
- * A cost the six categories do not cover.
- *
- * Naming an existing category CORRECTS that figure on the dispatch; a label of
- * its own ADDS a line beside the six, which is the only way a cost this desk
- * meets in the field gets onto a sheet the six categories never anticipated.
- */
-function AddDirectCostModal({
-  trip,
-  onClose,
-  onSaved,
-}: {
-  trip: Trip;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const [category, setCategory] = useState("");
-  const [newLabel, setNewLabel] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const chosen = DIRECT_COST_CATEGORIES.find((item) => item.key === category);
-  const name = creating ? newLabel.trim() : (chosen?.label ?? "");
-
-  const save = async () => {
-    const value = Number(amount);
-    if (!name) {
-      toast.error("Pick the category this cost belongs to, or name a new one.");
-      return;
-    }
-    if (!Number.isFinite(value) || value <= 0) {
-      toast.error("Enter what this cost comes to.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await tripService.addDirectCost(
-        trip.id,
-        creating
-          ? { label: name, amount: value }
-          : { key: category as DirectCostKey, amount: value },
-      );
-      toast.success(`${name} — ${money(value)} recorded against ${truckDetails(trip)}.`);
-      await onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The cost was not recorded.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <ModalShell
-      title="Add Direct Cost"
-      subtitle={truckDetails(trip)}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[13.5px] font-semibold text-[#ED351D] hover:underline"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void save()}
-            className="h-11 rounded-[4px] bg-[#ED351D] px-5 text-[13.5px] font-semibold text-white hover:bg-[#d92c15] disabled:opacity-50"
-          >
-            Confirm Cost
-          </button>
-        </>
-      }
-    >
-      <label className="mt-4 flex flex-col gap-1.5">
-        <span className="text-[13px] text-[#344256]">
-          Direct Cost Category <span className="text-[#ED351D]">*</span>
-        </span>
-        {creating ? (
-          <input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="Name the cost, e.g. Escort Fee"
-            className={FIELD}
-          />
-        ) : (
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className={cn(FIELD, !category && "text-[#9CA3AF]")}
-          >
-            <option value="">Select</option>
-            {DIRECT_COST_CATEGORIES.map((item) => (
-              <option key={item.key} value={item.key}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        )}
-      </label>
-
-      <p className="mt-1.5 text-[11.5px] text-[#9CA3AF]">
-        {creating
-          ? "A cost of its own is added beside the six categories, and shows on the dispatch's breakdown."
-          : chosen
-            ? `This sets ${chosen.label.toLowerCase()} on the dispatch to the amount below, replacing the figure it carries now.`
-            : "Pick one of the six the dispatch was configured with, or add a category of its own."}
-      </p>
-
-      <label className="mt-3 flex flex-col gap-1.5">
-        <span className="text-[13px] text-[#344256]">Amount</span>
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="e.g. 5000"
-          inputMode="numeric"
-          className={cn(FIELD, "tabular-nums")}
-        />
-      </label>
-
-      <button
-        type="button"
-        onClick={() => setCreating((current) => !current)}
-        className="mt-4 h-11 w-full rounded-[4px] bg-[#1B2432] text-[13.5px] font-semibold text-white hover:bg-[#2a3547]"
-      >
-        {creating ? "Use one of the six categories instead" : "Add New Direct Cost Category"}
-      </button>
     </ModalShell>
   );
 }
