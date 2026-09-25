@@ -564,13 +564,20 @@ function PartnerRequestDetailsPage() {
     }
     setSaving(true);
     try {
-      // A site corrected here joins the company's own list, so the next request
-      // offers it instead of asking for it again.
-      const newlyAdded = sites.filter(
-        (site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()),
+      // Nothing saves itself any more: a typed-in site joins the company's
+      // list only when the partner explicitly opted in while editing. The
+      // old behaviour added every site used, so one-off pickup points
+      // haunted the dropdown forever.
+      const optIns = draftSites.filter(
+        (s) => isAddingLoadingSite(s.type) && s.saveToSites === true && s.customValue.trim(),
       );
-      await Promise.all(newlyAdded.map((site) => partnerSiteService.add(site).catch(() => null)));
-      if (newlyAdded.length) setSavedSites((prev) => [...prev, ...newlyAdded]);
+      const toSave = optIns
+        .map((s) => s.customValue.trim())
+        .filter((site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()));
+      if (toSave.length > 0) {
+        await Promise.all(toSave.map((site) => partnerSiteService.add(site).catch(() => null)));
+        setSavedSites((prev) => [...prev, ...toSave]);
+      }
       const updated = await tripService.updateTrip(trip.id, {
         customerConsignee: draftCustomer.trim(),
         cargo: draftProduct.trim(),
@@ -1293,18 +1300,37 @@ function PartnerRequestDetailsPage() {
                         </div>
                       ) : null}
                       {isAddingLoadingSite(site.type) ? (
-                        <input
-                          value={site.customValue}
-                          onChange={(e) =>
-                            setDraftSites((prev) =>
-                              prev.map((s, i) =>
-                                i === index ? { ...s, customValue: e.target.value } : s,
-                              ),
-                            )
-                          }
-                          placeholder="Enter loading site name"
-                          className={inputClass}
-                        />
+                        <div className="flex flex-col gap-1.5">
+                          <input
+                            value={site.customValue}
+                            onChange={(e) =>
+                              setDraftSites((prev) =>
+                                prev.map((s, i) =>
+                                  i === index ? { ...s, customValue: e.target.value } : s,
+                                ),
+                              )
+                            }
+                            placeholder="Enter loading site name"
+                            className={inputClass}
+                          />
+                          {site.customValue.trim() ? (
+                            <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.4px] text-[#5C6470]">
+                              <input
+                                type="checkbox"
+                                checked={site.saveToSites === true}
+                                onChange={(e) =>
+                                  setDraftSites((prev) =>
+                                    prev.map((s, i) =>
+                                      i === index ? { ...s, saveToSites: e.target.checked } : s,
+                                    ),
+                                  )
+                                }
+                                className="size-3.5 accent-[#ED351D]"
+                              />
+                              Save this site to my loading sites for next time
+                            </label>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   );

@@ -82,13 +82,28 @@ function PartnerNewRequest() {
 
     setSubmitting(true);
     try {
-      // Every site typed here becomes one of the company's own — offered from the
-      // dropdown next time instead of being retyped (or lost).
-      const newlyAdded = finalSites.filter(
-        (site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()),
+      // A typed-in site joins the company's saved list ONLY when the partner
+      // ticked "Save this site" beside it. It used to save itself on every
+      // submit, so a one-off pickup point typed through "Add your loading
+      // site" haunted the dropdown forever. The trip still carries whatever
+      // was typed; this only governs what the dropdown offers next time.
+      const optIns = loadingSites.filter(
+        (s) => isAddingLoadingSite(s.type) && s.saveToSites === true && s.customValue.trim(),
       );
-      await Promise.all(newlyAdded.map((site) => partnerSiteService.add(site).catch(() => null)));
-      if (newlyAdded.length) setSavedSites((prev) => [...prev, ...newlyAdded]);
+      const toSave = optIns
+        .map((s) => s.customValue.trim())
+        .filter(
+          (site) =>
+            !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()) &&
+            !optIns.some(
+              (s, i) =>
+                optIns.indexOf(s) < i && s.customValue.trim().toLowerCase() === site.toLowerCase(),
+            ),
+        );
+      if (toSave.length > 0) {
+        await Promise.all(toSave.map((site) => partnerSiteService.add(site).catch(() => null)));
+        setSavedSites((prev) => [...prev, ...toSave]);
+      }
       await orderService.submitCustomerOrder({
         customerConsignee: customerConsignee.trim(),
         cargo: product.trim(),
@@ -386,6 +401,23 @@ function PartnerNewRequest() {
                         className={inputClass}
                       />
                     ) : null}
+                    {isAddingLoadingSite(site.type) && site.customValue.trim() ? (
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.4px] text-[#5C6470]">
+                        <input
+                          type="checkbox"
+                          checked={site.saveToSites === true}
+                          onChange={(e) =>
+                            setLoadingSites((prev) =>
+                              prev.map((s, i) =>
+                                i === index ? { ...s, saveToSites: e.target.checked } : s,
+                              ),
+                            )
+                          }
+                          className="size-3.5 accent-[#ED351D]"
+                        />
+                        Save this site to my loading sites for next time
+                      </label>
+                    ) : null}
                   </div>
                 ))}
                 {/* A partner with no sites yet is told so plainly, and the dropdown
@@ -393,7 +425,7 @@ function PartnerNewRequest() {
                 {savedSites.length === 0 ? (
                   <p className="text-[11px] tracking-[0.4px] text-[#5C6470]">
                     You have no saved loading sites yet — choose “{ADD_LOADING_SITE_LABEL}” and type
-                    the site. It is saved to your account and offered on your next request.
+                    the site. Tick “Save this site” to keep it for your next request.
                   </p>
                 ) : null}
                 <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />

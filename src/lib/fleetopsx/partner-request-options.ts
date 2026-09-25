@@ -32,6 +32,13 @@ export type PartnerLoadingSiteDraft = {
   id: string;
   type: string;
   customValue: string;
+  /**
+   * The partner's explicit say-so that a TYPED-IN site should join their
+   * saved list. Nothing saves itself any more: a one-off pickup point typed
+   * through "Add your loading site" rides the request alone unless this is
+   * ticked, so the dropdown never fills up with yards nobody meant to keep.
+   */
+  saveToSites?: boolean;
 };
 
 /**

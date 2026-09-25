@@ -98,7 +98,9 @@ const LICENCE_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"
  */
 export async function readLicenceFile(file: File): Promise<{ name: string; dataUrl: string }> {
   if (file.size > LICENCE_MAX_BYTES) {
-    throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB.`);
+    throw new Error(
+      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB.`,
+    );
   }
   if (file.type && !LICENCE_MIME.includes(file.type.toLowerCase())) {
     throw new Error("The licence must be a PDF or an image (JPG, PNG, WEBP).");
@@ -109,7 +111,8 @@ export async function readLicenceFile(file: File): Promise<{ name: string; dataU
     reader.onerror = () => reject(new Error("That file could not be read. Try choosing it again."));
     reader.readAsDataURL(file);
   });
-  if (!dataUrl.startsWith("data:")) throw new Error("That file could not be read. Try choosing it again.");
+  if (!dataUrl.startsWith("data:"))
+    throw new Error("That file could not be read. Try choosing it again.");
   return { name: file.name, dataUrl };
 }
 
@@ -176,7 +179,11 @@ function LicenceFileField({
   onToggleRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const label = chosen ? chosen.name : removing ? "No File Chosen" : attachedName || "No File Chosen";
+  const label = chosen
+    ? chosen.name
+    : removing
+      ? "No File Chosen"
+      : attachedName || "No File Chosen";
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
@@ -186,7 +193,10 @@ function LicenceFileField({
         <span className="flex min-w-0 flex-1 items-center gap-2 bg-white px-3">
           {chosen ? <FileText className="size-4 shrink-0 text-[#5C6470]" /> : null}
           <span
-            className={cn("truncate text-[14px] tracking-[0.4px]", chosen ? "text-[#141A1F]" : "text-[#5C6470]")}
+            className={cn(
+              "truncate text-[14px] tracking-[0.4px]",
+              chosen ? "text-[#141A1F]" : "text-[#5C6470]",
+            )}
             title={label}
           >
             {label}
@@ -227,7 +237,10 @@ function LicenceFileField({
         <button
           type="button"
           onClick={onToggleRemove}
-          className={cn("w-fit text-[11px] font-medium underline", removing ? "text-[#5C6470]" : "text-[#ED351D]")}
+          className={cn(
+            "w-fit text-[11px] font-medium underline",
+            removing ? "text-[#5C6470]" : "text-[#ED351D]",
+          )}
         >
           {removing ? "Keep the document on file" : "Remove the document on file"}
         </button>
@@ -274,7 +287,11 @@ export function StaffRecordForm({
   return (
     <>
       <Card title="General Information">
-        <Field label="Staff Salary Number" required hint="The payroll number the man is filed under.">
+        <Field
+          label="Staff Salary Number"
+          required
+          hint="The payroll number the man is filed under."
+        >
           <input
             value={value.staffId}
             onChange={(e) => set("staffId", e.target.value)}
@@ -304,7 +321,11 @@ export function StaffRecordForm({
             className={staffInputClass}
           />
         </Field>
-        <Field label="Phone Number" required hint="Dispatchers and the tracking desk call this number.">
+        <Field
+          label="Phone Number"
+          required
+          hint="Dispatchers and the tracking desk call this number."
+        >
           <input
             value={value.phone}
             onChange={(e) => set("phone", e.target.value)}
@@ -315,7 +336,10 @@ export function StaffRecordForm({
       </Card>
 
       <Card title="License and Guarantor">
-        <Field label="License Number" hint={attachedLicenceName ? `${attachedLicenceName} is on file.` : undefined}>
+        <Field
+          label="License Number"
+          hint={attachedLicenceName ? `${attachedLicenceName} is on file.` : undefined}
+        >
           <input
             value={value.licenseNumber}
             onChange={(e) => set("licenseNumber", e.target.value)}
@@ -323,7 +347,10 @@ export function StaffRecordForm({
             className={staffInputClass}
           />
         </Field>
-        <Field label="License Expiry Date" hint="The register flags it amber 60 days before, red once it passes.">
+        <Field
+          label="License Expiry Date"
+          hint="The register flags it amber 60 days before, red once it passes."
+        >
           <input
             type="date"
             value={value.licenseExpiry}
@@ -341,7 +368,11 @@ export function StaffRecordForm({
             onChange({ ...value, removeLicence: !value.removeLicence, licenceFile: null })
           }
         />
-        <Field label="Employment Status" required hint="Active means he can be put on a dispatch today.">
+        <Field
+          label="Employment Status"
+          required
+          hint="Active means he can be put on a dispatch today."
+        >
           <select
             value={value.status}
             onChange={(e) => set("status", e.target.value as EmploymentStatus)}
@@ -383,7 +414,10 @@ export function StaffRecordForm({
               className={staffInputClass}
             />
           </Field>
-          <Field label="Assigned Truck Head" hint="Cap number or plate. Dispatch can still put him on another.">
+          <Field
+            label="Assigned Truck Head"
+            hint="Cap number or plate. Dispatch can still put him on another."
+          >
             <input
               value={value.truckReg}
               onChange={(e) => set("truckReg", e.target.value)}
