@@ -5,6 +5,7 @@ import { authService } from "@/lib/fleetopsx/services";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import { FilterButton, CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
@@ -359,15 +360,26 @@ function AdminPartnerRequests() {
       : "Requests submitted by partner companies will appear here.";
 
   const exportCSV = () => {
-    const headers =
-      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Request ID,Status\n";
+    const header =
+      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Request ID,Status";
     const csv = filtered
-      .map(
-        (t) =>
-          `${formatTableDate(t.createdAt)},${partnerNameOf(t)},${t.customerConsignee ?? ""},${t.cargo},${displayRequestedTruckType(t)},${displayTruckAssigned(t)},${loadingPointLabel(t)},${t.dropoff},${formatTableDate(approvedStampOf(t))},${requestId(t)},${toPartnerUiStatus(t)}`,
+      .map((t) =>
+        csvRow([
+          formatTableDate(t.createdAt),
+          partnerNameOf(t),
+          t.customerConsignee ?? "",
+          t.cargo,
+          displayRequestedTruckType(t),
+          displayTruckAssigned(t),
+          loadingPointLabel(t),
+          t.dropoff,
+          formatTableDate(approvedStampOf(t)),
+          requestId(t),
+          toPartnerUiStatus(t),
+        ]),
       )
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   /**

@@ -26,6 +26,7 @@ import {
   type LubricantStock,
   type LubricantVehicle,
 } from "@/lib/fleetopsx/lubricant";
+import { csvCell } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
 export function SeverityDot({ severity }: { severity: string }) {
@@ -807,11 +808,9 @@ export function LubricantSearch({
 
 /** CSV that matches the table on screen, row for row. */
 export function exportCsv(filename: string, header: string[], rows: Array<Array<string | number>>) {
-  const escape = (v: string | number) => {
-    const s = String(v ?? "");
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const csv = [header, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+  // csvCell quotes, guards phones and neutralises formula injection — every
+  // export through here is safe to open in Excel whatever a partner typed.
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

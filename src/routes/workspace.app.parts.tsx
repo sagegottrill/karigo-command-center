@@ -279,10 +279,7 @@ function PartsAndStore() {
         {
           label: "Stock value",
           value: formatNairaFull(
-            filteredItems.reduce(
-              (s, i) => s + Number(i.stock ?? 0) * Number(i.unitCost ?? 0),
-              0,
-            ),
+            filteredItems.reduce((s, i) => s + Number(i.stock ?? 0) * Number(i.unitCost ?? 0), 0),
           ),
         },
         {

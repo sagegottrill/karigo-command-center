@@ -13,7 +13,11 @@ import {
   displayPlateFromTrip,
   displayRequestedTruckType,
 } from "@/lib/fleetopsx/display-ids";
-import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import {
+  formatDateLines,
+  formatDateTimeStamp,
+  formatTableDate,
+} from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import { expectedReturnAt, formatTripDuration } from "@/lib/fleetopsx/trip-duration";
 import { CheckboxFilterButton, FilterButton } from "@/components/fleetopsx/filter-button";
@@ -27,6 +31,7 @@ import {
   tripService,
 } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import { hasAssignment, queueOrder } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -96,12 +101,7 @@ function isDispatchRequest(trip: Trip) {
  * real status even when the filter cannot select it.
  */
 type FleetStatus =
-  | "Awaiting Approval"
-  | "Approved"
-  | "Scheduled"
-  | "In Transit"
-  | "Completed"
-  | "Declined";
+  "Awaiting Approval" | "Approved" | "Scheduled" | "In Transit" | "Completed" | "Declined";
 
 /**
  * What the red filter offers, in the order the work arrives: the dispatch sitting
@@ -191,10 +191,7 @@ function StatusPill({ status }: { status: FleetStatus }) {
 function headLabel(trip: Trip, heads: TruckHead[]) {
   const head =
     heads.find(
-      (h) =>
-        h.id === trip.headId ||
-        h.number === trip.headId ||
-        h.capNumber === trip.headId,
+      (h) => h.id === trip.headId || h.number === trip.headId || h.capNumber === trip.headId,
     ) ?? null;
   const cap = displayCapFromTrip(trip, head);
   const plate = displayPlateFromTrip(trip, head);
@@ -249,7 +246,12 @@ function FleetDispatchRequests() {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;
     }
-    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads(), fleetService.listTails()])
+    void Promise.all([
+      tripService.list(),
+      driverService.list(),
+      fleetService.listHeads(),
+      fleetService.listTails(),
+    ])
       .then(([nextTrips, nextDrivers, nextHeads, nextTails]) => {
         setTrips(nextTrips);
         setDrivers(nextDrivers);
@@ -262,7 +264,12 @@ function FleetDispatchRequests() {
   // Near real-time: 10s poll (+ focus / tab-visible) — trips/drivers/heads stay
   // current without a manual refresh.
   useAutoRefresh(() => {
-    void Promise.all([tripService.list(), driverService.list(), fleetService.listHeads(), fleetService.listTails()])
+    void Promise.all([
+      tripService.list(),
+      driverService.list(),
+      fleetService.listHeads(),
+      fleetService.listTails(),
+    ])
       .then(([nextTrips, nextDrivers, nextHeads, nextTails]) => {
         setTrips(nextTrips);
         setDrivers(nextDrivers);
@@ -320,11 +327,15 @@ function FleetDispatchRequests() {
     [t.customer, t.customerConsignee]
       .map((raw) => (raw ?? "").trim().toLowerCase())
       .filter(Boolean);
-  const tickedCompanyKeys = useMemo(() => new Set(companyFilter.map((c) => c.toLowerCase())), [companyFilter]);
+  const tickedCompanyKeys = useMemo(
+    () => new Set(companyFilter.map((c) => c.toLowerCase())),
+    [companyFilter],
+  );
 
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && fleetStatusOf(t) !== statusFilter) return false;
-    if (tickedCompanyKeys.size > 0 && !companyOf(t).some((name) => tickedCompanyKeys.has(name))) return false;
+    if (tickedCompanyKeys.size > 0 && !companyOf(t).some((name) => tickedCompanyKeys.has(name)))
+      return false;
     const driver = t.driverId ? driverById.get(t.driverId) : undefined;
     // A truck number typed the way it is said out loud ("KSF 72 YF") has to find
     // the row, not just the stored spelling — cap code and plate both searched.
@@ -346,15 +357,27 @@ function FleetDispatchRequests() {
 
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
-    const headers =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Trip Duration,Status,Dispatch ID\n";
+    const header =
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Trip Duration,Status,Dispatch ID";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
-        return `${formatDateTimeStamp(t.createdAt)},${t.customerConsignee ?? ""},${t.driverName || driver?.name || ""},${headLabel(t, heads)},${fleetTruckTypeOf(t)},${t.dropoff},${formatDateTimeStamp(t.dispatchedAt)},${t.estimatedDate ? formatTableDate(t.estimatedDate) : ""},${formatTripDuration(t.estimatedDays) || ""},${fleetStatusOf(t)},${dispatchId(t)}`;
+        return csvRow([
+          formatDateTimeStamp(t.createdAt),
+          t.customerConsignee ?? "",
+          t.driverName || driver?.name || "",
+          headLabel(t, heads),
+          fleetTruckTypeOf(t),
+          t.dropoff,
+          formatDateTimeStamp(t.dispatchedAt),
+          t.estimatedDate ? formatTableDate(t.estimatedDate) : "",
+          formatTripDuration(t.estimatedDays) || "",
+          fleetStatusOf(t),
+          dispatchId(t),
+        ]);
       })
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   const handleApprove = async (trip: Trip) => {
@@ -385,13 +408,17 @@ function FleetDispatchRequests() {
       const fresh = await tripService.list();
       setTrips(fresh);
       if (!fresh.some((t) => t.id === trip.id && t.status !== "Awaiting Approval")) {
-        toast.error("Network issue — the approval may not have saved. Check your connection and try again.");
+        toast.error(
+          "Network issue — the approval may not have saved. Check your connection and try again.",
+        );
       }
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-      toast.error(offline
-        ? "You are offline — dispatch NOT approved. Reconnect and try again."
-        : `Failed to approve: ${err instanceof Error ? err.message : "network error"}. The dispatch is unchanged.`);
+      toast.error(
+        offline
+          ? "You are offline — dispatch NOT approved. Reconnect and try again."
+          : `Failed to approve: ${err instanceof Error ? err.message : "network error"}. The dispatch is unchanged.`,
+      );
     } finally {
       setApprovingId(null);
     }
@@ -443,7 +470,11 @@ function FleetDispatchRequests() {
       setTrips((prev) =>
         prev.map((t) =>
           t.id === estimateTrip.id
-            ? { ...t, estimatedDate: next, estimatedDays: Number.isFinite(days) && days > 0 ? days : null }
+            ? {
+                ...t,
+                estimatedDate: next,
+                estimatedDays: Number.isFinite(days) && days > 0 ? days : null,
+              }
             : t,
         ),
       );
@@ -602,7 +633,13 @@ function FleetDispatchRequests() {
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title={query ? "No matching dispatch requests" : filtersActive ? "No dispatch matches this filter" : "No dispatch requests yet"}
+              title={
+                query
+                  ? "No matching dispatch requests"
+                  : filtersActive
+                    ? "No dispatch matches this filter"
+                    : "No dispatch requests yet"
+              }
               body={
                 query
                   ? `${noMatchBody(query)}${filtersActive ? " A filter button is also on — clear it to widen the search." : ""}`
@@ -635,18 +672,28 @@ function FleetDispatchRequests() {
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
                         { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
-                        ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                        ...(fleetStatusOf(trip) === "Awaiting Approval" ||
+                        fleetStatusOf(trip) === "Approved" ||
+                        fleetStatusOf(trip) === "Scheduled"
                           ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                           : []),
                         ...(fleetStatusOf(trip) === "Awaiting Approval"
-                          ? [{
-                              label: approvingId === trip.id ? "Approving…" : "Approve",
-                              onSelect: () => void handleApprove(trip),
-                              disabled: approvingId === trip.id,
-                            }]
+                          ? [
+                              {
+                                label: approvingId === trip.id ? "Approving…" : "Approve",
+                                onSelect: () => void handleApprove(trip),
+                                disabled: approvingId === trip.id,
+                              },
+                            ]
                           : []),
-                        ...(fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
-                          ? [{ label: "Send Back to Fleet Ops", onSelect: () => void handleSendBack(trip) }]
+                        ...(fleetStatusOf(trip) === "Approved" ||
+                        fleetStatusOf(trip) === "Scheduled"
+                          ? [
+                              {
+                                label: "Send Back to Fleet Ops",
+                                onSelect: () => void handleSendBack(trip),
+                              },
+                            ]
                           : []),
                       ]}
                     />
@@ -667,7 +714,9 @@ function FleetDispatchRequests() {
                 <MetaRow
                   label="Expected Return:"
                   value={
-                    expectedReturnAt(trip) ? formatTableDate(expectedReturnAt(trip)!.toISOString()) : ""
+                    expectedReturnAt(trip)
+                      ? formatTableDate(expectedReturnAt(trip)!.toISOString())
+                      : ""
                   }
                 />
                 <MetaRow label="Dispatch ID:" value={dispatchId(trip)} />
@@ -756,25 +805,52 @@ function FleetDispatchRequests() {
               forcing the whole page sideways on smaller laptops. */}
           <div className="overflow-x-auto">
             <div className="w-full">
-              <div className={cn("items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]", FLEET_GRID)}>
+              <div
+                className={cn(
+                  "items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]",
+                  FLEET_GRID,
+                )}
+              >
                 {/* Date Requested leads the row — the TM reads the request date first. */}
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer</span>
-                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Driver</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Head</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Date Requested
+                </span>
+                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Customer
+                </span>
+                <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Driver
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Truck Head
+                </span>
                 {/* This column shows the truck type the request was raised for —
                     labelling it "Head Type" made operators read it as the cab. */}
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Truck Type
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Drop-off Location
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Date Approved
+                </span>
                 {/* The date the TM is working to — his own estimate, until the
                     gate stamp records when the truck really left. */}
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Est. Date</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Est. Date
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Status
+                </span>
                 {/* The dispatch ID closes the row: the reference you quote once you
                     have found the dispatch you were looking for. */}
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Dispatch ID</span>
-                <span className="justify-self-end text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Actions</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Dispatch ID
+                </span>
+                <span className="justify-self-end text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Actions
+                </span>
               </div>
 
               {slice.map((trip) => {
@@ -782,7 +858,10 @@ function FleetDispatchRequests() {
                 return (
                   <div
                     key={trip.id}
-                    className={cn("relative items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0", FLEET_GRID)}
+                    className={cn(
+                      "relative items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0",
+                      FLEET_GRID,
+                    )}
                   >
                     <DateCell value={trip.createdAt} />
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
@@ -791,9 +870,15 @@ function FleetDispatchRequests() {
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.driverName || driver?.name}
                     </span>
-                    <span className="truncate text-[12px] text-[#627084]">{headLabel(trip, heads)}</span>
-                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{fleetTruckTypeOf(trip)}</span>
-                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                    <span className="truncate text-[12px] text-[#627084]">
+                      {headLabel(trip, heads)}
+                    </span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {fleetTruckTypeOf(trip)}
+                    </span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {trip.dropoff}
+                    </span>
                     <DateCell value={trip.dispatchedAt} />
                     <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
@@ -819,18 +904,28 @@ function FleetDispatchRequests() {
                           // The date the truck leaves AND how long it will be gone —
                           // the two halves of the promise the partner is given.
                           { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
-                          ...(fleetStatusOf(trip) === "Awaiting Approval" || fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
+                          ...(fleetStatusOf(trip) === "Awaiting Approval" ||
+                          fleetStatusOf(trip) === "Approved" ||
+                          fleetStatusOf(trip) === "Scheduled"
                             ? [{ label: "Modify", onSelect: () => setEditing(trip) }]
                             : []),
                           ...(fleetStatusOf(trip) === "Awaiting Approval"
-                            ? [{
-                                label: approvingId === trip.id ? "Approving…" : "Approve",
-                                onSelect: () => void handleApprove(trip),
-                                disabled: approvingId === trip.id,
-                              }]
+                            ? [
+                                {
+                                  label: approvingId === trip.id ? "Approving…" : "Approve",
+                                  onSelect: () => void handleApprove(trip),
+                                  disabled: approvingId === trip.id,
+                                },
+                              ]
                             : []),
-                          ...(fleetStatusOf(trip) === "Approved" || fleetStatusOf(trip) === "Scheduled"
-                            ? [{ label: "Send Back to Fleet Ops", onSelect: () => void handleSendBack(trip) }]
+                          ...(fleetStatusOf(trip) === "Approved" ||
+                          fleetStatusOf(trip) === "Scheduled"
+                            ? [
+                                {
+                                  label: "Send Back to Fleet Ops",
+                                  onSelect: () => void handleSendBack(trip),
+                                },
+                              ]
                             : []),
                         ]}
                       />
@@ -843,7 +938,13 @@ function FleetDispatchRequests() {
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title={query ? "No matching dispatch requests" : filtersActive ? "No dispatch matches this filter" : "No dispatch requests yet"}
+              title={
+                query
+                  ? "No matching dispatch requests"
+                  : filtersActive
+                    ? "No dispatch matches this filter"
+                    : "No dispatch requests yet"
+              }
               body={
                 query
                   ? `${noMatchBody(query)}${filtersActive ? " A filter button is also on — clear it to widen the search." : ""}`
@@ -859,7 +960,9 @@ function FleetDispatchRequests() {
               <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {from} - {to}
               </span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                of {filtered.length}
+              </span>
               <div className="ml-2 flex items-center gap-2.5">
                 <button
                   type="button"
@@ -912,7 +1015,10 @@ function FleetDispatchRequests() {
             (() => {
               const plate = (detail.truckReg || "").split("/")[0]?.trim().toUpperCase();
               return plate
-                ? heads.find((h) => h.registration.replace(/\s/g, "").toUpperCase() === plate.replace(/\s/g, ""))
+                ? heads.find(
+                    (h) =>
+                      h.registration.replace(/\s/g, "").toUpperCase() === plate.replace(/\s/g, ""),
+                  )
                 : undefined;
             })()
           }
@@ -940,7 +1046,9 @@ function FleetDispatchRequests() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-[420px] rounded-xl bg-white p-5 shadow-xl">
             <h3 className="text-[16px] font-bold text-[#1B2432]">
-              {estimateApproveAfter ? "Approve and set trip duration" : "Trip duration & estimated date"}
+              {estimateApproveAfter
+                ? "Approve and set trip duration"
+                : "Trip duration & estimated date"}
             </h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
               Dispatch {dispatchId(estimateTrip)}.{" "}
@@ -950,7 +1058,8 @@ function FleetDispatchRequests() {
             </p>
             <label className="mt-3 flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#1B2432]">
-                Trip duration (days) {estimateApproveAfter ? <span className="text-[#ED351D]">*</span> : null}
+                Trip duration (days){" "}
+                {estimateApproveAfter ? <span className="text-[#ED351D]">*</span> : null}
               </span>
               <input
                 type="number"
@@ -963,12 +1072,14 @@ function FleetDispatchRequests() {
                 className="h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
               />
               <span className="text-[12px] text-[#627084]">
-                How many days the vehicle is expected to spend on the road. Past this, the dispatch reads
-                Slight then Significant Delay automatically.
+                How many days the vehicle is expected to spend on the road. Past this, the dispatch
+                reads Slight then Significant Delay automatically.
               </span>
             </label>
             <label className="mt-3 flex flex-col gap-1.5">
-              <span className="text-[13px] font-medium text-[#1B2432]">Estimated dispatch date</span>
+              <span className="text-[13px] font-medium text-[#1B2432]">
+                Estimated dispatch date
+              </span>
               <input
                 type="date"
                 value={estimateValue}
@@ -1016,11 +1127,14 @@ function FleetDispatchRequests() {
       {sendBackTrip && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-[460px] rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-[16px] font-bold text-[#1B2432]">Clear and send back to Fleet Ops</h3>
+            <h3 className="text-[16px] font-bold text-[#1B2432]">
+              Clear and send back to Fleet Ops
+            </h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
-              Dispatch {dispatchId(sendBackTrip)} returns to Fleet Operations for re-assignment. Everything Fleet
-              Ops set on it — truck head, tail, driver and the cost configuration — is cleared, so they start from
-              scratch and can edit. Tell them what needs fixing; they see this reason on the dispatch.
+              Dispatch {dispatchId(sendBackTrip)} returns to Fleet Operations for re-assignment.
+              Everything Fleet Ops set on it — truck head, tail, driver and the cost configuration —
+              is cleared, so they start from scratch and can edit. Tell them what needs fixing; they
+              see this reason on the dispatch.
             </p>
             <textarea
               autoFocus
@@ -1087,10 +1201,11 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
   return (
     <div className="flex gap-2 text-[12px]">
       <span className="w-20 shrink-0 font-medium text-[#5C6470]">{label}</span>
-      <span className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}>
+      <span
+        className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}
+      >
         {value}
       </span>
     </div>
   );
 }
-

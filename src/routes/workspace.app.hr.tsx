@@ -42,6 +42,7 @@ import {
   type EmploymentStatus,
 } from "@/lib/fleetopsx/hr-helpers";
 import type { Driver, DriverStatus, Trip } from "@/lib/fleetopsx/types";
+import { csvCell } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/hr")({
@@ -450,7 +451,7 @@ function HrStaffDirectory() {
       "Guarantor Name",
       "Guarantor Phone Number",
     ];
-    const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const quote = (value: string) => csvCell(value);
     const csv = filtered
       .map((d) =>
         [

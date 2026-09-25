@@ -19,6 +19,7 @@ import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overl
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { isPartnerUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/manage-partner")({
@@ -66,7 +67,9 @@ function AdminManagePartner() {
   const [filtersApplied, setFiltersApplied] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detailUser, setDetailUser] = useState<User | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(
+    null,
+  );
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedCredentials, setSharedCredentials] = useState({ username: "", password: "" });
 
@@ -92,9 +95,17 @@ function AdminManagePartner() {
     .sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
       const av =
-        sortKey === "company" ? (a.partnerCompanyName ?? "") : sortKey === "username" ? (a.username ?? "") : a.name;
+        sortKey === "company"
+          ? (a.partnerCompanyName ?? "")
+          : sortKey === "username"
+            ? (a.username ?? "")
+            : a.name;
       const bv =
-        sortKey === "company" ? (b.partnerCompanyName ?? "") : sortKey === "username" ? (b.username ?? "") : b.name;
+        sortKey === "company"
+          ? (b.partnerCompanyName ?? "")
+          : sortKey === "username"
+            ? (b.username ?? "")
+            : b.name;
       return av.localeCompare(bv) * dir;
     });
 
@@ -194,16 +205,20 @@ function AdminManagePartner() {
       >
         {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
       </span>
-      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{label}</span>
+      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+        {label}
+      </span>
     </button>
   );
 
   const exportCSV = () => {
-    const headers = "S/N,Name,Company Name,Username,Status\n";
+    const header = "S/N,Name,Company Name,Username,Status";
     const csv = filtered
-      .map((u, i) => `${i + 1},${u.name},${u.partnerCompanyName || "-"},${u.username ?? ""},${u.status}`)
+      .map((u, i) =>
+        csvRow([i + 1, u.name, u.partnerCompanyName || "-", u.username ?? "", u.status]),
+      )
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   const handleConfirmAction = async () => {
@@ -214,7 +229,9 @@ function AdminManagePartner() {
         const pwd = typeof res?.tempPassword === "string" ? res.tempPassword : "";
         const user = users.find((u) => u.id === confirmAction.userId);
         setSharedCredentials({ username: user?.username || user?.email || "", password: pwd });
-        toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", { duration: 12_000 });
+        toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", {
+          duration: 12_000,
+        });
         setConfirmAction(null);
         setShowShareModal(true);
         break;
@@ -252,7 +269,9 @@ function AdminManagePartner() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Partner Account</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              Manage Partner Account
+            </h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage listing of partner companies
             </p>
@@ -265,7 +284,12 @@ function AdminManagePartner() {
             >
               + Add New Account
             </Link>
-            <ExportMenu csv={exportCSV} rows={filtered.length} title="Partner Accounts" fileNameBase="partner_accounts" />
+            <ExportMenu
+              csv={exportCSV}
+              rows={filtered.length}
+              title="Partner Accounts"
+              fileNameBase="partner_accounts"
+            />
           </div>
         </div>
 
@@ -348,11 +372,25 @@ function AdminManagePartner() {
                         width={176}
                         items={[
                           { label: "View details", onSelect: () => setDetailUser(u) },
-                          { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                          {
+                            label: "Reset password",
+                            onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
+                          },
                           u.status === "Suspended"
-                            ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
-                            : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
-                          { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                            ? {
+                                label: "Activate",
+                                onSelect: () =>
+                                  setConfirmAction({ type: "activate", userId: u.id }),
+                              }
+                            : {
+                                label: "Suspend",
+                                onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }),
+                              },
+                          {
+                            label: "Delete",
+                            onSelect: () => setConfirmAction({ type: "delete", userId: u.id }),
+                            danger: true,
+                          },
                         ]}
                       />
                     </div>
@@ -363,7 +401,9 @@ function AdminManagePartner() {
                       {/* Fixed-width status slot keeps mobile cards aligned when suspended. */}
                       <span className="inline-flex h-[18px] min-w-[64px] items-center justify-center">
                         {u.status === "Suspended" && (
-                          <span className="rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">Suspended</span>
+                          <span className="rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                            Suspended
+                          </span>
                         )}
                       </span>
                     </div>
@@ -388,11 +428,21 @@ function AdminManagePartner() {
               <div className="hidden overflow-x-auto md:block">
                 <div className="min-w-[640px] w-full">
                   <div className="grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(96px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Company Name</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
-                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      S/N
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Name
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Company Name
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Username
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Status
+                    </span>
                     <span className="w-5" />
                   </div>
 
@@ -402,17 +452,27 @@ function AdminManagePartner() {
                       className="relative z-0 grid grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(96px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
                       data-open={menuFor === u.id ? "true" : "false"}
                     >
-                      <span className="text-[14px] capitalize text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
-                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">{u.name}</span>
+                      <span className="text-[14px] capitalize text-[#5C6470]">
+                        {currentPage * PAGE_SIZE + i + 1}
+                      </span>
+                      <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
+                        {u.name}
+                      </span>
                       <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                         {u.partnerCompanyName}
                       </span>
-                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{u.username}</span>
+                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                        {u.username}
+                      </span>
                       <span>
                         {u.status === "Suspended" ? (
-                          <span className="inline-flex h-[22px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">Suspended</span>
+                          <span className="inline-flex h-[22px] items-center rounded bg-[#ED351D] px-2.5 text-[10px] font-medium text-white">
+                            Suspended
+                          </span>
                         ) : (
-                          <span className="inline-flex h-[22px] items-center rounded bg-[#E7F6EC] px-2.5 text-[10px] font-medium text-[#1F7A3D]">Active</span>
+                          <span className="inline-flex h-[22px] items-center rounded bg-[#E7F6EC] px-2.5 text-[10px] font-medium text-[#1F7A3D]">
+                            Active
+                          </span>
                         )}
                       </span>
                       <div className="relative flex shrink-0 items-center justify-end">
@@ -423,11 +483,26 @@ function AdminManagePartner() {
                           width={176}
                           items={[
                             { label: "View details", onSelect: () => setDetailUser(u) },
-                            { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                            {
+                              label: "Reset password",
+                              onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
+                            },
                             u.status === "Suspended"
-                              ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
-                              : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
-                            { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                              ? {
+                                  label: "Activate",
+                                  onSelect: () =>
+                                    setConfirmAction({ type: "activate", userId: u.id }),
+                                }
+                              : {
+                                  label: "Suspend",
+                                  onSelect: () =>
+                                    setConfirmAction({ type: "suspend", userId: u.id }),
+                                },
+                            {
+                              label: "Delete",
+                              onSelect: () => setConfirmAction({ type: "delete", userId: u.id }),
+                              danger: true,
+                            },
                           ]}
                         />
                       </div>
@@ -440,7 +515,9 @@ function AdminManagePartner() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   {from} - {to}
                 </span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  of {filtered.length}
+                </span>
                 <div className="ml-2 flex items-center gap-2.5">
                   <button
                     type="button"
@@ -473,11 +550,19 @@ function AdminManagePartner() {
             className="relative w-full max-w-[440px] rounded-[10px] bg-white p-6 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" onClick={() => setDetailUser(null)} className="absolute top-5 right-5 text-[#8E95A1]">
+            <button
+              type="button"
+              onClick={() => setDetailUser(null)}
+              className="absolute top-5 right-5 text-[#8E95A1]"
+            >
               <X className="size-4" />
             </button>
-            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">Partner Account</h3>
-            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Read-only account details</p>
+            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">
+              Partner Account
+            </h3>
+            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              Read-only account details
+            </p>
             <div className="flex flex-col gap-3">
               {(
                 [
@@ -490,7 +575,9 @@ function AdminManagePartner() {
                 ] as const
               ).map(([label, value]) => (
                 <div key={label} className="flex flex-col gap-1">
-                  <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
+                  <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">
+                    {label}
+                  </span>
                   <div className="rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 py-2.5 text-[14px] text-[#1B2432]">
                     {value}
                   </div>
@@ -518,7 +605,10 @@ function AdminManagePartner() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full border-b border-[#E2E5E9]">
-              <h3 id="partner-sort-title" className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+              <h3
+                id="partner-sort-title"
+                className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]"
+              >
                 Sort By
               </h3>
             </div>
@@ -533,7 +623,9 @@ function AdminManagePartner() {
               ))}
             </div>
             <div className="w-full border-b border-[#E2E5E9]">
-              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Order By</h3>
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+                Order By
+              </h3>
             </div>
             <div className="flex w-full flex-col gap-[5px]">
               {ORDER_OPTIONS.map((opt) => (
@@ -566,13 +658,20 @@ function AdminManagePartner() {
               <AlertCircle className="size-7 text-[#ED351D]" />
             </div>
             <p className="mb-8 whitespace-pre-line text-center text-[16px] text-[#5C6470]">
-              {confirmAction.type === "password" && "Are you sure you want to\nreset this partner's password?"}
-              {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
-              {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
+              {confirmAction.type === "password" &&
+                "Are you sure you want to\nreset this partner's password?"}
+              {confirmAction.type === "suspend" &&
+                "Are you sure you want to\nsuspend this account?"}
+              {confirmAction.type === "activate" &&
+                "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
             </p>
             <div className="flex w-full items-center justify-between gap-6">
-              <button type="button" onClick={() => setConfirmAction(null)} className="text-[14px] font-medium text-[#ED351D]">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="text-[14px] font-medium text-[#ED351D]"
+              >
                 Cancel
               </button>
               <button
@@ -593,7 +692,11 @@ function AdminManagePartner() {
             className="relative w-[360px] rounded-[10px] bg-white shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" onClick={() => setShowShareModal(false)} className="absolute top-5 right-5 text-[#8E95A1]">
+            <button
+              type="button"
+              onClick={() => setShowShareModal(false)}
+              className="absolute top-5 right-5 text-[#8E95A1]"
+            >
               <X className="size-4" />
             </button>
             <div className="px-6 pt-6 pb-4">
@@ -616,12 +719,18 @@ function AdminManagePartner() {
                 type="button"
                 className="flex flex-col items-center gap-2"
                 onClick={() => {
-                  window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
+                  window.open(
+                    `mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`,
+                    "_blank",
+                  );
                   setShowShareModal(false);
                 }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141A1F" />
+                  <path
+                    d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z"
+                    fill="#141A1F"
+                  />
                 </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Gmail</span>
               </button>
@@ -635,7 +744,10 @@ function AdminManagePartner() {
                 }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141A1F" />
+                  <path
+                    d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z"
+                    fill="#141A1F"
+                  />
                 </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Copy</span>
               </button>

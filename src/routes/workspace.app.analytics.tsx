@@ -382,7 +382,7 @@ function AnalyticsPage() {
          ) || `<tr><td colspan="5">No truck ran in this window.</td></tr>`
        }</tbody></table>
        <h2>Fuel &amp; tank</h2>
-       <table><thead><tr><th>Fuel</th><th>Dispensed</th><th>Cost</th><th>Pours</th><th>Restocked</th><th>Restock cost</th><th>In tank</th><th>Minimum</th></tr></thead><tbody>${
+       <table><thead><tr><th>Fuel</th><th>Dispensed</th><th>Cost</th><th>Pours</th><th>Restocked</th><th>Restock cost</th><th>In tank</th><th>Tank value</th><th>Minimum</th></tr></thead><tbody>${
          rows(
            report.fuels.map((f) => [
              f.fuelType,
@@ -392,9 +392,10 @@ function AnalyticsPage() {
              `${formatQuantity(f.restockedQty)} ${f.unit.toLowerCase()}`,
              money(f.restockedCost),
              `${formatQuantity(f.tankQty)} ${f.unit.toLowerCase()}`,
+             f.tankValue === null ? "—" : money(f.tankValue),
              formatQuantity(f.tankMin),
            ]),
-         ) || `<tr><td colspan="8">No fuel recorded.</td></tr>`
+         ) || `<tr><td colspan="9">No fuel recorded.</td></tr>`
        }</tbody></table>
        <h2>Six-month comparison</h2>
        <table><thead><tr><th>Month</th><th>Requests</th><th>Dispensed</th><th>Fuel cost</th></tr></thead><tbody>${
@@ -769,6 +770,7 @@ function AnalyticsPage() {
                 "Restocked",
                 "Restock cost",
                 "In tank",
+                "Tank value",
                 "Minimum",
               ]}
             >
@@ -783,6 +785,7 @@ function AnalyticsPage() {
                     `${formatQuantity(f.restockedQty)} ${f.unit.toLowerCase()}`,
                     money(f.restockedCost),
                     `${formatQuantity(f.tankQty)} ${f.unit.toLowerCase()}`,
+                    f.tankValue === null ? "—" : money(f.tankValue),
                     formatQuantity(f.tankMin),
                   ]}
                 />

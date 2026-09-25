@@ -5,7 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { displayCapFromTrip, displayDriverSalary, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import {
+  displayCapFromTrip,
+  displayDriverSalary,
+  displayPlateFromTrip,
+} from "@/lib/fleetopsx/display-ids";
 import { formatMovementStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
@@ -28,6 +32,7 @@ import {
   type TrackingDelayStatus,
 } from "@/lib/fleetopsx/tracking-ops";
 import { formatTripDuration, tripDelay } from "@/lib/fleetopsx/trip-duration";
+import { csvCell, csvRow } from "@/lib/fleetopsx/csv";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -94,10 +99,30 @@ function boardColumns(kind: "tracking" | "loading" | "truck"): BoardColumn[] {
   if (kind === "tracking") {
     // The body rides right beside the head: together they are how the truck is
     // named on the road — which cab pulled it and what body the load is in.
-    return ["dispatched", "head", "body", "driver", "phone", "sites", "dropoff", "status", "action"];
+    return [
+      "dispatched",
+      "head",
+      "body",
+      "driver",
+      "phone",
+      "sites",
+      "dropoff",
+      "status",
+      "action",
+    ];
   }
   if (kind === "loading") {
-    return ["dispatched", "head", "driver", "phone", "sites", "loading", "dropoff", "status", "action"];
+    return [
+      "dispatched",
+      "head",
+      "driver",
+      "phone",
+      "sites",
+      "loading",
+      "dropoff",
+      "status",
+      "action",
+    ];
   }
   return [
     "dispatched",
@@ -151,7 +176,13 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/")({
   // here alongside Tracking Ops, Security and Platform Admin.
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Security", "Tracking", "Platform Admin"];
+    const allowed = [
+      "Transport Manager",
+      "Fleet Operations",
+      "Security",
+      "Tracking",
+      "Platform Admin",
+    ];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
@@ -188,7 +219,9 @@ function ActiveDispatchPage() {
   // loading department's own question — "how much of this load is collected, and
   // which sites are still outstanding?" — from the same fetch, so the two columns
   // can never disagree.
-  const [checkpointsByTrip, setCheckpointsByTrip] = useState<Record<string, LocationCheckpoint[]>>({});
+  const [checkpointsByTrip, setCheckpointsByTrip] = useState<Record<string, LocationCheckpoint[]>>(
+    {},
+  );
   const lastStopOf = (tripId: string) => checkpointsByTrip[tripId]?.[0] ?? null;
   // Checkpoints come back newest-first, so the LAST one is the first movement —
   // the closest thing to a departure stamp on a truck Security never logged out.
@@ -201,7 +234,10 @@ function ActiveDispatchPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [allTrips, allDrivers] = await Promise.all([tripService.list(), driverService.list()]);
+        const [allTrips, allDrivers] = await Promise.all([
+          tripService.list(),
+          driverService.list(),
+        ]);
         if (cancelled) return;
         setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
@@ -220,7 +256,10 @@ function ActiveDispatchPage() {
   useAutoRefresh(() => {
     void (async () => {
       try {
-        const [allTrips, allDrivers] = await Promise.all([tripService.list(), driverService.list()]);
+        const [allTrips, allDrivers] = await Promise.all([
+          tripService.list(),
+          driverService.list(),
+        ]);
         setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
       } catch {
@@ -270,8 +309,16 @@ function ActiveDispatchPage() {
   const logsLoading = !logsJourney && canLogLoading(roles);
   // A viewer's button opens the truck's own record — it is the way in to what
   // that vehicle is doing, not a place to write a checkpoint.
-  const locationActionLabel = logsJourney ? "Log Location" : logsLoading ? "Log Loading" : "View Truck";
-  const boardKind: "tracking" | "loading" | "truck" = logsJourney ? "tracking" : logsLoading ? "loading" : "truck";
+  const locationActionLabel = logsJourney
+    ? "Log Location"
+    : logsLoading
+      ? "Log Loading"
+      : "View Truck";
+  const boardKind: "tracking" | "loading" | "truck" = logsJourney
+    ? "tracking"
+    : logsLoading
+      ? "loading"
+      : "truck";
   const columns = boardColumns(boardKind);
   const visibleColumns = columns.filter((c) => c !== "action");
   const pageBlurb = logsJourney
@@ -487,10 +534,10 @@ function ActiveDispatchPage() {
         }),
         ...(visibleColumns.includes("last") ? [stop.when] : []),
       ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .map((v) => csvCell(v))
         .join(",");
     });
-    return [header.join(","), ...lines].join("\n");
+    return [csvRow(header), ...lines].join("\n");
   };
 
   if (loading) {
@@ -504,7 +551,9 @@ function ActiveDispatchPage() {
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-1 md:hidden">
-        <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#141A1F]">Tracking Operations</h2>
+        <h2 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#141A1F]">
+          Tracking Operations
+        </h2>
         <p className="text-[12px] text-[#5C6470]">{pageBlurb}</p>
       </div>
 
@@ -649,10 +698,15 @@ function ActiveDispatchPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
+          <FigmaEmptyState
+            title="No active dispatches"
+            body="Trips currently on the road will appear here."
+          />
         ) : (
           <>
-            <div className="overflow-x-auto">                <table className="w-full min-w-[900px] border-collapse">
+            <div className="overflow-x-auto">
+              {" "}
+              <table className="w-full min-w-[900px] border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E5E9] text-left text-[12px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                     {columns.map((column) => (
@@ -665,13 +719,17 @@ function ActiveDispatchPage() {
                 <tbody>
                   {pageRows.map((trip) => {
                     return (
-                      <tr key={trip.id} className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]">
+                      <tr
+                        key={trip.id}
+                        className="border-b border-[#E2E5E9] text-[14px] text-[#1B2432]"
+                      >
                         {columns.map((column) => (
                           <td
                             key={column}
                             className={cn(
                               "px-3 py-4",
-                              column === "dispatched" && "whitespace-nowrap font-semibold tracking-[0.4px]",
+                              column === "dispatched" &&
+                                "whitespace-nowrap font-semibold tracking-[0.4px]",
                               column === "driverId" && "font-semibold tracking-[0.4px]",
                               column === "sites" && "max-w-[220px] truncate",
                             )}
@@ -723,7 +781,10 @@ function ActiveDispatchPage() {
       {/* Mobile cards */}
       <div className="flex flex-col gap-2.5 md:hidden">
         {filtered.length === 0 ? (
-          <FigmaEmptyState title="No active dispatches" body="Trips currently on the road will appear here." />
+          <FigmaEmptyState
+            title="No active dispatches"
+            body="Trips currently on the road will appear here."
+          />
         ) : (
           pageRows.map((trip) => {
             const delay = getTrackingDelayStatus(trip);
@@ -741,7 +802,8 @@ function ActiveDispatchPage() {
                     <span
                       className={cn(
                         "text-[14px] font-semibold tracking-[0.4px] text-[#303D50]",
-                        dispatchedCell(trip, firstStopOf(trip.id)?.at).estimated && "text-[#9A6700]",
+                        dispatchedCell(trip, firstStopOf(trip.id)?.at).estimated &&
+                          "text-[#9A6700]",
                       )}
                     >
                       {dispatchedCell(trip, firstStopOf(trip.id)?.at).text}
@@ -958,7 +1020,11 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
   return (
     <div className="flex gap-2 text-[12px]">
       <span className="w-20 shrink-0 font-medium text-[#5C6470]">{label}</span>
-      <span className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}>{value}</span>
+      <span
+        className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -973,7 +1039,10 @@ function StatusLegend({ mobile = false }: { mobile?: boolean }) {
     <div className={cn("flex flex-wrap items-center gap-2.5", !mobile && "gap-5")}>
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-[9px]">
-          <span className="size-[10px] rounded-full md:size-3" style={{ backgroundColor: item.color }} />
+          <span
+            className="size-[10px] rounded-full md:size-3"
+            style={{ backgroundColor: item.color }}
+          />
           <span
             className={cn(
               "font-medium tracking-[0.4px]",

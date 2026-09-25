@@ -51,6 +51,7 @@ import {
   type TicketImageInput,
 } from "@/lib/fleetopsx/ticket-image";
 import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
+import { csvCell } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestId")({
@@ -674,9 +675,7 @@ function PartnerRequestDetailsPage() {
       ["Driver", trip.driverName || ""],
       ["Truck Head (Cap Number / Plate)", capPlate],
     ];
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
+    const csv = rows.map((r) => r.map((c) => csvCell(c)).join(",")).join("\n");
     return { csv, base: displayRequestId(trip) };
   };
 

@@ -19,6 +19,7 @@ import { humanCode } from "@/lib/fleetopsx/display-ids";
 import { adminService, authService } from "@/lib/fleetopsx/services";
 import { displayStaffDepartment, isManageableStaffUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
 
 export const Route = createFileRoute("/workspace/app/manage-account")({
@@ -41,7 +42,8 @@ type ConfirmKind = "password" | "suspend" | "activate" | "delete";
 
 /** Spec: "Report tells you when a user logged in" — readable last-login label. */
 function formatLastLogin(value?: string | null): string {
-  if (!value || value === "Never" || value === "Just now") return value === "Just now" ? "Just now" : "Never";
+  if (!value || value === "Never" || value === "Just now")
+    return value === "Just now" ? "Just now" : "Never";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleString("en-GB", {
@@ -75,7 +77,9 @@ function AdminManageAccount() {
   const [deptFilter, setDeptFilter] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detailUser, setDetailUser] = useState<User | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: ConfirmKind; userId: string } | null>(
+    null,
+  );
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedCredentials, setSharedCredentials] = useState({ username: "", password: "" });
   const filterRef = useRef<HTMLDivElement>(null);
@@ -106,10 +110,13 @@ function AdminManageAccount() {
   const listing = users.filter(isManageableStaffUser);
   const filtered = listing.filter((u) => {
     // Multi-role: show every department the person holds, e.g. "Fleet Operation, HR & Personnel".
-    const depts = Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r))));
+    const depts = Array.from(
+      new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r))),
+    );
     const dept = depts[0] ?? "";
     const deptLabel = depts.join(", ");
-    const hay = `${u.name} ${u.username ?? ""} ${u.id} ${deptLabel} ${staffIdLabel(u)}`.toLowerCase();
+    const hay =
+      `${u.name} ${u.username ?? ""} ${u.id} ${deptLabel} ${staffIdLabel(u)}`.toLowerCase();
     const matchesQuery = !query || hay.includes(query.toLowerCase());
     const matchesDept =
       !deptFilter ||
@@ -128,14 +135,25 @@ function AdminManageAccount() {
 
   const exportCSV = () => {
     // Same order as the table — the Staff ID closes the data columns.
-    const headers = "S/N,Name,Department,Username,Staff ID,Status,Last Login\n";
+    const header = "S/N,Name,Department,Username,Staff ID,Status,Last Login";
     const csv = filtered
-      .map(
-        (u, i) =>
-          `${i + 1},${u.name},${Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(" ")},${displayUsername(u)},${staffIdLabel(u)},${u.status},${formatLastLogin(u.lastActive)}`,
+      .map((u, i) =>
+        csvRow([
+          i + 1,
+          u.name,
+          Array.from(
+            new Set(
+              (u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)),
+            ),
+          ).join(" "),
+          displayUsername(u),
+          staffIdLabel(u),
+          u.status,
+          formatLastLogin(u.lastActive),
+        ]),
       )
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   const handleConfirmAction = async () => {
@@ -146,7 +164,9 @@ function AdminManageAccount() {
         const pwd = typeof res?.tempPassword === "string" ? res.tempPassword : "";
         const user = users.find((u) => u.id === confirmAction.userId);
         setSharedCredentials({ username: user?.username || user?.email || "", password: pwd });
-        toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", { duration: 12_000 });
+        toast.success(pwd ? `Temporary password: ${pwd}` : "Password reset initiated.", {
+          duration: 12_000,
+        });
         setConfirmAction(null);
         setShowShareModal(true);
         break;
@@ -184,7 +204,9 @@ function AdminManageAccount() {
       <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-[30px] max-md:px-4 max-md:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Manage Staff Account</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              Manage Staff Account
+            </h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               manage listing of internal staff
             </p>
@@ -196,7 +218,12 @@ function AdminManageAccount() {
             >
               + Add New Staff Account
             </Link>
-            <ExportMenu csv={exportCSV} rows={filtered.length} title="Staff Accounts" fileNameBase="staff_accounts" />
+            <ExportMenu
+              csv={exportCSV}
+              rows={filtered.length}
+              title="Staff Accounts"
+              fileNameBase="staff_accounts"
+            />
           </div>
         </div>
 
@@ -259,7 +286,9 @@ function AdminManageAccount() {
           {deptFilter ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex h-8 items-center gap-3.5 rounded bg-[#ED351D] hover:bg-[#d62e19] px-[7px] py-[5px]">
-                <span className="text-[12px] font-normal tracking-[0.4px] text-white">{deptFilter}</span>
+                <span className="text-[12px] font-normal tracking-[0.4px] text-white">
+                  {deptFilter}
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -311,149 +340,234 @@ function AdminManageAccount() {
 
           {!loading && filtered.length > 0 && (
             <>
-          {/* Mobile cards — Figma Staff-Card-1 `134:3253` */}
-          <div className="flex flex-col gap-2.5 md:hidden">
-            {slice.map((u, i) => (
-              <div
-                key={u.id}
-                className="relative flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
-                    #{currentPage * PAGE_SIZE + i + 1}
-                  </span>
-                  <RowActionMenu
-                    open={menuFor === u.id}
-                    onOpenChange={(o) => setMenuFor(o ? u.id : null)}
-                    label="Account options"
-                    width={176}
-                    items={[
-                      { label: "View details", onSelect: () => setDetailUser(u) },
-                      // Departments are editable after creation — one person can hold
-                      // two, and adding a second must not need a brand-new account.
-                      {
-                        label: "Edit departments",
-                        onSelect: () =>
-                          navigate({ to: "/workspace/app/add-account", search: { userId: u.id } }),
-                      },
-                      { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
-                      u.status === "Suspended"
-                        ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
-                        : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
-                      { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
-                    ]}
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">{u.name}</p>
-                  {u.status === "Suspended" ? (
-                    <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
-                      Suspended
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex flex-col gap-[5px] text-[12px]">
-                  <div className="flex gap-2">
-                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Departments:</span>
-                    <span className="min-w-0 flex-1 text-[#344256]">
-                      {Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Username:</span>
-                    <span className="min-w-0 flex-1 text-[#344256]">{displayUsername(u)}</span>
-                  </div>
-                  {/* The ID closes the card, exactly like the table's last column. */}
-                  <div className="flex gap-2">
-                    <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
-                    <span className="min-w-0 flex-1 font-semibold text-[#ED351D]">{staffIdLabel(u)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop table — Figma Account Listing `124:3133` / Manage Account `93:1637` */}
-          <div className="hidden w-full overflow-x-auto rounded-[10px] border border-[#E2E5E9] bg-white md:block">
-            <div className="min-w-[640px] w-full">
-              <div className="grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">S/N</span>
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Name</span>
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Department</span>
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Username</span>
-                {/* The ID closes the row — the reference you quote once the person
-                    you were looking for is found. */}
-                <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">Staff ID</span>
-                <span className="w-5" />
-              </div>
-              {slice.map((u, i) => (
-                <div
-                  key={u.id}
-                  className="relative z-0 grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
-                  data-open={menuFor === u.id ? "true" : "false"}
-                >
-                  <span className="text-[14px] text-[#5C6470]">{currentPage * PAGE_SIZE + i + 1}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#1B2432]">{u.name}</span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]" title={Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}>
-                    {Array.from(new Set((u.roles?.length ? u.roles : [u.department]).map((r) => displayStaffDepartment(r)))).join(", ")}
-                  </span>
-                  <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">{displayUsername(u)}</span>
-                  <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">{staffIdLabel(u)}</span>
-                  <div className="flex w-[92px] shrink-0 items-center justify-end gap-2">
-                    {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
-                    <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded px-2 text-[10px] font-medium text-white">
-                      {u.status === "Suspended" ? <span className="bg-[#ED351D] px-2.5 py-0.5 rounded">Suspended</span> : null}
-                    </span>
-                    <RowActionMenu
-                      open={menuFor === u.id}
-                      onOpenChange={(o) => setMenuFor(o ? u.id : null)}
-                      label="Staff options"
-                      width={176}                        items={[
+              {/* Mobile cards — Figma Staff-Card-1 `134:3253` */}
+              <div className="flex flex-col gap-2.5 md:hidden">
+                {slice.map((u, i) => (
+                  <div
+                    key={u.id}
+                    className="relative flex flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-semibold text-[#5C6470]">
+                        #{currentPage * PAGE_SIZE + i + 1}
+                      </span>
+                      <RowActionMenu
+                        open={menuFor === u.id}
+                        onOpenChange={(o) => setMenuFor(o ? u.id : null)}
+                        label="Account options"
+                        width={176}
+                        items={[
                           { label: "View details", onSelect: () => setDetailUser(u) },
+                          // Departments are editable after creation — one person can hold
+                          // two, and adding a second must not need a brand-new account.
                           {
                             label: "Edit departments",
                             onSelect: () =>
-                              navigate({ to: "/workspace/app/add-account", search: { userId: u.id } }),
+                              navigate({
+                                to: "/workspace/app/add-account",
+                                search: { userId: u.id },
+                              }),
                           },
-                          { label: "Reset password", onSelect: () => setConfirmAction({ type: "password", userId: u.id }) },
+                          {
+                            label: "Reset password",
+                            onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
+                          },
                           u.status === "Suspended"
-                            ? { label: "Activate", onSelect: () => setConfirmAction({ type: "activate", userId: u.id }) }
-                            : { label: "Suspend", onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }) },
-                          { label: "Delete", onSelect: () => setConfirmAction({ type: "delete", userId: u.id }), danger: true },
+                            ? {
+                                label: "Activate",
+                                onSelect: () =>
+                                  setConfirmAction({ type: "activate", userId: u.id }),
+                              }
+                            : {
+                                label: "Suspend",
+                                onSelect: () => setConfirmAction({ type: "suspend", userId: u.id }),
+                              },
+                          {
+                            label: "Delete",
+                            onSelect: () => setConfirmAction({ type: "delete", userId: u.id }),
+                            danger: true,
+                          },
                         ]}
-                    />
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">
+                        {u.name}
+                      </p>
+                      {u.status === "Suspended" ? (
+                        <span className="inline-flex h-[18px] items-center rounded bg-[#ED351D] hover:bg-[#d62e19] px-2.5 text-[10px] font-medium text-white">
+                          Suspended
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col gap-[5px] text-[12px]">
+                      <div className="flex gap-2">
+                        <span className="w-20 shrink-0 font-medium text-[#5C6470]">
+                          Departments:
+                        </span>
+                        <span className="min-w-0 flex-1 text-[#344256]">
+                          {Array.from(
+                            new Set(
+                              (u.roles?.length ? u.roles : [u.department]).map((r) =>
+                                displayStaffDepartment(r),
+                              ),
+                            ),
+                          ).join(", ")}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="w-20 shrink-0 font-medium text-[#5C6470]">Username:</span>
+                        <span className="min-w-0 flex-1 text-[#344256]">{displayUsername(u)}</span>
+                      </div>
+                      {/* The ID closes the card, exactly like the table's last column. */}
+                      <div className="flex gap-2">
+                        <span className="w-20 shrink-0 font-medium text-[#5C6470]">Staff ID:</span>
+                        <span className="min-w-0 flex-1 font-semibold text-[#ED351D]">
+                          {staffIdLabel(u)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2.5 pt-2">
-            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-              {from} - {to}
-            </span>
-            <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
-            <div className="ml-2 flex items-center gap-2.5">
-              <button
-                type="button"
-                disabled={currentPage === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="size-[18px] text-[#627084]" />
-              </button>
-              <button
-                type="button"
-                disabled={currentPage >= pageCount - 1}
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="size-[18px] text-[#627084]" />
-              </button>
-            </div>
-          </div>
+              {/* Desktop table — Figma Account Listing `124:3133` / Manage Account `93:1637` */}
+              <div className="hidden w-full overflow-x-auto rounded-[10px] border border-[#E2E5E9] bg-white md:block">
+                <div className="min-w-[640px] w-full">
+                  <div className="grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 xl:gap-x-4 xl:px-5">
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      S/N
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Name
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Department
+                    </span>
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Username
+                    </span>
+                    {/* The ID closes the row — the reference you quote once the person
+                    you were looking for is found. */}
+                    <span className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                      Staff ID
+                    </span>
+                    <span className="w-5" />
+                  </div>
+                  {slice.map((u, i) => (
+                    <div
+                      key={u.id}
+                      className="relative z-0 grid grid-cols-[40px_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] px-4 py-3 last:border-b-0 data-[open=true]:z-20 xl:gap-x-4 xl:px-5"
+                      data-open={menuFor === u.id ? "true" : "false"}
+                    >
+                      <span className="text-[14px] text-[#5C6470]">
+                        {currentPage * PAGE_SIZE + i + 1}
+                      </span>
+                      <span className="truncate text-[14px] tracking-[0.4px] text-[#1B2432]">
+                        {u.name}
+                      </span>
+                      <span
+                        className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]"
+                        title={Array.from(
+                          new Set(
+                            (u.roles?.length ? u.roles : [u.department]).map((r) =>
+                              displayStaffDepartment(r),
+                            ),
+                          ),
+                        ).join(", ")}
+                      >
+                        {Array.from(
+                          new Set(
+                            (u.roles?.length ? u.roles : [u.department]).map((r) =>
+                              displayStaffDepartment(r),
+                            ),
+                          ),
+                        ).join(", ")}
+                      </span>
+                      <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
+                        {displayUsername(u)}
+                      </span>
+                      <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
+                        {staffIdLabel(u)}
+                      </span>
+                      <div className="flex w-[92px] shrink-0 items-center justify-end gap-2">
+                        {/* Fixed-width status slot: a Suspended badge can't shift the columns. */}
+                        <span className="inline-flex h-[22px] min-w-[64px] shrink-0 items-center justify-center rounded px-2 text-[10px] font-medium text-white">
+                          {u.status === "Suspended" ? (
+                            <span className="bg-[#ED351D] px-2.5 py-0.5 rounded">Suspended</span>
+                          ) : null}
+                        </span>
+                        <RowActionMenu
+                          open={menuFor === u.id}
+                          onOpenChange={(o) => setMenuFor(o ? u.id : null)}
+                          label="Staff options"
+                          width={176}
+                          items={[
+                            { label: "View details", onSelect: () => setDetailUser(u) },
+                            {
+                              label: "Edit departments",
+                              onSelect: () =>
+                                navigate({
+                                  to: "/workspace/app/add-account",
+                                  search: { userId: u.id },
+                                }),
+                            },
+                            {
+                              label: "Reset password",
+                              onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
+                            },
+                            u.status === "Suspended"
+                              ? {
+                                  label: "Activate",
+                                  onSelect: () =>
+                                    setConfirmAction({ type: "activate", userId: u.id }),
+                                }
+                              : {
+                                  label: "Suspend",
+                                  onSelect: () =>
+                                    setConfirmAction({ type: "suspend", userId: u.id }),
+                                },
+                            {
+                              label: "Delete",
+                              onSelect: () => setConfirmAction({ type: "delete", userId: u.id }),
+                              danger: true,
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2.5 pt-2">
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  {from} - {to}
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  of {filtered.length}
+                </span>
+                <div className="ml-2 flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-[18px] text-[#627084]" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={currentPage >= pageCount - 1}
+                    onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                    className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-[18px] text-[#627084]" />
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -465,16 +579,33 @@ function AdminManageAccount() {
             className="relative w-full max-w-[440px] rounded-[10px] bg-white p-6 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" onClick={() => setDetailUser(null)} className="absolute top-5 right-5 text-[#8E95A1]">
+            <button
+              type="button"
+              onClick={() => setDetailUser(null)}
+              className="absolute top-5 right-5 text-[#8E95A1]"
+            >
               <X className="size-4" />
             </button>
-            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">Staff Account</h3>
-            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">Read-only account details</p>
+            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">
+              Staff Account
+            </h3>
+            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              Read-only account details
+            </p>
             <div className="flex flex-col gap-3">
               {(
                 [
                   ["Name", detailUser.name],
-                  ["Departments", Array.from(new Set((detailUser.roles?.length ? detailUser.roles : [detailUser.department]).map((r) => displayStaffDepartment(r)))).join(", ")],
+                  [
+                    "Departments",
+                    Array.from(
+                      new Set(
+                        (detailUser.roles?.length ? detailUser.roles : [detailUser.department]).map(
+                          (r) => displayStaffDepartment(r),
+                        ),
+                      ),
+                    ).join(", "),
+                  ],
                   ["Staff ID", staffIdLabel(detailUser)],
                   ["Username", displayUsername(detailUser)],
                   ["Email", detailUser.email],
@@ -483,7 +614,9 @@ function AdminManageAccount() {
                 ] as const
               ).map(([label, value]) => (
                 <div key={label} className="flex flex-col gap-1">
-                  <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</span>
+                  <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">
+                    {label}
+                  </span>
                   <div className="rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 py-2.5 text-[14px] text-[#1B2432]">
                     {value}
                   </div>
@@ -508,9 +641,12 @@ function AdminManageAccount() {
               <AlertCircle className="size-7 text-[#ED351D]" />
             </div>
             <p className="mb-8 whitespace-pre-line text-center text-[16px] text-[#5C6470]">
-              {confirmAction.type === "password" && "Are you sure you want to\nsend a new password?"}
-              {confirmAction.type === "suspend" && "Are you sure you want to\nsuspend this account?"}
-              {confirmAction.type === "activate" && "Are you sure you want to\nactivate this account?"}
+              {confirmAction.type === "password" &&
+                "Are you sure you want to\nsend a new password?"}
+              {confirmAction.type === "suspend" &&
+                "Are you sure you want to\nsuspend this account?"}
+              {confirmAction.type === "activate" &&
+                "Are you sure you want to\nactivate this account?"}
               {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
             </p>
             <div className="flex w-full items-center justify-between gap-6">
@@ -563,12 +699,18 @@ function AdminManageAccount() {
                 type="button"
                 className="flex flex-col items-center gap-2"
                 onClick={() => {
-                  window.open(`mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`, "_blank");
+                  window.open(
+                    `mailto:?subject=Password Reset&body=${encodeURIComponent(shareText)}`,
+                    "_blank",
+                  );
                   setShowShareModal(false);
                 }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z" fill="#141A1F" />
+                  <path
+                    d="M2 5V19H22V5H2ZM20 7V7.12L12 11.95L4 7.12V7H20ZM4 17V9.45L11.48 13.97C11.64 14.07 11.82 14.12 12 14.12C12.18 14.12 12.36 14.07 12.52 13.97L20 9.45V17H4Z"
+                    fill="#141A1F"
+                  />
                 </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Gmail</span>
               </button>
@@ -582,7 +724,10 @@ function AdminManageAccount() {
                 }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="#141A1F" />
+                  <path
+                    d="M19 21H8V7H19M19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z"
+                    fill="#141A1F"
+                  />
                 </svg>
                 <span className="text-[12px] font-medium text-[#5C6470]">Copy</span>
               </button>

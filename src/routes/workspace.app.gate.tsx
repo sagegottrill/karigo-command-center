@@ -35,6 +35,7 @@ import {
 import { GATE_DEPARTED_STATUSES } from "@/lib/fleetopsx/status-buckets";
 import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -430,14 +431,26 @@ departure silently never logs. */
   // dispatch ID closing the row. The menu's Image and PDF options snapshot the
   // rendered table, so they honour the same search and filters.
   const exportCsv = () => {
-    const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Logged By,Dispatch ID\n";
+    const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Logged By,Dispatch ID";
     const body = filtered
-      .map(
-        (t) =>
-          `${t.driverName || ""},${headOf(t)},${plateOf(t)},${tailOf(t)},${stampCsv(departureStamp(t), "Not Departed")},${stampCsv(returnStamp(t), "Not Returned")},${returnStamp(t) ? t.gateInBy || t.gateOutBy || "Unsigned" : departureStamp(t) ? t.gateOutBy || "Unsigned" : ""},${dispatchId(t)}`,
+      .map((t) =>
+        csvRow([
+          t.driverName || "",
+          headOf(t),
+          plateOf(t),
+          tailOf(t),
+          stampCsv(departureStamp(t), "Not Departed"),
+          stampCsv(returnStamp(t), "Not Returned"),
+          returnStamp(t)
+            ? t.gateInBy || t.gateOutBy || "Unsigned"
+            : departureStamp(t)
+              ? t.gateOutBy || "Unsigned"
+              : "",
+          dispatchId(t),
+        ]),
       )
       .join("\n");
-    return header + body;
+    return header + "\n" + body;
   };
 
   if (loading) {

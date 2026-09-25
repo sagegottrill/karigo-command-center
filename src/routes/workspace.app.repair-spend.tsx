@@ -12,7 +12,13 @@ import {
   resolveTruck,
   truckLabel,
 } from "@/lib/fleetopsx/engineering-helpers";
-import { authService, engineeringService, fleetService, formatNairaFull } from "@/lib/fleetopsx/services";
+import {
+  authService,
+  engineeringService,
+  fleetService,
+  formatNairaFull,
+} from "@/lib/fleetopsx/services";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import type { TruckHead, WorkOrder } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +93,10 @@ function RepairSpend() {
 
   /** One grouping, three ways of reading it. */
   const grouped = useMemo(() => {
-    const rows = new Map<string, { label: string; jobs: number; spend: number; open: number; last: string }>();
+    const rows = new Map<
+      string,
+      { label: string; jobs: number; spend: number; open: number; last: string }
+    >();
     for (const order of billed) {
       const head = resolveTruck(order, heads);
       const key =
@@ -107,7 +116,9 @@ function RepairSpend() {
       rows.set(key, current);
     }
     return [...rows.values()]
-      .filter((row) => (query.trim() ? row.label.toLowerCase().includes(query.trim().toLowerCase()) : true))
+      .filter((row) =>
+        query.trim() ? row.label.toLowerCase().includes(query.trim().toLowerCase()) : true,
+      )
       .sort((a, b) => b.spend - a.spend || b.jobs - a.jobs);
   }, [billed, heads, tab, query]);
 
@@ -120,12 +131,16 @@ function RepairSpend() {
           : "Month,Jobs,Open Jobs,Repair Spend (₦),Last Job\n";
     const csv = grouped
       .map((row) =>
-        [row.label, row.jobs, row.open, row.spend, row.last ? formatDateLines(row.last).date : ""]
-          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(","),
+        csvRow([
+          row.label,
+          row.jobs,
+          row.open,
+          row.spend,
+          row.last ? formatDateLines(row.last).date : "",
+        ]),
       )
       .join("\n");
-    return headers + csv;
+    return headers + "\n" + csv;
   };
 
   const TABS = [
@@ -141,107 +156,146 @@ function RepairSpend() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Repair Spend</h2>
-          <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-            what the workshop cost, job by job
-          </p>
-        </div>
-        <ExportMenu csv={exportCSV} rows={grouped.length} title={`Repair Spend — ${tab === "truck" ? "By Truck" : tab === "category" ? "By Category" : "By Month"}`} fileNameBase={`repair_spend_by_${tab}`} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {[
-          { label: "Total Repair Spend", value: formatNairaFull(totals.spend), tone: "text-[#1B2432]" },
-          { label: "Closed Jobs", value: formatNairaFull(totals.closedSpend), tone: "text-[#0A8F4D]" },
-          { label: "Still Open", value: formatNairaFull(totals.openSpend), tone: "text-[#B26A00]" },
-          { label: "Jobs Billed", value: `${totals.priced} of ${totals.jobs}`, tone: "text-[#1B2432]" },
-          { label: "Average per Job", value: formatNairaFull(Math.round(totals.average)), tone: "text-[#1B2432]" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="flex flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.05)]"
-          >
-            <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">{stat.label}</span>
-            <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>{stat.value}</span>
+            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              what the workshop cost, job by job
+            </p>
           </div>
-        ))}
-      </div>
-
-      {totals.unpriced > 0 && (
-        <p className="text-[13px] text-[#5C6470]">
-          {totals.unpriced} job{totals.unpriced === 1 ? "" : "s"} on the books carry no cost yet — the spend above
-          only counts what the workshop has actually recorded.
-        </p>
-      )}
-
-      <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-        <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[#E2E5E9] pb-5">
-          <div className="flex items-center gap-1 rounded border border-[#E2E5E9] p-1">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  "h-7 rounded px-3 text-[13px] font-medium",
-                  tab === t.key ? "bg-[#1B2432] text-white" : "text-[#5C6470] hover:bg-[#F1F2F4]",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="relative w-full max-w-[320px]">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
-              strokeWidth={1.5}
-            />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
-            />
-          </div>
+          <ExportMenu
+            csv={exportCSV}
+            rows={grouped.length}
+            title={`Repair Spend — ${tab === "truck" ? "By Truck" : tab === "category" ? "By Category" : "By Month"}`}
+            fileNameBase={`repair_spend_by_${tab}`}
+          />
         </div>
 
-        <div className="grid grid-cols-[1fr_120px_120px_180px_160px] items-center gap-4 border-b border-[#E2E5E9] py-[15px]">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {[
-            tab === "truck" ? "Truck Head" : tab === "category" ? "Category" : "Month",
-            "Jobs",
-            "Open",
-            "Repair Spend",
-            "Last Job",
-          ].map((h) => (
-            <span key={h} className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]">
-              {h}
-            </span>
+            {
+              label: "Total Repair Spend",
+              value: formatNairaFull(totals.spend),
+              tone: "text-[#1B2432]",
+            },
+            {
+              label: "Closed Jobs",
+              value: formatNairaFull(totals.closedSpend),
+              tone: "text-[#0A8F4D]",
+            },
+            {
+              label: "Still Open",
+              value: formatNairaFull(totals.openSpend),
+              tone: "text-[#B26A00]",
+            },
+            {
+              label: "Jobs Billed",
+              value: `${totals.priced} of ${totals.jobs}`,
+              tone: "text-[#1B2432]",
+            },
+            {
+              label: "Average per Job",
+              value: formatNairaFull(Math.round(totals.average)),
+              tone: "text-[#1B2432]",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.05)]"
+            >
+              <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                {stat.label}
+              </span>
+              <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>
+                {stat.value}
+              </span>
+            </div>
           ))}
         </div>
 
-        {grouped.map((row) => (
-          <div
-            key={row.label}
-            className="grid grid-cols-[1fr_120px_120px_180px_160px] items-center gap-4 border-b border-[#E2E5E9] py-2.5"
-          >
-            <span className="text-[14px] text-[#344256]">{tab === "truck" ? row.label : row.label}</span>
-            <span className="text-[14px] text-[#5C6470]">{row.jobs}</span>
-            <span className={cn("text-[14px]", row.open > 0 ? "text-[#B26A00]" : "text-[#5C6470]")}>{row.open}</span>
-            <span className="text-[14px] font-medium text-[#344256]">{formatNairaFull(row.spend)}</span>
-            <span className="text-[14px] text-[#5C6470]">{row.last ? formatDateLines(row.last).date : "—"}</span>
-          </div>
-        ))}
-
-        {loading && <FigmaLoadingState />}
-        {!loading && grouped.length === 0 && (
-          <FigmaEmptyState
-            title={query ? "Nothing matches that" : "No repair spend recorded yet"}
-            body={
-              query
-                ? "Try another truck, category or month."
-                : "Costs appear here as the workshop records them against a work order."
-            }
-          />
+        {totals.unpriced > 0 && (
+          <p className="text-[13px] text-[#5C6470]">
+            {totals.unpriced} job{totals.unpriced === 1 ? "" : "s"} on the books carry no cost yet —
+            the spend above only counts what the workshop has actually recorded.
+          </p>
         )}
+
+        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[#E2E5E9] pb-5">
+            <div className="flex items-center gap-1 rounded border border-[#E2E5E9] p-1">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    "h-7 rounded px-3 text-[13px] font-medium",
+                    tab === t.key ? "bg-[#1B2432] text-white" : "text-[#5C6470] hover:bg-[#F1F2F4]",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative w-full max-w-[320px]">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
+                strokeWidth={1.5}
+              />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search"
+                className="h-9 w-full rounded border border-[rgba(92,100,112,0.6)] bg-transparent pr-3 pl-10 text-[14px] tracking-[0.4px] text-[#141A1F] outline-none placeholder:text-[#5C6470]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1fr_120px_120px_180px_160px] items-center gap-4 border-b border-[#E2E5E9] py-[15px]">
+            {[
+              tab === "truck" ? "Truck Head" : tab === "category" ? "Category" : "Month",
+              "Jobs",
+              "Open",
+              "Repair Spend",
+              "Last Job",
+            ].map((h) => (
+              <span key={h} className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {grouped.map((row) => (
+            <div
+              key={row.label}
+              className="grid grid-cols-[1fr_120px_120px_180px_160px] items-center gap-4 border-b border-[#E2E5E9] py-2.5"
+            >
+              <span className="text-[14px] text-[#344256]">
+                {tab === "truck" ? row.label : row.label}
+              </span>
+              <span className="text-[14px] text-[#5C6470]">{row.jobs}</span>
+              <span
+                className={cn("text-[14px]", row.open > 0 ? "text-[#B26A00]" : "text-[#5C6470]")}
+              >
+                {row.open}
+              </span>
+              <span className="text-[14px] font-medium text-[#344256]">
+                {formatNairaFull(row.spend)}
+              </span>
+              <span className="text-[14px] text-[#5C6470]">
+                {row.last ? formatDateLines(row.last).date : "—"}
+              </span>
+            </div>
+          ))}
+
+          {loading && <FigmaLoadingState />}
+          {!loading && grouped.length === 0 && (
+            <FigmaEmptyState
+              title={query ? "Nothing matches that" : "No repair spend recorded yet"}
+              body={
+                query
+                  ? "Try another truck, category or month."
+                  : "Costs appear here as the workshop records them against a work order."
+              }
+            />
+          )}
         </div>
       </div>
     </>

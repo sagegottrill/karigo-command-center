@@ -21,6 +21,7 @@ import {
 } from "@/lib/fleetopsx/engineering-helpers";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, engineeringService, fleetService } from "@/lib/fleetopsx/services";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import type { TruckHead, WorkOrder } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +35,14 @@ export const Route = createFileRoute("/workspace/app/truck-availability")({
   component: TruckAvailability,
 });
 
-const TRUCK_FILTERS = ["All", "Check Up", "Maintenance", "Accident", "Available", "Out of Yard"] as const;
+const TRUCK_FILTERS = [
+  "All",
+  "Check Up",
+  "Maintenance",
+  "Accident",
+  "Available",
+  "Out of Yard",
+] as const;
 
 function TruckAvailability() {
   const navigate = useNavigate();
@@ -57,7 +65,9 @@ function TruckAvailability() {
   const [filter, setFilter] = useState<(typeof TRUCK_FILTERS)[number]>("All");
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [verdict, setVerdict] = useState<{ head: TruckHead; status: TruckHead["status"] } | null>(null);
+  const [verdict, setVerdict] = useState<{ head: TruckHead; status: TruckHead["status"] } | null>(
+    null,
+  );
   /** The truck the Transport Manager's read-only row menu opens. */
   const [details, setDetails] = useState<TruckHead | null>(null);
 
@@ -125,10 +135,14 @@ function TruckAvailability() {
     const q = query.trim().toLowerCase();
     return heads
       .filter((h) => filter === "All" || h.status === filter)
-      .filter((h) => !q || `${truckLabel(h)} ${h.make} ${h.type} ${h.status}`.toLowerCase().includes(q))
+      .filter(
+        (h) => !q || `${truckLabel(h)} ${h.make} ${h.type} ${h.status}`.toLowerCase().includes(q),
+      )
       .sort((a, b) => {
         const rank = (TRUCK_RANK[a.status] ?? 9) - (TRUCK_RANK[b.status] ?? 9);
-        return rank !== 0 ? rank : (displayHeadCap(a) || a.number).localeCompare(displayHeadCap(b) || b.number);
+        return rank !== 0
+          ? rank
+          : (displayHeadCap(a) || a.number).localeCompare(displayHeadCap(b) || b.number);
       });
   }, [heads, filter, query]);
 
@@ -165,10 +179,16 @@ function TruckAvailability() {
           if (openOrder) {
             void engineeringService
               .complete(openOrder.id)
-              .then((updated) => setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o))))
+              .then((updated) =>
+                setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o))),
+              )
               .catch(() => {});
           }
-          void setTruckStatus(head, "Available", openOrder ? `closed ${openOrder.defect}` : undefined);
+          void setTruckStatus(
+            head,
+            "Available",
+            openOrder ? `closed ${openOrder.defect}` : undefined,
+          );
         },
       },
       { label: "Under Maintenance", onSelect: () => void setTruckStatus(head, "Maintenance") },
@@ -176,30 +196,29 @@ function TruckAvailability() {
       { label: "Back to Check-up", onSelect: () => void setTruckStatus(head, "Check Up") },
       {
         label: "Raise work order…",
-        onSelect: () => navigate({ to: "/workspace/app/engineering", search: { truck: truckLabel(head) } }),
+        onSelect: () =>
+          navigate({ to: "/workspace/app/engineering", search: { truck: truckLabel(head) } }),
       },
     ];
   };
 
   const exportCSV = () => {
-    const headers = "Truck Head,Plate,Status,Open Work Order,Last Check-up,Make / Body\n";
+    const headers = "Truck Head,Plate,Status,Open Work Order,Last Check-up,Make / Body";
     const csv = filtered
       .map((head) => {
         const openOrder = orderForTruck(head);
         const last = latestForTruck(head);
-        return [
+        return csvRow([
           displayHeadCap(head) || head.number,
           head.registration,
           head.status,
           openOrder ? `${openOrder.defect} (${openOrder.status})` : "",
           last ? formatDateLines(last.reportedAt).date : "",
           head.make,
-        ]
-          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(",");
+        ]);
       })
       .join("\n");
-    return headers + csv;
+    return headers + "\n" + csv;
   };
 
   return (
@@ -219,7 +238,12 @@ function TruckAvailability() {
             )}
           </div>
           <div className={cn("flex items-center gap-2", !canEdit && "hidden")}>
-            <ExportMenu csv={exportCSV} rows={filtered.length} title="Truck Availability" fileNameBase="truck_availability" />
+            <ExportMenu
+              csv={exportCSV}
+              rows={filtered.length}
+              title="Truck Availability"
+              fileNameBase="truck_availability"
+            />
           </div>
         </div>
 
@@ -239,7 +263,9 @@ function TruckAvailability() {
               <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                 {stat.label}
               </span>
-              <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>{stat.value}</span>
+              <span className={cn("text-[20px] font-semibold leading-7", stat.tone)}>
+                {stat.value}
+              </span>
             </div>
           ))}
         </div>
@@ -282,8 +308,18 @@ function TruckAvailability() {
           <div className="overflow-x-auto">
             <div className="min-w-[1080px]">
               <div className="grid grid-cols-[170px_140px_140px_1fr_160px_150px_44px] items-center gap-4 border-b border-[#E2E5E9] py-[15px]">
-                {["Truck Head", "Plate", "Status", "Open Work Order", "Last Check-up", "Make / Body"].map((h) => (
-                  <span key={h} className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {[
+                  "Truck Head",
+                  "Plate",
+                  "Status",
+                  "Open Work Order",
+                  "Last Check-up",
+                  "Make / Body",
+                ].map((h) => (
+                  <span
+                    key={h}
+                    className="text-[15px] font-semibold tracking-[0.4px] text-[#1B2432]"
+                  >
                     {h}
                   </span>
                 ))}
@@ -412,7 +448,8 @@ function TruckAvailability() {
                 {truckLabel(verdict.head)}
               </h3>
               <p className="mt-1 text-[12px] text-[#5C6470]">
-                Currently {verdict.head.status}. The verdict decides whether dispatch can use this truck.
+                Currently {verdict.head.status}. The verdict decides whether dispatch can use this
+                truck.
               </p>
             </div>
             {(["Available", "Maintenance", "Accident"] as const).map((option) => (
@@ -446,7 +483,9 @@ function TruckAvailability() {
                   if (verdict.status === "Available" && openOrder) {
                     void engineeringService
                       .complete(openOrder.id)
-                      .then((updated) => setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o))))
+                      .then((updated) =>
+                        setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o))),
+                      )
                       .catch(() => {});
                   }
                   void setTruckStatus(

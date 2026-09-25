@@ -37,6 +37,7 @@ import {
   nextWorkOrderStatus,
 } from "@/lib/fleetopsx/services";
 import type { InventoryItem, TruckHead, WorkOrder, WorkOrderStatus } from "@/lib/fleetopsx/types";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/engineering")({
@@ -376,12 +377,12 @@ function EngineeringWorkOrders() {
 
   const exportCSV = () => {
     const headers =
-      "Date Reported,Truck Head,Customer Defect,Category,Priority,Mechanic,Reported By,Cost (₦),Status,Started,Completed,Notes\n";
+      "Date Reported,Truck Head,Customer Defect,Category,Priority,Mechanic,Reported By,Cost (₦),Status,Started,Completed,Notes";
     const csv = filteredOrders
       .map((o) => {
         const head = resolveTruck(o, heads);
         const lines = formatDateLines(o.reportedAt);
-        return [
+        return csvRow([
           `${lines.date} ${lines.time}`,
           head ? truckLabel(head) : o.truckReg,
           o.defect,
@@ -394,12 +395,10 @@ function EngineeringWorkOrders() {
           o.startedAt ? formatDateLines(o.startedAt).date : "",
           o.completedAt ? formatDateLines(o.completedAt).date : "",
           o.notes,
-        ]
-          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(",");
+        ]);
       })
       .join("\n");
-    return headers + csv;
+    return headers + "\n" + csv;
   };
 
   /**

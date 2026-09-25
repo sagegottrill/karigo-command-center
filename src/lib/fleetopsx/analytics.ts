@@ -109,6 +109,8 @@ export type FuelReport = {
   tankQty: number;
   tankMin: number;
   tankLow: boolean;
+  /** Tank balance valued at the last recorded delivery price — null when no priced delivery exists. */
+  tankValue: number | null;
 };
 
 export type TrendPoint = {
@@ -158,6 +160,11 @@ export type AnalyticsReport = {
 const round = (n: number) => Math.round(n * 100) / 100;
 
 const DAY_MS = 86_400_000;
+
+/** `YYYY-MM-DD` in the operator's OWN calendar — a UTC slice would file a
+ *  1 pm Lagos pour into the previous day and shift every trend bar. */
+const localDayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const STATUS_LABELS: Array<{ bucket: TripBucket; label: string }> = [
   { bucket: "pending", label: "Requested" },
@@ -437,9 +444,7 @@ export function buildAnalyticsReport(input: {
   }
   const monthKeyOf = (value: string | Date | null | undefined): string | null => {
     const d = new Date(String(value ?? ""));
-    return Number.isNaN(d.getTime())
-      ? null
-      : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return Number.isNaN(d.getTime()) ? null : localDayKey(d).slice(0, 7);
   };
   for (const trip of scoped) {
     const key = monthKeyOf(trip.createdAt);
@@ -460,6 +465,7 @@ export function buildAnalyticsReport(input: {
 
   /* -------------------------------------------------------------- fuel ----- */
 
+  /** Last recorded delivery price per fuel — the tank is valued at what it last cost. */
   const lastInbound = new Map<string, { unitCost: number; at: string }>();
   for (const row of restocks) {
     const cost = Number(row.unitCost ?? 0);
@@ -479,6 +485,8 @@ export function buildAnalyticsReport(input: {
       (sum, r) => sum + Number(r.quantity ?? 0) * Number(r.unitCost ?? 0),
       0,
     );
+    const tankQty = Number(tank?.quantity ?? 0);
+    const inbound = lastInbound.get(fuelType);
     return {
       fuelType,
       unit,
@@ -487,9 +495,10 @@ export function buildAnalyticsReport(input: {
       pours: pours.length,
       restockedQty: round(restockRows.reduce((sum, r) => sum + Number(r.quantity ?? 0), 0)),
       restockedCost: round(restockedCost),
-      tankQty: Number(tank?.quantity ?? 0),
+      tankQty,
       tankMin: Number(tank?.minLevel ?? 0),
       tankLow: tank ? Boolean(tank.low) : false,
+      tankValue: inbound ? round(tankQty * inbound.unitCost) : null,
     };
   });
 
@@ -499,15 +508,15 @@ export function buildAnalyticsReport(input: {
   const trend: TrendPoint[] = [];
   const byDay = new Map<string, TrendPoint>();
   for (let i = 13; i >= 0; i--) {
-    const day = new Date(now.getTime() - i * DAY_MS);
-    const key = day.toISOString().slice(0, 10);
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = localDayKey(day);
     const point: TrendPoint = { day: key, requests: 0, completed: 0, litres: 0, cost: 0 };
     trend.push(point);
     byDay.set(key, point);
   }
   const stamp = (value: string | null | undefined): string | null => {
     const d = new Date(String(value ?? ""));
-    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    return Number.isNaN(d.getTime()) ? null : localDayKey(d);
   };
   for (const trip of scoped) {
     const key = stamp(trip.createdAt);

@@ -12,6 +12,7 @@ import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { authService, fleetService } from "@/lib/fleetopsx/services";
 import { headCategoryOptions, tailBodyOptions } from "@/lib/fleetopsx/asset-options";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import type { TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -184,9 +185,9 @@ function printFleetReport({
     .map((item) => {
       const head = tab === "head" ? (item as TruckHead) : undefined;
       const tail = tab === "tail" ? (item as TruckTail) : undefined;
-      return `<tr><td>${htmlEsc(head ? headLabel(head) : tail?.number ?? "")}</td><td>${htmlEsc(
+      return `<tr><td>${htmlEsc(head ? headLabel(head) : (tail?.number ?? ""))}</td><td>${htmlEsc(
         item.registration || "—",
-      )}</td><td>${htmlEsc(head ? head.make : tail?.type ?? "")}</td><td>${htmlEsc(
+      )}</td><td>${htmlEsc(head ? head.make : (tail?.type ?? ""))}</td><td>${htmlEsc(
         item.status,
       )}</td><td>${htmlEsc(item.location || "—")}</td></tr>`;
     })
@@ -211,7 +212,8 @@ function printFleetReport({
     toast.error("Allow pop-ups for this site to print.");
     return;
   }
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>Fleet Status Report</title>
+  w.document
+    .write(`<!doctype html><html><head><meta charset="utf-8" /><title>Fleet Status Report</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; margin: 32px; color: #1B2432; }
@@ -267,11 +269,15 @@ function StatCard({
         CARD_SHADOW,
       )}
     >
-      <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470] md:text-[14px]">{label}</span>
+      <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470] md:text-[14px]">
+        {label}
+      </span>
       <span className="font-['Space_Grotesk',sans-serif] text-[28px] font-bold leading-8 text-[#1B2432] md:text-[36px] md:leading-9">
         {value}
       </span>
-      {hint ? <span className={cn("text-[10px] font-medium leading-normal", hintClass)}>{hint}</span> : null}
+      {hint ? (
+        <span className={cn("text-[10px] font-medium leading-normal", hintClass)}>{hint}</span>
+      ) : null}
     </div>
   );
 }
@@ -288,7 +294,10 @@ function FleetRegistryPage() {
   const canManageFleet = authService.getRoles().some((r: string) => FLEET_ADMIN_ROLES.includes(r));
   // Add / edit surface, and the row queued for deletion (never deleted on a
   // single click — a fleet number that disappears by accident is unrecoverable).
-  const [editor, setEditor] = useState<{ mode: "create" | "edit"; item?: TruckHead | TruckTail } | null>(null);
+  const [editor, setEditor] = useState<{
+    mode: "create" | "edit";
+    item?: TruckHead | TruckTail;
+  } | null>(null);
   const [removing, setRemoving] = useState<TruckHead | TruckTail | null>(null);
   const [busy, setBusy] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -368,7 +377,9 @@ function FleetRegistryPage() {
   const submitAsset = async (draft: AssetDraft, target?: TruckHead | TruckTail) => {
     const number = draft.number.trim();
     if (!number) {
-      toast.error(tab === "head" ? "A head number (cap) is required." : "A tail number is required.");
+      toast.error(
+        tab === "head" ? "A head number (cap) is required." : "A tail number is required.",
+      );
       return;
     }
     setBusy(true);
@@ -389,13 +400,18 @@ function FleetRegistryPage() {
           type: draft.kind.trim() || null,
           status: draft.status,
         };
-        if (target) await fleetService.updateTail(target.id, { ...body, location: draft.location } as Partial<TruckTail>);
+        if (target)
+          await fleetService.updateTail(target.id, {
+            ...body,
+            location: draft.location,
+          } as Partial<TruckTail>);
         else {
           await fleetService.createTail(body);
           // POST /tails takes number/type/status only — the standing location is
           // written straight after, so a new tail is never left with a blank one.
           const created = (await fleetService.listTails()).find((t) => t.number === number);
-          if (created && draft.location.trim()) await fleetService.setTailDestination(created.id, draft.location.trim());
+          if (created && draft.location.trim())
+            await fleetService.setTailDestination(created.id, draft.location.trim());
         }
       }
       toast.success(target ? `${number} updated.` : `${number} added to the fleet.`);
@@ -403,7 +419,11 @@ function FleetRegistryPage() {
       refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save the asset.";
-      toast.error(/409|already exists|unique/i.test(message) ? `${number} already exists in the fleet.` : message);
+      toast.error(
+        /409|already exists|unique/i.test(message)
+          ? `${number} already exists in the fleet.`
+          : message,
+      );
     } finally {
       setBusy(false);
     }
@@ -413,10 +433,22 @@ function FleetRegistryPage() {
   const setBlocked = async (item: TruckHead | TruckTail, blocked: boolean) => {
     try {
       if (tab === "head")
-        await fleetService.updateHeadStatus(item.id, blocked ? "Blocked" : "Available", assetLabel(item));
+        await fleetService.updateHeadStatus(
+          item.id,
+          blocked ? "Blocked" : "Available",
+          assetLabel(item),
+        );
       else
-        await fleetService.updateTailStatus(item.id, blocked ? "Blocked" : "Available", assetLabel(item));
-      toast.success(blocked ? "Blocked — this number can no longer be assigned." : "Unblocked — available for assignment again.");
+        await fleetService.updateTailStatus(
+          item.id,
+          blocked ? "Blocked" : "Available",
+          assetLabel(item),
+        );
+      toast.success(
+        blocked
+          ? "Blocked — this number can no longer be assigned."
+          : "Unblocked — available for assignment again.",
+      );
       refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not change the block state");
@@ -460,19 +492,27 @@ function FleetRegistryPage() {
   const to = Math.min(filtered.length, currentPage * PAGE_SIZE + slice.length);
 
   const exportCSV = () => {
-    const headers =
-      tab === "head" ? "Head No,Registration,Category,Status,Location\n" : "Tail No,Registration,Body,Status,Location\n";
+    const header =
+      tab === "head"
+        ? "Head No,Registration,Category,Status,Location"
+        : "Tail No,Registration,Body,Status,Location";
     const csv = filtered
       .map((item) => {
         if (tab === "head") {
           const head = item as TruckHead;
-          return `${headLabel(head)},${head.registration},${head.make},${head.status},${head.location}`;
+          return csvRow([
+            headLabel(head),
+            head.registration,
+            head.make,
+            head.status,
+            head.location,
+          ]);
         }
         const tail = item as TruckTail;
-        return `${tail.number},${tail.registration},${tail.type},${tail.status},${tail.location}`;
+        return csvRow([tail.number, tail.registration, tail.type, tail.status, tail.location]);
       })
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   return (
@@ -623,7 +663,9 @@ function FleetRegistryPage() {
                 }}
                 className={cn(
                   "flex h-9 shrink-0 items-center rounded px-3 text-[13px] font-medium tracking-[0.4px] md:text-[14px]",
-                  statusFilter === filter ? "bg-[#1B2432] text-white" : "bg-[#E2E5E9] text-[#141A1F]",
+                  statusFilter === filter
+                    ? "bg-[#1B2432] text-white"
+                    : "bg-[#E2E5E9] text-[#141A1F]",
                 )}
               >
                 {filter}
@@ -644,7 +686,10 @@ function FleetRegistryPage() {
             </div>
             <div className="flex items-center gap-2.5 md:gap-5">
               <div className="relative min-w-0 flex-1 md:max-w-[400px]">
-                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
+                  strokeWidth={1.5}
+                />
                 <input
                   value={query}
                   onChange={(e) => {
@@ -706,7 +751,9 @@ function FleetRegistryPage() {
                       {item.status}
                     </span>
                   </div>
-                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">{item.registration || "—"}</span>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">
+                    {item.registration || "—"}
+                  </span>
                   {/* Editable kind: a tail's body / a head's category. */}
                   <select
                     value={head ? head.make : tail?.type || "Trailer"}
@@ -718,11 +765,13 @@ function FleetRegistryPage() {
                         : "The body this tail carries — what the partner's request is matched against"
                     }
                   >
-                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map((opt) => (
-                      <option key={opt} value={opt} className="bg-white text-[#1B2432]">
-                        {opt}
-                      </option>
-                    ))}
+                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map(
+                      (opt) => (
+                        <option key={opt} value={opt} className="bg-white text-[#1B2432]">
+                          {opt}
+                        </option>
+                      ),
+                    )}
                   </select>
                   <select
                     value={item.location || "Depot"}
@@ -780,7 +829,9 @@ function FleetRegistryPage() {
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {head ? headLabel(head) : tail?.number}
                   </span>
-                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">{item.registration}</span>
+                  <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {item.registration}
+                  </span>
                   {/* Editable kind: a tail's body / a head's category. */}
                   <select
                     value={head ? head.make : tail?.type || "Trailer"}
@@ -792,11 +843,13 @@ function FleetRegistryPage() {
                         : "The body this tail carries — what the partner's request is matched against"
                     }
                   >
-                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map((opt) => (
-                      <option key={opt} value={opt} className="bg-white text-[#1B2432]">
-                        {opt}
-                      </option>
-                    ))}
+                    {(head ? headCategoryOptions(head.make) : tailBodyOptions(tail?.type)).map(
+                      (opt) => (
+                        <option key={opt} value={opt} className="bg-white text-[#1B2432]">
+                          {opt}
+                        </option>
+                      ),
+                    )}
                   </select>
                   <span>
                     <select
@@ -808,7 +861,9 @@ function FleetRegistryPage() {
                       )}
                     >
                       {ASSET_STATUS_ORDER.map((s) => (
-                        <option key={s} value={s} className="bg-white text-[#1B2432]">{s}</option>
+                        <option key={s} value={s} className="bg-white text-[#1B2432]">
+                          {s}
+                        </option>
                       ))}
                     </select>
                   </span>
@@ -848,7 +903,13 @@ function FleetRegistryPage() {
           {loading && <FigmaLoadingState />}
           {!loading && filtered.length === 0 && (
             <FigmaEmptyState
-              title={query || statusFilter !== "All" ? "No matching fleet assets" : tab === "head" ? "No truck heads yet" : "No truck tails yet"}
+              title={
+                query || statusFilter !== "All"
+                  ? "No matching fleet assets"
+                  : tab === "head"
+                    ? "No truck heads yet"
+                    : "No truck tails yet"
+              }
               body={
                 query || statusFilter !== "All"
                   ? "Try a different search or status filter."
@@ -886,12 +947,16 @@ function FleetRegistryPage() {
                 >
                   <ChevronRight className="size-[18px] text-[#627084]" />
                 </button>
-                <ExportMenu csv={exportCSV} rows={filtered.length} title={tab === "head" ? "Fleet Heads" : "Fleet Tails"} fileNameBase={tab === "head" ? "fleet_heads" : "fleet_tails"} />
+                <ExportMenu
+                  csv={exportCSV}
+                  rows={filtered.length}
+                  title={tab === "head" ? "Fleet Heads" : "Fleet Tails"}
+                  fileNameBase={tab === "head" ? "fleet_heads" : "fleet_tails"}
+                />
               </div>
             </div>
           )}
         </div>
-
       </div>
 
       {editor ? (
@@ -911,9 +976,10 @@ function FleetRegistryPage() {
               Remove {tab === "head" ? "this head" : "this tail"} from the fleet?
             </h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
-              {tab === "head" ? headLabel(removing as TruckHead) : (removing as TruckTail).number} disappears from
-              every assignment list. Use Block instead if the truck is sold or parked up but its number must stay on
-              the books — blocking keeps it listed and simply never offers it for dispatch.
+              {tab === "head" ? headLabel(removing as TruckHead) : (removing as TruckTail).number}{" "}
+              disappears from every assignment list. Use Block instead if the truck is sold or
+              parked up but its number must stay on the books — blocking keeps it listed and simply
+              never offers it for dispatch.
             </p>
             <div className="mt-4 flex items-center justify-end gap-3">
               <button
@@ -1006,7 +1072,9 @@ function AssetEditorModal({
         ) : null}
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-[#141A1F]">{isHead ? "Category" : "Body Type"}</span>
+          <span className="text-[13px] font-medium text-[#141A1F]">
+            {isHead ? "Category" : "Body Type"}
+          </span>
           <select
             value={draft.kind}
             onChange={(e) => set("kind", e.target.value)}

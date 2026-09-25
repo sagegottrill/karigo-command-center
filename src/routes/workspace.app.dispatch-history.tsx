@@ -51,6 +51,7 @@ function headCell(trip: Trip) {
 }
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
+import { csvRow } from "@/lib/fleetopsx/csv";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -375,7 +376,7 @@ function DispatchDetail({
         ]);
       }
     }
-    const csv = rows.map(([k, v]) => `"${k}","${String(v).replace(/"/g, '""')}"`).join("\n");
+    const csv = rows.map(([k, v]) => csvRow([k, String(v)])).join("\n");
     return { csv, base: `dispatch_${dispatchId(trip)}`, label: dispatchId(trip) };
   };
 
@@ -750,16 +751,29 @@ function DispatchHistoryPage() {
   }, [trips, searchQuery, statusFilter, range]);
 
   const exportCSV = () => {
-    const headers =
-      "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status,Driver,Driver ID,Driver Phone\n";
+    const header =
+      "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status,Driver,Driver ID,Driver Phone";
     const csv = filteredTrips
       .map((t) => {
         const driver = driverFor(t);
         const who = displayDriverAssigned(driver, t.driverName);
-        return `${formatHistoryDate(t)},${companyName(t)},${t.customerConsignee ?? ""},${t.cargo},${headCell(t)},${t.tailType ?? ""},${t.dropoff},${dispatchId(t)},${toDisplayStatus(t.status)},${who},${driver?.employeeId ?? ""},${driver?.phone ?? ""}`;
+        return csvRow([
+          formatHistoryDate(t),
+          companyName(t),
+          t.customerConsignee ?? "",
+          t.cargo,
+          headCell(t),
+          t.tailType ?? "",
+          t.dropoff,
+          dispatchId(t),
+          toDisplayStatus(t.status),
+          who,
+          driver?.employeeId ?? "",
+          driver?.phone ?? "",
+        ]);
       })
       .join("\n");
-    return headers + csv;
+    return header + "\n" + csv;
   };
 
   if (selectedTrip) {

@@ -13,6 +13,7 @@ import { authService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { Printer } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
+import { csvCell } from "@/lib/fleetopsx/csv";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -188,7 +189,7 @@ export function dispatchFields(
 
 /** Download the dispatch details as a spreadsheet-friendly CSV. */
 function exportCsv(fields: ReturnType<typeof dispatchFields>) {
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const esc = (v: string) => csvCell(v);
   const rows: string[] = [
     esc("Petroline Transport Ltd — Dispatch Details"),
     esc(`Ticket ${fields.ticket}${fields.partner ? ` • ${fields.partner}` : ""}`),
