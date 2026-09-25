@@ -245,6 +245,21 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+/** The one word the TM is asking about on his own board: has it left the tank? */
+function DisbursedPill({ done, at }: { done: boolean; at?: string | null }) {
+  return (
+    <span
+      title={done && at ? `Dispensed ${dayLabel(at)}` : undefined}
+      className={cn(
+        "inline-block rounded-[4px] px-2.5 py-1 text-[11px] font-bold",
+        done ? "bg-[#22C55E] text-white" : "bg-[#F2C200] text-[#1B2432]",
+      )}
+    >
+      {done ? "Disbursed" : "Awaiting Disbursement"}
+    </span>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
@@ -382,6 +397,7 @@ export function TmLubricant() {
   const [releaseValue, setReleaseValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [releasePage, setReleasePage] = useState(0);
+  const [approvedPage, setApprovedPage] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -527,6 +543,42 @@ export function TmLubricant() {
   /* ------------------------------------------------------------- releases ---- */
 
   const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
+
+  /**
+   * HIS BOARD (Fortune's drawing): every request he has RELEASED, and whether
+   * it has left the tank yet. It used to sit under "Awaiting your release"
+   * on the log view — but the thing he asked for is the approvals and their
+   * disbursement status, so the board IS the log's top table now.
+   */
+  const approvedRows = useMemo(() => {
+    const q = restockQuery.trim().toLowerCase();
+    return asks
+      .filter((a) => a.approval)
+      .filter((a) => restockFuel === "All lubricants" || a.request.fuelType === restockFuel)
+      .filter((a) => {
+        if (!q) return true;
+        const v = resolveVehicle(a);
+        return [lubricantDispatchId(a), a.customer, v.driverName, v.capNumber, v.plate].some(
+          (value) =>
+            String(value ?? "")
+              .toLowerCase()
+              .includes(q),
+        );
+      })
+      .sort((a, b) => String(b.approval?.at ?? "").localeCompare(String(a.approval?.at ?? "")));
+  }, [asks, restockQuery, restockFuel]);
+  /** Which of his releases the department has actually poured, by trip. */
+  const pouredByTrip = useMemo(() => {
+    const map = new Map<string, LubricantDisbursalRow>();
+    for (const d of disbursals) if (!map.has(d.tripId)) map.set(d.tripId, d);
+    return map;
+  }, [disbursals]);
+  const approvedPageCount = Math.max(1, Math.ceil(approvedRows.length / PAGE_SIZE));
+  const safeApprovedPage = Math.min(approvedPage, approvedPageCount - 1);
+  const approvedSlice = approvedRows.slice(
+    safeApprovedPage * PAGE_SIZE,
+    (safeApprovedPage + 1) * PAGE_SIZE,
+  );
   const releasePageCount = Math.max(1, Math.ceil(pendingAsks.length / PAGE_SIZE));
   const safeReleasePage = Math.min(releasePage, releasePageCount - 1);
   const releaseSlice = pendingAsks.slice(
@@ -638,11 +690,25 @@ export function TmLubricant() {
         })}
       </div>
 
+      {/**
+       * HIS APPROVALS, per Fortune's drawing: every request he released sits
+       * under the tanks with its disbursement status — this is the table the
+       * Restock Records register used to hold. A release the department has
+       * not poured yet reads "Awaiting Disbursement"; once poured, the pour's
+       * own review state (Pending / Approved / Declined) rides beside it.
+       */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
-            Restock Records
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              Approved Lubricant Releases
+            </h3>
+            {approvedRows.length > 0 ? (
+              <span className="grid h-7 min-w-[28px] place-items-center rounded-[4px] bg-[#ED351D] px-2 text-[13px] font-bold text-white">
+                {formatQuantity(approvedRows.length)}
+              </span>
+            ) : null}
+          </div>
           <div className="flex flex-1 items-center justify-end gap-3">
             <SearchField
               value={restockQuery}
@@ -664,61 +730,92 @@ export function TmLubricant() {
         </div>
 
         <div className="flex flex-col">
-          <TableHead className="grid-cols-[1.2fr_1.2fr_1fr_1.3fr_1.2fr] text-[14px] font-semibold text-[#1B2432]">
-            <span>Restock ID</span>
-            <span>Date</span>
+          <TableHead className="grid-cols-[1fr_1.1fr_1.2fr_1.1fr_1fr_1fr_0.9fr] text-[13.5px] font-semibold text-[#1B2432]">
+            <span>Dispatch ID</span>
+            <span>Date Released</span>
             <span>Lubricant</span>
-            <span>Quantity</span>
-            <span>Logged by</span>
+            <span>Driver</span>
+            <span>Truck Head</span>
+            <span>Client</span>
+            <span>Disbursement</span>
           </TableHead>
           {loading ? (
-            <p className="py-6 text-[13px] text-[#5C6470]">Loading restock records…</p>
-          ) : restockSlice.length === 0 ? (
+            <p className="py-6 text-[13px] text-[#5C6470]">Loading your releases…</p>
+          ) : approvedSlice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
-              No delivery has been logged into the tank yet. Every diesel or gas purchase the
-              department records appears here with who logged it.
+              You have not released any litres yet. Release a dispatch from the View Disbursal Log
+              screen and it appears here until the department dispenses it.
             </p>
           ) : (
-            restockSlice.map((row) => (
-              <div
-                key={row.id}
-                className="grid grid-cols-[1.2fr_1.2fr_1fr_1.3fr_1.2fr] items-center gap-3 border-b border-[#E2E5E9] py-4 text-[13.5px] text-[#344256]"
-              >
-                <span className="font-medium text-[#1B2432]">{row.reference}</span>
-                <span>{dayLabel(row.createdAt)}</span>
-                <span>{row.fuelType}</span>
-                <span>
-                  {formatQuantity(row.quantity)}{" "}
-                  <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-                    {unitLabel(row.fuelType)}
+            approvedSlice.map((ask) => {
+              const v = resolveVehicle(ask);
+              const pour = pouredByTrip.get(ask.id);
+              const releasedAt = ask.approval?.at ?? ask.approvedAt ?? ask.createdAt;
+              return (
+                <div
+                  key={ask.id}
+                  className="grid grid-cols-[1fr_1.1fr_1.2fr_1.1fr_1fr_1fr_0.9fr] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
+                >
+                  <span className="font-medium text-[#1B2432]">{lubricantDispatchId(ask)}</span>
+                  <span>{dayLabel(releasedAt)}</span>
+                  <span>
+                    {formatQuantity(ask.approval?.litres ?? ask.request.quantity)}{" "}
+                    <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
+                      {unitLabel(ask.request.fuelType)}
+                    </span>
                   </span>
-                </span>
-                <span>{row.loggedBy}</span>
-              </div>
-            ))
+                  <span>{v.driverName}</span>
+                  <span className="text-[#5C6470]">{v.capNumber}</span>
+                  <span className="truncate text-[#5C6470]">{ask.customer || "—"}</span>
+                  <span className="flex items-center gap-1.5">
+                    <DisbursedPill done={Boolean(pour)} at={pour?.createdAt} />
+                    {pour ? <StatusPill status={String(pour.status ?? "Pending")} /> : null}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
 
         <Pager
-          from={restockRows.length === 0 ? 0 : safeRestockPage * PAGE_SIZE + 1}
-          to={Math.min((safeRestockPage + 1) * PAGE_SIZE, restockRows.length)}
-          total={restockRows.length}
-          page={safeRestockPage}
-          pageCount={restockPageCount}
-          onPrev={() => setRestockPage((p) => Math.max(0, p - 1))}
-          onNext={() => setRestockPage((p) => p + 1)}
+          from={approvedRows.length === 0 ? 0 : safeApprovedPage * PAGE_SIZE + 1}
+          to={Math.min((safeApprovedPage + 1) * PAGE_SIZE, approvedRows.length)}
+          total={approvedRows.length}
+          page={safeApprovedPage}
+          pageCount={approvedPageCount}
+          onPrev={() => setApprovedPage((p) => Math.max(0, p - 1))}
+          onNext={() => setApprovedPage((p) => p + 1)}
           onExport={() =>
             exportCsv(
-              "lubricant-restocks.csv",
-              ["Restock ID", "Date", "Lubricant", "Quantity", "Unit", "Logged by"],
-              restockRows.map((r) => [
-                r.reference,
-                dayLabel(r.createdAt),
-                r.fuelType,
-                r.quantity,
-                unitLabel(r.fuelType),
-                r.loggedBy,
-              ]),
+              "lubricant-approved-releases.csv",
+              [
+                "Dispatch ID",
+                "Date Released",
+                "Lubricant",
+                "Quantity",
+                "Unit",
+                "Driver",
+                "Truck Head",
+                "Client",
+                "Disbursed",
+                "Review Status",
+              ],
+              approvedRows.map((ask) => {
+                const v = resolveVehicle(ask);
+                const pour = pouredByTrip.get(ask.id);
+                return [
+                  lubricantDispatchId(ask),
+                  dayLabel(ask.approval?.at ?? ask.approvedAt ?? ask.createdAt),
+                  ask.request.fuelType,
+                  ask.approval?.litres ?? ask.request.quantity,
+                  unitLabel(ask.request.fuelType),
+                  v.driverName,
+                  v.capNumber,
+                  ask.customer ?? "",
+                  pour ? "Yes" : "No",
+                  pour ? String(pour.status ?? "Pending") : "—",
+                ];
+              }),
             )
           }
         />
