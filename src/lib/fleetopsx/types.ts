@@ -124,7 +124,10 @@ export interface TruckTail {
   lng: number;
 }
 
-export type DriverStatus = "Available" | "On Trip" | "Off Duty" | "Suspended";
+/** The DB carries both "Active" (the register's seed word) and "Available"
+ *  (the claim helpers' word) for a free driver — mapDriver folds them into
+ *  "Available" on read, and writes may use either. */
+export type DriverStatus = "Available" | "Active" | "On Trip" | "Off Duty" | "Suspended";
 
 export type ComplianceStatus = "Valid" | "Expiring Soon" | "Expired";
 

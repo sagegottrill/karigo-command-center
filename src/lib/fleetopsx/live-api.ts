@@ -114,6 +114,10 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
 export function mapDriver(d: Record<string, unknown>): Driver {
   const name = String(d["name"] ?? "");
   const statusRaw = String(d["status"] ?? "Available");
+  // The API writes BOTH words: the register seeds "Active" (68 of 107 live),
+  // while the claim/release helpers historically wrote "Available". Either
+  // means the man is free to be assigned — mapping them apart would make the
+  // same driver read busy on one screen and free on another.
   const status: Driver["status"] =
     statusRaw === "Active" || statusRaw === "Available"
       ? "Available"

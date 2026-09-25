@@ -63,6 +63,7 @@ export function rolesCanMaintainStaff() {
 export function dutyPillClass(status: DriverStatus | "In Transit") {
   switch (status) {
     case "Available":
+    case "Active": // the register's seed word for the same free state
       return "bg-[#34C759] text-white";
     // "On Trip" and "In Transit" share one amber: a man on the road wears the
     // same colour whether the word came from HR or from his live dispatch.
@@ -80,7 +81,13 @@ export function dutyPillClass(status: DriverStatus | "In Transit") {
   }
 }
 
-export const DUTY_STATUSES: DriverStatus[] = ["Available", "On Trip", "Off Duty", "Suspended"];
+export const DUTY_STATUSES: DriverStatus[] = [
+  "Available",
+  "Active",
+  "On Trip",
+  "Off Duty",
+  "Suspended",
+];
 
 /**
  * The departments a staff record can be filed under.

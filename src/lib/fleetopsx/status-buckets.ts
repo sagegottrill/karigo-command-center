@@ -31,15 +31,23 @@ export type TripBucket =
  * A trip counts as "assigned" when ANY assignment signal exists. FO writes
  * truckReg + driverName without headId in live data, so checking headId alone
  * misclassified assigned trips.
+ *
+ * Placeholders are NOT assignments: `Unassigned` is the request form's default
+ * and `TBD` is what gets typed when the asset is not chosen yet — a dispatch
+ * carrying either is still an empty slot, and treating it as crewed miscounts
+ * the fleet desk's board.
  */
+const isPlaceholder = (v: string | null | undefined): boolean =>
+  !v || /^(unassigned|tbd)$/i.test(v.trim());
+
 export function hasAssignment(
   t: Pick<Trip, "headId" | "truckReg" | "driverId" | "driverName">,
 ): boolean {
   return Boolean(
     t.headId ||
-    (t.truckReg && t.truckReg !== "Unassigned" && t.truckReg.trim() !== "") ||
+    (!isPlaceholder(t.truckReg) && t.truckReg!.trim() !== "") ||
     t.driverId ||
-    (t.driverName && t.driverName !== "Unassigned" && t.driverName.trim() !== ""),
+    !isPlaceholder(t.driverName),
   );
 }
 

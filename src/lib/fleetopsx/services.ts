@@ -363,10 +363,13 @@ export const assignmentReleaseService = {
     }
 
     const heldByName = trip.driverName;
-    if (heldByName && !/^unassigned$/i.test(heldByName)) {
+    if (heldByName && !/^unassigned$/i.test(heldByName) && !/^tbd$/i.test(heldByName)) {
       const drivers = await driverService.list().catch(() => [] as Driver[]);
       const driver = drivers.find((d) => norm(d.name) === norm(heldByName));
-      if (driver && driver.status === "Available") {
+      // A working driver sits "Active" (the register's word) — "Available" is
+      // the trucks' word. Claiming only from "Available" silently no-oped on
+      // nearly every driver, leaving men free on paper while dispatched.
+      if (driver && ["Available", "Active"].includes(driver.status)) {
         jobs.push(driverService.update(driver.id, { status: "On Trip" }));
         claimed.push(`driver ${driver.name}`);
       }
@@ -424,11 +427,14 @@ export const assignmentReleaseService = {
     }
 
     const heldByName = trip.driverName;
-    if (heldByName) {
+    if (heldByName && !/^unassigned$/i.test(heldByName) && !/^tbd$/i.test(heldByName)) {
       const drivers = await driverService.list().catch(() => [] as Driver[]);
       const driver = drivers.find((d) => norm(d.name) === norm(heldByName));
+      // "Active" is the register's working word — the same word the server's
+      // own return-release writes. Freeing to "Available" invented a state
+      // the register never prints.
       if (driver && driver.status === "On Trip" && !stillHeldByAnotherTrip("", heldByName)) {
-        jobs.push(driverService.update(driver.id, { status: "Available" }));
+        jobs.push(driverService.update(driver.id, { status: "Active" }));
         freed.push(`driver ${driver.name}`);
       }
     }
