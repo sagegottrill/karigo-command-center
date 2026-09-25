@@ -19,6 +19,7 @@ import {
   exportCsv,
   LubricantSearch,
   LubricantTableFooter,
+  printDisbursalLedger,
 } from "@/components/fleetopsx/lubricant-ui";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -84,54 +85,6 @@ function periodStart(period: Period, from: string): Date | null {
   if (period === "This year") return new Date(start.getFullYear(), 0, 1);
   const d = new Date(from);
   return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/** Volume-only print sheet (PRD §6): physical record-keeping, no money. */
-function printLedger(rows: LubricantDisbursalRow[], heading: { period: string; client: string }) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) {
-    toast.error("Allow the pop-up to print the report.");
-    return;
-  }
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const body = rows
-    .map((r) => {
-      const v = resolveVehicle(r);
-      return `<tr><td>${esc(lubricantDispatchId(r))}</td><td>${esc(
-        csvStamp(r.createdAt),
-      )}</td><td>${esc(v.driverName)}</td><td>${esc(v.capNumber)}</td><td>${esc(
-        v.bodyType,
-      )}</td><td>${esc(r.customer?.trim() || r.trip?.customer?.trim() || "—")}</td><td>${esc(
-        r.fuelType,
-      )}</td><td style="text-align:right">${esc(formatQuantity(r.quantity))} ${esc(
-        lubricantUnit(r.fuelType).toLowerCase(),
-      )}</td><td>${esc(r.dispensedBy)}</td></tr>`;
-    })
-    .join("");
-  const totals = new Map<string, number>();
-  for (const r of rows) totals.set(r.fuelType, (totals.get(r.fuelType) ?? 0) + r.quantity);
-  const totalLine = [...totals.entries()]
-    .map(([fuel, qty]) => `${fuel}: ${formatQuantity(qty)} ${lubricantUnit(fuel).toLowerCase()}`)
-    .join(" &nbsp;·&nbsp; ");
-  win.document.write(`<!doctype html><html><head><title>Lubricant Disbursal Report</title>
-<style>
-  body { font-family: Arial, Helvetica, sans-serif; margin: 28px; color: #141A1F; }
-  h1 { font-size: 18px; margin: 0 0 2px; }
-  .sub { font-size: 11px; color: #5C6470; margin: 0 0 14px; }
-  .totals { font-size: 12px; font-weight: bold; margin: 10px 0 14px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border: 1px solid #C9CED6; padding: 5px 7px; text-align: left; }
-  th { background: #F1F2F4; }
-  @media print { .noprint { display: none; } }
-</style></head><body>
-<h1>Lubricant Disbursal Report</h1>
-<p class="sub">${esc(heading.period)} · Client: ${esc(heading.client)} · ${rows.length} disbursal${rows.length === 1 ? "" : "s"} · Printed ${esc(csvStamp(new Date().toISOString()))}</p>
-<p class="totals">${totalLine || "No volume in this window."}</p>
-<table><thead><tr><th>Dispatch ID</th><th>Date</th><th>Driver</th><th>Truck Head</th><th>Tail Type</th><th>Client</th><th>Lubricant</th><th style="text-align:right">Quantity</th><th>Dispensed by</th></tr></thead>
-<tbody>${body || '<tr><td colspan="9">No disbursals in this window.</td></tr>'}</tbody></table>
-<p class="noprint" style="margin-top:16px"><button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer">Print</button></p>
-</body></html>`);
-  win.document.close();
 }
 
 function DisbursalHistoryPage() {
@@ -501,7 +454,7 @@ function DisbursalHistoryPage() {
             type="button"
             disabled={filtered.length === 0}
             onClick={() =>
-              printLedger(filtered, {
+              printDisbursalLedger(filtered, {
                 period:
                   period === "Custom"
                     ? `${customFrom || "…"} → ${customTo || "…"}`

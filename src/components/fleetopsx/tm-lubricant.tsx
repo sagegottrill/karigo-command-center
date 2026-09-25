@@ -8,15 +8,17 @@ import {
   Droplet,
   Flame,
   MoreVertical,
+  Printer,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
-import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
+import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubricant-ui";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, fuelPriceService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   formatQuantity,
+  lubricantDispatchId,
   lubricantUnit,
   lubricantWithQuantity,
   resolveVehicle,
@@ -43,6 +45,31 @@ import { cn } from "@/lib/utils";
  */
 
 const FUELS: LubricantFuel[] = ["Diesel", "Gas"];
+
+/** Period presets the ledger is read in (PRD §6), with a custom window. */
+type LogPeriod = "All time" | "This week" | "This month" | "This year" | "Custom";
+const LOG_PERIODS: readonly LogPeriod[] = [
+  "All time",
+  "This week",
+  "This month",
+  "This year",
+  "Custom",
+];
+
+function logPeriodStart(period: LogPeriod, from: string): Date | null {
+  if (period === "All time") return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (period === "This week") {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+    return start;
+  }
+  if (period === "This month") return new Date(start.getFullYear(), start.getMonth(), 1);
+  if (period === "This year") return new Date(start.getFullYear(), 0, 1);
+  const d = new Date(from);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 const unitWord = (fuel: string) => (fuel === "Gas" ? "KG" : "litres");
 const unitLabel = (fuel: string) => (fuel === "Gas" ? "KG" : "LITRES");
@@ -171,9 +198,7 @@ function Pager({
       <span className="text-[15px] font-semibold tabular-nums text-[#1B2432]">
         {from} - {to}
       </span>
-      <span className="text-[15px] font-semibold text-[#1B2432]">
-        of {formatQuantity(total)}
-      </span>
+      <span className="text-[15px] font-semibold text-[#1B2432]">of {formatQuantity(total)}</span>
       <div className="ml-auto flex items-center gap-2.5">
         <button
           type="button"
@@ -302,8 +327,12 @@ function TankCard({
           />
         </div>
         <div className="flex items-center justify-between text-[11px] text-[#5C6470]">
-          <span>₦{formatQuantity(price)} / {fuel === "Gas" ? "KG" : "LITER"}</span>
-          <span>Min: {formatQuantity(minLevel)} {unitWord(fuel)}</span>
+          <span>
+            ₦{formatQuantity(price)} / {fuel === "Gas" ? "KG" : "LITER"}
+          </span>
+          <span>
+            Min: {formatQuantity(minLevel)} {unitWord(fuel)}
+          </span>
         </div>
       </div>
 
@@ -338,6 +367,11 @@ export function TmLubricant() {
   const [logQuery, setLogQuery] = useState("");
   const [logStatus, setLogStatus] = useState<string>("All statuses");
   const [logPage, setLogPage] = useState(0);
+  /** The audit engine (PRD §6): the period, the client, and the window. */
+  const [logPeriod, setLogPeriod] = useState<LogPeriod>("All time");
+  const [logFrom, setLogFrom] = useState("");
+  const [logTo, setLogTo] = useState("");
+  const [logClient, setLogClient] = useState("All clients");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<LubricantDisbursalRow | null>(null);
   const [decline, setDecline] = useState<LubricantDisbursalRow | null>(null);
@@ -396,8 +430,11 @@ export function TmLubricant() {
     return restocks.filter((r) => {
       if (restockFuel !== "All lubricants" && r.fuelType !== restockFuel) return false;
       if (!q) return true;
-      return [r.reference, r.fuelType, r.loggedBy, dayLabel(r.createdAt)]
-        .some((v) => String(v ?? "").toLowerCase().includes(q));
+      return [r.reference, r.fuelType, r.loggedBy, dayLabel(r.createdAt)].some((v) =>
+        String(v ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
     });
   }, [restocks, restockQuery, restockFuel]);
 
@@ -410,11 +447,29 @@ export function TmLubricant() {
 
   /* ----------------------------------------------------------------- log ---- */
 
+  const logClients = useMemo(() => {
+    const names = new Set<string>();
+    for (const d of disbursals) {
+      const c = d.customer?.trim() || d.trip?.customer?.trim();
+      if (c) names.add(c);
+    }
+    return ["All clients", ...Array.from(names).sort((a, b) => a.localeCompare(b))];
+  }, [disbursals]);
+
   const logRows = useMemo(() => {
     const q = logQuery.trim().toLowerCase();
+    const start = logPeriodStart(logPeriod, logFrom);
+    const end = logPeriod === "Custom" && logTo ? new Date(`${logTo}T23:59:59`) : null;
     return disbursals.filter((d) => {
+      const at = new Date(d.createdAt);
+      if (start && (Number.isNaN(at.getTime()) || at < start)) return false;
+      if (end && (Number.isNaN(at.getTime()) || at > end)) return false;
       const status = String(d.status ?? "Pending");
       if (logStatus !== "All statuses" && status !== logStatus) return false;
+      if (logClient !== "All clients") {
+        const c = d.customer?.trim() || d.trip?.customer?.trim() || "";
+        if (c !== logClient) return false;
+      }
       if (!q) return true;
       const v = resolveVehicle(d);
       return [
@@ -426,15 +481,28 @@ export function TmLubricant() {
         v.driverPhone,
         lubricantWithQuantity(d.fuelType, d.quantity),
         d.dispensedBy,
+        d.customer ?? d.trip?.customer,
         status,
-      ].some((value) => String(value ?? "").toLowerCase().includes(q));
+      ].some((value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .includes(q),
+      );
     });
-  }, [disbursals, logQuery, logStatus]);
+  }, [disbursals, logQuery, logStatus, logPeriod, logFrom, logTo, logClient]);
 
   const logPageCount = Math.max(1, Math.ceil(logRows.length / PAGE_SIZE));
   const safeLogPage = Math.min(logPage, logPageCount - 1);
   const logSlice = logRows.slice(safeLogPage * PAGE_SIZE, (safeLogPage + 1) * PAGE_SIZE);
-  const pendingReviews = disbursals.filter((d) => String(d.status ?? "Pending") === "Pending").length;
+  const pendingReviews = disbursals.filter(
+    (d) => String(d.status ?? "Pending") === "Pending",
+  ).length;
+  /** Aggregated analytics (PRD §6): summed volume per fuel in the window. */
+  const logTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const d of logRows) totals[d.fuelType] = (totals[d.fuelType] ?? 0) + d.quantity;
+    return totals;
+  }, [logRows]);
 
   const review = async (row: LubricantDisbursalRow, status: "Approved" | "Declined") => {
     setBusy(true);
@@ -509,7 +577,9 @@ export function TmLubricant() {
     setBusy(true);
     try {
       await fuelPriceService.update(pricePending, next);
-      toast.success(`${pricePending} priced at ₦${formatQuantity(next)} per ${pricePending === "Gas" ? "kg" : "litre"}.`);
+      toast.success(
+        `${pricePending} priced at ₦${formatQuantity(next)} per ${pricePending === "Gas" ? "kg" : "litre"}.`,
+      );
       setPricePending(null);
       await refresh();
     } catch (err) {
@@ -570,7 +640,9 @@ export function TmLubricant() {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Restock Records</h3>
+          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            Restock Records
+          </h3>
           <div className="flex flex-1 items-center justify-end gap-3">
             <SearchField
               value={restockQuery}
@@ -779,6 +851,77 @@ export function TmLubricant() {
           </div>
         </div>
 
+        {/**
+         * The audit controls (PRD §6): the period the ledger is read in, the
+         * client the litres belong to, and the window itself when neither
+         * preset is honest enough. The department's own history carries the
+         * same three; this is the money side reading the same facts.
+         */}
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">Period</span>
+            <select
+              value={logPeriod}
+              onChange={(e) => {
+                setLogPeriod(e.target.value as LogPeriod);
+                setLogPage(0);
+              }}
+              className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            >
+              {LOG_PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+          {logPeriod === "Custom" && (
+            <>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">From</span>
+                <input
+                  type="date"
+                  value={logFrom}
+                  onChange={(e) => {
+                    setLogFrom(e.target.value);
+                    setLogPage(0);
+                  }}
+                  className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">To</span>
+                <input
+                  type="date"
+                  value={logTo}
+                  onChange={(e) => {
+                    setLogTo(e.target.value);
+                    setLogPage(0);
+                  }}
+                  className="h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+                />
+              </label>
+            </>
+          )}
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">Client</span>
+            <select
+              value={logClient}
+              onChange={(e) => {
+                setLogClient(e.target.value);
+                setLogPage(0);
+              }}
+              className="h-10 max-w-[220px] rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+            >
+              {logClients.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="flex flex-col">
           <TableHead className="grid-cols-[1fr_1fr_1.1fr_1.2fr_1.1fr_1fr_1.1fr_0.9fr_40px] text-[13.5px] font-semibold text-[#1B2432]">
             <span>Dispatch ID</span>
@@ -814,7 +957,7 @@ export function TmLubricant() {
                   }}
                   className="grid cursor-pointer grid-cols-[1fr_1fr_1.1fr_1.2fr_1.1fr_1fr_1.1fr_0.9fr_40px] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256] hover:bg-[#F7F8F9]"
                 >
-                  <span className="font-medium text-[#1B2432]">{row.reference}</span>
+                  <span className="font-medium text-[#1B2432]">{lubricantDispatchId(row)}</span>
                   <span>{dayLabel(row.createdAt)}</span>
                   <span>{v.driverName}</span>
                   <span className="text-[#5C6470]">{capPlate || "—"}</span>
@@ -869,6 +1012,21 @@ export function TmLubricant() {
           )}
         </div>
 
+        {logRows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-[6px] bg-[#F1F2F4] px-4 py-3">
+            <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
+              {logRows.length} disbursal{logRows.length === 1 ? "" : "s"}
+              {logClient !== "All clients" ? ` for ${logClient}` : ""}
+            </span>
+            {Object.entries(logTotals).map(([fuel, total]) => (
+              <span key={fuel} className="text-[12.5px] tracking-[0.4px] text-[#1B2432]">
+                {fuel}: <span className="font-semibold tabular-nums">{formatQuantity(total)}</span>{" "}
+                {unitWord(fuel)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <Pager
           from={logRows.length === 0 ? 0 : safeLogPage * PAGE_SIZE + 1}
           to={Math.min((safeLogPage + 1) * PAGE_SIZE, logRows.length)}
@@ -880,16 +1038,31 @@ export function TmLubricant() {
           onExport={() =>
             exportCsv(
               "lubricant-disbursals.csv",
-              ["Dispatch ID", "Date", "Driver", "Truck Head", "Phone Number", "Lubricant", "Dispensed by", "Status"],
+              [
+                "Dispatch ID",
+                "Date",
+                "Driver",
+                "Truck Head",
+                "Phone Number",
+                "Client",
+                "Lubricant",
+                "Quantity",
+                "Unit",
+                "Dispensed by",
+                "Status",
+              ],
               logRows.map((d) => {
                 const v = resolveVehicle(d);
                 return [
-                  d.reference,
+                  lubricantDispatchId(d),
                   dayLabel(d.createdAt),
                   v.driverName,
                   [v.capNumber, v.plate].filter((x) => x && x !== "—").join(" / "),
                   v.driverPhone,
-                  lubricantWithQuantity(d.fuelType, d.quantity),
+                  d.customer ?? d.trip?.customer ?? "",
+                  d.fuelType,
+                  d.quantity,
+                  unitLabel(d.fuelType),
                   d.dispensedBy,
                   String(d.status ?? "Pending"),
                 ];
@@ -897,6 +1070,28 @@ export function TmLubricant() {
             )
           }
         />
+
+        {/** Print Report (PRD §6): the filtered window as a paper ledger —
+            volumes and statuses only; pricing stays on the inventory view. */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={logRows.length === 0}
+            onClick={() =>
+              printDisbursalLedger(logRows, {
+                period:
+                  logPeriod === "Custom"
+                    ? `${logFrom || "…"} → ${logTo || "…"}`
+                    : logPeriod.toLowerCase(),
+                client: logClient,
+              })
+            }
+            className="flex h-10 items-center gap-2 rounded-[6px] border border-[#1B2432] px-5 text-[13.5px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4] disabled:opacity-40"
+          >
+            <Printer className="size-4" />
+            Print Report
+          </button>
+        </div>
       </Card>
     </>
   );
@@ -915,14 +1110,18 @@ export function TmLubricant() {
           }}
         >
           <div className="max-h-[90vh] w-[430px] max-w-full overflow-y-auto rounded-[10px] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]">
-            <h3 className="text-[20px] font-bold tracking-[0.4px] text-[#1B2432]">Dispatch Details</h3>
+            <h3 className="text-[20px] font-bold tracking-[0.4px] text-[#1B2432]">
+              Dispatch Details
+            </h3>
             <p className="mt-1 text-[11px] uppercase tracking-[0.4px] text-[#9CA3AF]">
-              TICKET {detail.reference} <span className="mx-1">•</span>{" "}
+              TICKET {lubricantDispatchId(detail)} <span className="mx-1">•</span>{" "}
               {dayLabel(detail.createdAt).toUpperCase()}
             </p>
 
             <div className="mt-4 flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
-              <span className="text-[13px] font-bold text-[#1B2432]">Vehicle & Operator Details</span>
+              <span className="text-[13px] font-bold text-[#1B2432]">
+                Vehicle & Operator Details
+              </span>
               <DetailRow label="Truck Head (Cap Number):" value={detailVehicle.capNumber} />
               <DetailRow label="Truck Head Plate Number:" value={detailVehicle.plate} />
               <DetailRow
@@ -933,7 +1132,10 @@ export function TmLubricant() {
               />
               <DetailRow
                 label="Driver Assigned:"
-                value={[detailVehicle.driverName, detailVehicle.driverCode ? `(${detailVehicle.driverCode})` : ""]
+                value={[
+                  detailVehicle.driverName,
+                  detailVehicle.driverCode ? `(${detailVehicle.driverCode})` : "",
+                ]
                   .filter(Boolean)
                   .join(" ")}
               />
@@ -950,10 +1152,7 @@ export function TmLubricant() {
               </span>
               <div className="flex items-center gap-4">
                 {FUELS.map((fuel) => (
-                  <label
-                    key={fuel}
-                    className="flex items-center gap-2 text-[13px] text-[#344256]"
-                  >
+                  <label key={fuel} className="flex items-center gap-2 text-[13px] text-[#344256]">
                     <input
                       type="radio"
                       name={`fuel-${detail.id}`}
@@ -1042,7 +1241,10 @@ export function TmLubricant() {
                   <input
                     value={priceDraft[fuel] ?? ""}
                     onChange={(e) =>
-                      setPriceDraft((cur) => ({ ...cur, [fuel]: e.target.value.replace(/[^0-9.]/g, "") }))
+                      setPriceDraft((cur) => ({
+                        ...cur,
+                        [fuel]: e.target.value.replace(/[^0-9.]/g, ""),
+                      }))
                     }
                     inputMode="numeric"
                     className="h-11 flex-1 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[14px] tabular-nums text-[#1B2432] outline-none focus:border-[#1B2432]"
