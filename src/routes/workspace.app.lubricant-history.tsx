@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Printer } from "lucide-react";
 import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
@@ -66,14 +67,71 @@ const HISTORY_GRID =
 type FuelFilter = "All" | "Diesel" | "Gas";
 const FUEL_FILTERS: readonly FuelFilter[] = ["All", "Diesel", "Gas"];
 
-function HistoryDate({ value }: { value?: string | null }) {
-  const { date, time } = formatDateLines(value);
-  return (
-    <span className="min-w-0 text-[14px] leading-4 text-[#5C6470]">
-      {date}
-      {time && <span className="block text-[12px] text-[#627084]">{time}</span>}
-    </span>
-  );
+/** Period presets (PRD §6): Week / Month / Year, or a custom date window. */
+type Period = "All time" | "This week" | "This month" | "This year" | "Custom";
+const PERIODS: readonly Period[] = ["All time", "This week", "This month", "This year", "Custom"];
+
+function periodStart(period: Period, from: string): Date | null {
+  if (period === "All time") return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (period === "This week") {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+    return start;
+  }
+  if (period === "This month") return new Date(start.getFullYear(), start.getMonth(), 1);
+  if (period === "This year") return new Date(start.getFullYear(), 0, 1);
+  const d = new Date(from);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Volume-only print sheet (PRD §6): physical record-keeping, no money. */
+function printLedger(rows: LubricantDisbursalRow[], heading: { period: string; client: string }) {
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    toast.error("Allow the pop-up to print the report.");
+    return;
+  }
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const body = rows
+    .map((r) => {
+      const v = resolveVehicle(r);
+      return `<tr><td>${esc(lubricantDispatchId(r))}</td><td>${esc(
+        csvStamp(r.createdAt),
+      )}</td><td>${esc(v.driverName)}</td><td>${esc(v.capNumber)}</td><td>${esc(
+        v.bodyType,
+      )}</td><td>${esc(r.customer?.trim() || r.trip?.customer?.trim() || "—")}</td><td>${esc(
+        r.fuelType,
+      )}</td><td style="text-align:right">${esc(formatQuantity(r.quantity))} ${esc(
+        lubricantUnit(r.fuelType).toLowerCase(),
+      )}</td><td>${esc(r.dispensedBy)}</td></tr>`;
+    })
+    .join("");
+  const totals = new Map<string, number>();
+  for (const r of rows) totals.set(r.fuelType, (totals.get(r.fuelType) ?? 0) + r.quantity);
+  const totalLine = [...totals.entries()]
+    .map(([fuel, qty]) => `${fuel}: ${formatQuantity(qty)} ${lubricantUnit(fuel).toLowerCase()}`)
+    .join(" &nbsp;·&nbsp; ");
+  win.document.write(`<!doctype html><html><head><title>Lubricant Disbursal Report</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 28px; color: #141A1F; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { font-size: 11px; color: #5C6470; margin: 0 0 14px; }
+  .totals { font-size: 12px; font-weight: bold; margin: 10px 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { border: 1px solid #C9CED6; padding: 5px 7px; text-align: left; }
+  th { background: #F1F2F4; }
+  @media print { .noprint { display: none; } }
+</style></head><body>
+<h1>Lubricant Disbursal Report</h1>
+<p class="sub">${esc(heading.period)} · Client: ${esc(heading.client)} · ${rows.length} disbursal${rows.length === 1 ? "" : "s"} · Printed ${esc(csvStamp(new Date().toISOString()))}</p>
+<p class="totals">${totalLine || "No volume in this window."}</p>
+<table><thead><tr><th>Dispatch ID</th><th>Date</th><th>Driver</th><th>Truck Head</th><th>Tail Type</th><th>Client</th><th>Lubricant</th><th style="text-align:right">Quantity</th><th>Dispensed by</th></tr></thead>
+<tbody>${body || '<tr><td colspan="9">No disbursals in this window.</td></tr>'}</tbody></table>
+<p class="noprint" style="margin-top:16px"><button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer">Print</button></p>
+</body></html>`);
+  win.document.close();
 }
 
 function DisbursalHistoryPage() {
@@ -81,6 +139,10 @@ function DisbursalHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [fuelFilter, setFuelFilter] = useState<FuelFilter>("All");
+  const [period, setPeriod] = useState<Period>("All time");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [client, setClient] = useState("All clients");
   const [page, setPage] = useState(0);
   const [active, setActive] = useState<LubricantDisbursalRow | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -101,10 +163,28 @@ function DisbursalHistoryPage() {
   }, [refresh]);
   useAutoRefresh(() => void refresh(), []);
 
+  const clients = useMemo(() => {
+    const names = new Set<string>();
+    for (const r of rows) {
+      const c = r.customer?.trim() || r.trip?.customer?.trim();
+      if (c) names.add(c);
+    }
+    return ["All clients", ...Array.from(names).sort((a, b) => a.localeCompare(b))];
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const start = periodStart(period, customFrom);
+    const end = period === "Custom" && customTo ? new Date(`${customTo}T23:59:59`) : null;
     return rows.filter((row) => {
+      const at = new Date(row.createdAt);
+      if (start && (Number.isNaN(at.getTime()) || at < start)) return false;
+      if (end && (Number.isNaN(at.getTime()) || at > end)) return false;
       if (fuelFilter !== "All" && row.fuelType !== fuelFilter) return false;
+      if (client !== "All clients") {
+        const c = row.customer?.trim() || row.trip?.customer?.trim() || "";
+        if (c !== client) return false;
+      }
       if (!q) return true;
       const v = resolveVehicle(row);
       return [
@@ -116,16 +196,16 @@ function DisbursalHistoryPage() {
         v.driverPhone,
         row.fuelType,
         row.dispensedBy,
+        row.customer ?? row.trip?.customer,
         row.dropoff,
         row.trip?.pickup,
-        row.trip?.customer,
       ].some((value) =>
         String(value ?? "")
           .toLowerCase()
           .includes(q),
       );
     });
-  }, [rows, query, fuelFilter]);
+  }, [rows, query, fuelFilter, period, customFrom, customTo, client]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -183,6 +263,76 @@ function DisbursalHistoryPage() {
           </div>
         </div>
 
+        {/**
+         * The audit controls (PRD §6): the period the ledger is read in, the
+         * client the litres belong to, and the window itself when neither
+         * preset is honest enough.
+         */}
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">Period</span>
+            <select
+              value={period}
+              onChange={(e) => {
+                setPeriod(e.target.value as Period);
+                setPage(0);
+              }}
+              className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+            >
+              {PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+          {period === "Custom" && (
+            <>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">From</span>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => {
+                    setCustomFrom(e.target.value);
+                    setPage(0);
+                  }}
+                  className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">To</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => {
+                    setCustomTo(e.target.value);
+                    setPage(0);
+                  }}
+                  className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+                />
+              </label>
+            </>
+          )}
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">Client</span>
+            <select
+              value={client}
+              onChange={(e) => {
+                setClient(e.target.value);
+                setPage(0);
+              }}
+              className="h-10 max-w-[220px] rounded border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+            >
+              {clients.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="overflow-x-auto">
           <div className="min-w-[1040px]">
             <div
@@ -226,7 +376,7 @@ function DisbursalHistoryPage() {
               <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
                 {rows.length === 0
                   ? "No lubricant has been dispensed yet. Disburse Request records what leaves the tank."
-                  : `Nothing matches “${query.trim()}”.`}
+                  : `Nothing matches “${query.trim()}” in this window.`}
               </p>
             ) : (
               slice.map((row) => {
@@ -286,7 +436,8 @@ function DisbursalHistoryPage() {
         {filtered.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg bg-[#F1F2F4] px-4 py-3">
             <span className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
-              {filtered.length} disbursal{filtered.length === 1 ? "" : "s"} poured
+              {filtered.length} disbursal{filtered.length === 1 ? "" : "s"}
+              {client !== "All clients" ? ` for ${client}` : ""}
             </span>
             {Object.entries(totals).map(([fuelType, total]) => (
               <span key={fuelType} className="text-[12.5px] tracking-[0.4px] text-[#141A1F]">
@@ -316,6 +467,7 @@ function DisbursalHistoryPage() {
                 "Truck Head",
                 "Tail Type",
                 "Phone Number",
+                "Client",
                 "Lubricant",
                 "Quantity",
                 "Unit",
@@ -331,6 +483,7 @@ function DisbursalHistoryPage() {
                   v.capNumber,
                   v.bodyType,
                   v.driverPhone,
+                  r.customer ?? r.trip?.customer ?? "",
                   r.fuelType,
                   r.quantity,
                   lubricantUnit(r.fuelType),
@@ -341,9 +494,40 @@ function DisbursalHistoryPage() {
             )
           }
         />
+
+        {/** Print Report (PRD §6): the filtered window as a paper ledger. */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              printLedger(filtered, {
+                period:
+                  period === "Custom"
+                    ? `${customFrom || "…"} → ${customTo || "…"}`
+                    : period.toLowerCase(),
+                client,
+              })
+            }
+            className="flex h-10 items-center gap-2 rounded border border-[#1B2432] px-5 text-[14px] font-medium text-[#1B2432] hover:bg-[#F1F2F4] disabled:opacity-40"
+          >
+            <Printer className="size-4" strokeWidth={1.75} />
+            Print Report
+          </button>
+        </div>
       </div>
 
       <DisbursalViewModal open={active !== null} row={active} onClose={() => setActive(null)} />
     </div>
+  );
+}
+
+function HistoryDate({ value }: { value?: string | null }) {
+  const { date, time } = formatDateLines(value);
+  return (
+    <span className="min-w-0 text-[14px] leading-4 text-[#5C6470]">
+      {date}
+      {time && <span className="block text-[12px] text-[#627084]">{time}</span>}
+    </span>
   );
 }

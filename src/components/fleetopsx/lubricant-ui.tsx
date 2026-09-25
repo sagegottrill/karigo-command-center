@@ -14,7 +14,6 @@ import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import { adminService, driverService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   driverLabel,
-  formatMoney,
   formatQuantity,
   jobLocation,
   lubricantDispatchId,
@@ -503,8 +502,9 @@ export function DispatchDetailsModal({
   const askedFuel: LubricantFuel = requested?.fuelType ?? "Diesel";
 
   const amount = Number(quantity);
+  // The rate still gates the pour (the server refuses an unpriced fuel) but is
+  // never multiplied into a figure an attendant could read (PRD §2).
   const rate = prices[fuelType] ?? 0;
-  const cost = Number.isFinite(amount) && amount > 0 ? amount * rate : 0;
   const inTank = stocks.find((s) => s.fuelType === fuelType)?.quantity ?? 0;
   const tooMuch = Number.isFinite(amount) && amount > inTank;
   const valid =
@@ -522,7 +522,7 @@ export function DispatchDetailsModal({
       });
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       onDone(
-        `${formatQuantity(res?.quantity ?? amount)} ${lubricantUnit(fuelType)} of ${fuelType} dispensed for ${row.reference ?? "the dispatch"} — ${formatMoney(res?.amount ?? cost)} charged at the set rate.`,
+        `${formatQuantity(res?.quantity ?? amount)} ${lubricantUnit(fuelType)} of ${fuelType} dispensed for ${lubricantDispatchId(row)} — taken off the live tank.`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The disbursal did not save.");
@@ -602,9 +602,14 @@ export function DispatchDetailsModal({
                 <span className={cn(tooMuch ? "text-[#ED351D]" : "text-[#627084]")}>
                   In tank: {formatQuantity(inTank)} {lubricantUnit(fuelType).toLowerCase()}
                 </span>
+                {/**
+                 * Financial masking (PRD §2): this screen is the attendant's, and
+                 * it speaks VOLUMES ONLY — the price behind the pour is the
+                 * Transport Manager's and Accounts' business, never printed here.
+                 */}
                 <span className="text-[#627084]">
                   {rate > 0
-                    ? `${formatQuantity(amount || 0)} × ₦${rate.toLocaleString()} = ${formatMoney(cost)} (set by the Transport Manager)`
+                    ? `${formatQuantity(amount || 0)} ${lubricantUnit(fuelType).toLowerCase()} approved at the set rate`
                     : `${fuelType} rate not set by the Transport Manager yet`}
                 </span>
               </div>

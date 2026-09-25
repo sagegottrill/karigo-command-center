@@ -77,6 +77,15 @@ export interface LubricantApproval {
   at: string;
 }
 
+/**
+ * The approval gatekeeper (PRD §2/§3): a ticket is attendable only once the
+ * Transport Manager has RELEASED litres for it. Fleet Ops' own sign-off is
+ * necessary but not sufficient — the gate reads the release, not the trip.
+ */
+export function approvalGate(row: LubricantRequestRow | null | undefined): "released" | "waiting" {
+  return row?.approval ? "released" : "waiting";
+}
+
 export interface LubricantOverview {
   stocks: LubricantStock[];
   prices: Record<string, number>;
@@ -90,13 +99,14 @@ export interface LubricantTripRow {
   id: string;
   reference?: string;
   status?: string;
+  /** The client the litres are pumped for — the ledger's contract filter. */
+  customer?: string | null;
   driverName?: string;
   truckReg?: string;
   tailType?: string;
   tailNumber?: string;
   dropoff?: string;
   pickup?: string;
-  customer?: string | null;
   cargo?: string;
   loadingSite?: string | null;
   createdAt?: string;

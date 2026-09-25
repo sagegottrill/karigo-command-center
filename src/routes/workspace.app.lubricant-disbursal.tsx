@@ -5,6 +5,7 @@ import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
+  approvalGate,
   csvStamp,
   formatQuantity,
   lubricantDispatchId,
@@ -255,6 +256,12 @@ function LogDisbursalPage() {
                       )}
                     </span>
                     <span className="justify-self-end" onClick={(e) => e.stopPropagation()}>
+                      {/**
+                       * The gatekeeper (PRD §2/§3): the ticket reads here the
+                       * moment the trip is dispatched, but the pour only opens
+                       * once the Transport Manager has RELEASED litres for it —
+                       * Fleet Ops' sign-off alone does not fuel a truck.
+                       */}
                       <RowActionMenu
                         open={menuFor === row.id}
                         onOpenChange={(o) => setMenuFor(o ? row.id : null)}
@@ -270,6 +277,7 @@ function LogDisbursalPage() {
                           },
                           {
                             label: "Disburse Lubricant",
+                            hidden: approvalGate(row) !== "released",
                             onSelect: () => {
                               setActiveStep("log");
                               setActive(row);
@@ -334,7 +342,11 @@ function LogDisbursalPage() {
         row={active}
         stocks={stocks}
         prices={prices}
-        initialStep={activeStep}
+        initialStep={
+          activeStep === "log" && active && approvalGate(active) !== "released"
+            ? "details"
+            : activeStep
+        }
         onClose={() => setActive(null)}
         onDone={(message) => {
           setActive(null);
