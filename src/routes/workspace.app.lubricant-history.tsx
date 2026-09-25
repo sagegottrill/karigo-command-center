@@ -20,6 +20,7 @@ import {
   LubricantSearch,
   LubricantTableFooter,
   printDisbursalLedger,
+  printDisbursalTicket,
 } from "@/components/fleetopsx/lubricant-ui";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -375,6 +376,10 @@ function DisbursalHistoryPage() {
                           {
                             label: "View Details",
                             onSelect: () => setActive(row),
+                          },
+                          {
+                            label: "Print Ticket",
+                            onSelect: () => printDisbursalTicket(row),
                           },
                         ]}
                       />

@@ -20,6 +20,7 @@ import {
   exportCsv,
   LubricantSearch,
   LubricantTableFooter,
+  printDisbursalTicket,
 } from "@/components/fleetopsx/lubricant-ui";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
@@ -122,9 +123,17 @@ function LogDisbursalPage() {
     });
   }, [requests, query, fuelFilter]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  /**
+   * The queue is APPROVED TICKETS ONLY (PRD §2/§3): a row joins it the moment
+   * the Transport Manager releases litres, not when the trip is dispatched.
+   * What still waits stays visible as a count, never as an attendable row.
+   */
+  const ready = useMemo(() => filtered.filter((r) => approvalGate(r) === "released"), [filtered]);
+  const waitingCount = filtered.length - ready.length;
+
+  const pageCount = Math.max(1, Math.ceil(ready.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const slice = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const slice = ready.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const stocks = overview?.stocks ?? [];
   const prices = overview?.prices ?? {};
 
@@ -142,12 +151,13 @@ function LogDisbursalPage() {
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            {" "}
             <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">
               Disbursal Request
             </h3>
-            {filtered.length > 0 && (
+            {ready.length > 0 && (
               <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#ED351D] px-1.5 text-[12px] font-medium text-white">
-                {filtered.length}
+                {ready.length}
               </span>
             )}
           </div>
@@ -173,6 +183,18 @@ function LogDisbursalPage() {
             />
           </div>
         </div>
+
+        {/**
+         * The waiting count, not a waiting table: Fleet Ops' dispatches stay
+         * invisible as rows until the TM releases them — the attendant sees
+         * how many are coming and nothing she may not yet pour.
+         */}
+        {waitingCount > 0 && (
+          <p className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
+            {formatQuantity(waitingCount)} more dispatch{waitingCount === 1 ? "" : "es"} waiting on
+            the Transport Manager's release.
+          </p>
+        )}
 
         <div className="overflow-x-auto">
           <div className="min-w-[980px]">
@@ -213,8 +235,10 @@ function LogDisbursalPage() {
             ) : slice.length === 0 ? (
               <p className="py-8 text-center text-[13.5px] text-[#5C6470]">
                 {requests.length === 0
-                  ? "No dispatch is waiting for lubricant. A truck appears here the moment Fleet Operations assigns one with a diesel or gas request."
-                  : `Nothing matches “${query.trim()}”.`}
+                  ? "No approved ticket yet. A dispatch appears here the moment the Transport Manager releases its litres."
+                  : ready.length === 0
+                    ? `All ${formatQuantity(filtered.length)} matching dispatch${filtered.length === 1 ? "" : "es"} still wait on the Transport Manager's release.`
+                    : `Nothing matches “${query.trim()}”.`}
               </p>
             ) : (
               slice.map((row) => {
@@ -276,6 +300,10 @@ function LogDisbursalPage() {
                             },
                           },
                           {
+                            label: "Print Ticket",
+                            onSelect: () => printDisbursalTicket(row),
+                          },
+                          {
                             label: "Disburse Lubricant",
                             hidden: approvalGate(row) !== "released",
                             onSelect: () => {
@@ -294,9 +322,9 @@ function LogDisbursalPage() {
         </div>
 
         <LubricantTableFooter
-          from={filtered.length === 0 ? 0 : safePage * PAGE_SIZE + 1}
-          to={Math.min((safePage + 1) * PAGE_SIZE, filtered.length)}
-          total={filtered.length}
+          from={ready.length === 0 ? 0 : safePage * PAGE_SIZE + 1}
+          to={Math.min((safePage + 1) * PAGE_SIZE, ready.length)}
+          total={ready.length}
           page={safePage}
           pageCount={pageCount}
           onPrev={() => setPage((p) => Math.max(0, p - 1))}
@@ -316,7 +344,7 @@ function LogDisbursalPage() {
                 "Unit",
                 "Assigned",
               ],
-              filtered.map((r) => {
+              ready.map((r) => {
                 const v = resolveVehicle(r);
                 return [
                   lubricantDispatchId(r),

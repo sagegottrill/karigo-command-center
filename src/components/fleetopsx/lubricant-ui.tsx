@@ -907,6 +907,71 @@ export function relativeTime(iso: string | null | undefined): string {
 }
 
 /**
+ * ONE ticket, printed for the pump (Fortune: "they should be able to print
+ * each dispense request"). The attendant hands the sheet to the driver — cap,
+ * plate, tail, driver, phone, destination and the exact quantity, volumes
+ * only — with lines to sign at the truck.
+ */
+export function printDisbursalTicket(row: LubricantDisbursalRow | LubricantRequestRow) {
+  const v = resolveVehicle(row);
+  const isPour = "tripId" in row;
+  const fuel = isPour
+    ? (row as LubricantDisbursalRow).fuelType
+    : ((row as LubricantRequestRow).request?.fuelType ?? "Diesel");
+  const qty = isPour
+    ? (row as LubricantDisbursalRow).quantity
+    : ((row as LubricantRequestRow).request?.quantity ?? 0);
+  const client =
+    row.customer?.trim() ||
+    (isPour ? (row as LubricantDisbursalRow).trip?.customer?.trim() : null) ||
+    "—";
+  const destination =
+    (isPour
+      ? (row as LubricantDisbursalRow).destination
+      : (row as LubricantRequestRow).dropoff
+    )?.trim() || "—";
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const win = window.open("", "_blank", "width=760,height=820");
+  if (!win) {
+    toast.error("Allow the pop-up to print the ticket.");
+    return;
+  }
+  win.document
+    .write(`<!doctype html><html><head><title>Disbursement Ticket ${esc(lubricantDispatchId(row))}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 28px; color: #141A1F; }
+  h1 { font-size: 19px; margin: 0 0 2px; }
+  .sub { font-size: 11px; color: #5C6470; margin: 0 0 18px; }
+  .ticket { font-size: 34px; font-weight: bold; letter-spacing: 1px; margin: 4px 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #C9CED6; padding: 8px 10px; text-align: left; }
+  th { background: #F1F2F4; width: 38%; }
+  .qty { font-size: 26px; font-weight: bold; text-align: right; }
+  .sign { display: flex; gap: 40px; margin-top: 56px; font-size: 12px; color: #5C6470; }
+  .sign div { flex: 1; border-top: 1px solid #141A1F; padding-top: 6px; }
+  @media print { .noprint { display: none; } }
+</style></head><body>
+<h1>Petroline Transport Ltd — ${isPour ? "Disbursement Record" : "Disbursement Ticket"}</h1>
+<p class="sub">${isPour ? "As dispensed at the pump" : "Approved for physical fueling · cleared via Accounts for trip allowance"} · Printed ${esc(csvStamp(new Date().toISOString()))}</p>
+<div class="ticket">${esc(lubricantDispatchId(row))}</div>
+<table>
+<tr><th>Client / Contract</th><td>${esc(client)}</td></tr>
+<tr><th>Truck Head (Cab)</th><td>${esc(v.capNumber)}</td></tr>
+<tr><th>Plate Number</th><td>${esc(v.plate)}</td></tr>
+<tr><th>Attached Trailer (Tail)</th><td>${esc(v.bodyType)}${v.tailNumber && v.tailNumber !== "—" ? ` · ${esc(v.tailNumber)}` : ""}</td></tr>
+<tr><th>Driver</th><td>${esc(v.driverName)}${v.driverCode ? ` (${esc(v.driverCode)})` : ""}</td></tr>
+<tr><th>Driver Phone</th><td>${esc(v.driverPhone)}</td></tr>
+<tr><th>Destination</th><td>${esc(destination)}</td></tr>
+<tr><th>${isPour ? "Quantity Dispensed" : "Approved Quantity"}</th><td class="qty">${esc(formatQuantity(qty))} ${esc(lubricantUnit(fuel))} — ${esc(fuel)}</td></tr>
+${isPour ? `<tr><th>Dispensed by</th><td>${esc((row as LubricantDisbursalRow).dispensedBy || "—")}</td></tr><tr><th>Dispensed At</th><td>${esc(csvStamp((row as LubricantDisbursalRow).createdAt))}</td></tr>` : ""}
+</table>
+<div class="sign"><div>Dispensed by (name &amp; signature)</div><div>Received by (driver's signature)</div></div>
+<p class="noprint" style="margin-top:18px"><button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer">Print</button></p>
+</body></html>`);
+  win.document.close();
+}
+
+/**
  * The filtered ledger as a paper report (PRD §6) — physical record-keeping,
  * client billing, handover to Accounts. VOLUMES ONLY by construction: rows
  * render what the caller passes, and neither caller passes money.
