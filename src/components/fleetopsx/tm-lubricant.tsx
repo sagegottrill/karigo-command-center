@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubricant-ui";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, fuelPriceService, lubricantService } from "@/lib/fleetopsx/services";
@@ -397,6 +398,8 @@ export function TmLubricant() {
   const [pricePending, setPricePending] = useState<LubricantFuel | null>(null);
   const [busy, setBusy] = useState(false);
   const [approvedPage, setApprovedPage] = useState(0);
+  /** The approval whose details the ⋮ opened — a read, not a review. */
+  const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -700,7 +703,7 @@ export function TmLubricant() {
         </div>
 
         <div className="flex flex-col">
-          <TableHead className="grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr] text-[13.5px] font-semibold text-[#1B2432]">
+          <TableHead className="grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr_44px] text-[13.5px] font-semibold text-[#1B2432]">
             <span>Date Approved</span>
             <span>Date Dispensed</span>
             <span>Customer</span>
@@ -710,6 +713,7 @@ export function TmLubricant() {
             <span>Destination</span>
             <span>Dispensed by</span>
             <span>Status</span>
+            <span />
           </TableHead>
           {loading ? (
             <p className="py-6 text-[13px] text-[#5C6470]">Loading your approvals…</p>
@@ -725,7 +729,7 @@ export function TmLubricant() {
               return (
                 <div
                   key={ask.id}
-                  className="grid grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
+                  className="grid grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr_44px] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
                 >
                   <span>{dayLabel(ask.approvedAt)}</span>
                   <span>{pour ? dayLabel(pour.createdAt) : "—"}</span>
@@ -748,6 +752,15 @@ export function TmLubricant() {
                   <span className="truncate">{pour?.dispensedBy || "—"}</span>
                   <span>
                     <DisbursedPill done={Boolean(pour)} at={pour?.createdAt} />
+                  </span>
+                  <span className="justify-self-end" onClick={(e) => e.stopPropagation()}>
+                    <RowActionMenu
+                      open={menuFor === ask.id}
+                      onOpenChange={(o) => setMenuFor(o ? ask.id : null)}
+                      label={`Options for ${lubricantDispatchId(ask)}`}
+                      width={170}
+                      items={[{ label: "View Details", onSelect: () => setReleaseDetail(ask) }]}
+                    />
                   </span>
                 </div>
               );
@@ -1104,6 +1117,82 @@ export function TmLubricant() {
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 md:gap-[26px] md:p-[30px]">
       {view === "inventory" ? inventory : log}
+
+      {/** An approval's own details — what the sheet holds, read-only. */}
+      {releaseDetail ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141A1F]/60 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setReleaseDetail(null);
+          }}
+        >
+          <div className="max-h-[90vh] w-[430px] max-w-full overflow-y-auto rounded-[10px] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]">
+            <h3 className="text-[20px] font-bold tracking-[0.4px] text-[#1B2432]">
+              Dispatch Details
+            </h3>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.4px] text-[#9CA3AF]">
+              TICKET {lubricantDispatchId(releaseDetail)} <span className="mx-1">•</span>{" "}
+              {dayLabel(releaseDetail.approvedAt ?? releaseDetail.createdAt).toUpperCase()}
+            </p>
+            {(() => {
+              const v = resolveVehicle(releaseDetail);
+              const pour = pouredByTrip.get(releaseDetail.id);
+              return (
+                <>
+                  <div className="mt-4 flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
+                    <span className="text-[13px] font-bold text-[#1B2432]">
+                      Vehicle &amp; Operator Details
+                    </span>
+                    <DetailRow label="Truck Head (Cap Number):" value={v.capNumber} />
+                    <DetailRow label="Truck Head Plate Number:" value={v.plate} />
+                    <DetailRow
+                      label="Truck Tail assigned:"
+                      value={[v.bodyType, v.tailNumber].filter((x) => x && x !== "—").join(" ")}
+                    />
+                    <DetailRow
+                      label="Driver Assigned:"
+                      value={[v.driverName, v.driverCode ? `(${v.driverCode})` : ""]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                    <DetailRow label="Driver Contact Phone:" value={v.driverPhone} />
+                    <DetailRow label="Destination:" value={releaseDetail.dropoff || undefined} />
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-3 rounded-[6px] bg-[#F1F2F4] p-3">
+                    <span className="text-[13px] font-bold text-[#1B2432]">Lubricant</span>
+                    <DetailRow
+                      label="Quantity:"
+                      value={`${formatQuantity(releaseDetail.request.quantity)} ${unitLabel(
+                        releaseDetail.request.fuelType,
+                      )}`}
+                    />
+                    <DetailRow label="Date Approved:" value={dayLabel(releaseDetail.approvedAt)} />
+                    <DetailRow
+                      label="Date Dispensed:"
+                      value={pour ? dayLabel(pour.createdAt) : "Not yet dispensed"}
+                    />
+                    <DetailRow label="Dispensed by:" value={pour?.dispensedBy || "—"} />
+                    <DetailRow
+                      label="Status:"
+                      value={pour ? String(pour.status ?? "Pending") : "Pending"}
+                    />
+                  </div>
+                </>
+              );
+            })()}
+            <div className="mt-5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setReleaseDetail(null)}
+                className="h-9 rounded-[6px] px-3 text-[13px] font-semibold text-[#ED351D] hover:bg-[#FDECEA]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {detail && detailVehicle ? (
         <div
