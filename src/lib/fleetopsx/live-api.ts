@@ -89,7 +89,10 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
       ? "Available"
       : statusRaw === "In Transit" // legacy rows written before the rename
         ? "Out of Yard"
-        : statusRaw === "Assigned" || statusRaw === "Out of Yard" || statusRaw === "Check Up" || statusRaw === "Maintenance"
+        : statusRaw === "Assigned" ||
+            statusRaw === "Out of Yard" ||
+            statusRaw === "Check Up" ||
+            statusRaw === "Maintenance"
           ? statusRaw
           : statusRaw === "Out of Service" || statusRaw === "Accident"
             ? "Accident"
@@ -128,7 +131,15 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     name,
     employeeId: salary || String(d["employeeId"] ?? d["staffId"] ?? d["id"] ?? ""),
     phone: String(d["phone"] ?? ""),
-    department: String(d["department"] ?? ""),
+    /*
+     * Department from what we already know: this IS the drivers table — the
+     * rows Fortune's Driver Staff List seeded and HR's driver onboarding
+     * grows, the rows trips are assigned against — so a row with no recorded
+     * department is still a driver, and the register used to print "—"
+     * against all 107 of them. A department the backend carries (or HR files
+     * later) always wins over the default.
+     */
+    department: String(d["department"] ?? "") || "Driver",
     dateJoined: String(d["dateJoined"] ?? d["createdAt"] ?? ""),
     licenseNumber: String(d["licenseNumber"] ?? d["license"] ?? ""),
     /*
@@ -143,7 +154,8 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     compliance: (d["compliance"] as Driver["compliance"]) || "Valid",
     experienceYears: Number(d["experienceYears"] ?? 0),
     status,
-    assignedTruck: d["truckReg"] || d["assignedTruck"] ? String(d["truckReg"] ?? d["assignedTruck"]) : null,
+    assignedTruck:
+      d["truckReg"] || d["assignedTruck"] ? String(d["truckReg"] ?? d["assignedTruck"]) : null,
     // The tail HR paired with the head — a separate live column (truckReg2).
     assignedTail: d["truckReg2"] ? String(d["truckReg2"]) : null,
     // HR's own filing: who stands for the man, and what licence document is on
@@ -173,7 +185,8 @@ export function mapTrip(t: Record<string, unknown>): Trip {
   // unknown statuses (e.g. backend default "Draft") to "Scheduled" hid trips from
   // every filtered list: they rendered as Scheduled on pages that never show
   // Scheduled, or disappeared from Requested/Awaiting queues entirely.
-  const statusRaw = t.status != null && String(t.status).trim() !== "" ? String(t.status) : "Requested";
+  const statusRaw =
+    t.status != null && String(t.status).trim() !== "" ? String(t.status) : "Requested";
   const status = statusRaw as TripStatus;
   const loadingSite = t.loadingSite;
   const partnerCompany =
@@ -220,9 +233,14 @@ export function mapTrip(t: Record<string, unknown>): Trip {
     startTime: String(t.startTime ?? ""),
     gateOutBy: t.gateOutBy ? String(t.gateOutBy) : null,
     gateInBy: t.gateInBy ? String(t.gateInBy) : null,
-    estimatedDate: t.estimatedDate != null && String(t.estimatedDate).trim() !== "" ? String(t.estimatedDate) : null,
+    estimatedDate:
+      t.estimatedDate != null && String(t.estimatedDate).trim() !== ""
+        ? String(t.estimatedDate)
+        : null,
     estimatedDays:
-      t.estimatedDays != null && String(t.estimatedDays).trim() !== "" && !Number.isNaN(Number(t.estimatedDays))
+      t.estimatedDays != null &&
+      String(t.estimatedDays).trim() !== "" &&
+      !Number.isNaN(Number(t.estimatedDays))
         ? Number(t.estimatedDays)
         : null,
     eta: String(t.eta ?? "—"),
@@ -248,7 +266,9 @@ export function tripToApi(input: Partial<Trip>): Record<string, unknown> {
     customer: input.customer || null,
     customerConsignee: input.customerConsignee || input.customer || "Petroline Partner",
     cargo: input.cargo || "",
-    loadingSite: Array.isArray(input.loadingSite) ? input.loadingSite.join(", ") : input.loadingSite || null,
+    loadingSite: Array.isArray(input.loadingSite)
+      ? input.loadingSite.join(", ")
+      : input.loadingSite || null,
     revenue: input.revenue ?? 0,
     status: input.status || "Requested",
     directCosts: input.directCosts || null,
@@ -290,7 +310,9 @@ export function tripPatchToApi(input: Partial<Trip>): Record<string, unknown> {
   // Trip duration in days — 0 is not a duration, so an emptied field clears it.
   if (input.estimatedDays !== undefined) {
     out.estimatedDays =
-      input.estimatedDays === null || (input.estimatedDays as unknown) === "" || Number(input.estimatedDays) <= 0
+      input.estimatedDays === null ||
+      (input.estimatedDays as unknown) === "" ||
+      Number(input.estimatedDays) <= 0
         ? null
         : Number(input.estimatedDays);
   }
@@ -461,7 +483,10 @@ export async function liveLogin(username: string, password: string): Promise<Log
     const result = await api.post<LoginResponse>("/auth/login", body);
     return { ...result, user: normalizeUser(result.user) };
   } catch (err) {
-    const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status: number }).status)
+        : 0;
     if (status === 404) {
       const result = await api.post<LoginResponse>("/login", body);
       return { ...result, user: normalizeUser(result.user) };
@@ -489,7 +514,8 @@ export async function liveUpdateTruck(id: string, body: Record<string, unknown>)
   const payload: Record<string, unknown> = {};
   if (body.registration != null) payload.registration = body.registration;
   if (body.make != null || body.category != null) payload.category = body.category || body.make;
-  if (body.location != null || body.destination != null) payload.destination = body.destination || body.location;
+  if (body.location != null || body.destination != null)
+    payload.destination = body.destination || body.location;
   if (body.status != null) {
     payload.status = body.status === "Available" ? "Active" : body.status;
   }
@@ -535,12 +561,15 @@ export async function liveUpdateDriver(id: string, body: Record<string, unknown>
   const payload: Record<string, unknown> = {};
   if (body.name != null) payload.name = body.name;
   if (body.phone != null) payload.phone = body.phone;
-  if (body.assignedTruck != null || body.truckReg != null) payload.truckReg = body.truckReg || body.assignedTruck;
-  if (body.licenseCategory != null || body.category != null) payload.category = body.category || body.licenseCategory;
+  if (body.assignedTruck != null || body.truckReg != null)
+    payload.truckReg = body.truckReg || body.assignedTruck;
+  if (body.licenseCategory != null || body.category != null)
+    payload.category = body.category || body.licenseCategory;
   if (body.status != null) {
     payload.status = body.status === "Available" ? "Active" : body.status;
   }
-  if (body.employeeId != null || body.staffId != null) payload.staffId = body.staffId || body.employeeId;
+  if (body.employeeId != null || body.staffId != null)
+    payload.staffId = body.staffId || body.employeeId;
   // Same omission as create: the licence columns the form edits were never
   // sent, so an edited licence silently reverted offline.
   if (body.licenseNumber != null) payload.licenseNumber = body.licenseNumber;
@@ -595,7 +624,10 @@ export async function liveGetTrip(id: string): Promise<Trip | null> {
   try {
     return mapTrip((await api.get(`/trips/${id}`)) as Record<string, unknown>);
   } catch (err) {
-    const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status: number }).status)
+        : 0;
     if (status === 404 || status === 405) return null;
     throw err;
   }
@@ -631,7 +663,10 @@ export async function liveCreateExpense(body: Record<string, unknown>): Promise<
   );
 }
 
-export async function liveUpdateExpense(id: string, body: Record<string, unknown>): Promise<Expense> {
+export async function liveUpdateExpense(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<Expense> {
   return mapExpense(await api.patch(`/expenses/${id}`, body));
 }
 
@@ -650,7 +685,10 @@ export async function liveCreateWorkOrder(body: Record<string, unknown>): Promis
   );
 }
 
-export async function liveUpdateWorkOrder(id: string, body: Record<string, unknown>): Promise<WorkOrder> {
+export async function liveUpdateWorkOrder(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<WorkOrder> {
   return mapWorkOrder(await api.patch(`/work-orders/${id}`, body));
 }
 
@@ -803,16 +841,25 @@ export async function liveListInventory(): Promise<InventoryItem[]> {
 export async function liveCreateInventory(body: Record<string, unknown>): Promise<InventoryItem> {
   return mapInventoryItem(await api.post("/inventory", body));
 }
-export async function liveUpdateInventory(id: string, body: Record<string, unknown>): Promise<InventoryItem> {
+export async function liveUpdateInventory(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<InventoryItem> {
   return mapInventoryItem(await api.patch(`/inventory/${id}`, body));
 }
 export async function liveListInventoryRequisitions(): Promise<InventoryRequisition[]> {
   return asList(await api.get("/inventory-requisitions")).map(mapInventoryRequisition);
 }
-export async function liveCreateInventoryRequisition(body: Record<string, unknown>): Promise<InventoryRequisition> {
+export async function liveCreateInventoryRequisition(
+  body: Record<string, unknown>,
+): Promise<InventoryRequisition> {
   return mapInventoryRequisition(await api.post("/inventory-requisitions", body));
 }
-export async function liveReleaseInventory(itemId: string, qty: number, reqId: string): Promise<void> {
+export async function liveReleaseInventory(
+  itemId: string,
+  qty: number,
+  reqId: string,
+): Promise<void> {
   await api.post(`/inventory/${itemId}/release`, { qty, reqId });
 }
 export async function liveUpdateInventoryRequisition(
@@ -825,10 +872,15 @@ export async function liveUpdateInventoryRequisition(
 export async function liveListProcurement(): Promise<ProcurementRequest[]> {
   return asList(await api.get("/procurement")).map(mapProcurement);
 }
-export async function liveCreateProcurement(body: Record<string, unknown>): Promise<ProcurementRequest> {
+export async function liveCreateProcurement(
+  body: Record<string, unknown>,
+): Promise<ProcurementRequest> {
   return mapProcurement(await api.post("/procurement", body));
 }
-export async function liveUpdateProcurement(id: string, body: Record<string, unknown>): Promise<ProcurementRequest> {
+export async function liveUpdateProcurement(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<ProcurementRequest> {
   return mapProcurement(await api.patch(`/procurement/${id}`, body));
 }
 
@@ -838,12 +890,19 @@ export async function liveListFuel(): Promise<FuelRequisition[]> {
 export async function liveCreateFuel(body: Record<string, unknown>): Promise<FuelRequisition> {
   return mapFuel(await api.post("/fuel", body));
 }
-export async function liveUpdateFuel(id: string, body: Record<string, unknown>): Promise<FuelRequisition> {
+export async function liveUpdateFuel(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<FuelRequisition> {
   return mapFuel(await api.patch(`/fuel/${id}`, body));
 }
 
-export async function liveListNotifications(opts?: { softAuth?: boolean }): Promise<Notification[]> {
-  return asList(await api.get("/notifications", opts?.softAuth ? { softAuth: true } : undefined)).map(mapNotification);
+export async function liveListNotifications(opts?: {
+  softAuth?: boolean;
+}): Promise<Notification[]> {
+  return asList(
+    await api.get("/notifications", opts?.softAuth ? { softAuth: true } : undefined),
+  ).map(mapNotification);
 }
 export async function liveMarkAllNotificationsRead(): Promise<void> {
   await api.post("/notifications/mark-all-read");
@@ -855,7 +914,12 @@ export async function liveToggleNotification(id: string, read: boolean): Promise
 export async function liveListConversations(): Promise<Conversation[]> {
   return asList(await api.get("/conversations")).map(mapConversation);
 }
-export async function liveSendMessage(conversationId: string, body: string, author?: string, role?: string): Promise<void> {
+export async function liveSendMessage(
+  conversationId: string,
+  body: string,
+  author?: string,
+  role?: string,
+): Promise<void> {
   await api.post(`/conversations/${conversationId}/messages`, { body, author, role });
 }
 export async function liveMarkConversationRead(conversationId: string): Promise<void> {
@@ -869,15 +933,27 @@ export async function liveGetTenantBySlug(slug: string): Promise<PlatformTenant 
   try {
     return mapTenant((await api.get(`/tenants/slug/${slug}`)) as Record<string, unknown>);
   } catch (err) {
-    const status = err && typeof err === "object" && "status" in err ? Number((err as { status: number }).status) : 0;
+    const status =
+      err && typeof err === "object" && "status" in err
+        ? Number((err as { status: number }).status)
+        : 0;
     if (status === 404) return null;
     throw err;
   }
 }
-export async function liveCreateTenant(name: string, domain: string, logo?: string): Promise<PlatformTenant> {
-  return mapTenant(await api.post("/tenants", { name, domain, tenantSlug: domain, logo, status: "Active" }));
+export async function liveCreateTenant(
+  name: string,
+  domain: string,
+  logo?: string,
+): Promise<PlatformTenant> {
+  return mapTenant(
+    await api.post("/tenants", { name, domain, tenantSlug: domain, logo, status: "Active" }),
+  );
 }
-export async function liveUpdateTenant(id: string, updates: Partial<PlatformTenant>): Promise<PlatformTenant> {
+export async function liveUpdateTenant(
+  id: string,
+  updates: Partial<PlatformTenant>,
+): Promise<PlatformTenant> {
   return mapTenant(await api.patch(`/tenants/${id}`, updates));
 }
 export async function liveDeleteTenant(id: string): Promise<void> {
@@ -885,7 +961,9 @@ export async function liveDeleteTenant(id: string): Promise<void> {
 }
 
 export async function liveListUsers(): Promise<User[]> {
-  return asList(await api.get("/users")).map((u) => normalizeUser(u as unknown as User & { role?: string; roles?: string[] }));
+  return asList(await api.get("/users")).map((u) =>
+    normalizeUser(u as unknown as User & { role?: string; roles?: string[] }),
+  );
 }
 export async function liveCreateUser(body: Record<string, unknown>): Promise<User> {
   return normalizeUser(await api.post("/users", body));
