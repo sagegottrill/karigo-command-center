@@ -17,6 +17,7 @@ import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubrican
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { authService, fuelPriceService, lubricantService } from "@/lib/fleetopsx/services";
 import {
+  approvalGate,
   formatQuantity,
   lubricantDispatchId,
   lubricantUnit,
@@ -28,6 +29,7 @@ import {
   type LubricantRequestRow,
   type LubricantRestock,
 } from "@/lib/fleetopsx/lubricant";
+import { displayDriverSalary } from "@/lib/fleetopsx/display-ids";
 import { cn } from "@/lib/utils";
 
 /**
@@ -393,10 +395,7 @@ export function TmLubricant() {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
   const [pricePending, setPricePending] = useState<LubricantFuel | null>(null);
-  const [releasing, setReleasing] = useState<LubricantRequestRow | null>(null);
-  const [releaseValue, setReleaseValue] = useState("");
   const [busy, setBusy] = useState(false);
-  const [releasePage, setReleasePage] = useState(0);
   const [approvedPage, setApprovedPage] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -540,32 +539,36 @@ export function TmLubricant() {
     }
   };
 
-  /* ------------------------------------------------------------- releases ---- */
-
-  const pendingAsks = useMemo(() => asks.filter((a) => !a.approval), [asks]);
-
   /**
-   * HIS BOARD (Fortune's drawing): every request he has RELEASED, and whether
-   * it has left the tank yet. It used to sit under "Awaiting your release"
-   * on the log view — but the thing he asked for is the approvals and their
-   * disbursement status, so the board IS the log's top table now.
+   * HIS BOARD, drawn as the sheet he reads from (Date Approved · Date
+   * Dispensed · … · Status: Pending or Dispensed): every trip his FINAL
+   * approval has cleared — Scheduled or already moving — with whether the
+   * department has dispensed it yet. The approval IS the release; there is
+   * no separate authorization step between his sign-off and the pump.
    */
   const approvedRows = useMemo(() => {
     const q = restockQuery.trim().toLowerCase();
     return asks
-      .filter((a) => a.approval)
+      .filter((a) => approvalGate(a) === "released")
       .filter((a) => restockFuel === "All lubricants" || a.request.fuelType === restockFuel)
       .filter((a) => {
         if (!q) return true;
         const v = resolveVehicle(a);
-        return [lubricantDispatchId(a), a.customer, v.driverName, v.capNumber, v.plate].some(
-          (value) =>
-            String(value ?? "")
-              .toLowerCase()
-              .includes(q),
+        return [
+          lubricantDispatchId(a),
+          a.customer,
+          v.driverName,
+          v.capNumber,
+          v.plate,
+          displayDriverSalary(a.driver ?? undefined),
+          a.dropoff,
+        ].some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(q),
         );
       })
-      .sort((a, b) => String(b.approval?.at ?? "").localeCompare(String(a.approval?.at ?? "")));
+      .sort((a, b) => String(b.approvedAt ?? "").localeCompare(String(a.approvedAt ?? "")));
   }, [asks, restockQuery, restockFuel]);
   /** Which of his releases the department has actually poured, by trip. */
   const pouredByTrip = useMemo(() => {
@@ -579,37 +582,6 @@ export function TmLubricant() {
     safeApprovedPage * PAGE_SIZE,
     (safeApprovedPage + 1) * PAGE_SIZE,
   );
-  const releasePageCount = Math.max(1, Math.ceil(pendingAsks.length / PAGE_SIZE));
-  const safeReleasePage = Math.min(releasePage, releasePageCount - 1);
-  const releaseSlice = pendingAsks.slice(
-    safeReleasePage * PAGE_SIZE,
-    (safeReleasePage + 1) * PAGE_SIZE,
-  );
-
-  const confirmRelease = async () => {
-    if (!releasing) return;
-    const litres = Number(releaseValue.replace(/[^0-9.]/g, ""));
-    if (!Number.isFinite(litres) || litres <= 0) {
-      toast.error("Enter a positive number.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await lubricantService.authorize(
-        releasing.id,
-        litres,
-        authService.getCurrentUser()?.name || "Transport Manager",
-      );
-      toast.success(`${formatQuantity(litres)} released — the pump cannot exceed it.`);
-      setReleasing(null);
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The release was not saved.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   /* -------------------------------------------------------------- pricing ---- */
 
   const openPricing = () => {
@@ -691,11 +663,9 @@ export function TmLubricant() {
       </div>
 
       {/**
-       * HIS APPROVALS, per Fortune's drawing: every request he released sits
-       * under the tanks with its disbursement status — this is the table the
-       * Restock Records register used to hold. A release the department has
-       * not poured yet reads "Awaiting Disbursement"; once poured, the pour's
-       * own review state (Pending / Approved / Declined) rides beside it.
+       * HIS APPROVALS, drawn as the sheet he reads from: every trip his FINAL
+       * approval has cleared, with the one status the sheet tracks — Pending
+       * or Dispensed. The approval IS the release; nothing else gates the pump.
        */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -730,46 +700,54 @@ export function TmLubricant() {
         </div>
 
         <div className="flex flex-col">
-          <TableHead className="grid-cols-[1fr_1.1fr_1.2fr_1.1fr_1fr_1fr_0.9fr] text-[13.5px] font-semibold text-[#1B2432]">
-            <span>Dispatch ID</span>
-            <span>Date Released</span>
-            <span>Lubricant</span>
-            <span>Driver</span>
-            <span>Truck Head</span>
-            <span>Client</span>
-            <span>Disbursement</span>
+          <TableHead className="grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr] text-[13.5px] font-semibold text-[#1B2432]">
+            <span>Date Approved</span>
+            <span>Date Dispensed</span>
+            <span>Customer</span>
+            <span>Truck Head (Cap/Plate No.)</span>
+            <span>Driver Details (Salary No./Name)</span>
+            <span>Quantity</span>
+            <span>Destination</span>
+            <span>Dispensed by</span>
+            <span>Status</span>
           </TableHead>
           {loading ? (
-            <p className="py-6 text-[13px] text-[#5C6470]">Loading your releases…</p>
+            <p className="py-6 text-[13px] text-[#5C6470]">Loading your approvals…</p>
           ) : approvedSlice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
-              You have not released any litres yet. Release a dispatch from the View Disbursal Log
-              screen and it appears here until the department dispenses it.
+              Nothing is waiting on the pump. A dispatch lands here the moment your final approval
+              schedules it, and leaves the Pending state once the department dispenses it.
             </p>
           ) : (
             approvedSlice.map((ask) => {
               const v = resolveVehicle(ask);
               const pour = pouredByTrip.get(ask.id);
-              const releasedAt = ask.approval?.at ?? ask.approvedAt ?? ask.createdAt;
               return (
                 <div
                   key={ask.id}
-                  className="grid grid-cols-[1fr_1.1fr_1.2fr_1.1fr_1fr_1fr_0.9fr] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
+                  className="grid grid-cols-[1fr_1fr_1fr_1.1fr_1.1fr_1fr_1fr_1.1fr_0.9fr] items-center gap-3 border-b border-[#E2E5E9] py-3.5 text-[13.5px] text-[#344256]"
                 >
-                  <span className="font-medium text-[#1B2432]">{lubricantDispatchId(ask)}</span>
-                  <span>{dayLabel(releasedAt)}</span>
+                  <span>{dayLabel(ask.approvedAt)}</span>
+                  <span>{pour ? dayLabel(pour.createdAt) : "—"}</span>
+                  <span className="truncate">{ask.customer || "—"}</span>
+                  <span className="truncate text-[#5C6470]">
+                    {[v.capNumber, v.plate].filter((x) => x && x !== "—").join(" / ") || "—"}
+                  </span>
+                  <span className="truncate">
+                    {[displayDriverSalary(ask.driver ?? undefined), v.driverName]
+                      .filter((x) => x && x !== "—")
+                      .join(" · ") || "—"}
+                  </span>
                   <span>
-                    {formatQuantity(ask.approval?.litres ?? ask.request.quantity)}{" "}
+                    {formatQuantity(ask.request.quantity)}{" "}
                     <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
                       {unitLabel(ask.request.fuelType)}
                     </span>
                   </span>
-                  <span>{v.driverName}</span>
-                  <span className="text-[#5C6470]">{v.capNumber}</span>
-                  <span className="truncate text-[#5C6470]">{ask.customer || "—"}</span>
-                  <span className="flex items-center gap-1.5">
+                  <span className="truncate">{ask.dropoff || "—"}</span>
+                  <span className="truncate">{pour?.dispensedBy || "—"}</span>
+                  <span>
                     <DisbursedPill done={Boolean(pour)} at={pour?.createdAt} />
-                    {pour ? <StatusPill status={String(pour.status ?? "Pending")} /> : null}
                   </span>
                 </div>
               );
@@ -789,31 +767,33 @@ export function TmLubricant() {
             exportCsv(
               "lubricant-approved-releases.csv",
               [
-                "Dispatch ID",
-                "Date Released",
-                "Lubricant",
+                "Date Approved",
+                "Date Dispensed",
+                "Customer",
+                "Truck Head (Cap/Plate)",
+                "Driver Details (Salary No./Name)",
                 "Quantity",
                 "Unit",
-                "Driver",
-                "Truck Head",
-                "Client",
-                "Disbursed",
-                "Review Status",
+                "Destination",
+                "Dispensed by",
+                "Status",
               ],
               approvedRows.map((ask) => {
                 const v = resolveVehicle(ask);
                 const pour = pouredByTrip.get(ask.id);
                 return [
-                  lubricantDispatchId(ask),
-                  dayLabel(ask.approval?.at ?? ask.approvedAt ?? ask.createdAt),
-                  ask.request.fuelType,
-                  ask.approval?.litres ?? ask.request.quantity,
-                  unitLabel(ask.request.fuelType),
-                  v.driverName,
-                  v.capNumber,
+                  dayLabel(ask.approvedAt),
+                  pour ? dayLabel(pour.createdAt) : "",
                   ask.customer ?? "",
-                  pour ? "Yes" : "No",
-                  pour ? String(pour.status ?? "Pending") : "—",
+                  [v.capNumber, v.plate].filter((x) => x && x !== "—").join(" / "),
+                  [displayDriverSalary(ask.driver ?? undefined), v.driverName]
+                    .filter((x) => x && x !== "—")
+                    .join(" · "),
+                  ask.request.quantity,
+                  unitLabel(ask.request.fuelType),
+                  ask.dropoff ?? "",
+                  pour?.dispensedBy ?? "",
+                  pour ? "Dispensed" : "Pending",
                 ];
               }),
             )
@@ -838,80 +818,6 @@ export function TmLubricant() {
           Review lubricant disbursed to dispatch
         </h2>
       </div>
-
-      {/* The release the pump obeys. Kept on this screen, above the log, because
-          the two are the same decision seen from either end: litres he releases
-          now, litres the department already poured. It disappears from the page
-          the moment nothing is waiting on him. */}
-      {pendingAsks.length > 0 ? (
-        <Card className="border-[#F2C200]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <h3 className="text-[17px] font-semibold text-[#1B2432]">
-                Awaiting your release ({formatQuantity(pendingAsks.length)})
-              </h3>
-              <p className="text-[12.5px] text-[#5C6470]">
-                Fleet Ops' figure per dispatch — the pump refuses to dispense more than you release.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col divide-y divide-[#E2E5E9]">
-            {releaseSlice.map((ask) => (
-              <div key={ask.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                <span className="min-w-0 flex-1 text-[13.5px] text-[#344256]">
-                  {formatQuantity(ask.request.quantity)}{" "}
-                  {ask.request.fuelType === "Gas" ? "kg" : "L"} · {ask.customer || "—"} ·{" "}
-                  {ask.dropoff || "—"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReleasing(ask);
-                    setReleaseValue(String(ask.request.quantity));
-                  }}
-                  className="h-8 shrink-0 rounded-[4px] bg-[#1B2432] px-3 text-[12px] font-semibold text-white hover:bg-[#2a3547]"
-                >
-                  Release
-                </button>
-              </div>
-            ))}
-          </div>
-          {pendingAsks.length > PAGE_SIZE ? (
-            <div className="flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-4">
-              <span className="text-[13.5px] font-semibold tabular-nums text-[#1B2432]">
-                {safeReleasePage * PAGE_SIZE + 1} -{" "}
-                {Math.min((safeReleasePage + 1) * PAGE_SIZE, pendingAsks.length)}
-              </span>
-              <span className="text-[13.5px] font-semibold text-[#1B2432]">
-                of {formatQuantity(pendingAsks.length)} awaiting release
-              </span>
-              <div className="ml-auto flex items-center gap-2.5">
-                <button
-                  type="button"
-                  disabled={safeReleasePage === 0}
-                  onClick={() => setReleasePage((p) => Math.max(0, p - 1))}
-                  aria-label="Previous page"
-                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                >
-                  <ChevronLeft className="size-[18px] text-[#627084]" />
-                </button>
-                <button
-                  type="button"
-                  disabled={safeReleasePage + 1 >= releasePageCount}
-                  onClick={() => setReleasePage((p) => p + 1)}
-                  aria-label="Next page"
-                  className="grid size-8 place-items-center rounded-[2px] border border-[#627084] disabled:opacity-40"
-                >
-                  <ChevronRight className="size-[18px] text-[#627084]" />
-                </button>
-              </div>
-              <span className="text-[12.5px] text-[#5C6470]">
-                Page {safeReleasePage + 1} of {releasePageCount}
-              </span>
-            </div>
-          ) : null}
-        </Card>
-      ) : null}
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1364,54 +1270,6 @@ export function TmLubricant() {
                 className="h-9 rounded-[6px] px-3 text-[13px] font-semibold text-[#5C6470] hover:bg-[#F1F2F4]"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {releasing ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#141A1F]/60 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setReleasing(null);
-          }}
-        >
-          <div className="w-[420px] max-w-full rounded-[10px] bg-white p-5 shadow-[0px_18px_50px_rgba(12,12,13,0.28)]">
-            <h3 className="text-[17px] font-bold text-[#1B2432]">
-              Release {releasing.request.fuelType}
-            </h3>
-            <p className="mt-1 text-[12.5px] text-[#5C6470]">
-              {releasing.customer || "—"} · {releasing.dropoff || "—"}. Fleet Ops asked for{" "}
-              {formatQuantity(releasing.request.quantity)}{" "}
-              {releasing.request.fuelType === "Gas" ? "kg" : "L"}; the pump will refuse more than
-              you release.
-            </p>
-            <input
-              value={releaseValue}
-              onChange={(e) => setReleaseValue(e.target.value.replace(/[^0-9.]/g, ""))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void confirmRelease();
-              }}
-              inputMode="numeric"
-              autoFocus
-              className="mt-4 h-11 w-full rounded-[6px] border border-[#E2E5E9] px-3 text-[15px] tabular-nums text-[#1B2432] outline-none focus:border-[#1B2432]"
-            />
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setReleasing(null)}
-                className="h-9 rounded-[6px] px-3 text-[13px] font-semibold text-[#ED351D] hover:bg-[#FDECEA]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void confirmRelease()}
-                className="h-9 rounded-[6px] bg-[#ED351D] px-4 text-[13px] font-semibold text-white hover:bg-[#d92c15] disabled:opacity-50"
-              >
-                {busy ? "Releasing…" : "Release"}
               </button>
             </div>
           </div>

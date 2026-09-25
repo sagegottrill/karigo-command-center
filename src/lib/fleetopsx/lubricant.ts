@@ -78,12 +78,28 @@ export interface LubricantApproval {
 }
 
 /**
- * The approval gatekeeper (PRD §2/§3): a ticket is attendable only once the
- * Transport Manager has RELEASED litres for it. Fleet Ops' own sign-off is
- * necessary but not sufficient — the gate reads the release, not the trip.
+ * The approval gatekeeper (PRD §2/§3): a ticket is attendable once the
+ * Transport Manager has given his FINAL approval in the request lifecycle —
+ * Scheduled or on the road. Fleet Ops' figures ride on the request; the
+ * second approval IS the release, so no separate authorization stands
+ * between the two. A trip still pending (Requested / Approved / Awaiting
+ * Approval) has not cleared the driver to fuel.
  */
 export function approvalGate(row: LubricantRequestRow | null | undefined): "released" | "waiting" {
-  return row?.approval ? "released" : "waiting";
+  const status = String(row?.status ?? "").trim();
+  // Scheduled = his second approval given; anything moving or finished was
+  // cleared by it earlier. Requested / Approved / Awaiting Approval have not.
+  return [
+    "Scheduled",
+    "Loaded",
+    "En Route",
+    "Offloading",
+    "Returning",
+    "Delayed",
+    "Completed",
+  ].includes(status)
+    ? "released"
+    : "waiting";
 }
 
 export interface LubricantOverview {
