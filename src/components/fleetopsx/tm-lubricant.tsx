@@ -398,6 +398,9 @@ export function TmLubricant() {
   const [pricePending, setPricePending] = useState<LubricantFuel | null>(null);
   const [busy, setBusy] = useState(false);
   const [approvedPage, setApprovedPage] = useState(0);
+  /** The releases board's own search and filter — never the restock card's. */
+  const [releaseQuery, setReleaseQuery] = useState("");
+  const [releaseFuel, setReleaseFuel] = useState<string>("All lubricants");
   /** The approval whose details the ⋮ opened — a read, not a review. */
   const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
 
@@ -550,10 +553,10 @@ export function TmLubricant() {
    * no separate authorization step between his sign-off and the pump.
    */
   const approvedRows = useMemo(() => {
-    const q = restockQuery.trim().toLowerCase();
+    const q = releaseQuery.trim().toLowerCase();
     return asks
       .filter((a) => approvalGate(a) === "released")
-      .filter((a) => restockFuel === "All lubricants" || a.request.fuelType === restockFuel)
+      .filter((a) => releaseFuel === "All lubricants" || a.request.fuelType === releaseFuel)
       .filter((a) => {
         if (!q) return true;
         const v = resolveVehicle(a);
@@ -572,7 +575,7 @@ export function TmLubricant() {
         );
       })
       .sort((a, b) => String(b.approvedAt ?? "").localeCompare(String(a.approvedAt ?? "")));
-  }, [asks, restockQuery, restockFuel]);
+  }, [asks, releaseQuery, releaseFuel]);
   /** Which of his releases the department has actually poured, by trip. */
   const pouredByTrip = useMemo(() => {
     const map = new Map<string, LubricantDisbursalRow>();
@@ -684,19 +687,19 @@ export function TmLubricant() {
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
             <SearchField
-              value={restockQuery}
+              value={releaseQuery}
               onChange={(v) => {
-                setRestockQuery(v);
-                setRestockPage(0);
+                setReleaseQuery(v);
+                setApprovedPage(0);
               }}
               placeholder="Search"
             />
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
-              value={restockFuel}
+              value={releaseFuel}
               onChange={(v) => {
-                setRestockFuel(v);
-                setRestockPage(0);
+                setReleaseFuel(v);
+                setApprovedPage(0);
               }}
             />
           </div>
@@ -809,6 +812,96 @@ export function TmLubricant() {
                   pour ? "Dispensed" : "Pending",
                 ];
               }),
+            )
+          }
+        />
+      </Card>
+
+      {/**
+       * Restock Records, kept because the TM needs to see what entered the
+       * tank (Fortune) — filed UNDER the releases board, the way he asked.
+       */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            Restock Records
+          </h3>
+          <div className="flex flex-1 items-center justify-end gap-3">
+            <SearchField
+              value={restockQuery}
+              onChange={(v) => {
+                setRestockQuery(v);
+                setRestockPage(0);
+              }}
+              placeholder="Search"
+            />
+            <FilterButton
+              options={["All lubricants", "Diesel", "Gas"]}
+              value={restockFuel}
+              onChange={(v) => {
+                setRestockFuel(v);
+                setRestockPage(0);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <TableHead className="grid-cols-[1.2fr_1.2fr_1fr_1.3fr_1.2fr] text-[14px] font-semibold text-[#1B2432]">
+            <span>Restock ID</span>
+            <span>Date</span>
+            <span>Lubricant</span>
+            <span>Quantity</span>
+            <span>Logged by</span>
+          </TableHead>
+          {loading ? (
+            <p className="py-6 text-[13px] text-[#5C6470]">Loading restock records…</p>
+          ) : restockSlice.length === 0 ? (
+            <p className="py-6 text-[13px] text-[#5C6470]">
+              No delivery has been logged into the tank yet. Every diesel or gas purchase the
+              department records appears here with who logged it.
+            </p>
+          ) : (
+            restockSlice.map((row) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-[1.2fr_1.2fr_1fr_1.3fr_1.2fr] items-center gap-3 border-b border-[#E2E5E9] py-4 text-[13.5px] text-[#344256]"
+              >
+                <span className="font-medium text-[#1B2432]">{row.reference}</span>
+                <span>{dayLabel(row.createdAt)}</span>
+                <span>{row.fuelType}</span>
+                <span>
+                  {formatQuantity(row.quantity)}{" "}
+                  <span className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
+                    {unitLabel(row.fuelType)}
+                  </span>
+                </span>
+                <span>{row.loggedBy}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <Pager
+          from={restockRows.length === 0 ? 0 : safeRestockPage * PAGE_SIZE + 1}
+          to={Math.min((safeRestockPage + 1) * PAGE_SIZE, restockRows.length)}
+          total={restockRows.length}
+          page={safeRestockPage}
+          pageCount={restockPageCount}
+          onPrev={() => setRestockPage((p) => Math.max(0, p - 1))}
+          onNext={() => setRestockPage((p) => p + 1)}
+          onExport={() =>
+            exportCsv(
+              "lubricant-restocks.csv",
+              ["Restock ID", "Date", "Lubricant", "Quantity", "Unit", "Logged by"],
+              restockRows.map((r) => [
+                r.reference,
+                dayLabel(r.createdAt),
+                r.fuelType,
+                r.quantity,
+                unitLabel(r.fuelType),
+                r.loggedBy,
+              ]),
             )
           }
         />
