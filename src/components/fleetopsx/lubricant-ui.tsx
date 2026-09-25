@@ -569,51 +569,43 @@ export function DispatchDetailsModal({
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-medium tracking-[0.4px] text-[#141A1F]">
-                Select Lubricant to Dispense <span className="text-[#ED351D]">*</span>
+            {/**
+             * WHAT THE TM ALREADY DECIDED. The fuel and the quantity are his
+             * approval, not the attendant's to re-enter — she pours exactly
+             * what he cleared, names who poured, and takes the driver's
+             * signature. Typing a different figure here used to let the pump
+             * overwrite the very number the approval stood for.
+             */}
+            <div className="flex flex-col gap-2.5 rounded-lg bg-[#F1F2F4] p-4">
+              <span className="text-[13px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Lubricant Configuration Breakdown
               </span>
-              <div className="flex flex-wrap items-center gap-4">
-                {(["Diesel", "Gas"] as const).map((t) => (
-                  <label
-                    key={t}
-                    className="flex cursor-pointer items-center gap-2 text-[13.5px] text-[#141A1F]"
-                  >
-                    <input
-                      type="radio"
-                      name="disburse-fuel"
-                      checked={fuelType === t}
-                      onChange={() => setFuelType(t)}
-                      className="size-4 accent-[#ED351D]"
-                    />
-                    {t}
-                  </label>
-                ))}
-                <input
-                  type="number"
-                  min="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="Enter quantity"
-                  aria-label="Quantity dispensed"
-                  className="h-11 min-w-[130px] flex-1 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
-                />
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] tracking-[0.4px]">
-                <span className={cn(tooMuch ? "text-[#ED351D]" : "text-[#627084]")}>
-                  In tank: {formatQuantity(inTank)} {lubricantUnit(fuelType).toLowerCase()}
-                </span>
-                {/**
-                 * Financial masking (PRD §2): this screen is the attendant's, and
-                 * it speaks VOLUMES ONLY — the price behind the pour is the
-                 * Transport Manager's and Accounts' business, never printed here.
-                 */}
-                <span className="text-[#627084]">
-                  {rate > 0
-                    ? `${formatQuantity(amount || 0)} ${lubricantUnit(fuelType).toLowerCase()} approved at the set rate`
-                    : `${fuelType} rate not set by the Transport Manager yet`}
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[12.5px] text-[#5C6470]">{askedFuel}:</span>
+                <span className="text-[12.5px] font-medium text-[#141A1F]">
+                  {requested
+                    ? `${formatQuantity(requested.quantity)} ${lubricantUnit(askedFuel).toLowerCase()}`
+                    : "—"}
                 </span>
               </div>
+              <span className="text-[11px] tracking-[0.4px] text-[#5C6470]">
+                Set by the Transport Manager's approval — already added, not editable here.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] tracking-[0.4px]">
+              <span className={cn(tooMuch ? "text-[#ED351D]" : "text-[#627084]")}>
+                In tank: {formatQuantity(inTank)} {lubricantUnit(fuelType).toLowerCase()}
+              </span>
+              {/**
+               * Financial masking (PRD §2): this screen is the attendant's, and
+               * it speaks VOLUMES ONLY — the price behind the pour is the
+               * Transport Manager's and Accounts' business, never printed here.
+               */}
+              <span className="text-[#627084]">
+                {rate > 0
+                  ? `${formatQuantity(amount || 0)} ${lubricantUnit(fuelType).toLowerCase()} approved at the set rate`
+                  : `${fuelType} rate not set by the Transport Manager yet`}
+              </span>
             </div>
 
             <StaffSelect
