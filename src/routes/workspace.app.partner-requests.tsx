@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton, CheckboxFilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { formatDateLines, formatDateTimeStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
+import {
+  formatDateLines,
+  formatDateTimeStamp,
+  formatTableDate,
+} from "@/lib/fleetopsx/display-dates";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestId as requestId } from "@/lib/fleetopsx/request-id";
 import {
@@ -113,6 +117,7 @@ function partnerNameOf(trip: Pick<Trip, "customer">): string {
 
 const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
   "All",
+  "Returned",
   "Pending",
   "Seen",
   "Approved",
@@ -124,6 +129,10 @@ const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
 /** Same palette the partner portal uses for these labels. */
 function statusPillClass(status: PartnerUiStatus) {
   switch (status) {
+    case "Returned":
+      // Red outline, not a fill: not dead (Declined) — waiting on the partner
+      // to correct it. The same words both portals use for the same fact.
+      return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Pending":
       // Amber needs dark text — white on #FC0 was barely legible.
       return "bg-[#FC0] text-[#1B2432]";
@@ -158,7 +167,9 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div className="flex w-full flex-col gap-1.5">
-      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+        {label}
+      </span>
       <div className="flex h-10 items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470]">
         {value}
       </div>
@@ -208,7 +219,10 @@ function loadingSitesFor(trip: Trip): string[] {
   if (fromArray.length > 0) return fromArray;
   const raw = trip.pickup?.trim() ?? "";
   if (!raw) return [];
-  return raw.split(/[;,]/).map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function AdminPartnerRequests() {
@@ -230,7 +244,8 @@ function AdminPartnerRequests() {
   const [noting, setNoting] = useState(false);
 
   useEffect(() => {
-    void tripService.list()
+    void tripService
+      .list()
       .then((nextTrips) => {
         setTrips(nextTrips);
       })
@@ -240,7 +255,10 @@ function AdminPartnerRequests() {
   // Near real-time: new partner requests and status changes appear live
   // (10s poll + refresh on focus / tab-visible) — no manual reload needed.
   useAutoRefresh(() => {
-    void tripService.list().then(setTrips).catch(() => {});
+    void tripService
+      .list()
+      .then(setTrips)
+      .catch(() => {});
   });
 
   // Queue order, act-on-me first: untouchable Pending rows lead — a request the
@@ -337,13 +355,17 @@ function AdminPartnerRequests() {
       const fresh = await tripService.list();
       setTrips(fresh);
       if (!fresh.some((t) => t.id === trip.id && t.status !== "Requested")) {
-        toast.error("Network issue — the request may not have been marked as Seen. Check your connection and try again.");
+        toast.error(
+          "Network issue — the request may not have been marked as Seen. Check your connection and try again.",
+        );
       }
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-      toast.error(offline
-        ? "You are offline — request NOT marked as Seen. Reconnect and try again."
-        : `Failed to mark as Seen: ${err instanceof Error ? err.message : "network error"}. The request is unchanged.`);
+      toast.error(
+        offline
+          ? "You are offline — request NOT marked as Seen. Reconnect and try again."
+          : `Failed to mark as Seen: ${err instanceof Error ? err.message : "network error"}. The request is unchanged.`,
+      );
     } finally {
       setApprovingId(null);
     }
@@ -470,7 +492,8 @@ function AdminPartnerRequests() {
             New Request
           </button>
           <span className="text-[13px] text-[#5C6470]">
-            Raise a request for Petroline's own service — it follows the same approval, dispatch and cost capture.
+            Raise a request for Petroline's own service — it follows the same approval, dispatch and
+            cost capture.
           </span>
         </div>
 
@@ -539,7 +562,9 @@ function AdminPartnerRequests() {
 
         <div className="flex flex-col gap-[11px] md:hidden">
           {loading && <FigmaLoadingState />}
-          {!loading && filtered.length === 0 && <FigmaEmptyState title={emptyTitle} body={emptyBody} />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState title={emptyTitle} body={emptyBody} />
+          )}
           {slice.map((trip) => {
             const partner = partnerNameOf(trip);
             return (
@@ -572,10 +597,21 @@ function AdminPartnerRequests() {
                             ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canSendBack
-                          ? [{ label: "Return to Customer", onSelect: () => openNote(trip, "sendback") }]
+                          ? [
+                              {
+                                label: "Return to Customer",
+                                onSelect: () => openNote(trip, "sendback"),
+                              },
+                            ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canDecline
-                          ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
+                          ? [
+                              {
+                                label: "Decline",
+                                onSelect: () => openNote(trip, "decline"),
+                                danger: true,
+                              },
+                            ]
                           : []),
                       ]}
                     />
@@ -588,7 +624,10 @@ function AdminPartnerRequests() {
                 <MetaRow label="Truck:" value={displayTruckAssigned(trip) || "—"} />
                 <MetaRow label="Loading Point:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Approved:" value={formatDateTimeStamp(approvedStampOf(trip))} />
+                <MetaRow
+                  label="Date Approved:"
+                  value={formatDateTimeStamp(approvedStampOf(trip))}
+                />
                 <MetaRow label="Request ID:" value={requestId(trip)} />
               </div>
             );
@@ -628,7 +667,10 @@ function AdminPartnerRequests() {
         <div className="hidden w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:block">
           <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]" strokeWidth={1.5} />
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#5C6470]"
+                strokeWidth={1.5}
+              />
               <input
                 value={query}
                 onChange={(e) => {
@@ -668,17 +710,39 @@ function AdminPartnerRequests() {
                 page never scrolls sideways on smaller laptops. */}
             <div className="w-full">
               <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Requested</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Partner</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Customer Name</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Product</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck Type</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Truck</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Loading Point</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Drop-off Location</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Date Approved</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Request ID</span>
-                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">Status</span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Date Requested
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Partner
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Customer Name
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Product
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Truck Type
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Truck
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Loading Point
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Drop-off Location
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Date Approved
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Request ID
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Status
+                </span>
                 <span className="w-5" />
               </div>
 
@@ -690,7 +754,9 @@ function AdminPartnerRequests() {
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {formatDateLines(trip.createdAt).date}
                     {formatDateLines(trip.createdAt).time && (
-                      <span className="block text-[12px] text-[#627084]">{formatDateLines(trip.createdAt).time}</span>
+                      <span className="block text-[12px] text-[#627084]">
+                        {formatDateLines(trip.createdAt).time}
+                      </span>
                     )}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
@@ -699,7 +765,9 @@ function AdminPartnerRequests() {
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {trip.customerConsignee}
                   </span>
-                  <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">{trip.cargo}</span>
+                  <span className="truncate text-[12px] tracking-[0.4px] text-[#627084]">
+                    {trip.cargo}
+                  </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {displayRequestedTruckType(trip) || "—"}
                   </span>
@@ -717,7 +785,9 @@ function AdminPartnerRequests() {
                   >
                     {loadingPointLabel(trip)}
                   </span>
-                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">{trip.dropoff}</span>
+                  <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                    {trip.dropoff}
+                  </span>
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
                     {approvedStampOf(trip) ? (
                       <>
@@ -751,10 +821,21 @@ function AdminPartnerRequests() {
                             ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canSendBack
-                          ? [{ label: "Return to Customer", onSelect: () => openNote(trip, "sendback") }]
+                          ? [
+                              {
+                                label: "Return to Customer",
+                                onSelect: () => openNote(trip, "sendback"),
+                              },
+                            ]
                           : []),
                         ...(requestActions(toPartnerUiStatus(trip)).canDecline
-                          ? [{ label: "Decline", onSelect: () => openNote(trip, "decline"), danger: true }]
+                          ? [
+                              {
+                                label: "Decline",
+                                onSelect: () => openNote(trip, "decline"),
+                                danger: true,
+                              },
+                            ]
                           : []),
                       ]}
                     />
@@ -764,14 +845,18 @@ function AdminPartnerRequests() {
             </div>
           </div>
           {loading && <FigmaLoadingState />}
-          {!loading && filtered.length === 0 && <FigmaEmptyState title={emptyTitle} body={emptyBody} />}
+          {!loading && filtered.length === 0 && (
+            <FigmaEmptyState title={emptyTitle} body={emptyBody} />
+          )}
 
           {!loading && filtered.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-2.5 border-t border-[#E2E5E9] pt-5">
               <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                 {from} - {to}
               </span>
-              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">of {filtered.length}</span>
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                of {filtered.length}
+              </span>
               <div className="ml-2 flex items-center gap-2.5">
                 <button
                   type="button"
@@ -856,28 +941,41 @@ function AdminPartnerRequests() {
       )}
 
       {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4" onClick={() => setDetail(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+          onClick={() => setDetail(null)}
+        >
           <div
             className="flex max-h-[90vh] w-[406px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b border-[#E2E5E9] py-2">
-              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">Request Details</h3>
+              <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+                Request Details
+              </h3>
             </div>
             <ReadOnlyField label="Customer Name" value={detail.customerConsignee ?? ""} />
             <ReadOnlyField label="Product" value={detail.cargo} />
             <ReadOnlyField label="Truck Type" value={displayRequestedTruckType(detail)} />
-            <ReadOnlyField label="Truck" value={displayTruckAssigned(detail) || "Not assigned yet"} />
+            <ReadOnlyField
+              label="Truck"
+              value={displayTruckAssigned(detail) || "Not assigned yet"}
+            />
             <ReadOnlyField label="Drop-off Location" value={detail.dropoff} />
             <ReadOnlyField
               label="Destination Address"
               value={detail.dropoffAddress?.trim() ? detail.dropoffAddress : "Not provided yet"}
             />
             <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
-            <ReadOnlyField label="Date Approved" value={formatDateTimeStamp(approvedStampOf(detail))} />
+            <ReadOnlyField
+              label="Date Approved"
+              value={formatDateTimeStamp(approvedStampOf(detail))}
+            />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
-                <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">Loading Site(s)</span>
+                <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+                  Loading Site(s)
+                </span>
                 {loadingSitesFor(detail).map((site) => (
                   <div
                     key={site}
@@ -889,7 +987,11 @@ function AdminPartnerRequests() {
               </div>
             ) : null}
             <div className="flex items-center justify-between pt-1">
-              <button type="button" onClick={() => setDetail(null)} className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">
+              <button
+                type="button"
+                onClick={() => setDetail(null)}
+                className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]"
+              >
                 Go Back
               </button>
               <div className="flex items-center gap-2">
@@ -942,7 +1044,9 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
   return (
     <div className="flex gap-2 text-[12px]">
       <span className="w-20 shrink-0 font-medium text-[#5C6470]">{label}</span>
-      <span className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}>
+      <span
+        className={cn("min-w-0 flex-1", accent ? "font-semibold text-[#ED351D]" : "text-[#344256]")}
+      >
         {value}
       </span>
     </div>

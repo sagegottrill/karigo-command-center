@@ -1043,6 +1043,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
    * Completed and Declined.
    */
   const REQUEST_PILL_TONE: Record<PartnerUiStatus, TileTone> = {
+    // A returned request shouts loudest on the TM's dashboard — someone is
+    // blocked until it is corrected and resent.
+    Returned: "red",
     Pending: "amber",
     Seen: "teal",
     Approved: "green",

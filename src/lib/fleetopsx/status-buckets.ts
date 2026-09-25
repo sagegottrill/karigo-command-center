@@ -32,12 +32,14 @@ export type TripBucket =
  * truckReg + driverName without headId in live data, so checking headId alone
  * misclassified assigned trips.
  */
-export function hasAssignment(t: Pick<Trip, "headId" | "truckReg" | "driverId" | "driverName">): boolean {
+export function hasAssignment(
+  t: Pick<Trip, "headId" | "truckReg" | "driverId" | "driverName">,
+): boolean {
   return Boolean(
     t.headId ||
-      (t.truckReg && t.truckReg !== "Unassigned" && t.truckReg.trim() !== "") ||
-      t.driverId ||
-      (t.driverName && t.driverName !== "Unassigned" && t.driverName.trim() !== ""),
+    (t.truckReg && t.truckReg !== "Unassigned" && t.truckReg.trim() !== "") ||
+    t.driverId ||
+    (t.driverName && t.driverName !== "Unassigned" && t.driverName.trim() !== ""),
   );
 }
 
@@ -112,7 +114,13 @@ export const FO_QUEUE_BUCKETS: TripBucket[] = ["approved"];
 export const TM_REQUESTS_BUCKETS: TripBucket[] = ["pending"];
 
 /** A trip that is neither finished nor rejected. */
-export const OPEN_BUCKETS: TripBucket[] = ["pending", "approved", "awaiting", "scheduled", "inTransit"];
+export const OPEN_BUCKETS: TripBucket[] = [
+  "pending",
+  "approved",
+  "awaiting",
+  "scheduled",
+  "inTransit",
+];
 
 export function countBuckets(
   trips: Array<Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">>,
@@ -136,7 +144,10 @@ function sortTime(value: string | null | undefined): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
-type QueueTrip = Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName" | "createdAt">;
+type QueueTrip = Pick<
+  Trip,
+  "status" | "headId" | "truckReg" | "driverId" | "driverName" | "createdAt"
+>;
 
 /**
  * Shared "act-on-me first" ordering for every queue table.
@@ -173,12 +184,15 @@ export function queueOrder(
  * request that has just arrived is the first row of its group.
  */
 export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
-  Pending: 0,
-  Seen: 1,
-  Approved: 2,
-  "In transit": 3,
-  Completed: 4,
-  Declined: 5,
+  // A returned request is the loudest thing in his queue — someone is blocked
+  // until it is corrected and resent.
+  Returned: 0,
+  Pending: 1,
+  Seen: 3,
+  Approved: 4,
+  "In transit": 5,
+  Completed: 6,
+  Declined: 7,
 };
 
 /**
@@ -204,11 +218,20 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
  * staff side used to say "Approved" for both, which read as two different facts
  * about the same request.
  */
-export type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
+export type PartnerUiStatus =
+  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
 
-export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): PartnerUiStatus {
+export function toPartnerUiStatus(
+  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
+): PartnerUiStatus {
   switch (tripBucket(trip)) {
     case "pending":
+      // A Requested trip that carries the TM's return note was sent BACK to
+      // the partner to correct — it must never read Pending again, which is
+      // the word for a request nobody has looked at yet (Shula: "the status
+      // is misleading — the partners can't see that their request was
+      // returned").
+      if (isReturnedRequest(trip)) return "Returned";
       return "Pending";
     case "approved":
     case "awaiting":
@@ -225,6 +248,18 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
 }
 
 /**
+ * A request the Transport Manager sent BACK for correction. It lives in the
+ * pending BUCKET (the partner can still edit and resubmit it) but must never
+ * be PRESENTED as pending — every reader asks the note, not just the status.
+ */
+export function isReturnedRequest(
+  trip: Pick<Trip, "partnerNote"> & Partial<Pick<Trip, "status">>,
+): boolean {
+  const status = String(trip.status ?? "Requested").trim();
+  return Boolean(trip.partnerNote?.trim()) && (status === "Requested" || status === "Draft");
+}
+
+/**
  * The stamp the "Date Approved" column / field is allowed to show.
  *
  * A request that was declined must NOT keep showing a date under a heading
@@ -234,10 +269,7 @@ export function toPartnerUiStatus(trip: Pick<Trip, "status" | "headId" | "truckR
  * still renders "—" until there is a real approval to point at.
  */
 export function approvedStampOf(
-  trip: Pick<
-    Trip,
-    "status" | "headId" | "truckReg" | "driverId" | "driverName" | "dispatchedAt"
-  >,
+  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName" | "dispatchedAt">,
 ): string | null {
   const bucket = tripBucket(trip);
   if (bucket === "declined" || bucket === "pending") return null;
@@ -247,7 +279,9 @@ export function approvedStampOf(
 /** Dispatch History display label (internal staff view). */
 export type HistoryUiStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
 
-export function toHistoryUiStatus(trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">): HistoryUiStatus {
+export function toHistoryUiStatus(
+  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
+): HistoryUiStatus {
   switch (tripBucket(trip)) {
     case "inTransit":
       return "In Transit";

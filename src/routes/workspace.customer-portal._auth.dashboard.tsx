@@ -16,13 +16,20 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard
   component: PartnerPortalDashboard,
 });
 
-type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus =
+  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
 
-function toPartnerStatus(status: TripStatus): PartnerUiStatus {
+function toPartnerStatus(trip: {
+  status: TripStatus;
+  partnerNote?: string | null;
+}): PartnerUiStatus {
+  const status = trip.status;
   switch (status) {
     case "Requested":
     case "Draft":
-      return "Pending";
+      // The TM sent this one back — it must never read Pending again, which is
+      // the word for a request nobody has looked at yet.
+      return trip.partnerNote?.trim() ? "Returned" : "Pending";
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
@@ -53,6 +60,11 @@ function partnerStatusClass(status: PartnerUiStatus) {
     case "Pending":
       // Amber needs dark text — white on #FC0 was barely legible.
       return "bg-[#FC0] text-[#1B2432]";
+    case "Returned":
+      // Red outline, not a fill: the request is not dead (Declined) — it is
+      // waiting on the partner's correction, the only state that needs THEM
+      // to act. Shula: they must see it was returned and read the reason.
+      return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
     case "Approved":
@@ -106,9 +118,13 @@ function PartnerPortalDashboard() {
   const [deleteModalOpen, setDeleteModalOpen] = useState<string | null>(null);
   const [rowMenuOpen, setRowMenuOpen] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<"id" | "date" | "consignee" | "product" | "truck" | "status">("date");
+  const [sortKey, setSortKey] = useState<
+    "id" | "date" | "consignee" | "product" | "truck" | "status"
+  >("date");
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Descending");
-  const [draftSortKey, setDraftSortKey] = useState<"id" | "date" | "consignee" | "product" | "truck" | "status">("date");
+  const [draftSortKey, setDraftSortKey] = useState<
+    "id" | "date" | "consignee" | "product" | "truck" | "status"
+  >("date");
   const [draftSortOrder, setDraftSortOrder] = useState<"Ascending" | "Descending">("Descending");
   const [filtersApplied, setFiltersApplied] = useState(false);
 
@@ -144,8 +160,8 @@ function PartnerPortalDashboard() {
     }
     const dir = sortOrder === "Descending" ? -1 : 1;
     return [...result].sort((a, b) => {
-      const statusA = toPartnerStatus(a.status);
-      const statusB = toPartnerStatus(b.status);
+      const statusA = toPartnerStatus(a);
+      const statusB = toPartnerStatus(b);
       let cmp = 0;
       switch (sortKey) {
         case "id":
@@ -213,7 +229,8 @@ function PartnerPortalDashboard() {
    * yet, OR the Transport Manager sent it back for correction (which returns it
    * to Requested with a note). Mirrors the server's own edit rule.
    */
-  const isEditable = (status: TripStatus | string) => ["Requested", "Draft", "Awaiting Approval"].includes(status);
+  const isEditable = (status: TripStatus | string) =>
+    ["Requested", "Draft", "Awaiting Approval"].includes(status);
 
   const openSortModal = () => {
     setDraftSortKey(sortKey);
@@ -315,13 +332,19 @@ function PartnerPortalDashboard() {
       >
         {selected ? <Check className="size-2.5 text-white" strokeWidth={3} /> : null}
       </span>
-      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">{label}</span>
+      <span className="text-[14px] font-medium tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+        {label}
+      </span>
     </button>
   );
 
   const statCards = [
     { label: "Total Requests", value: totalRequests },
-    { label: "In transit", value: inTransit, hint: inTransit > 0 ? "Look out for your delivery" : undefined },
+    {
+      label: "In transit",
+      value: inTransit,
+      hint: inTransit > 0 ? "Look out for your delivery" : undefined,
+    },
     { label: "Pending", value: pending },
     { label: "Seen", value: seen },
     { label: "Approved", value: approved },
@@ -339,7 +362,9 @@ function PartnerPortalDashboard() {
               key={card.label}
               className="flex min-h-[100px] w-full flex-col rounded-[10px] bg-white p-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] lg:min-h-[116px]"
             >
-              <p className="text-[13px] font-medium tracking-[0.4px] text-[#5C6470] sm:text-[14px]">{card.label}</p>
+              <p className="text-[13px] font-medium tracking-[0.4px] text-[#5C6470] sm:text-[14px]">
+                {card.label}
+              </p>
               <p className="mt-2 font-space-grotesk text-[28px] font-bold leading-none text-[#1B2432] sm:mt-2.5 sm:text-[36px] sm:leading-9">
                 {card.value}
               </p>
@@ -416,7 +441,7 @@ function PartnerPortalDashboard() {
             {/* Mobile cards — Figma 294:8644 (with the design's per-card action menu) */}
             <div className="flex flex-col gap-3 lg:hidden">
               {filteredRequests.map((r) => {
-                const uiStatus = toPartnerStatus(r.status);
+                const uiStatus = toPartnerStatus(r);
                 return (
                   <div
                     key={r.id}
@@ -429,7 +454,9 @@ function PartnerPortalDashboard() {
                     className="cursor-pointer rounded-[10px] border border-[#E2E5E9] bg-white p-4 text-left shadow-[0px_4px_10px_rgba(0,0,0,0.05)]"
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <span className="text-[11px] font-medium text-[#8E95A1]">{formatTripDate(r.scheduledDate)}</span>
+                      <span className="text-[11px] font-medium text-[#8E95A1]">
+                        {formatTripDate(r.scheduledDate)}
+                      </span>
                       <div className="flex shrink-0 items-center gap-1">
                         <span
                           className={cn(
@@ -483,7 +510,22 @@ function PartnerPortalDashboard() {
                         </span>
                       </div>
                     </div>
-                    <p className="mb-3 text-[16px] font-semibold text-[#1B2432]">{r.customerConsignee || "—"}</p>
+                    <p className="mb-3 text-[16px] font-semibold text-[#1B2432]">
+                      {r.customerConsignee || "—"}
+                    </p>
+                    {/** Shula: the partner must SEE the request was returned and
+                        read the reason — a tooltip chip nobody hovers is how
+                        this flow ended up invisible. */}
+                    {r.partnerNote ? (
+                      <div className="mb-3 rounded-[8px] border border-[#F5B5AA] bg-[#FDECEA] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.4px] text-[#B42318]">
+                          Returned by the Transport Manager
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-[12.5px] text-[#7A271A]">
+                          {r.partnerNote}
+                        </p>
+                      </div>
+                    ) : null}
                     <dl className="grid gap-2 text-[13px]">
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Product</dt>
@@ -497,7 +539,9 @@ function PartnerPortalDashboard() {
                       </div>
                       <div className="grid grid-cols-[100px_1fr] gap-2">
                         <dt className="font-medium text-[#5C6470]">Destination</dt>
-                        <dd className="font-medium leading-snug text-[#1B2432]">{r.dropoff || "—"}</dd>
+                        <dd className="font-medium leading-snug text-[#1B2432]">
+                          {r.dropoff || "—"}
+                        </dd>
                       </div>
                       {/* The ID closes the card, exactly like the table. */}
                       <div className="grid grid-cols-[100px_1fr] gap-2">
@@ -529,7 +573,7 @@ function PartnerPortalDashboard() {
                   </thead>
                   <tbody>
                     {filteredRequests.map((r) => {
-                      const uiStatus = toPartnerStatus(r.status);
+                      const uiStatus = toPartnerStatus(r);
                       return (
                         <tr
                           key={r.id}
@@ -584,7 +628,9 @@ function PartnerPortalDashboard() {
                                   ...(isEditable(r.status)
                                     ? [
                                         {
-                                          label: r.partnerNote ? "Correct & Resend" : "Edit Request",
+                                          label: r.partnerNote
+                                            ? "Correct & Resend"
+                                            : "Edit Request",
                                           onSelect: () => openDetails(r, true),
                                         },
                                       ]
@@ -617,7 +663,9 @@ function PartnerPortalDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex w-full max-w-[490px] flex-col items-end gap-[15px] rounded-[10px] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
             <div className="w-full border-b border-[#E2E5E9]">
-              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Sort By</h3>
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+                Sort By
+              </h3>
             </div>
             <div className="flex w-full flex-col gap-1">
               {sortOptions.map((opt) => (
@@ -630,7 +678,9 @@ function PartnerPortalDashboard() {
               ))}
             </div>
             <div className="w-full border-b border-[#E2E5E9]">
-              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Order By</h3>
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+                Order By
+              </h3>
             </div>
             <div className="flex w-full flex-col gap-[5px]">
               {orderOptions.map((opt) => (
@@ -663,7 +713,11 @@ function PartnerPortalDashboard() {
               Are you sure you want to delete this request?
             </p>
             <div className="flex w-full justify-center gap-4">
-              <button type="button" onClick={() => setDeleteModalOpen(null)} className="h-10 flex-1 text-[14px] font-medium text-[#ED351D]">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(null)}
+                className="h-10 flex-1 text-[14px] font-medium text-[#ED351D]"
+              >
                 Cancel
               </button>
               <button

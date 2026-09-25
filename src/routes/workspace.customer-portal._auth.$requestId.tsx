@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Download, MapPin, Pencil, Share2, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Download,
+  MapPin,
+  Pencil,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
@@ -57,7 +66,8 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
   component: PartnerRequestDetailsPage,
 });
 
-type PartnerUiStatus = "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed";
+type PartnerUiStatus =
+  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
 
 /**
  * Split joined site strings so each site is its own field (Figma 356:9825).
@@ -73,14 +83,19 @@ function sitesToDrafts(sites: string[], saved: string[]): PartnerLoadingSiteDraf
   return sites.map((site) => loadingSiteDraftFor(site, saved, () => crypto.randomUUID()));
 }
 
-function toPartnerStatus(status: TripStatus): PartnerUiStatus {
+function toPartnerStatus(trip: {
+  status: TripStatus;
+  partnerNote?: string | null;
+}): PartnerUiStatus {
   // Partner semantics — mirrors status-buckets.toPartnerUiStatus, EXCEPT that
   // the TM's FIRST approval is only "Seen" (orange): the partner sees
   // "Approved" (green) only after the second/final approval (Scheduled).
-  switch (status) {
+  switch (trip.status) {
     case "Requested":
     case "Draft":
-      return "Pending";
+      // The TM sent this one back for correction — never read Pending again,
+      // the word for a request nobody has looked at yet.
+      return trip.partnerNote?.trim() ? "Returned" : "Pending";
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
@@ -97,10 +112,6 @@ function toPartnerStatus(status: TripStatus): PartnerUiStatus {
     case "Returning":
     case "Delayed":
       return "In transit";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
   }
 }
 
@@ -109,6 +120,9 @@ function partnerStatusClass(status: PartnerUiStatus) {
     case "Pending":
       // Amber needs dark text — white on #FC0 was barely legible.
       return "bg-[#FC0] text-[#1B2432]";
+    case "Returned":
+      // Red outline, not a fill: not dead (Declined) — waiting on the partner.
+      return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
     case "Approved":
@@ -204,10 +218,15 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
         ? "done"
         : "pending";
   const atDestination =
-    trip.status === "Offloading" ? "current" : ["Returning", "Completed"].includes(trip.status) ? "done" : "pending";
+    trip.status === "Offloading"
+      ? "current"
+      : ["Returning", "Completed"].includes(trip.status)
+        ? "done"
+        : "pending";
   const offloaded =
     trip.status === "Returning" ? "current" : trip.status === "Completed" ? "done" : "pending";
-  const returned = trip.status === "Completed" ? "done" : trip.status === "Returning" ? "current" : "pending";
+  const returned =
+    trip.status === "Completed" ? "done" : trip.status === "Returning" ? "current" : "pending";
 
   const steps: PartnerTimelineStep[] = [
     { label: "Request Submitted", state: "done", at: submittedAt },
@@ -236,7 +255,9 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
 function ReadonlyField({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-1.5">
-      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">{label}</span>
+      <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">
+        {label}
+      </span>
       <div className="flex min-h-10 w-full items-center rounded border border-[#E2E5E9] bg-[rgba(226,229,233,0.5)] px-3 text-[14px] tracking-[0.4px] text-[#5C6470] shadow-[0px_4px_10px_rgba(0,0,0,0.05)]">
         {value?.trim() ? value : "—"}
       </div>
@@ -346,7 +367,8 @@ function PartnerRequestDetailsPage() {
   // driver row, so matching by name recovers it end-to-end).
   useEffect(() => {
     let cancelled = false;
-    const assignedName = trip?.driverName && trip.driverName !== "Unassigned" ? trip.driverName.trim() : "";
+    const assignedName =
+      trip?.driverName && trip.driverName !== "Unassigned" ? trip.driverName.trim() : "";
     if (!trip?.driverId && !assignedName) {
       setDriverPhone("");
       return;
@@ -445,13 +467,17 @@ function PartnerRequestDetailsPage() {
       const logged = loggedAt.has(step.stage);
       if (!logged) return step;
       if (settled) return { ...step, state: "done" as const };
-      if (step.stage === latest && step.state === "pending") return { ...step, state: "current" as const };
+      if (step.stage === latest && step.state === "pending")
+        return { ...step, state: "current" as const };
       if (step.state === "pending") return { ...step, state: "done" as const };
       return step;
     });
   }, [trip, checkpoints]);
-  const uiStatus = trip ? toPartnerStatus(trip.status) : "Pending";
-  const truckParts = (trip?.truckReg || "").split(" / ").map((p) => p.trim()).filter(Boolean);
+  const uiStatus = trip ? toPartnerStatus(trip) : "Pending";
+  const truckParts = (trip?.truckReg || "")
+    .split(" / ")
+    .map((p) => p.trim())
+    .filter(Boolean);
   // Head = PLATE only (truckReg is "PLATE / TAILCODE" — never show the tail code
   // in the head row). Tail = its type, with its code as the serial.
   const truckHead =
@@ -468,14 +494,19 @@ function PartnerRequestDetailsPage() {
   const requestedTruckType = trip ? displayRequestedTruckType(trip) : "";
   const serial = humanCode(trip?.tailNumber) || "—";
   const hasAssignment = Boolean(
-    trip && (trip.driverId || (trip.driverName && trip.driverName !== "Unassigned") || trip.truckReg || trip.headId),
+    trip &&
+    (trip.driverId ||
+      (trip.driverName && trip.driverName !== "Unassigned") ||
+      trip.truckReg ||
+      trip.headId),
   );
   // Live map shows as soon as a truck/driver is assigned — not only once moving.
   // A dispatch the Transport Manager sent back is being reworked — the rejected
   // truck/driver must not be presented to the partner as their assignment.
   const sentBackForCorrection = Boolean(trip?.sendBackReason);
   const showLiveMap =
-    !sentBackForCorrection && (uiStatus === "In transit" || uiStatus === "Completed" || hasAssignment);
+    !sentBackForCorrection &&
+    (uiStatus === "In transit" || uiStatus === "Completed" || hasAssignment);
   const canConfirmArrival = trip
     ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
     : false;
@@ -582,7 +613,8 @@ function PartnerRequestDetailsPage() {
     destination: source.dropoff || "—",
     destinationAddress: source.dropoffAddress || undefined,
     loadingSites: tripLoadingSites(source),
-    driverName: source.driverName && source.driverName !== "Unassigned" ? source.driverName : undefined,
+    driverName:
+      source.driverName && source.driverName !== "Unassigned" ? source.driverName : undefined,
     driverPhone: driverPhone || undefined,
     truckHead: capPlate,
     truckTail: truckTail !== "—" ? truckTail : undefined,
@@ -635,7 +667,9 @@ function PartnerRequestDetailsPage() {
       ["Driver", trip.driverName || ""],
       ["Truck Head (Cap Number / Plate)", capPlate],
     ];
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     return { csv, base: displayRequestId(trip) };
   };
 
@@ -675,7 +709,10 @@ function PartnerRequestDetailsPage() {
         </div>
       ) : !trip ? (
         <div className="p-8">
-          <FigmaEmptyState title="Request not found" body="We couldn't find this request. It may have been removed or the link is incorrect." />
+          <FigmaEmptyState
+            title="Request not found"
+            body="We couldn't find this request. It may have been removed or the link is incorrect."
+          />
           <Link
             to="/workspace/customer-portal/dashboard"
             className="mt-4 inline-flex text-[14px] font-medium text-[#ED351D]"
@@ -694,7 +731,9 @@ function PartnerRequestDetailsPage() {
           </Link>
 
           <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Ticket {displayRequestId(trip)}</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              Ticket {displayRequestId(trip)}
+            </h2>
             <div className="flex flex-wrap items-center gap-3 sm:gap-[30px]">
               {canModify ? (
                 <button
@@ -752,7 +791,8 @@ function PartnerRequestDetailsPage() {
               </p>
               <p className="mt-1 text-[14px] text-[#7A271A]">{trip.partnerNote}</p>
               <p className="mt-1 text-[12px] text-[#7A271A]/80">
-                Correct the details below and save — this stays the same request, nothing has to be raised again.
+                Correct the details below and save — this stays the same request, nothing has to be
+                raised again.
               </p>
             </div>
           ) : null}
@@ -761,7 +801,9 @@ function PartnerRequestDetailsPage() {
             {/* Request Details — Figma 356:9825 */}
             <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
               <div className="mb-4 flex w-full items-center justify-between border-b border-[#E2E5E9] py-2">
-                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Details</h3>
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Request Details
+                </h3>
                 <span
                   className={cn(
                     "inline-flex h-[22px] min-w-[77px] items-center justify-center rounded px-3 text-[12px]",
@@ -823,7 +865,8 @@ function PartnerRequestDetailsPage() {
                       Awaiting Assignment
                     </p>
                     <p className="text-[10px] font-medium leading-normal text-[rgba(92,100,112,0.3)]">
-                      Live tracking will begin once a truck has been assigned and the request is approved.
+                      Live tracking will begin once a truck has been assigned and the request is
+                      approved.
                     </p>
                   </div>
                 )}
@@ -839,7 +882,9 @@ function PartnerRequestDetailsPage() {
             {/* Assignment Details */}
             <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-[15px] shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
               <div className="mb-4 w-full border-b border-[#E2E5E9] py-2">
-                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Assignment Details</h3>
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Assignment Details
+                </h3>
               </div>
               {trip.status === "Requested" ||
               trip.status === "Awaiting Approval" ||
@@ -857,7 +902,9 @@ function PartnerRequestDetailsPage() {
                 <div className="flex flex-col gap-5">
                   <ReadonlyField
                     label="Driver Name"
-                    value={trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : "—"}
+                    value={
+                      trip.driverName && trip.driverName !== "Unassigned" ? trip.driverName : "—"
+                    }
                   />
                   <ReadonlyField label="Driver Phone Number" value={driverPhone || "—"} />
                   <ReadonlyField label="Truck Head (Cap Number / Plate)" value={capPlate} />
@@ -867,11 +914,16 @@ function PartnerRequestDetailsPage() {
                       truck was booked for and when the cargo is expected back. */}
                   {trip.estimatedDays ? (
                     <>
-                      <ReadonlyField label="Trip Duration" value={formatTripDuration(trip.estimatedDays)} />
+                      <ReadonlyField
+                        label="Trip Duration"
+                        value={formatTripDuration(trip.estimatedDays)}
+                      />
                       <ReadonlyField
                         label="Expected Return"
                         value={
-                          expectedReturnAt(trip) ? stampLabel(expectedReturnAt(trip)!.toISOString()) || "—" : "—"
+                          expectedReturnAt(trip)
+                            ? stampLabel(expectedReturnAt(trip)!.toISOString()) || "—"
+                            : "—"
                         }
                       />
                     </>
@@ -884,7 +936,9 @@ function PartnerRequestDetailsPage() {
             {/* Request Timeline */}
             <section className="w-full min-w-0 rounded-[10px] border border-[#E2E5E9] bg-white px-5 py-2.5 shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)] sm:px-[30px]">
               <div className="mb-5 w-full border-b border-[#E2E5E9] py-2">
-                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Request Timeline</h3>
+                <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Request Timeline
+                </h3>
               </div>
               <div className="relative flex flex-col gap-5 pb-4">
                 <div className="absolute bottom-6 left-[9px] top-2 w-px bg-[#E2E5E9]" />
@@ -935,7 +989,9 @@ function PartnerRequestDetailsPage() {
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
                         <div className="flex flex-wrap items-center gap-3">
-                          <p className={cn("text-[14px] font-normal tracking-[0.4px]", labelClass)}>{step.label}</p>
+                          <p className={cn("text-[14px] font-normal tracking-[0.4px]", labelClass)}>
+                            {step.label}
+                          </p>
                           {isDestination && canConfirmArrival ? (
                             <button
                               type="button"
@@ -948,11 +1004,14 @@ function PartnerRequestDetailsPage() {
                           ) : null}
                         </div>
                         {stepStamp ? (
-                          <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">{stepStamp}</p>
+                          <p className="text-[10px] font-normal text-[rgba(92,100,112,0.6)]">
+                            {stepStamp}
+                          </p>
                         ) : null}
                         {siteTotal > 0 ? (
                           <p className="text-[10px] font-medium text-[#5C6470]">
-                            {loggedDots.length} of {siteTotal} site{siteTotal === 1 ? "" : "s"} loaded
+                            {loggedDots.length} of {siteTotal} site{siteTotal === 1 ? "" : "s"}{" "}
+                            loaded
                           </p>
                         ) : null}
                         {dots.length > 0 && (
@@ -1017,9 +1076,12 @@ function PartnerRequestDetailsPage() {
             {chatThread ? (
               <section className="flex w-full min-w-0 flex-col overflow-hidden rounded-[10px] border border-white bg-white shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_16px_rgba(12,12,13,0.1)]">
                 <div className="w-full border-b border-[#E2E5E9] px-5 py-2.5 sm:px-[30px]">
-                  <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">Messages</h3>
+                  <h3 className="text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                    Messages
+                  </h3>
                   <p className="text-[12px] tracking-[0.4px] text-[#5C6470]">
-                    Talk to the Transport Manager, Fleet Operations and Tracking about this dispatch.
+                    Talk to the Transport Manager, Fleet Operations and Tracking about this
+                    dispatch.
                   </p>
                 </div>
                 <div className="p-5 sm:px-[30px]">
@@ -1041,12 +1103,16 @@ function PartnerRequestDetailsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[90vh] w-full max-w-[490px] flex-col gap-[15px] overflow-y-auto rounded-[10px] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)]">
             <div className="w-full border-b border-[#E2E5E9]">
-              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">Modify Request</h3>
+              <h3 className="h-8 text-[16px] font-semibold tracking-[0.4px] text-[#ED351D]">
+                Modify Request
+              </h3>
             </div>
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Customer Name</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Customer Name
+                </span>
                 <input
                   value={draftCustomer}
                   onChange={(e) => setDraftCustomer(e.target.value)}
@@ -1057,7 +1123,9 @@ function PartnerRequestDetailsPage() {
               {/* Figma Partner Request Details: Product + Truck Type share one row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
                 <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Product</span>
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                    Product
+                  </span>
                   <input
                     value={draftProduct}
                     onChange={(e) => setDraftProduct(e.target.value)}
@@ -1065,8 +1133,15 @@ function PartnerRequestDetailsPage() {
                   />
                 </div>
 
-                <div className={cn("relative flex min-w-0 flex-col gap-1.5", truckDropdownOpen ? "z-40" : "z-10")}>
-                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Truck Type</span>
+                <div
+                  className={cn(
+                    "relative flex min-w-0 flex-col gap-1.5",
+                    truckDropdownOpen ? "z-40" : "z-10",
+                  )}
+                >
+                  <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                    Truck Type
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1092,7 +1167,9 @@ function PartnerRequestDetailsPage() {
                           }}
                           className={cn(
                             "w-full px-3 py-2.5 text-left text-[14px]",
-                            draftTruckType === opt ? "bg-[#ED351D] text-white" : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                            draftTruckType === opt
+                              ? "bg-[#ED351D] text-white"
+                              : "text-[#1B2432] hover:bg-[#F1F2F4]",
                           )}
                         >
                           {opt}
@@ -1104,7 +1181,9 @@ function PartnerRequestDetailsPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Destination</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Destination
+                </span>
                 <input
                   value={draftDestination}
                   onChange={(e) => setDraftDestination(e.target.value)}
@@ -1125,12 +1204,13 @@ function PartnerRequestDetailsPage() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Select Loading Site</span>
+                <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Select Loading Site
+                </span>
                 {draftSites.map((site, index) => {
-                  const display =
-                    isAddingLoadingSite(site.type)
-                      ? site.customValue.trim() || ADD_LOADING_SITE_LABEL
-                      : site.type || "Select";
+                  const display = isAddingLoadingSite(site.type)
+                    ? site.customValue.trim() || ADD_LOADING_SITE_LABEL
+                    : site.type || "Select";
                   return (
                     <div
                       key={site.id}
@@ -1148,13 +1228,17 @@ function PartnerRequestDetailsPage() {
                           }}
                           className={cn(inputClass, "flex-1 justify-between")}
                         >
-                          <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>{display}</span>
+                          <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>
+                            {display}
+                          </span>
                           <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
                         </button>
                         {draftSites.length > 1 ? (
                           <button
                             type="button"
-                            onClick={() => setDraftSites((prev) => prev.filter((_, i) => i !== index))}
+                            onClick={() =>
+                              setDraftSites((prev) => prev.filter((_, i) => i !== index))
+                            }
                             className="rounded p-2 hover:bg-black/5"
                             aria-label="Remove loading site"
                           >
@@ -1183,7 +1267,9 @@ function PartnerRequestDetailsPage() {
                                         ? {
                                             id: s.id,
                                             type: opt,
-                                            customValue: isAddingLoadingSite(opt) ? s.customValue : "",
+                                            customValue: isAddingLoadingSite(opt)
+                                              ? s.customValue
+                                              : "",
                                           }
                                         : s,
                                     ),
@@ -1211,7 +1297,9 @@ function PartnerRequestDetailsPage() {
                           value={site.customValue}
                           onChange={(e) =>
                             setDraftSites((prev) =>
-                              prev.map((s, i) => (i === index ? { ...s, customValue: e.target.value } : s)),
+                              prev.map((s, i) =>
+                                i === index ? { ...s, customValue: e.target.value } : s,
+                              ),
                             )
                           }
                           placeholder="Enter loading site name"
