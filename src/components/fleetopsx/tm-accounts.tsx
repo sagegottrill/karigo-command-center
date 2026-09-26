@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   BarChart3,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
@@ -38,6 +39,7 @@ import {
   inWindow,
   resolvePeriod,
   useCustomRange,
+  windowLabel,
 } from "@/lib/fleetopsx/report-kit";
 import {
   accountService,
@@ -46,7 +48,7 @@ import {
   inventoryService,
   tripService,
 } from "@/lib/fleetopsx/services";
-import { costTotal, dayLabel, money, sheetOf } from "@/lib/fleetopsx/direct-costs";
+import { costTotal, dayLabel, money, sheetOf, truckDetails } from "@/lib/fleetopsx/direct-costs";
 import type { Expense, InventoryMovement, TruckHead, WorkOrder, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -638,9 +640,8 @@ function DepreciationBoard({ heads, loading }: { heads: TruckHead[]; loading: bo
  * dispatches, so income sits at zero and the charts light up expense-first.
  * When revenue starts landing on trips, the same bars fill without a code
  * change.
- */
-
-const MONTH_GRID = "grid min-w-[720px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] items-center gap-3";
+ */ const MONTH_GRID =
+  "grid min-w-[880px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr] items-center gap-3";
 
 /** A slice under one percent reads "<1%", never "0%". */
 const percentOf = (share: number, total: number) => {
@@ -681,65 +682,169 @@ type MoneyPoint = {
   net: number;
 };
 
-/** The backwards month axis — oldest first, current month last. */
-function monthAxis(now: Date, count: number) {
-  return Array.from({ length: count }, (_, index) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
+/** The month axis — oldest first, current month last, each with its span. */
+function monthAxis(now: Date, monthsBack: number) {
+  return Array.from({ length: Math.max(1, monthsBack) }, (_, index) => {
+    const d = new Date(
+      now.getFullYear(),
+      now.getMonth() - (Math.max(1, monthsBack) - 1 - index),
+      1,
+    );
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
     return {
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      from: d.getTime(),
+      to: end.getTime(),
       label: `${d.toLocaleDateString("en-GB", { month: "short" })} '${String(d.getFullYear()).slice(2)}`,
     };
   });
 }
 
-function buildMoneySeries(trips: Trip[], indirect: IndirectRow[], monthsBack: number) {
-  const axis = monthAxis(new Date(), monthsBack);
+/** The week axis — the last `weeksBack` calendar weeks (Mon-anchored). */
+function weekAxis(now: Date, weeksBack: number) {
+  const weeks = Math.max(1, weeksBack);
+  return Array.from({ length: weeks }, (_, index) => {
+    const anchor = new Date(now);
+    anchor.setDate(anchor.getDate() - 7 * (weeks - 1 - index));
+    const start = new Date(anchor);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    return {
+      key: start.toISOString().slice(0, 10),
+      from: start.getTime(),
+      to: end.getTime() + 86_399_999,
+      label: `${fmt(start)}–${fmt(end)}`,
+    };
+  });
+}
+
+function emptyPoint(label: string): MoneyPoint {
+  return { label, income: 0, expenses: 0, direct: 0, inflow: 0, outflow: 0, net: 0 };
+}
+
+/**
+ * The money series over one window, bucketed by grain.
+ *
+ * `includeTruck` (the truck focus) and `includeRow` (the category chips)
+ * carry the FILTERS into the arithmetic: a filtered series is the truth for
+ * that selection, and every chart on the board reads the same series.
+ */
+function buildMoneySeries(
+  trips: Trip[],
+  indirect: IndirectRow[],
+  options: {
+    grain: "month" | "week";
+    monthsBack: number;
+    weeksBack: number;
+    from: Date | null;
+    to: Date | null;
+    focusTruck: string | null;
+    /** Which stream the series reads: all, direct-only, or indirect-only. */
+    stream: "all" | "direct" | "indirect";
+    includeRow: (row: IndirectRow) => boolean;
+  },
+) {
+  const { grain, monthsBack, weeksBack, from, to, focusTruck, stream, includeRow } = options;
+  const axis =
+    grain === "week" ? weekAxis(new Date(), weeksBack) : monthAxis(new Date(), monthsBack);
   const buckets = new Map<string, MoneyPoint>(
-    axis.map((month) => [
-      month.key,
-      { label: month.label, income: 0, expenses: 0, direct: 0, inflow: 0, outflow: 0, net: 0 },
-    ]),
+    axis.map((slot) => [slot.key, emptyPoint(slot.label)]),
   );
+  const monthKeys = new Set(grain === "month" ? axis.map((slot) => slot.key) : []);
+
+  const inScope = (stamp: string | Date | null | undefined) => {
+    const t = new Date(String(stamp ?? "")).getTime();
+    if (Number.isNaN(t)) return false;
+    if (from && t < from.getTime()) return false;
+    if (to && t > to.getTime()) return false;
+    return true;
+  };
+
+  const tripMatches = (trip: Trip) => {
+    if (!inScope(trip.createdAt)) return false;
+    if (!focusTruck) return true;
+    return truckDetails(trip) === focusTruck;
+  };
 
   for (const trip of trips) {
-    const created = monthKeyOfDate(trip.createdAt);
-    const createdPoint = created ? buckets.get(created) : undefined;
-    if (!createdPoint) continue;
+    // Indirect-only selection: the dispatch sheets are the direct stream.
+    if (stream === "indirect") break;
+    if (!tripMatches(trip)) continue;
     const sheet = sheetOf(trip);
     const total = costTotal(sheet);
-    // Accrual: the dispatch's worth and its cost sheet, at the moment raised.
-    createdPoint.income += Number(trip.revenue ?? 0);
-    createdPoint.expenses += total;
-    createdPoint.direct += total;
+    const created = monthKeyOfDate(trip.createdAt);
+    const createdKey =
+      grain === "month"
+        ? created && monthKeys.has(created)
+          ? created
+          : null
+        : (axis.find((slot) => {
+            const t = new Date(String(trip.createdAt)).getTime();
+            return t >= slot.from && t <= slot.to;
+          })?.key ?? null);
+    const createdPoint = createdKey ? buckets.get(createdKey) : undefined;
+    if (createdPoint) {
+      // Accrual: the dispatch's worth and its cost sheet, at the moment raised.
+      createdPoint.income += Number(trip.revenue ?? 0);
+      createdPoint.expenses += total;
+      createdPoint.direct += total;
+    }
     // Cash in: what Accounts recorded as paid, at the stamp they wrote.
     const paidAt = monthKeyOfDate(sheet.disbursement?.at ?? null);
-    if (sheet.disbursement?.status && paidAt && buckets.has(paidAt)) {
-      const paid = buckets.get(paidAt)!;
-      paid.inflow += total; // the money that reached the operation
-      paid.outflow += total; // and left again, onto the truck — net zero
+    const paidKey =
+      grain === "month"
+        ? paidAt && monthKeys.has(paidAt)
+          ? paidAt
+          : null
+        : (axis.find((slot) => {
+            const t = new Date(String(sheet.disbursement?.at)).getTime();
+            return t >= slot.from && t <= slot.to;
+          })?.key ?? null);
+    if (sheet.disbursement?.status && paidKey) {
+      const paid = buckets.get(paidKey);
+      if (paid) {
+        paid.inflow += total; // the money that reached the operation
+        paid.outflow += total; // and left again, onto the truck — net zero
+      }
     }
   }
 
   for (const row of indirect) {
-    const at = monthKeyOfDate(row.date);
-    const point = at ? buckets.get(at) : undefined;
+    // Direct-only selection: the indirect ledgers are the other stream.
+    if (stream === "direct") continue;
+    if (!includeRow(row) || !inScope(row.date)) continue;
+    if (focusTruck && row.truck !== focusTruck) continue;
+    const stamped = monthKeyOfDate(row.date);
+    const key =
+      grain === "month"
+        ? stamped && monthKeys.has(stamped)
+          ? stamped
+          : null
+        : (axis.find((slot) => {
+            const t = new Date(String(row.date)).getTime();
+            return t >= slot.from && t <= slot.to;
+          })?.key ?? null);
+    const point = key ? buckets.get(key) : undefined;
     if (!point) continue;
     point.expenses += row.amount;
     point.outflow += row.amount;
   }
 
-  const series = axis.map((month) => {
-    const point = buckets.get(month.key)!;
+  const series = axis.map((slot) => {
+    const point = buckets.get(slot.key)!;
     point.net = point.inflow - point.outflow;
     return point;
   });
 
-  // The donut's slices: direct vs each indirect category, biggest first, and
-  // anything past the fourth slice folds into "Other" the way the mock does.
+  // The donut's slices over the FILTERED rows: direct vs each indirect
+  // category, biggest first, past the fifth folded into "Other".
   const perCategory = new Map<string, number>();
   for (const row of indirect) {
-    const at = monthKeyOfDate(row.date);
-    if (!at || !buckets.has(at)) continue;
+    if (stream === "direct") continue;
+    if (!includeRow(row) || !inScope(row.date)) continue;
+    if (focusTruck && row.truck !== focusTruck) continue;
     perCategory.set(row.category, (perCategory.get(row.category) ?? 0) + row.amount);
   }
   const directTotal = series.reduce((sum, point) => sum + point.direct, 0);
@@ -764,15 +869,100 @@ function buildMoneySeries(trips: Trip[], indirect: IndirectRow[], monthsBack: nu
   return { series, slices, netTotal };
 }
 
+/** One window's headline totals, for the summary strip and the delta chips. */
+function totalsOf(series: MoneyPoint[]) {
+  return {
+    income: series.reduce((sum, point) => sum + point.income, 0),
+    expenses: series.reduce((sum, point) => sum + point.expenses, 0),
+    inflow: series.reduce((sum, point) => sum + point.inflow, 0),
+    outflow: series.reduce((sum, point) => sum + point.outflow, 0),
+    net: series.reduce((sum, point) => sum + point.net, 0),
+  };
+}
+
+/** The window immediately BEFORE the selected one, same length. */
+function previousWindow(
+  from: Date | null,
+  to: Date | null,
+  monthsBack: number,
+  weeksBack: number,
+  grain: "month" | "week",
+) {
+  const now = new Date();
+  if (from && to) {
+    const span = to.getTime() - from.getTime();
+    return {
+      from: new Date(from.getTime() - span - 1),
+      to: new Date(from.getTime() - 1),
+    };
+  }
+  if (grain === "week") {
+    const weeks = Math.max(1, weeksBack);
+    const end = new Date(now);
+    end.setDate(end.getDate() - 7 * weeks);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 7 * weeks + 1);
+    return { from: start, to: end };
+  }
+  const months = Math.max(1, monthsBack);
+  return {
+    from: new Date(now.getFullYear(), now.getMonth() - 2 * months + 1, 1),
+    to: new Date(now.getFullYear(), now.getMonth() - months + 1, 0, 23, 59, 59, 999),
+  };
+}
+
+/** The derived chip: which way the headline moved vs the previous window. */
+function DeltaChip({
+  current,
+  previous,
+  betterWhenUp,
+}: {
+  current: number;
+  previous: number;
+  /** Expenses read better when they fall; income and net when they rise. */
+  betterWhenUp: boolean;
+}) {
+  if (current === 0 && previous === 0) return null;
+  const delta = current - previous;
+  const up = delta > 0;
+  const good = betterWhenUp ? up : !up;
+  const percent =
+    previous === 0 ? null : Math.min(999, Math.round((Math.abs(delta) / Math.abs(previous)) * 100));
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-[4px] px-2 py-0.5 text-[11px] font-bold",
+        delta === 0
+          ? "bg-[#F1F2F4] text-[#5C6470]"
+          : good
+            ? "bg-[#EAF7F1] text-[#0A7F58]"
+            : "bg-[#FDEAE7] text-[#ED351D]",
+      )}
+    >
+      {delta === 0 ? null : up ? (
+        <ArrowUpRight className="size-3" />
+      ) : (
+        <ArrowDownRight className="size-3" />
+      )}
+      {shortNaira(Math.abs(delta))}
+      {percent !== null ? ` · ${percent}%` : ""}
+      <span className="font-medium opacity-70">vs prev.</span>
+    </span>
+  );
+}
+
 function ChartCard({
   title,
   basis,
   badge,
+  chip,
   children,
 }: {
   title: string;
   basis: string;
   badge?: string;
+  /** A derived signal beside the title — the previous-period delta. */
+  chip?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -786,6 +976,7 @@ function ChartCard({
                 {badge}
               </span>
             ) : null}
+            {chip}
           </h3>
           <p className="mt-0.5 text-[12.5px] text-[#5C6470]">{basis}</p>
         </div>
@@ -836,9 +1027,9 @@ const TOOLTIP_STYLE = {
   boxShadow: "0px 8px 24px rgba(12,12,13,0.12)",
 } as const;
 
-function ProfitLossCard({ data }: { data: MoneyPoint[] }) {
+function ProfitLossCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }) {
   return (
-    <ChartCard title="Profit and Loss" basis="Accrual (paid & unpaid)">
+    <ChartCard title="Profit and Loss" basis="Accrual (paid & unpaid)" chip={chip}>
       <div className="mb-2 flex items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Income" />
         <HatchLegend label="Expenses" />
@@ -890,12 +1081,18 @@ function ProfitLossCard({ data }: { data: MoneyPoint[] }) {
 
 const DONUT_PALETTE = ["#1B2432", "#5C6470", "#9AA5B1", "#C6CDD5", "#E2E5E9"];
 
-function BreakdownDonutCard({ slices }: { slices: Array<{ label: string; amount: number }> }) {
+function BreakdownDonutCard({
+  slices,
+  basis,
+}: {
+  slices: Array<{ label: string; amount: number }>;
+  basis?: string;
+}) {
   const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
   return (
     <ChartCard
       title="Expenses Breakdown"
-      basis="Direct and indirect, this period"
+      basis={basis ?? "Direct and indirect, this period"}
       badge="Live data"
     >
       {total > 0 ? (
@@ -970,9 +1167,9 @@ function BreakdownDonutCard({ slices }: { slices: Array<{ label: string; amount:
   );
 }
 
-function CashFlowCard({ data }: { data: MoneyPoint[] }) {
+function CashFlowCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }) {
   return (
-    <ChartCard title="Cash Flow" basis="Always displays cash basis (paid)">
+    <ChartCard title="Cash Flow" basis="Always displays cash basis (paid)" chip={chip}>
       <div className="mb-2 flex flex-wrap items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Inflow" />
         <HatchLegend label="Outflow" />
@@ -1037,23 +1234,114 @@ function CashFlowCard({ data }: { data: MoneyPoint[] }) {
   );
 }
 
+const selectClass =
+  "h-10 rounded-[6px] border border-[#E2E5E9] bg-white px-3 text-[13.5px] text-[#1B2432] outline-none focus:border-[#1B2432]";
+
+const STREAMS = ["All money", "Direct", "Indirect"] as const;
+const GRAINS = ["Monthly", "Weekly"] as const;
+
 function AnalyticsBoard({
   trips,
   indirectRows,
+  trucks,
   loading,
 }: {
   trips: Trip[];
   indirectRows: IndirectRow[];
+  trucks: string[];
   loading: boolean;
 }) {
-  const [periodFilter, setPeriodFilter] = useState("Last 12 months");
-  const monthsBack =
-    periodFilter === "Last 3 months" ? 3 : periodFilter === "Last 6 months" ? 6 : 12;
+  /* ---- the filter rack: everything below reads these five ---------- */
+  const [periodFilter, setPeriodFilter] = useState("All time");
+  const [grain, setGrain] = useState<(typeof GRAINS)[number]>("Monthly");
+  const [stream, setStream] = useState<(typeof STREAMS)[number]>("All money");
+  const [focusTruck, setFocusTruck] = useState("All trucks");
+  const [categories, setCategories] = useState<Set<string>>(new Set());
+  const rangeCustom = useCustomRange();
 
-  const { series, slices, netTotal } = useMemo(
-    () => buildMoneySeries(trips, indirectRows, monthsBack),
-    [trips, indirectRows, monthsBack],
+  const monthsBack = 12;
+  const weeksBack = 12;
+
+  /** The window: presets through the shared resolver, Custom through the pair. */
+  const window = useMemo(() => {
+    const resolved = resolvePeriod(periodFilter, rangeCustom.custom);
+    if (periodFilter === "All time" || !resolved) return { from: null, to: null, resolved: null };
+    return { from: resolved.from, to: resolved.to, resolved };
+  }, [periodFilter, rangeCustom.custom]);
+
+  const includeRow = useCallback(
+    (row: IndirectRow) => {
+      if (stream === "Direct") return false;
+      if (categories.size > 0 && !categories.has(row.category)) return false;
+      return true;
+    },
+    [stream, categories],
   );
+
+  const focus = focusTruck === "All trucks" ? null : focusTruck;
+
+  const current = useMemo(
+    () =>
+      buildMoneySeries(trips, indirectRows, {
+        grain: grain === "Weekly" ? "week" : "month",
+        monthsBack,
+        weeksBack,
+        from: window.from,
+        to: window.to,
+        focusTruck: focus,
+        stream: stream === "Direct" ? "direct" : stream === "Indirect" ? "indirect" : "all",
+        includeRow,
+      }),
+    [trips, indirectRows, grain, window.from, window.to, focus, stream, includeRow],
+  );
+
+  /** The window immediately before the selection, same filters — the deltas. */
+  const previous = useMemo(() => {
+    const span = previousWindow(
+      window.from,
+      window.to,
+      monthsBack,
+      weeksBack,
+      grain === "Weekly" ? "week" : "month",
+    );
+    return totalsOf(
+      buildMoneySeries(trips, indirectRows, {
+        grain: grain === "Weekly" ? "week" : "month",
+        monthsBack,
+        weeksBack,
+        from: span.from,
+        to: span.to,
+        focusTruck: focus,
+        stream: stream === "Direct" ? "direct" : stream === "Indirect" ? "indirect" : "all",
+        includeRow,
+      }).series,
+    );
+  }, [trips, indirectRows, grain, window.from, window.to, focus, stream, includeRow]);
+
+  const totals = totalsOf(current.series);
+  const filtersActive =
+    periodFilter !== "All time" ||
+    grain !== "Monthly" ||
+    stream !== "All money" ||
+    focus !== null ||
+    categories.size > 0;
+
+  const resetFilters = () => {
+    setPeriodFilter("All time");
+    setGrain("Monthly");
+    setStream("All money");
+    setFocusTruck("All trucks");
+    setCategories(new Set());
+    rangeCustom.clear();
+  };
+
+  const toggleCategory = (category: string) =>
+    setCategories((set) => {
+      const next = new Set(set);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
 
   return (
     <div className={PAGE_BG}>
@@ -1062,25 +1350,130 @@ function AnalyticsBoard({
           Analytics
         </h2>
         <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-          The department's money as pictures — profit and loss, what the spend is made of, and how
-          cash actually moved.
+          The department's money as pictures — every chart reads the same filtered figures, so the
+          pictures can never disagree.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative flex h-11 w-full items-center md:w-[280px]">
-          <select
+      {/* The filter rack. */}
+      <div className="flex flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodFilter
             value={periodFilter}
-            onChange={(e) => setPeriodFilter(e.target.value)}
-            className="h-11 w-full appearance-none rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[14px] font-medium text-[#1B2432] outline-none focus:border-[#1B2432]"
+            onChange={(v) => setPeriodFilter(v)}
+            custom={rangeCustom.custom}
+            customOpen={rangeCustom.open}
+            onToggleCustom={rangeCustom.setOpen}
           >
-            {["Last 3 months", "Last 6 months", "Last 12 months"].map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 size-4 text-[#5C6470]" />
-        </label>
+            <CustomRangePicker
+              custom={rangeCustom.custom}
+              onSet={rangeCustom.set}
+              onClear={rangeCustom.clear}
+            />
+          </PeriodFilter>
+
+          <label className="flex items-center gap-2 text-[12.5px] text-[#5C6470]">
+            Grain
+            <select
+              value={grain}
+              onChange={(e) => setGrain(e.target.value as (typeof GRAINS)[number])}
+              aria-label="Chart grain"
+              className={selectClass}
+            >
+              {GRAINS.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-[12.5px] text-[#5C6470]">
+            Stream
+            <select
+              value={stream}
+              onChange={(e) => setStream(e.target.value as (typeof STREAMS)[number])}
+              aria-label="Money stream"
+              className={selectClass}
+            >
+              {STREAMS.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-[12.5px] text-[#5C6470]">
+            Truck
+            <select
+              value={focusTruck}
+              onChange={(e) => setFocusTruck(e.target.value)}
+              aria-label="Truck focus"
+              className={cn(selectClass, "max-w-[220px]")}
+            >
+              <option>All trucks</option>
+              {trucks.map((truck) => (
+                <option key={truck}>{truck}</option>
+              ))}
+            </select>
+          </label>
+
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="h-10 rounded-[6px] border border-[#ED351D] px-3.5 text-[13px] font-semibold text-[#ED351D] hover:bg-[#FDEAE7]"
+            >
+              Reset filters
+            </button>
+          ) : null}
+        </div>
+
+        {/* The indirect categories as toggle chips — they steer the stream. */}
+        {stream !== "Direct" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">
+              Indirect
+            </span>
+            {INDIRECT_CATEGORIES.map((category) => {
+              const active = categories.has(category);
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => toggleCategory(category)}
+                  className={cn(
+                    "h-7 rounded-full border px-3 text-[12px] font-medium transition-colors",
+                    active
+                      ? "border-[#1B2432] bg-[#1B2432] text-white"
+                      : "border-[#E2E5E9] bg-white text-[#5C6470] hover:border-[#1B2432] hover:text-[#1B2432]",
+                  )}
+                >
+                  {category}
+                </button>
+              );
+            })}
+            {categories.size > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCategories(new Set())}
+                className="text-[12px] font-medium text-[#5C6470] underline hover:text-[#1B2432]"
+              >
+                clear
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+
+      {/* What the selection adds up to — over the FILTERED rows. */}
+      <SummaryBar
+        items={[
+          { label: "Window", value: windowLabel(periodFilter, window.resolved) },
+          { label: "Income (Revenue)", value: money(totals.income) },
+          { label: "Total Expenses", value: money(totals.expenses) },
+          { label: "Cash In", value: money(totals.inflow) },
+          { label: "Cash Out", value: money(totals.outflow) },
+          { label: "Net Position", value: money(totals.net) },
+        ]}
+      />
 
       {loading ? (
         <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
@@ -1088,10 +1481,33 @@ function AnalyticsBoard({
         </div>
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
-          <ProfitLossCard data={series} />
-          <BreakdownDonutCard slices={slices} />
+          <ProfitLossCard
+            data={current.series}
+            chip={
+              <DeltaChip
+                current={totals.expenses}
+                previous={previous.expenses}
+                betterWhenUp={false}
+              />
+            }
+          />
+          <BreakdownDonutCard
+            slices={current.slices}
+            basis={
+              focus
+                ? `Direct and indirect — ${focus}`
+                : stream === "Direct"
+                  ? "Direct costs, this period"
+                  : stream === "Indirect"
+                    ? "Indirect categories, this period"
+                    : "Direct and indirect, this period"
+            }
+          />
           <div className="xl:col-span-2">
-            <CashFlowCard data={series} />
+            <CashFlowCard
+              data={current.series}
+              chip={<DeltaChip current={totals.net} previous={previous.net} betterWhenUp={true} />}
+            />
           </div>
         </div>
       )}
@@ -1100,17 +1516,18 @@ function AnalyticsBoard({
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
-            Monthly Ledger
+            {grain === "Weekly" ? "Weekly Ledger" : "Monthly Ledger"}
           </h3>
           <button
             type="button"
             onClick={() =>
               exportCsv(
                 "accounts-analytics.csv",
-                ["Month", "Income (Revenue)", "Cash In", "Cash Out", "Net Change"],
-                series.map((point) => [
+                ["Period", "Income (Revenue)", "Expenses", "Cash In", "Cash Out", "Net Change"],
+                current.series.map((point) => [
                   point.label,
                   point.income,
+                  point.expenses,
                   point.inflow,
                   point.outflow,
                   point.net,
@@ -1129,19 +1546,22 @@ function AnalyticsBoard({
               "border-b border-[#E2E5E9] pb-3 text-[13.5px] font-semibold text-[#1B2432]",
             )}
           >
-            <span>Month</span>
+            <span>{grain === "Weekly" ? "Week" : "Month"}</span>
             <span className="text-right">Income (Revenue)</span>
+            <span className="text-right">Expenses</span>
             <span className="text-right">Cash In</span>
             <span className="text-right">Cash Out</span>
             <span className="text-right">Net Change</span>
           </div>
-          {series.every((point) => !point.income && !point.inflow && !point.outflow) ? (
+          {current.series.every(
+            (point) => !point.income && !point.expenses && !point.inflow && !point.outflow,
+          ) ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
-              No revenue or recorded payments in this window yet — income lights up as revenue is
-              recorded on dispatches, cash as Accounts records payments.
+              Nothing in this selection yet — widen the window, clear the truck focus or the
+              category chips, or wait for the ledgers to record money in it.
             </p>
           ) : null}
-          {series.map((point) => (
+          {current.series.map((point) => (
             <div
               key={point.label}
               className={cn(
@@ -1151,6 +1571,7 @@ function AnalyticsBoard({
             >
               <span className="font-medium text-[#1B2432]">{point.label}</span>
               <span className="text-right tabular-nums">{money(point.income)}</span>
+              <span className="text-right tabular-nums">{money(point.expenses)}</span>
               <span className="text-right tabular-nums">{money(point.inflow)}</span>
               <span className="text-right tabular-nums">{money(point.outflow)}</span>
               <span
@@ -1164,17 +1585,18 @@ function AnalyticsBoard({
             </div>
           ))}
           <div className={cn(MONTH_GRID, "pt-3.5 text-[13.5px] font-semibold text-[#1B2432]")}>
-            <span>Net position ({monthsBack} months)</span>
+            <span>Net position · {windowLabel(periodFilter, window.resolved)}</span>
+            <span />
             <span />
             <span />
             <span />
             <span
               className={cn(
                 "text-right tabular-nums",
-                netTotal < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
+                current.netTotal < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
               )}
             >
-              {money(netTotal)}
+              {money(current.netTotal)}
             </span>
           </div>
         </div>
@@ -1233,6 +1655,19 @@ export function TmAccounts() {
     [heads, movements, orders, expenses],
   );
 
+  /** The truck-focus options, as the boards label the trucks. */
+  const truckOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          heads.map((head) =>
+            head.capNumber ? `${head.capNumber} (${head.registration})` : head.registration,
+          ),
+        ),
+      ).sort(),
+    [heads],
+  );
+
   return (
     <>
       {/*
@@ -1251,7 +1686,12 @@ export function TmAccounts() {
         <DepreciationBoard heads={heads} loading={loading} />
       ) : null}
       {tab === "Analytics" ? (
-        <AnalyticsBoard trips={trips} indirectRows={indirectRows} loading={loading} />
+        <AnalyticsBoard
+          trips={trips}
+          indirectRows={indirectRows}
+          trucks={truckOptions}
+          loading={loading}
+        />
       ) : null}
     </>
   );
