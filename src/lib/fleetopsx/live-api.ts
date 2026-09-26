@@ -349,6 +349,7 @@ export function mapExpense(e: Record<string, unknown>): Expense {
     amount: Number(e.amount ?? 0),
     standardRate: Number(e.standardRate ?? e.amount ?? 0),
     tripId: String(e.tripId ?? ""),
+    description: String(e.description ?? ""),
     status: (e.status as ExpenseStatus) || "Pending",
     approvalLevel: String(e.approvalLevel ?? e.department ?? "Accounts"),
     date: String(e.date ?? e.createdAt ?? ""),

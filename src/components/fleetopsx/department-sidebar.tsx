@@ -406,6 +406,49 @@ export function DepartmentTabs({ department }: { department: DepartmentKey }) {
   );
 }
 
+/**
+ * A department's boards as a tab strip, driven by state instead of routes.
+ *
+ * `DepartmentTabs` above reads the path — it serves departments whose modules
+ * are separate pages. Some departments (Accounts) hold their boards on ONE
+ * page and switch views on it, the way the reader sees it: tabs across the
+ * top, active one underlined red. Same visual language, no URLs involved.
+ */
+export function DepartmentTabStrip({
+  items,
+  active,
+  onSelect,
+}: {
+  items: Array<{ label: string; icon: typeof Users }>;
+  active: string;
+  onSelect: (label: string) => void;
+}) {
+  return (
+    <div className="flex w-full items-center gap-1 overflow-x-auto border-b border-[#E2E5E9] bg-white px-5 max-md:px-2">
+      {items.map((item) => {
+        const activeTab = item.label === active;
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => onSelect(item.label)}
+            className={cn(
+              "flex h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-[14px] tracking-[0.4px] transition-colors",
+              activeTab
+                ? "border-[#ED351D] font-medium text-[#ED351D]"
+                : "border-transparent text-[#5C6470] hover:text-[#1B2432]",
+            )}
+          >
+            <Icon className="size-4 shrink-0" strokeWidth={1.5} />
+            <span className="whitespace-nowrap">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DepartmentMobileNav({ department }: { department: DepartmentKey }) {
   const portal = DEPARTMENTS[department];
   const pathname = useRouterState({ select: (s) => s.location.pathname });

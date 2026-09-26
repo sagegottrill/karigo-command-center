@@ -466,6 +466,8 @@ export interface Expense {
   amount: number;
   standardRate: number;
   tripId: ID;
+  /** What the money was for — the server model's own description column. */
+  description?: string;
   status: ExpenseStatus;
   approvalLevel: string;
   date: string;

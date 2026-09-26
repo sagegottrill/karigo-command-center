@@ -1,14 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { TmVouchers } from "@/components/fleetopsx/tm-vouchers";
+import { TmAccounts } from "@/components/fleetopsx/tm-accounts";
 import { authService } from "@/lib/fleetopsx/services";
 
 /**
- * Accounts — Direct Cost Vouchers.
+ * Accounts — the Transport Manager's side of the money, one department.
  *
- * This path used to be a legacy Karigo redirect ("not shipped in current
- * portals"). It is now the department the Transport Manager authorises direct
- * disbursals from: one voucher per dispatch that carries a cost sheet, with his
- * approve or decline recorded against that dispatch (see TmVouchers).
+ * The page holds the department's boards as tabs, the way Engineering's three
+ * boards read under one department: Direct Expense (the per-dispatch cost
+ * sheets), Indirect Expense (spare parts, repairs & maintenance, tires & rims,
+ * other expenses) and Estimates & Depreciation (the standing assumptions).
  *
  * Guarded like every other module: the page exists for the roles that own the
  * money. The Accounts department's own side — paying and entering the bank
@@ -23,5 +23,5 @@ export const Route = createFileRoute("/workspace/app/accounts")({
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
-  component: TmVouchers,
+  component: TmAccounts,
 });
