@@ -35,21 +35,30 @@ function popupHtml(trip: Trip, status: string, color: string) {
   // The cap number leads, exactly as on the gate log and the TM's boards.
   const truck = displayCapPlateFromTrip(trip) || "—";
   const plate = displayPlateFromTrip(trip);
+  // Popup values are database text; Leaflet drops them into innerHTML, so each
+  // is HTML-escaped before interpolation.
+  const esc = (v: unknown) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   return `
     <div style="background-color: #1B2432; color: white; padding: 12px; border-radius: 8px; width: 260px; font-family: Inter, sans-serif;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-weight: 600; font-size: 13px;">${truck}</span>
+        <span style="font-weight: 600; font-size: 13px;">${esc(truck)}</span>
         <span style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: #d1d5db;">
           <span style="display: block; width: 8px; height: 8px; border-radius: 999px; background-color: ${color};"></span>
-          ${status}
+          ${esc(status)}
         </span>
       </div>
       <div style="display: grid; grid-template-columns: 80px 1fr; gap: 6px; font-size: 11px;">
         <span style="color: #9ca3af;">Registration:</span>
-        <span style="color: #f3f4f6; font-weight: 500;">${plate || "—"}</span>
+        <span style="color: #f3f4f6; font-weight: 500;">${esc(plate || "—")}</span>
         
         <span style="color: #9ca3af;">Driver:</span>
-        <span style="color: #f3f4f6;">${trip.driverName || "—"}</span>
+        <span style="color: #f3f4f6;">${esc(trip.driverName || "—")}</span>
         
         <span style="color: #9ca3af;">Location:</span>
         <span style="color: #f3f4f6;">${mockAddress}</span>
@@ -89,7 +98,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       const layers = L.layerGroup().addTo(map);
       mapRef.current = map;
       layerRef.current = layers;
-      
+
       requestAnimationFrame(() => {
         map.invalidateSize();
         if (!cancelled) setMapReady(true);
@@ -119,7 +128,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       layers.clearLayers();
 
       // Ensure custom popup styles are injected for leaflet
-      const style = document.createElement('style');
+      const style = document.createElement("style");
       style.innerHTML = `
         .fleetopsx-custom-popup .leaflet-popup-content-wrapper {
           padding: 0;
@@ -140,28 +149,28 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       // Define some hardcoded points near Abuja to ensure they show up in the zoom
       const demoPoints: [number, number][] = [
         [9.0765, 7.3986],
-        [9.0820, 7.4100],
-        [9.0700, 7.3900],
-        [9.0850, 7.3850],
+        [9.082, 7.41],
+        [9.07, 7.39],
+        [9.085, 7.385],
       ];
 
       activeTrips.forEach((t, i) => {
         const point = demoPoints[i % demoPoints.length]!;
         const statusStr = getDelayStatus(t.status);
         const color = STATUS_COLOR[statusStr]!;
-        
+
         const icon = L.divIcon({
           className: "fleetopsx-map-marker",
           html: statusDot(color),
           iconSize: [16, 16],
           iconAnchor: [8, 8],
         });
-        
+
         L.marker(point, { icon })
           .addTo(layers)
           .bindPopup(popupHtml(t, statusStr, color), {
-            className: 'fleetopsx-custom-popup',
-            offset: [0, -10]
+            className: "fleetopsx-custom-popup",
+            offset: [0, -10],
           });
       });
 
@@ -197,8 +206,14 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
           </div>
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
             {Object.entries(STATUS_COLOR).map(([label, color]) => (
-              <div key={label} className="flex items-center gap-1.5 text-[11px] md:text-[12px] font-semibold text-[#5c6470]">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }}></span>
+              <div
+                key={label}
+                className="flex items-center gap-1.5 text-[11px] md:text-[12px] font-semibold text-[#5c6470]"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: color }}
+                ></span>
                 {label}
               </div>
             ))}

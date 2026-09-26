@@ -331,7 +331,9 @@ export function AuditDialog({
       {/* 750px — the design's audit modal is a narrow sheet, not a wide one. */}
       <div className="flex max-h-[90vh] w-full max-w-[750px] flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_24px_60px_-16px_rgba(12,12,13,0.45)]">
         <div className="flex items-start justify-between gap-4 bg-[#1B2432] px-6 py-4">
-          <h2 className="text-[18px] font-semibold leading-6 tracking-[0.2px] text-white">{title}</h2>
+          <h2 className="text-[18px] font-semibold leading-6 tracking-[0.2px] text-white">
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -381,8 +383,97 @@ export function AuditDialog({
   );
 }
 
+/**
+ * HTML-escape for anything the print sheet interpolates. Every value in a
+ * print row comes from a database field someone typed — a cargo description,
+ * a partner name, a driver — so a `<script>` or an `<img onerror>` typed into
+ * any of them must print as text, never run. Title and subtitle are escaped
+ * inside printSheet itself; row builders call `escHtml` on each value.
+ */
+export function escHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Allowlist-sanitize a print body before it is written into the print window.
+ *
+ * The row HTML arrives with database text interpolated into it — partner
+ * names, cargo descriptions, vendor notes — so a `<script>` or an
+ * `<img onerror>` typed into any of those fields must never survive into the
+ * about:blank window (which shares this app's origin). DOMParser does not
+ * execute anything during the parse; walking the tree keeps only the report
+ * markup and drops every other element (unwrapping its text) and every
+ * attribute except inline styles.
+ */
+function sanitizePrintBody(html: string): string {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return "";
+  const ALLOWED = new Set([
+    "TABLE",
+    "THEAD",
+    "TBODY",
+    "TFOOT",
+    "TR",
+    "TD",
+    "TH",
+    "CAPTION",
+    "COLGROUP",
+    "COL",
+    "P",
+    "STRONG",
+    "EM",
+    "B",
+    "I",
+    "U",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "BR",
+    "HR",
+    "DIV",
+    "SPAN",
+    "UL",
+    "OL",
+    "LI",
+  ]);
+  const stripAttributes = (el: Element) => {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.toLowerCase() !== "style") el.removeAttribute(attr.name);
+    }
+  };
+  const walk = (el: Element) => {
+    for (const child of Array.from(el.children)) {
+      if (!ALLOWED.has(child.tagName)) {
+        // Unwrap: keep the text, drop the element and its attributes.
+        const frag = doc.createDocumentFragment();
+        while (child.firstChild) frag.appendChild(child.firstChild);
+        child.replaceWith(frag);
+        walk(el); // the inserted children need the same treatment
+        return;
+      }
+      stripAttributes(child);
+      walk(child);
+    }
+  };
+  walk(root);
+  root
+    .querySelectorAll("script,style,iframe,object,embed,link,meta,base,form")
+    .forEach((el) => el.remove());
+  return root.innerHTML;
+}
+
 /** Opens a clean print sheet — same pattern the dispatch details page uses. */
-export function printSheet(title: string, subtitle: string, bodyHtml: string) {
+export function printSheet(rawTitle: string, rawSubtitle: string, bodyHtml: string) {
+  const title = escHtml(rawTitle);
+  const subtitle = escHtml(rawSubtitle);
+  const body = sanitizePrintBody(bodyHtml);
   const w = window.open("", "_blank", "width=900,height=1000");
   if (!w) return false;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>${title}</title>
@@ -400,8 +491,8 @@ export function printSheet(title: string, subtitle: string, bodyHtml: string) {
     @media print { body { margin: 12mm; } }
   </style></head><body>
     <h1>${title}</h1>
-    <div class="meta">${subtitle} &nbsp;|&nbsp; Printed ${new Date().toLocaleString("en-NG")}</div>
-    ${bodyHtml}
+    <div class="meta">${subtitle} &nbsp;|&nbsp; Printed ${escHtml(new Date().toLocaleString("en-NG"))}</div>
+    ${body}
     <script>window.onload = function () { window.print(); };</script>
   </body></html>`);
   w.document.close();

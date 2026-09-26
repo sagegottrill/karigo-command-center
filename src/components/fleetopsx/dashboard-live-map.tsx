@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { displayCapFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
-import { getTrackingDelayStatus, partnerOf, TRACKING_DELAY_COLOR } from "@/lib/fleetopsx/tracking-ops";
+import {
+  getTrackingDelayStatus,
+  partnerOf,
+  TRACKING_DELAY_COLOR,
+} from "@/lib/fleetopsx/tracking-ops";
 import "leaflet/dist/leaflet.css";
 
 /**
@@ -93,19 +97,28 @@ function popupHtml(trip: Trip, status: string, color: string, where: string) {
   const cap = displayCapFromTrip(trip);
   const plate = displayPlateFromTrip(trip);
   const truck = [cap, plate].filter(Boolean).join(" · ") || trip.truckReg || "—";
+  // Popup values are database text (driver names, partner names, destinations);
+  // Leaflet drops them into innerHTML, so each is HTML-escaped.
+  const esc = (v: unknown) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   const row = (label: string, value: string) =>
     value
       ? `<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:3px 0">
-           <span style="color:#9CA3AF">${label}</span>
-           <span style="color:#F3F4F6;font-weight:500;text-align:right">${value}</span>
+           <span style="color:#9CA3AF">${esc(label)}</span>
+           <span style="color:#F3F4F6;font-weight:500;text-align:right">${esc(value)}</span>
          </div>`
       : "";
   return `
     <div style="background:#1B2432;color:#fff;padding:12px;border-radius:8px;width:252px;font-family:Inter,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-weight:600;font-size:13px">${truck}</span>
+        <span style="font-weight:600;font-size:13px">${esc(truck)}</span>
         <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#D1D5DB;white-space:nowrap">
-          <span style="display:block;width:8px;height:8px;border-radius:999px;background:${color}"></span>${status}
+          <span style="display:block;width:8px;height:8px;border-radius:999px;background:${color}"></span>${esc(status)}
         </span>
       </div>
       ${row("Driver", trip.driverName || "—")}
