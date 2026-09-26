@@ -60,7 +60,14 @@ export const Route = createFileRoute("/workspace/app/parts")({
 });
 
 const STOCK_FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
-const REQUEST_FILTERS = ["All", "Pending", "Released", "Rejected"] as const;
+const REQUEST_FILTERS = [
+  "All",
+  "Pending",
+  "Awaiting Pickup",
+  "Awaiting Procurement",
+  "Released",
+  "Rejected",
+] as const;
 
 const statusPill = (status: string) => {
   switch (status) {
@@ -70,6 +77,10 @@ const statusPill = (status: string) => {
       return "bg-[#F99E1F] text-white";
     case "Pending":
       return "bg-[#F99E1F] text-white";
+    case "Awaiting Pickup":
+      return "bg-[#2F6BD8] text-white";
+    case "Awaiting Procurement":
+      return "bg-[#2F6BD8] text-white";
     case "Released":
       return "bg-[#34C759] text-white";
     case "Rejected":
@@ -236,6 +247,38 @@ function PartsAndStore() {
       pendingValue: pending.reduce((total, r) => total + r.quantity * r.unitCost, 0),
     };
   }, [items, requests]);
+
+  /*
+   * THE APPROVAL DESK, as its own card. The Transport Manager's queue used to
+   * hide inside the requisition table's rows — a viewer reading the module
+   * could not see WHERE his decision happens. It stands at the top of the page
+   * now: the workshop's asks with his Approve/Reject on them, the queue's
+   * count as a badge, and the latest decisions underneath so the desk is
+   * auditable at a glance.
+   */
+  const pendingQueue = useMemo(
+    () => requests.filter((r) => r.status === "Pending").sort((a, b) => (a.date < b.date ? -1 : 1)),
+    [requests],
+  );
+
+  const recentDecisions = useMemo(
+    () =>
+      requests
+        .filter((r) => r.status !== "Pending")
+        .sort((a, b) => (a.date < b.date ? 1 : -1))
+        .slice(0, 4),
+    [requests],
+  );
+
+  /** Every non-pending state is an approval outcome — only the wording moves. */
+  const decisionWord = (status: string) =>
+    status === "Rejected"
+      ? "Rejected"
+      : status === "Released"
+        ? "Approved · collected"
+        : status === "Awaiting Procurement"
+          ? "Approved · to buy"
+          : "Approved · awaiting pickup";
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -502,6 +545,115 @@ function PartsAndStore() {
               </span>
             </div>
           ))}
+        </div>
+
+        {/* ----------------------------------- the TM's approval desk */}
+        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E5E9] pb-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-[16px] font-medium text-[#1B2432]">Transport Manager Approval</h3>
+              {counts.pending > 0 ? (
+                <span className="grid h-7 min-w-[28px] place-items-center rounded-[4px] bg-[#ED351D] px-2 text-[13px] font-bold text-white">
+                  {counts.pending}
+                </span>
+              ) : (
+                <span className="rounded-[4px] bg-[#EAF7F1] px-2 py-0.5 text-[11px] font-semibold text-[#0A7F58]">
+                  Clear
+                </span>
+              )}
+            </div>
+            <p className="text-[12px] text-[#5C6470]">
+              {canDecide
+                ? "Your release is the store floor's authority to hand parts over."
+                : "The Transport Manager approves these — the store releases only what he has approved."}
+            </p>
+          </div>
+
+          {pendingQueue.length === 0 ? (
+            <FigmaEmptyState
+              title="Nothing is waiting on your decision"
+              body="Every parts request has been decided. A new ask from the workshop appears here the moment it is raised."
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pendingQueue.map((request) => {
+                const lines = formatDateLines(request.date);
+                return (
+                  <div
+                    key={request.id}
+                    className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[8px] border border-[#E2E5E9] bg-[#F1F2F4]/60 px-4 py-3"
+                  >
+                    <span className="min-w-[92px] text-[12px] leading-tight text-[#5C6470]">
+                      {lines.date}
+                      {lines.time ? <span className="block text-[11px]">{lines.time}</span> : null}
+                    </span>
+                    <span className="min-w-[150px] text-[14px] font-medium text-[#1B2432]">
+                      {truckOf(request.truckReg)}
+                    </span>
+                    <span className="min-w-[200px] flex-1">
+                      <span className="block text-[14px] text-[#344256]">
+                        {request.part} × {request.quantity}
+                      </span>
+                      {request.reason ? (
+                        <span className="block text-[11px] text-[#5C6470]">{request.reason}</span>
+                      ) : null}
+                    </span>
+                    <span className="min-w-[110px] text-[13px] tabular-nums text-[#344256]">
+                      {formatNairaFull(request.quantity * request.unitCost)}
+                    </span>
+                    <span className="min-w-[120px] text-[12px] text-[#5C6470]">
+                      {request.mechanic || "Unassigned"}
+                    </span>
+                    {canDecide ? (
+                      <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void decide(request, true)}
+                          className="h-8 rounded bg-[#34C759] px-4 text-[12px] font-semibold text-white hover:bg-[#2fae50]"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void decide(request, false)}
+                          className="h-8 rounded bg-[#ED351D] px-4 text-[12px] font-semibold text-white hover:bg-[#d62e19]"
+                        >
+                          Reject
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="rounded-[4px] bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium text-[#5C6470]">
+                        Awaiting the Transport Manager
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {recentDecisions.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#E2E5E9] pt-3">
+              <span className="text-[11px] uppercase tracking-[0.4px] text-[#9CA3AF]">
+                Recently decided
+              </span>
+              {recentDecisions.map((request) => (
+                <span key={request.id} className="text-[12px] text-[#5C6470]">
+                  <span className="font-medium text-[#344256]">{request.part}</span> ·{" "}
+                  {request.truckReg || "—"} —{" "}
+                  <span
+                    className={cn(
+                      "font-medium",
+                      request.status === "Rejected" ? "text-[#ED351D]" : "text-[#0A7F58]",
+                    )}
+                  >
+                    {decisionWord(request.status)}
+                  </span>
+                  {request.decisionNote ? ` — “${request.decisionNote}”` : ""}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* ------------------------------------------- what the shop asked for */}
