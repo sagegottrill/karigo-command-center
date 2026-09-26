@@ -1,13 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
+  BarChart3,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Ellipsis,
+  Printer,
   Search,
   SlidersHorizontal,
   TrendingDown,
   Wallet,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Line,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { TmVouchers } from "@/components/fleetopsx/tm-vouchers";
 import { DepartmentTabStrip } from "@/components/fleetopsx/department-sidebar";
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -26,16 +44,17 @@ import {
   engineeringService,
   fleetService,
   inventoryService,
+  tripService,
 } from "@/lib/fleetopsx/services";
-import { dayLabel, money } from "@/lib/fleetopsx/direct-costs";
-import type { Expense, InventoryMovement, TruckHead, WorkOrder } from "@/lib/fleetopsx/types";
+import { costTotal, dayLabel, money, sheetOf } from "@/lib/fleetopsx/direct-costs";
+import type { Expense, InventoryMovement, TruckHead, WorkOrder, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 /**
  * Accounts — the Transport Manager's side of the money, as ONE department.
  *
  * The pattern is the Engineering department's: one department, several boards
- * that read as tabs across the top of it. Three boards:
+ * that read as tabs across the top of it. Four boards:
  *
  *   Direct Expense   — the per-dispatch cost sheets (TmVouchers, unchanged).
  *   Indirect Expense — the money that is not a dispatch: spare parts, repairs &
@@ -43,6 +62,8 @@ import { cn } from "@/lib/utils";
  *                      claims, insurance, medical injuries…).
  *   Estimates & Depreciation — the standing assumptions (straight-line, useful
  *                      life, rate) and the asset base they will charge against.
+ *   Analytics        — the money as pictures: profit and loss, what the spend
+ *                      is made of, and how cash actually moved.
  *
  * The indirect figures are READ from the departments that generate them, the
  * same way the direct sheet is read from the dispatch itself — this board never
@@ -64,6 +85,7 @@ const TABS = [
   { label: "Direct Expense", icon: Wallet },
   { label: "Indirect Expense", icon: SlidersHorizontal },
   { label: "Estimates & Depreciation", icon: TrendingDown },
+  { label: "Analytics", icon: BarChart3 },
 ] as const;
 
 const INDIRECT_CATEGORIES = [
@@ -603,6 +625,564 @@ function DepreciationBoard({ heads, loading }: { heads: TruckHead[]; loading: bo
   );
 }
 
+/* ═══════════════════════════════ Analytics ════════════════════════════════ */
+
+/**
+ * The Analytics board — the money as pictures, the way the accounts dashboard
+ * mock draws it: Profit and Loss (accrual, income vs expenses bars), an
+ * Expenses Breakdown donut with the legend's percentages, and Cash Flow (cash
+ * basis, inflow/outflow bars with the net-change line). The figures come from
+ * the same ledgers the other three boards read — nothing is re-entered.
+ *
+ * One honest gap, stated on the board: trip revenue is not yet recorded on
+ * dispatches, so income sits at zero and the charts light up expense-first.
+ * When revenue starts landing on trips, the same bars fill without a code
+ * change.
+ */
+
+const MONTH_GRID = "grid min-w-[720px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] items-center gap-3";
+
+/** A slice under one percent reads "<1%", never "0%". */
+const percentOf = (share: number, total: number) => {
+  if (total <= 0) return "0%";
+  const percent = (share / total) * 100;
+  return percent > 0 && percent < 1 ? "<1%" : `${Math.round(percent)}%`;
+};
+
+/** Naira, short — the chart axis, not the ledger: 3.6M, 900K. */
+function shortNaira(value: number) {
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sign}₦${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (abs >= 1_000) return `${sign}₦${Math.round(abs / 1_000)}K`;
+  return `${sign}₦${Math.round(abs)}`;
+}
+
+const monthKeyOfDate = (value: string | Date | null | undefined) => {
+  const d = new Date(String(value ?? ""));
+  return Number.isNaN(d.getTime())
+    ? null
+    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+type MoneyPoint = {
+  label: string;
+  /** Accrual income — what the dispatch was worth (trip revenue). */
+  income: number;
+  /** Accrual expenses — cost sheets committed + indirect lines raised. */
+  expenses: number;
+  /** The direct share of `expenses`, for the breakdown donut. */
+  direct: number;
+  /** Cash that actually arrived (deposits recorded, revenue collected). */
+  inflow: number;
+  /** Cash that actually left (payments recorded, indirect spend). */
+  outflow: number;
+  /** inflow − outflow, the net-change line. */
+  net: number;
+};
+
+/** The backwards month axis — oldest first, current month last. */
+function monthAxis(now: Date, count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
+    return {
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${d.toLocaleDateString("en-GB", { month: "short" })} '${String(d.getFullYear()).slice(2)}`,
+    };
+  });
+}
+
+function buildMoneySeries(trips: Trip[], indirect: IndirectRow[], monthsBack: number) {
+  const axis = monthAxis(new Date(), monthsBack);
+  const buckets = new Map<string, MoneyPoint>(
+    axis.map((month) => [
+      month.key,
+      { label: month.label, income: 0, expenses: 0, direct: 0, inflow: 0, outflow: 0, net: 0 },
+    ]),
+  );
+
+  for (const trip of trips) {
+    const created = monthKeyOfDate(trip.createdAt);
+    const createdPoint = created ? buckets.get(created) : undefined;
+    if (!createdPoint) continue;
+    const sheet = sheetOf(trip);
+    const total = costTotal(sheet);
+    // Accrual: the dispatch's worth and its cost sheet, at the moment raised.
+    createdPoint.income += Number(trip.revenue ?? 0);
+    createdPoint.expenses += total;
+    createdPoint.direct += total;
+    // Cash in: what Accounts recorded as paid, at the stamp they wrote.
+    const paidAt = monthKeyOfDate(sheet.disbursement?.at ?? null);
+    if (sheet.disbursement?.status && paidAt && buckets.has(paidAt)) {
+      const paid = buckets.get(paidAt)!;
+      paid.inflow += total; // the money that reached the operation
+      paid.outflow += total; // and left again, onto the truck — net zero
+    }
+  }
+
+  for (const row of indirect) {
+    const at = monthKeyOfDate(row.date);
+    const point = at ? buckets.get(at) : undefined;
+    if (!point) continue;
+    point.expenses += row.amount;
+    point.outflow += row.amount;
+  }
+
+  const series = axis.map((month) => {
+    const point = buckets.get(month.key)!;
+    point.net = point.inflow - point.outflow;
+    return point;
+  });
+
+  // The donut's slices: direct vs each indirect category, biggest first, and
+  // anything past the fourth slice folds into "Other" the way the mock does.
+  const perCategory = new Map<string, number>();
+  for (const row of indirect) {
+    const at = monthKeyOfDate(row.date);
+    if (!at || !buckets.has(at)) continue;
+    perCategory.set(row.category, (perCategory.get(row.category) ?? 0) + row.amount);
+  }
+  const directTotal = series.reduce((sum, point) => sum + point.direct, 0);
+  const raw = [
+    { label: "Direct Costs", amount: directTotal },
+    ...INDIRECT_CATEGORIES.map((category) => ({
+      label: category,
+      amount: perCategory.get(category) ?? 0,
+    })),
+  ]
+    .filter((slice) => slice.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const slices =
+    raw.length > 5
+      ? [
+          ...raw.slice(0, 4),
+          { label: "Other", amount: raw.slice(4).reduce((sum, s) => sum + s.amount, 0) },
+        ]
+      : raw;
+
+  const netTotal = series.reduce((sum, point) => sum + point.net, 0);
+  return { series, slices, netTotal };
+}
+
+function ChartCard({
+  title,
+  basis,
+  badge,
+  children,
+}: {
+  title: string;
+  basis: string;
+  badge?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2.5 text-[20px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            {title}
+            {badge ? (
+              <span className="rounded-[4px] bg-[#F7E9B0] px-2 py-0.5 text-[11px] font-bold text-[#7A5C00]">
+                {badge}
+              </span>
+            ) : null}
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-[#5C6470]">{basis}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="flex h-9 items-center gap-2 rounded-[6px] border border-[#1B2432] px-3.5 text-[13px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4]"
+        >
+          <Printer className="size-4" />
+          View report
+        </button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function LegendSwatch({ label, className }: { label: string; className: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className={cn("inline-block size-3 rounded-[3px]", className)} />
+      <span>{label}</span>
+    </span>
+  );
+}
+
+/** The hatched "everything else" swatch, as the mock's legend draws it. */
+function HatchLegend({ label }: { label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <svg viewBox="0 0 12 12" className="size-3 rounded-[3px] border border-[#C6CDD5]">
+        <path
+          d="M0 12 L12 0 M0 6 L6 0 M6 12 L12 6"
+          stroke="#9AA5B1"
+          strokeWidth="1.2"
+          fill="none"
+        />
+      </svg>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+const TOOLTIP_STYLE = {
+  borderRadius: 8,
+  border: "1px solid #E2E5E9",
+  fontSize: 12.5,
+  boxShadow: "0px 8px 24px rgba(12,12,13,0.12)",
+} as const;
+
+function ProfitLossCard({ data }: { data: MoneyPoint[] }) {
+  return (
+    <ChartCard title="Profit and Loss" basis="Accrual (paid & unpaid)">
+      <div className="mb-2 flex items-center gap-6 pl-1 text-[13px] text-[#344256]">
+        <LegendSwatch className="bg-[#0A7F58]" label="Income" />
+        <HatchLegend label="Expenses" />
+      </div>
+      <ResponsiveContainer width="100%" height={230}>
+        <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
+          <CartesianGrid vertical={false} stroke="#E2E5E9" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10.5, fill: "#5C6470" }}
+            axisLine={{ stroke: "#E2E5E9" }}
+            tickLine={false}
+            interval={0}
+            angle={-35}
+            textAnchor="end"
+            height={54}
+          />
+          <YAxis
+            tickFormatter={shortNaira}
+            tick={{ fontSize: 11, fill: "#5C6470" }}
+            axisLine={false}
+            tickLine={false}
+            width={58}
+          />
+          <Tooltip
+            formatter={(value) => money(Number(value))}
+            cursor={{ fill: "rgba(27,36,50,0.04)" }}
+            contentStyle={TOOLTIP_STYLE}
+          />
+          <Bar
+            dataKey="income"
+            name="Income"
+            fill="#0A7F58"
+            radius={[3, 3, 0, 0]}
+            maxBarSize={16}
+          />
+          <Bar
+            dataKey="expenses"
+            name="Expenses"
+            fill="#C6CDD5"
+            radius={[3, 3, 0, 0]}
+            maxBarSize={16}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+const DONUT_PALETTE = ["#1B2432", "#5C6470", "#9AA5B1", "#C6CDD5", "#E2E5E9"];
+
+function BreakdownDonutCard({ slices }: { slices: Array<{ label: string; amount: number }> }) {
+  const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
+  return (
+    <ChartCard
+      title="Expenses Breakdown"
+      basis="Direct and indirect, this period"
+      badge="Live data"
+    >
+      {total > 0 ? (
+        <div className="flex flex-col items-center gap-6 lg:flex-row lg:gap-10">
+          <div className="relative">
+            <ResponsiveContainer width={210} height={210}>
+              <PieChart>
+                <Pie
+                  data={slices.map((slice) => ({ name: slice.label, value: slice.amount }))}
+                  dataKey="value"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={1}
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                >
+                  {slices.map((slice, index) => (
+                    <Cell key={slice.label} fill={DONUT_PALETTE[index % DONUT_PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name) => [
+                    `${money(Number(value))} · ${Math.round((Number(value) / total) * 100)}%`,
+                    String(name),
+                  ]}
+                  contentStyle={TOOLTIP_STYLE}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[10px] uppercase tracking-[0.4px] text-[#9CA3AF]">Total</span>
+              <span className="text-[15px] font-semibold text-[#1B2432]">{shortNaira(total)}</span>
+            </div>
+          </div>
+          <ul className="flex flex-col gap-2.5">
+            {slices.map((slice, index) => (
+              <li
+                key={slice.label}
+                className="flex items-center gap-2.5 text-[13.5px] text-[#344256]"
+              >
+                {slice.label === "Other" ? (
+                  <svg viewBox="0 0 12 12" className="size-3 rounded-[3px] border border-[#C6CDD5]">
+                    <path
+                      d="M0 12 L12 0 M0 6 L6 0 M6 12 L12 6"
+                      stroke="#9AA5B1"
+                      strokeWidth="1.2"
+                      fill="none"
+                    />
+                  </svg>
+                ) : (
+                  <span
+                    className="size-3 shrink-0 rounded-[3px]"
+                    style={{ backgroundColor: DONUT_PALETTE[index % DONUT_PALETTE.length] }}
+                  />
+                )}
+                <span className="font-semibold tabular-nums text-[#1B2432]">
+                  {percentOf(slice.amount, total)}
+                </span>
+                <span>{slice.label}</span>
+                <span className="text-[12px] text-[#5C6470]">{money(slice.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="py-10 text-center text-[13px] text-[#5C6470]">
+          No expense lines in this window yet — the donut fills as the voucher and indirect ledgers
+          record money.
+        </p>
+      )}
+    </ChartCard>
+  );
+}
+
+function CashFlowCard({ data }: { data: MoneyPoint[] }) {
+  return (
+    <ChartCard title="Cash Flow" basis="Always displays cash basis (paid)">
+      <div className="mb-2 flex flex-wrap items-center gap-6 pl-1 text-[13px] text-[#344256]">
+        <LegendSwatch className="bg-[#0A7F58]" label="Inflow" />
+        <HatchLegend label="Outflow" />
+        <span className="flex items-center gap-2">
+          <span className="h-[2px] w-5 bg-[#F2C200]" />
+          <span>Net change</span>
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={240}>
+        <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="#E2E5E9" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10.5, fill: "#5C6470" }}
+            axisLine={{ stroke: "#E2E5E9" }}
+            tickLine={false}
+            interval={0}
+            angle={-35}
+            textAnchor="end"
+            height={54}
+          />
+          <YAxis
+            tickFormatter={shortNaira}
+            tick={{ fontSize: 11, fill: "#5C6470" }}
+            axisLine={false}
+            tickLine={false}
+            width={58}
+          />
+          <Tooltip formatter={(value) => money(Number(value))} contentStyle={TOOLTIP_STYLE} />
+          <Bar
+            dataKey="inflow"
+            name="Inflow"
+            fill="#0A7F58"
+            radius={[3, 3, 0, 0]}
+            maxBarSize={16}
+          />
+          <Bar
+            dataKey="outflow"
+            name="Outflow"
+            fill="#C6CDD5"
+            radius={[3, 3, 0, 0]}
+            maxBarSize={16}
+          />
+          <Line
+            type="linear"
+            dataKey="net"
+            name="Net change"
+            stroke="#F2C200"
+            strokeWidth={2}
+            dot={{ r: 3, fill: "#F2C200", stroke: "#FFFFFF", strokeWidth: 1 }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <p className="flex items-start gap-1.5 text-[11.5px] leading-4 text-[#9CA3AF]">
+        <Ellipsis className="mt-0.5 size-3.5 shrink-0" />
+        Cash basis: only money Accounts has recorded moves these bars. A voucher payment shows as
+        cash in (the money that reached the operation) and cash out (onto the truck) in the same
+        month; indirect spend leaves as it is recorded. Income rides on trip revenue — until revenue
+        is recorded on dispatches, the inflow line follows the payment stamps alone.
+      </p>
+    </ChartCard>
+  );
+}
+
+function AnalyticsBoard({
+  trips,
+  indirectRows,
+  loading,
+}: {
+  trips: Trip[];
+  indirectRows: IndirectRow[];
+  loading: boolean;
+}) {
+  const [periodFilter, setPeriodFilter] = useState("Last 12 months");
+  const monthsBack =
+    periodFilter === "Last 3 months" ? 3 : periodFilter === "Last 6 months" ? 6 : 12;
+
+  const { series, slices, netTotal } = useMemo(
+    () => buildMoneySeries(trips, indirectRows, monthsBack),
+    [trips, indirectRows, monthsBack],
+  );
+
+  return (
+    <div className={PAGE_BG}>
+      <div className="flex flex-col gap-[5px]">
+        <h2 className="text-[22px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[26px]">
+          Analytics
+        </h2>
+        <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
+          The department's money as pictures — profit and loss, what the spend is made of, and how
+          cash actually moved.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="relative flex h-11 w-full items-center md:w-[280px]">
+          <select
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="h-11 w-full appearance-none rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[14px] font-medium text-[#1B2432] outline-none focus:border-[#1B2432]"
+          >
+            {["Last 3 months", "Last 6 months", "Last 12 months"].map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 size-4 text-[#5C6470]" />
+        </label>
+      </div>
+
+      {loading ? (
+        <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <FigmaLoadingState label="Building the charts from the ledgers…" />
+        </div>
+      ) : (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <ProfitLossCard data={series} />
+          <BreakdownDonutCard slices={slices} />
+          <div className="xl:col-span-2">
+            <CashFlowCard data={series} />
+          </div>
+        </div>
+      )}
+
+      {/* The ledger behind the charts, for the days a picture is not enough. */}
+      <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            Monthly Ledger
+          </h3>
+          <button
+            type="button"
+            onClick={() =>
+              exportCsv(
+                "accounts-analytics.csv",
+                ["Month", "Income (Revenue)", "Cash In", "Cash Out", "Net Change"],
+                series.map((point) => [
+                  point.label,
+                  point.income,
+                  point.inflow,
+                  point.outflow,
+                  point.net,
+                ]),
+              )
+            }
+            className="h-10 rounded-[6px] border border-[#E2E5E9] px-4 text-[13.5px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4]"
+          >
+            Export CSV
+          </button>
+        </div>
+        <div className="flex flex-col overflow-x-auto">
+          <div
+            className={cn(
+              MONTH_GRID,
+              "border-b border-[#E2E5E9] pb-3 text-[13.5px] font-semibold text-[#1B2432]",
+            )}
+          >
+            <span>Month</span>
+            <span className="text-right">Income (Revenue)</span>
+            <span className="text-right">Cash In</span>
+            <span className="text-right">Cash Out</span>
+            <span className="text-right">Net Change</span>
+          </div>
+          {series.every((point) => !point.income && !point.inflow && !point.outflow) ? (
+            <p className="py-6 text-[13px] text-[#5C6470]">
+              No revenue or recorded payments in this window yet — income lights up as revenue is
+              recorded on dispatches, cash as Accounts records payments.
+            </p>
+          ) : null}
+          {series.map((point) => (
+            <div
+              key={point.label}
+              className={cn(
+                MONTH_GRID,
+                "border-b border-[#E2E5E9] py-3.5 text-[13px] text-[#344256]",
+              )}
+            >
+              <span className="font-medium text-[#1B2432]">{point.label}</span>
+              <span className="text-right tabular-nums">{money(point.income)}</span>
+              <span className="text-right tabular-nums">{money(point.inflow)}</span>
+              <span className="text-right tabular-nums">{money(point.outflow)}</span>
+              <span
+                className={cn(
+                  "text-right font-semibold tabular-nums",
+                  point.net < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
+                )}
+              >
+                {money(point.net)}
+              </span>
+            </div>
+          ))}
+          <div className={cn(MONTH_GRID, "pt-3.5 text-[13.5px] font-semibold text-[#1B2432]")}>
+            <span>Net position ({monthsBack} months)</span>
+            <span />
+            <span />
+            <span />
+            <span
+              className={cn(
+                "text-right tabular-nums",
+                netTotal < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
+              )}
+            >
+              {money(netTotal)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TmAccounts() {
   const [tab, setTab] = useState<string>(TABS[0].label);
   const [loading, setLoading] = useState(true);
@@ -610,26 +1190,30 @@ export function TmAccounts() {
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
 
   const refresh = useCallback(async () => {
-    // One department, three boards — but the indirect figures are read once,
-    // here, from the departments that generate them. A failed source renders
-    // empty rather than taking the page down.
-    const [headRes, orderRes, movementRes, expenseRes] = await Promise.allSettled([
+    // One department, four boards — the figures are read once, here, from the
+    // departments that generate them. A failed source renders empty rather
+    // than taking the page down.
+    const [headRes, orderRes, movementRes, expenseRes, tripRes] = await Promise.allSettled([
       fleetService.listHeads(),
       engineeringService.listWorkOrders(),
       inventoryService.movements(),
       accountService.list(),
+      tripService.list(),
     ]);
     if (headRes.status === "fulfilled") setHeads(headRes.value);
     if (orderRes.status === "fulfilled") setOrders(orderRes.value);
     if (movementRes.status === "fulfilled") setMovements(movementRes.value);
     if (expenseRes.status === "fulfilled") setExpenses(expenseRes.value);
+    if (tripRes.status === "fulfilled") setTrips(tripRes.value);
     if (
       headRes.status === "rejected" &&
       orderRes.status === "rejected" &&
       movementRes.status === "rejected" &&
-      expenseRes.status === "rejected"
+      expenseRes.status === "rejected" &&
+      tripRes.status === "rejected"
     ) {
       toast.error("Could not reach the ledgers behind the Accounts boards.");
     }
@@ -665,6 +1249,9 @@ export function TmAccounts() {
       {tab === "Indirect Expense" ? <IndirectBoard rows={indirectRows} loading={loading} /> : null}
       {tab === "Estimates & Depreciation" ? (
         <DepreciationBoard heads={heads} loading={loading} />
+      ) : null}
+      {tab === "Analytics" ? (
+        <AnalyticsBoard trips={trips} indirectRows={indirectRows} loading={loading} />
       ) : null}
     </>
   );
