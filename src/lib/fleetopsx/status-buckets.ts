@@ -179,6 +179,25 @@ export function queueOrder(
 }
 
 /**
+ * FIFO variant of {@link queueOrder}: same act-on-me-first ranks, but inside one
+ * rank OLDEST FIRST. This is the client's explicit rule for work still waiting
+ * on a person — on the Fleet Operation board the 24 Sept Awaiting Approval
+ * request sat BELOW the 28 Sept one, and the partner asked why the OLD request
+ * was buried under the new one. A waiting queue is served first-in-first-out so
+ * the stalest request is always the next one on the screen.
+ *
+ * Closed and moving rows keep {@link queueOrder}'s newest-first tiebreak — see
+ * fleetQueueOrder in workspace.app.fleet.tsx.
+ */
+export function queueOrderFifo(
+  a: { rank: number; at?: string | null },
+  b: { rank: number; at?: string | null },
+): number {
+  if (a.rank !== b.rank) return a.rank - b.rank;
+  return sortTime(a.at) - sortTime(b.at);
+}
+
+/**
  * Where each request state sits in the Transport Manager's queue.
  *
  * Pending sits on TOP, at the TM's instruction: a Pending row is a request the
