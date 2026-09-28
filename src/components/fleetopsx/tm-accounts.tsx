@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Ellipsis,
-  Printer,
   Search,
   SlidersHorizontal,
   TrendingDown,
@@ -744,21 +743,29 @@ function buildMoneySeries(
     /** Which stream the series reads: all, direct-only, or indirect-only. */
     stream: "all" | "direct" | "indirect";
     includeRow: (row: IndirectRow) => boolean;
+    /** Where the axis starts — a previous window reads the same span, shifted. */
+    anchor?: Date;
   },
 ) {
   const { grain, monthsBack, weeksBack, from, to, focusTruck, stream, includeRow } = options;
-  const axis =
-    grain === "week" ? weekAxis(new Date(), weeksBack) : monthAxis(new Date(), monthsBack);
+  const now = options.anchor ?? new Date();
+  const axis = grain === "week" ? weekAxis(now, weeksBack) : monthAxis(now, monthsBack);
   const buckets = new Map<string, MoneyPoint>(
     axis.map((slot) => [slot.key, emptyPoint(slot.label)]),
   );
   const monthKeys = new Set(grain === "month" ? axis.map((slot) => slot.key) : []);
 
+  // A card window IS its axis span: with no explicit from/to, the rows read
+  // scope to the axis — the donut's slices lean on this.
+  const axisStart = axis.at(0);
+  const axisEnd = axis.at(-1);
+  const scopeFrom = from ?? (axisStart ? new Date(axisStart.from) : null);
+  const scopeTo = to ?? (axisEnd ? new Date(axisEnd.to) : null);
   const inScope = (stamp: string | Date | null | undefined) => {
     const t = new Date(String(stamp ?? "")).getTime();
     if (Number.isNaN(t)) return false;
-    if (from && t < from.getTime()) return false;
-    if (to && t > to.getTime()) return false;
+    if (scopeFrom && t < scopeFrom.getTime()) return false;
+    if (scopeTo && t > scopeTo.getTime()) return false;
     return true;
   };
 
@@ -880,37 +887,6 @@ function totalsOf(series: MoneyPoint[]) {
   };
 }
 
-/** The window immediately BEFORE the selected one, same length. */
-function previousWindow(
-  from: Date | null,
-  to: Date | null,
-  monthsBack: number,
-  weeksBack: number,
-  grain: "month" | "week",
-) {
-  const now = new Date();
-  if (from && to) {
-    const span = to.getTime() - from.getTime();
-    return {
-      from: new Date(from.getTime() - span - 1),
-      to: new Date(from.getTime() - 1),
-    };
-  }
-  if (grain === "week") {
-    const weeks = Math.max(1, weeksBack);
-    const end = new Date(now);
-    end.setDate(end.getDate() - 7 * weeks);
-    const start = new Date(end);
-    start.setDate(start.getDate() - 7 * weeks + 1);
-    return { from: start, to: end };
-  }
-  const months = Math.max(1, monthsBack);
-  return {
-    from: new Date(now.getFullYear(), now.getMonth() - 2 * months + 1, 1),
-    to: new Date(now.getFullYear(), now.getMonth() - months + 1, 0, 23, 59, 59, 999),
-  };
-}
-
 /** The derived chip: which way the headline moved vs the previous window. */
 function DeltaChip({
   current,
@@ -956,6 +932,7 @@ function ChartCard({
   basis,
   badge,
   chip,
+  periodNode,
   children,
 }: {
   title: string;
@@ -963,6 +940,8 @@ function ChartCard({
   badge?: string;
   /** A derived signal beside the title — the previous-period delta. */
   chip?: ReactNode;
+  /** The card's own window select — the mock puts one on every card. */
+  periodNode?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -980,14 +959,16 @@ function ChartCard({
           </h3>
           <p className="mt-0.5 text-[12.5px] text-[#5C6470]">{basis}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex h-9 items-center gap-2 rounded-[6px] border border-[#1B2432] px-3.5 text-[13px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4]"
-        >
-          <Printer className="size-4" />
-          View report
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {periodNode}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex h-8 items-center rounded-full bg-[#2E6FF2] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#2459C9]"
+          >
+            View report
+          </button>
+        </div>
       </div>
       {children}
     </section>
@@ -1027,15 +1008,40 @@ const TOOLTIP_STYLE = {
   boxShadow: "0px 8px 24px rgba(12,12,13,0.12)",
 } as const;
 
-function ProfitLossCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }) {
+function ProfitLossCard({
+  data,
+  chip,
+  periodNode,
+}: {
+  data: MoneyPoint[];
+  chip?: ReactNode;
+  periodNode?: ReactNode;
+}) {
   return (
-    <ChartCard title="Profit and Loss" basis="Accrual (paid & unpaid)" chip={chip}>
+    <ChartCard
+      title="Profit and Loss"
+      basis="Accrual (paid & unpaid)"
+      chip={chip}
+      periodNode={periodNode}
+    >
       <div className="mb-2 flex items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Income" />
         <HatchLegend label="Expenses" />
       </div>
       <ResponsiveContainer width="100%" height={230}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
+          <defs>
+            <pattern
+              id="hatch-pl-expenses"
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill="#EDF0F3" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#9AA5B1" strokeWidth="2" />
+            </pattern>
+          </defs>
           <CartesianGrid vertical={false} stroke="#E2E5E9" />
           <XAxis
             dataKey="label"
@@ -1069,7 +1075,7 @@ function ProfitLossCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }
           <Bar
             dataKey="expenses"
             name="Expenses"
-            fill="#C6CDD5"
+            fill="url(#hatch-pl-expenses)"
             radius={[3, 3, 0, 0]}
             maxBarSize={16}
           />
@@ -1079,14 +1085,23 @@ function ProfitLossCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }
   );
 }
 
+/** Hatched fill for the "Other" slice — read by recharts' Cell and the legend. */
+const OTHER_HATCH = (
+  <svg viewBox="0 0 12 12" className="size-3 rounded-[3px] border border-[#C6CDD5]" aria-hidden>
+    <path d="M0 12 L12 0 M0 6 L6 0 M6 12 L12 6" stroke="#9AA5B1" strokeWidth="1.2" fill="none" />
+  </svg>
+);
+
 const DONUT_PALETTE = ["#1B2432", "#5C6470", "#9AA5B1", "#C6CDD5", "#E2E5E9"];
 
 function BreakdownDonutCard({
   slices,
   basis,
+  periodNode,
 }: {
   slices: Array<{ label: string; amount: number }>;
   basis?: string;
+  periodNode?: ReactNode;
 }) {
   const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
   return (
@@ -1094,6 +1109,7 @@ function BreakdownDonutCard({
       title="Expenses Breakdown"
       basis={basis ?? "Direct and indirect, this period"}
       badge="Live data"
+      periodNode={periodNode}
     >
       {total > 0 ? (
         <div className="flex flex-col items-center gap-6 lg:flex-row lg:gap-10">
@@ -1108,14 +1124,74 @@ function BreakdownDonutCard({
                   paddingAngle={1}
                   stroke="#FFFFFF"
                   strokeWidth={2}
+                  // The mock's labels sit ON the slices: percent, dark or white
+                  // by lightness, hidden when the slice is too thin to carry one.
+                  label={({
+                    percent,
+                    index,
+                    cx,
+                    cy,
+                    midAngle,
+                  }: {
+                    percent?: number;
+                    index?: number;
+                    cx?: number;
+                    cy?: number;
+                    midAngle?: number;
+                  }) => {
+                    if (percent == null || percent < 0.04) return null;
+                    if (
+                      typeof cx !== "number" ||
+                      typeof cy !== "number" ||
+                      typeof midAngle !== "number"
+                    )
+                      return null;
+                    const slice = slices[index ?? -1];
+                    if (!slice) return null;
+                    // Positioned by hand at the ring's mid-radius — recharts'
+                    // own label point hugs the outer edge and drifts off.
+                    const RADIAN = Math.PI / 180;
+                    const ringMid = (70 + 100) / 2;
+                    return (
+                      <text
+                        x={cx + Math.cos(-midAngle * RADIAN) * ringMid}
+                        y={cy + Math.sin(-midAngle * RADIAN) * ringMid + 4}
+                        textAnchor="middle"
+                        fill={slice.label === "Other" || index! >= 3 ? "#1B2432" : "#FFFFFF"}
+                        fontSize={11}
+                        fontWeight={700}
+                      >
+                        {Math.round(percent * 100)}%
+                      </text>
+                    );
+                  }}
+                  labelLine={false}
+                  isAnimationActive={false}
                 >
                   {slices.map((slice, index) => (
-                    <Cell key={slice.label} fill={DONUT_PALETTE[index % DONUT_PALETTE.length]} />
+                    <Cell
+                      key={slice.label}
+                      fill={
+                        slice.label === "Other" ? "url(#hatch-donut-other)" : DONUT_PALETTE[index]
+                      }
+                    />
                   ))}
                 </Pie>
+                <defs>
+                  <pattern
+                    id="hatch-donut-other"
+                    width="5"
+                    height="5"
+                    patternUnits="userSpaceOnUse"
+                    patternTransform="rotate(45)"
+                  >
+                    <rect width="5" height="5" fill="#E2E5E9" />
+                    <line x1="0" y1="0" x2="0" y2="5" stroke="#9AA5B1" strokeWidth="1.6" />
+                  </pattern>
+                </defs>
                 <Tooltip
                   formatter={(value, name) => [
-                    `${money(Number(value))} · ${Math.round((Number(value) / total) * 100)}%`,
+                    `${money(Number(value))} · ${percentOf(Number(value), total)}`,
                     String(name),
                   ]}
                   contentStyle={TOOLTIP_STYLE}
@@ -1133,21 +1209,16 @@ function BreakdownDonutCard({
                 key={slice.label}
                 className="flex items-center gap-2.5 text-[13.5px] text-[#344256]"
               >
-                {slice.label === "Other" ? (
-                  <svg viewBox="0 0 12 12" className="size-3 rounded-[3px] border border-[#C6CDD5]">
-                    <path
-                      d="M0 12 L12 0 M0 6 L6 0 M6 12 L12 6"
-                      stroke="#9AA5B1"
-                      strokeWidth="1.2"
-                      fill="none"
+                <span className="flex w-3 shrink-0 items-center justify-center">
+                  {slice.label === "Other" ? (
+                    OTHER_HATCH
+                  ) : (
+                    <span
+                      className="size-3 rounded-[3px]"
+                      style={{ backgroundColor: DONUT_PALETTE[index] }}
                     />
-                  </svg>
-                ) : (
-                  <span
-                    className="size-3 shrink-0 rounded-[3px]"
-                    style={{ backgroundColor: DONUT_PALETTE[index % DONUT_PALETTE.length] }}
-                  />
-                )}
+                  )}
+                </span>
                 <span className="font-semibold tabular-nums text-[#1B2432]">
                   {percentOf(slice.amount, total)}
                 </span>
@@ -1167,9 +1238,22 @@ function BreakdownDonutCard({
   );
 }
 
-function CashFlowCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }) {
+function CashFlowCard({
+  data,
+  chip,
+  periodNode,
+}: {
+  data: MoneyPoint[];
+  chip?: ReactNode;
+  periodNode?: ReactNode;
+}) {
   return (
-    <ChartCard title="Cash Flow" basis="Always displays cash basis (paid)" chip={chip}>
+    <ChartCard
+      title="Cash Flow"
+      basis="Always displays cash basis (paid)"
+      chip={chip}
+      periodNode={periodNode}
+    >
       <div className="mb-2 flex flex-wrap items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Inflow" />
         <HatchLegend label="Outflow" />
@@ -1219,6 +1303,7 @@ function CashFlowCard({ data, chip }: { data: MoneyPoint[]; chip?: ReactNode }) 
             name="Net change"
             stroke="#F2C200"
             strokeWidth={2}
+            strokeDasharray="4 4"
             dot={{ r: 3, fill: "#F2C200", stroke: "#FFFFFF", strokeWidth: 1 }}
           />
         </ComposedChart>
@@ -1240,6 +1325,37 @@ const selectClass =
 const STREAMS = ["All money", "Direct", "Indirect"] as const;
 const GRAINS = ["Monthly", "Weekly"] as const;
 
+/** The per-card period select — the mock's "Last 12 months" dropdown. */
+const CARD_PERIODS = [
+  "Last 12 months",
+  "Last 6 months",
+  "Last 3 months",
+  "This month",
+  "All time",
+] as const;
+type CardPeriod = (typeof CARD_PERIODS)[number];
+
+function CardPeriodSelect({
+  value,
+  onChange,
+}: {
+  value: CardPeriod;
+  onChange: (value: CardPeriod) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as CardPeriod)}
+      aria-label="Report period"
+      className="h-8 rounded-[6px] border border-[#E2E5E9] bg-white px-2.5 text-[12.5px] font-medium text-[#1B2432] outline-none focus:border-[#2E6FF2]"
+    >
+      {CARD_PERIODS.map((option) => (
+        <option key={option}>{option}</option>
+      ))}
+    </select>
+  );
+}
+
 function AnalyticsBoard({
   trips,
   indirectRows,
@@ -1257,17 +1373,74 @@ function AnalyticsBoard({
   const [stream, setStream] = useState<(typeof STREAMS)[number]>("All money");
   const [focusTruck, setFocusTruck] = useState("All trucks");
   const [categories, setCategories] = useState<Set<string>>(new Set());
+  /** The cards' own windows — the mock gives every card its period select. */
+  const [plPeriod, setPlPeriod] = useState<CardPeriod>("Last 12 months");
+  const [donutPeriod, setDonutPeriod] = useState<CardPeriod>("Last 12 months");
+  const [cashPeriod, setCashPeriod] = useState<CardPeriod>("Last 12 months");
   const rangeCustom = useCustomRange();
 
   const monthsBack = 12;
   const weeksBack = 12;
 
-  /** The window: presets through the shared resolver, Custom through the pair. */
+  /** The rack window: presets through the shared resolver, Custom through the pair. */
   const window = useMemo(() => {
     const resolved = resolvePeriod(periodFilter, rangeCustom.custom);
     if (periodFilter === "All time" || !resolved) return { from: null, to: null, resolved: null };
     return { from: resolved.from, to: resolved.to, resolved };
   }, [periodFilter, rangeCustom.custom]);
+
+  /** A card window: the span its select names, ending now (no rack override). */
+  const cardWindow = useCallback(
+    (period: CardPeriod) => {
+      if (period === "All time") return { from: null, to: null, anchor: null as Date | null };
+      const now = new Date();
+      if (period === "This month") {
+        return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: null, anchor: null };
+      }
+      if (grain === "Weekly") {
+        const weeks = period === "Last 3 months" ? 13 : period === "Last 6 months" ? 26 : 52;
+        const start = new Date(now);
+        start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 7 * (weeks - 1));
+        start.setHours(0, 0, 0, 0);
+        return { from: start, to: null, anchor: null };
+      }
+      const months = period === "Last 3 months" ? 3 : period === "Last 6 months" ? 6 : 12;
+      return {
+        from: new Date(now.getFullYear(), now.getMonth() - months + 1, 1),
+        to: null,
+        anchor: null,
+      };
+    },
+    [grain],
+  );
+
+  /** The window immediately before a card's, same span — its delta chip. */
+  const previousCardWindow = useCallback(
+    (period: CardPeriod) => {
+      if (period === "All time") return { from: null, to: null, anchor: null as Date | null };
+      const now = new Date();
+      if (period === "This month") {
+        return {
+          from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          to: null,
+          anchor: null,
+        };
+      }
+      if (grain === "Weekly") {
+        const weeks = period === "Last 3 months" ? 13 : period === "Last 6 months" ? 26 : 52;
+        const anchor = new Date(now);
+        anchor.setDate(anchor.getDate() - 7 * weeks);
+        return { from: null, to: null, anchor };
+      }
+      const months = period === "Last 3 months" ? 3 : period === "Last 6 months" ? 6 : 12;
+      return {
+        from: null,
+        to: null,
+        anchor: new Date(now.getFullYear(), now.getMonth() - months, 1),
+      };
+    },
+    [grain],
+  );
 
   const includeRow = useCallback(
     (row: IndirectRow) => {
@@ -1280,45 +1453,46 @@ function AnalyticsBoard({
 
   const focus = focusTruck === "All trucks" ? null : focusTruck;
 
-  const current = useMemo(
-    () =>
+  /** One buildMoneySeries call with the shared rack filters baked in. */
+  const seriesFor = useCallback(
+    (win: { from: Date | null; to: Date | null; anchor: Date | null }) =>
       buildMoneySeries(trips, indirectRows, {
         grain: grain === "Weekly" ? "week" : "month",
         monthsBack,
         weeksBack,
-        from: window.from,
-        to: window.to,
+        from: win.from,
+        to: win.to,
         focusTruck: focus,
         stream: stream === "Direct" ? "direct" : stream === "Indirect" ? "indirect" : "all",
         includeRow,
+        anchor: win.anchor ?? undefined,
       }),
-    [trips, indirectRows, grain, window.from, window.to, focus, stream, includeRow],
+    [trips, indirectRows, grain, monthsBack, weeksBack, focus, stream, includeRow],
   );
 
-  /** The window immediately before the selection, same filters — the deltas. */
-  const previous = useMemo(() => {
-    const span = previousWindow(
-      window.from,
-      window.to,
-      monthsBack,
-      weeksBack,
-      grain === "Weekly" ? "week" : "month",
-    );
-    return totalsOf(
-      buildMoneySeries(trips, indirectRows, {
-        grain: grain === "Weekly" ? "week" : "month",
-        monthsBack,
-        weeksBack,
-        from: span.from,
-        to: span.to,
-        focusTruck: focus,
-        stream: stream === "Direct" ? "direct" : stream === "Indirect" ? "indirect" : "all",
-        includeRow,
-      }).series,
-    );
-  }, [trips, indirectRows, grain, window.from, window.to, focus, stream, includeRow]);
+  /** Each card builds its own series from its own window — the mock's way. */
+  const plWindow = useMemo(() => cardWindow(plPeriod), [cardWindow, plPeriod]);
+  const donutWindow = useMemo(() => cardWindow(donutPeriod), [cardWindow, donutPeriod]);
+  const cashWindow = useMemo(() => cardWindow(cashPeriod), [cardWindow, cashPeriod]);
+  const pl = useMemo(() => seriesFor(plWindow), [seriesFor, plWindow]);
+  const donut = useMemo(() => seriesFor(donutWindow), [seriesFor, donutWindow]);
+  const cash = useMemo(() => seriesFor(cashWindow), [seriesFor, cashWindow]);
+  const plTotals = totalsOf(pl.series);
+  const cashTotals = totalsOf(cash.series);
 
-  const totals = totalsOf(current.series);
+  const plPrevious = useMemo(() => {
+    return totalsOf(seriesFor(previousCardWindow(plPeriod)).series);
+  }, [seriesFor, previousCardWindow, plPeriod]);
+  const cashPrevious = useMemo(() => {
+    return totalsOf(seriesFor(previousCardWindow(cashPeriod)).series);
+  }, [seriesFor, previousCardWindow, cashPeriod]);
+
+  /** The summary strip and ledger read the RACK window, so the rack stays meaningful. */
+  const rackSeries = useMemo(
+    () => seriesFor({ from: window.from, to: window.to, anchor: null }),
+    [seriesFor, window.from, window.to],
+  );
+  const totals = totalsOf(rackSeries.series);
   const filtersActive =
     periodFilter !== "All time" ||
     grain !== "Monthly" ||
@@ -1482,17 +1656,19 @@ function AnalyticsBoard({
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
           <ProfitLossCard
-            data={current.series}
+            data={pl.series}
+            periodNode={<CardPeriodSelect value={plPeriod} onChange={setPlPeriod} />}
             chip={
               <DeltaChip
-                current={totals.expenses}
-                previous={previous.expenses}
+                current={plTotals.expenses}
+                previous={plPrevious.expenses}
                 betterWhenUp={false}
               />
             }
           />
           <BreakdownDonutCard
-            slices={current.slices}
+            slices={donut.slices}
+            periodNode={<CardPeriodSelect value={donutPeriod} onChange={setDonutPeriod} />}
             basis={
               focus
                 ? `Direct and indirect — ${focus}`
@@ -1505,8 +1681,15 @@ function AnalyticsBoard({
           />
           <div className="xl:col-span-2">
             <CashFlowCard
-              data={current.series}
-              chip={<DeltaChip current={totals.net} previous={previous.net} betterWhenUp={true} />}
+              data={cash.series}
+              periodNode={<CardPeriodSelect value={cashPeriod} onChange={setCashPeriod} />}
+              chip={
+                <DeltaChip
+                  current={cashTotals.net}
+                  previous={cashPrevious.net}
+                  betterWhenUp={true}
+                />
+              }
             />
           </div>
         </div>
@@ -1524,7 +1707,7 @@ function AnalyticsBoard({
               exportCsv(
                 "accounts-analytics.csv",
                 ["Period", "Income (Revenue)", "Expenses", "Cash In", "Cash Out", "Net Change"],
-                current.series.map((point) => [
+                rackSeries.series.map((point) => [
                   point.label,
                   point.income,
                   point.expenses,
@@ -1553,7 +1736,7 @@ function AnalyticsBoard({
             <span className="text-right">Cash Out</span>
             <span className="text-right">Net Change</span>
           </div>
-          {current.series.every(
+          {rackSeries.series.every(
             (point) => !point.income && !point.expenses && !point.inflow && !point.outflow,
           ) ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
@@ -1561,7 +1744,7 @@ function AnalyticsBoard({
               category chips, or wait for the ledgers to record money in it.
             </p>
           ) : null}
-          {current.series.map((point) => (
+          {rackSeries.series.map((point) => (
             <div
               key={point.label}
               className={cn(
@@ -1593,10 +1776,10 @@ function AnalyticsBoard({
             <span
               className={cn(
                 "text-right tabular-nums",
-                current.netTotal < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
+                rackSeries.netTotal < 0 ? "text-[#ED351D]" : "text-[#1B2432]",
               )}
             >
-              {money(current.netTotal)}
+              {money(rackSeries.netTotal)}
             </span>
           </div>
         </div>
