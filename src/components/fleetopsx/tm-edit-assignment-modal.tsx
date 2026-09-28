@@ -9,6 +9,7 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
+import { formatTripDuration } from "@/lib/fleetopsx/trip-duration";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
@@ -128,6 +129,12 @@ export function TmEditAssignmentModal({
   // When the TM expects this to leave the yard (YYYY-MM-DD, as the date input
   // gives it). Security's real gate stamp supersedes it on the board.
   const [estimatedDate, setEstimatedDate] = useState((trip.estimatedDate ?? "").slice(0, 10));
+  // How long the trip is booked for — the number delay is measured against.
+  // (The Modify modal never carried it, which is why "estimated days" read as
+  // missing: the value existed on the dispatch but the form never showed it.)
+  const [estimatedDays, setEstimatedDays] = useState(
+    trip.estimatedDays ? String(trip.estimatedDays) : "",
+  );
 
   const [saving, setSaving] = useState(false);
 
@@ -202,6 +209,10 @@ export function TmEditAssignmentModal({
         ...(totalExpense > 0 ? { totalCosts: totalExpense } : {}),
         // The TM's estimate — cleared (not left stale) when the field is emptied.
         estimatedDate: estimatedDate.trim() || null,
+        estimatedDays:
+          Number.isFinite(Number(estimatedDays)) && Number(estimatedDays) > 0
+            ? Number(estimatedDays)
+            : null,
         ...(andApprove ? { status: "Scheduled" as const } : {}),
       });
       // The TM has just re-stated which truck and driver this dispatch holds, so
@@ -257,20 +268,39 @@ export function TmEditAssignmentModal({
           </button>
         </div>
 
-        {/* Estimated time of return — the working date the board shows until
-            the truck actually leaves the gate. */}
-        <label className="flex flex-col gap-1.5 border-b border-[#E2E5E9] pb-3">
-          <span className="text-[13px] font-medium text-[#141A1F]">Estimated Time of Return</span>
-          <input
-            type="date"
-            value={estimatedDate}
-            onChange={(e) => setEstimatedDate(e.target.value)}
-            className="h-10 w-full max-w-[240px] rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
-          />
-          <span className="text-[12px] leading-4 text-[#5C6470]">
-            Shown on the dispatch board until Security logs the truck out of the gate.
-          </span>
-        </label>
+        {/* The TM's two estimates: how long the trip is booked for (the number
+            delay is measured against) and when it should be back — shown and
+            saved together, since each makes the other readable. */}
+        <div className="grid grid-cols-1 gap-3 border-b border-[#E2E5E9] pb-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[#141A1F]">Trip Duration (days)</span>
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={estimatedDays}
+              onChange={(e) => setEstimatedDays(e.target.value)}
+              placeholder="e.g. 4"
+              className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+            />
+            <span className="text-[12px] leading-4 text-[#5C6470]">
+              {formatTripDuration(Number(estimatedDays)) ||
+                "How many days the vehicle is expected to spend on the road."}
+            </span>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[#141A1F]">Estimated Time of Return</span>
+            <input
+              type="date"
+              value={estimatedDate}
+              onChange={(e) => setEstimatedDate(e.target.value)}
+              className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
+            />
+            <span className="text-[12px] leading-4 text-[#5C6470]">
+              Shown on the dispatch board until Security logs the truck out of the gate.
+            </span>
+          </label>
+        </div>
 
         {/* Step 1: Truck */}
         <section className="flex flex-col gap-3">
