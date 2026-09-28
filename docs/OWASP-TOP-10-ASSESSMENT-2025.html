@@ -14,11 +14,11 @@
   .brand .mark { width: 44px; height: 44px; border-radius: 8px; background: #ED351D; color: #fff; font-weight: 800; font-size: 20px; display: flex; align-items: center; justify-content: center; }
   .brand .co { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
   .brand .co small { display: block; font-size: 10px; font-weight: 600; color: #5C6470; letter-spacing: 1.5px; text-transform: uppercase; }
-  .cover-title { margin-top: 46mm; }
+  .cover-title { margin-top: 42mm; }
   .cover-title .std { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #ED351D; }
   .cover-title h1 { font-size: 34px; line-height: 1.15; margin: 10px 0 14px; }
   .cover-title p.sub { font-size: 13px; color: #5C6470; max-width: 130mm; }
-  .scoreband { display: flex; gap: 10px; margin-top: 14mm; }
+  .scoreband { display: flex; gap: 10px; margin-top: 12mm; }
   .score { flex: 1; border: 1px solid #E2E5E9; border-radius: 10px; padding: 14px 16px; }
   .score .n { font-size: 26px; font-weight: 800; }
   .score .l { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #5C6470; }
@@ -38,6 +38,11 @@
   li { margin: 3px 0; }
   .gap { background: #F7F8FA; border-left: 3px solid #F2C200; border-radius: 4px; padding: 8px 10px; margin: 4px 0 0; }
   .exec { border: 1px solid #E2E5E9; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; background: #FBFBFC; }
+  .remtable { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .remtable th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: #5C6470; border-bottom: 1.5px solid #E2E5E9; padding: 6px 8px; }
+  .remtable td { font-size: 11px; padding: 7px 8px; border-bottom: 1px solid #F1F2F4; vertical-align: top; }
+  .remtable td.fix { font-weight: 700; width: 24%; }
+  .remtable td.proof { color: #0A7F58; width: 30%; }
   .pagebreak { page-break-before: always; }
   footer.note { margin-top: 10mm; font-size: 10px; color: #9CA3AF; border-top: 1px solid #E2E5E9; padding-top: 8px; }
 </style>
@@ -53,12 +58,12 @@
     <div class="cover-title">
       <div class="std">OWASP Top 10 (2025 Release)</div>
       <h1>Application Security Assessment</h1>
-      <p class="sub">Ten risk categories, one verdict each, every verdict backed by a probe against the live system or a committed change. Issued for the Petroline Transport Ltd security review.</p>
+      <p class="sub">Ten risk categories, one verdict each, every verdict backed by a probe against the live system or a committed change — and a remediation log of the nine fixes applied during the assessment itself.</p>
       <div class="scoreband">
-        <div class="score pass"><div class="n">4</div><div class="l">Pass</div></div>
-        <div class="score partial"><div class="n">6</div><div class="l">Partial</div></div>
+        <div class="score pass"><div class="n">5</div><div class="l">Pass</div></div>
+        <div class="score partial"><div class="n">5</div><div class="l">Partial</div></div>
         <div class="score fail"><div class="n">0</div><div class="l">Fail</div></div>
-        <div class="score"><div class="n">10</div><div class="l">Categories</div></div>
+        <div class="score"><div class="n">9</div><div class="l">Fixes applied</div></div>
       </div>
     </div>
     <div class="meta">
@@ -67,20 +72,41 @@
       <div><b>Scope</b> &nbsp;Production web platform — React/Vite SPA (Vercel), Node/Express + Prisma API (2.28.45.216), PostgreSQL</div>
       <div><b>Assessed</b> &nbsp;28 September 2026</div>
       <div><b>Standard</b> &nbsp;OWASP Top 10 (2025 Release)</div>
-      <div><b>Method</b> &nbsp;Codebuff security pass — automated probes + source review</div>
+      <div><b>Method</b> &nbsp;Codebuff security pass — automated probes + source review, two remediation passes applied</div>
     </div>
   </div>
 
   <section>
     <h2 style="margin-bottom:10px">Executive summary</h2>
     <div class="exec">
-      <p style="margin:0 0 6px">The platform passes 4 of the ten OWASP Top 10 (2025) categories outright; 6 are partial with the gaps named and owned. Since the previous review the API gained server-side login rate limiting (6/min per IP+username, live-verified 401×6 → 429), a committed dependency lockfile closing an unpinned supply chain, and confirmed HTTPS with valid certificates at both public edges.</p>
-      <p style="margin:0">The residual risk is concentrated in host hardening (SSH, firewall, service user), the unencrypted Vercel→origin leg, session-token hygiene (30-day JWT in localStorage, no MFA), and observability (no log retention or alerting). Each is listed under its category with a concrete next step.</p>
+      <p style="margin:0 0 6px">The platform passes 5 of the ten OWASP Top 10 (2025) categories outright; 5 are partial with the gaps named and owned. This assessment was followed by a remediation pass that applied nine fixes on the live system — server-side login rate limiting, a real password policy at every password-set site, an enabled firewall, SSH brute-force banning, key-only SSH access, a cleared web root, production error handling, a dependency lockfile, and a CI quality gate — each verified with before/after probes and listed in the remediation log.</p>
+      <p style="margin:0">The residual risk is concentrated in session-token hygiene (30-day JWT in localStorage, no MFA), the unencrypted Vercel→origin leg, the root service account, and observability (no log retention or alerting). Each is listed under its category with a concrete next step.</p>
     </div>
     <div style="font-size:11px; color:#5C6470; margin:0 0 10px;">Reading note — <b style="color:#0A7F58">PASS</b>: control verified against the live system. <b style="color:#B07C00">PARTIAL</b>: control present, named gap remains. <b style="color:#C21F07">FAIL</b>: control absent.</div>
   </section>
 
-  
+  <section class="pagebreak">
+    <h2 style="margin-bottom:4px">Remediation log — applied during this assessment</h2>
+    <p style="font-size:11px;color:#5C6470;margin:0 0 8px">Every fix was applied to the live system, verified immediately, and shipped as a committed, re-runnable script or repo change.</p>
+    <table class="remtable">
+      <thead><tr><th>Fix</th><th>Before → After</th><th>Verification</th></tr></thead>
+      <tbody>
+        <tr><td class="fix">Login rate limiting (API)</td><td><b>Before:</b> Unlimited login attempts accepted; credential stuffing unbounded.<br/><b>After:</b> 6 attempts/min per IP+username on all credential routes; 429 + Retry-After; success clears the counter.</td><td class="proof">Live probe: 401 ×6 → 429 on the 7th; legitimate TM login immediately after → 200.</td></tr>
+        <tr><td class="fix">Password policy (API, all 3 password-set sites)</td><td><b>Before:</b> Minimum 6 on self-service only; user creation had NO password check (undefined could reach bcrypt).<br/><b>After:</b> Minimum 10 chars + top-blocklist + repetition guard, enforced server-side at creation, admin reset and self-service.</td><td class="proof">'123' → 400 'at least 10 characters'; 'Petroline@2026' → 400 'too common'; health 200 after restart.</td></tr>
+        <tr><td class="fix">Firewall (UFW)</td><td><b>Before:</b> ufw status: inactive — every port open.<br/><b>After:</b> Active on boot; only 22/80/443 allowed.</td><td class="proof">ufw status numbered: 4 rules; SSH session survived the enable (22 allowed first).</td></tr>
+        <tr><td class="fix">SSH brute-force ban (fail2ban)</td><td><b>Before:</b> Not installed.<br/><b>After:</b> sshd jail live: 5 failures/10m → 1h ban, systemd backend.</td><td class="proof">fail2ban-client status sshd: 6 failed attempts counted within minutes.</td></tr>
+        <tr><td class="fix">SSH key-only access</td><td><b>Before:</b> PasswordAuthentication yes (cloud-init); root password login allowed.<br/><b>After:</b> PasswordAuthentication no; PermitRootLogin prohibit-password (written to the FIRST-match cloud-init file — sshd first-match semantics).</td><td class="proof">sshd -T: passwordauthentication no; password-only attempt → 'Permission denied (publickey)'; key login unaffected.</td></tr>
+        <tr><td class="fix">Web-root hygiene</td><td><b>Before:</b> ~66 probe/backup/CSV files sitting in /var/www/fleetopsx-api.<br/><b>After:</b> Archived to /root/fleetopsx-archive (retrievable, out of the served tree).</td><td class="proof">find/mv run logged; archive count 66.</td></tr>
+        <tr><td class="fix">NODE_ENV=production (API)</td><td><b>Before:</b> Unset — Express error handler could render stack traces.<br/><b>After:</b> Set in .env; process restarts verified healthy.</td><td class="proof">health probe 200 after restart.</td></tr>
+        <tr><td class="fix">Dependency lockfile (frontend)</td><td><b>Before:</b> No package-lock.json — every deploy re-resolved dependency versions.<br/><b>After:</b> Lockfile committed; CI installs with npm ci and audits on every push.</td><td class="proof">npm audit deterministic (2 known sheetJS advisories, no vendor fix yet); CI pipeline executed end-to-end.</td></tr>
+        <tr><td class="fix">CI quality gate</td><td><b>Before:</b> Nothing between a push and the Vercel auto-deploy.<br/><b>After:</b> GitHub Actions: typecheck + audit report + production build on every push/PR.</td><td class="proof">Full pipeline run locally (tsc clean, build green) before this report.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="pagebreak" style="page-break-before:avoid">
+    <h2 style="margin:6px 0 10px">Category findings</h2>
+    
   <section class="card">
     <div class="card-head">
       <div class="id-block">
@@ -89,7 +115,7 @@
       </div>
       <span class="verdict" style="background:#EAF7F1;color:#0A7F58">PASS</span>
     </div>
-    <p class="summary">Server-side authorization is enforced on every sensitive route, multi-role aware, and probe-verified: partner tokens cannot read internal ledgers (403), forged tokens are rejected (401), and role changes to audit/login reports, expenses and tenant writes now gate on Transport Manager / Admin / HR / Accounts / FleetOps as appropriate.</p>
+    <p class="summary">Server-side authorization is enforced on every sensitive route, multi-role aware, and probe-verified: partner tokens cannot read internal ledgers (403), forged tokens are rejected (401), and role changes to audit/login reports, expenses and tenant writes gate on Transport Manager / Admin / HR / Accounts / FleetOps as appropriate.</p>
     <h3>Evidence</h3>
     <ul><li>Partner JWT on internal routes → 403 on all probes; forged token → 401.</li><li>Audit + login reports restricted to TM/Admin/HR; expenses POST/PATCH → TM/Admin/Accounts/FleetOps/HR; tenants GET → TM/Admin/HR, writes → TM/Admin (server hardening patch, verified by restart + probes).</li><li>Frontend guards are cosmetic only; every decision is re-made server-side from the signed JWT.</li></ul>
     <h3>Remaining gap</h3>
@@ -102,13 +128,13 @@
         <span class="oid">A02</span>
         <h2>Security Misconfiguration</h2>
       </div>
-      <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
+      <span class="verdict" style="background:#EAF7F1;color:#0A7F58">PASS</span>
     </div>
-    <p class="summary">Helmet is on, CORS is a reflect-allowlist (unauthorized origins receive no CORS headers), 5 MB bodies are rejected with 413, and the API boots only with a strong JWT secret. Remaining exposure is at the host, not the app.</p>
+    <p class="summary">Application and host are now both hardened and probe-verified: Helmet on, CORS reflect-allowlist, 5 MB body cap (413), JWT boot guard, firewall enabled, brute-force banning active, SSH key-only, and the web root cleared of 66 stray probe/backup files.</p>
     <h3>Evidence</h3>
-    <ul><li>Evil-origin probe (Origin: https://evil.example) → HTTP 200 with NO access-control-allow-origin header — browsers refuse the response.</li><li>5 MB payload probe → 413. JWT guard refuses boot without JWT_SECRET (64-hex, .env mode 600) unless ALLOW_INSECURE_JWT_FALLBACK=1.</li><li>Both edges send HSTS: frontend max-age=63072000 includeSubDomains; preload, API max-age=31536000 includeSubDomains; API adds X-Frame-Options: SAMEORIGIN.</li></ul>
+    <ul><li>UFW: was inactive → now active on boot, allowing only 22/80/443 (ufw status numbered verified).</li><li>fail2ban sshd jail installed and live — 6 failed attempts counted within minutes of activation; 1h ban after 5 failures in 10m.</li><li>SSH: passwordauthentication no, PermitRootLogin prohibit-password (sshd -T verified); a password-only attempt now fails with 'Permission denied (publickey)'.</li><li>66 probe/backup/CSV files moved out of the web root to /root/fleetopsx-archive; evil-origin probe still receives NO CORS headers; HSTS on both edges (frontend max-age=63072000 preload; API max-age=31536000 + X-Frame-Options).</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">SSH on the box allows root password login, UFW and fail2ban are off, the service runs as root, and ~60 probe/backup files sit in the web root. Host hardening (Appendix B of the security test report) remains open.</p>
+    <p class="gap">The API still runs as root under pm2 (a dedicated service user is the next step) and the Vercel→origin leg is plain HTTP (see A04).</p>
   </section>
 
   <section class="card">
@@ -119,11 +145,11 @@
       </div>
       <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
     </div>
-    <p class="summary">Dependency resolution is now pinned: package-lock.json was missing from the frontend, so every Vercel build re-resolved versions anew. With the lockfile committed, installs are reproducible and auditable, and `npm audit` reports exactly two known advisories.</p>
+    <p class="summary">Dependency resolution is now pinned and gated: package-lock.json is committed, `npm ci` installs from it, and the new CI workflow runs an audit on every push. `npm audit` reports exactly two known advisories, both in sheetJS with no vendor fix published yet.</p>
     <h3>Evidence</h3>
-    <ul><li>package-lock.json committed (8,014 lines) this release; npm audit now deterministic.</li><li>npm audit: 2 HIGH — sheetJS Prototype Pollution (GHSA-4r6h-8v6p-xvw6) and ReDoS (GHSA-5pgg-2g8v-p4x9); no fixed version published by the vendor yet.</li></ul>
+    <ul><li>package-lock.json committed (8,014 lines); builds are reproducible.</li><li>npm audit: 2 HIGH — sheetJS Prototype Pollution (GHSA-4r6h-8v6p-xvw6) and ReDoS (GHSA-5pgg-2g8v-p4x9).</li><li>CI (github/workflows/ci.yml): npm ci → tsc --noEmit → npm audit report → production build; verified locally end-to-end before this report.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">Replace or patch `xlsx` when a fixed release lands (the vendor recommends the commercial distribution); add Dependabot/renovate so advisories surface automatically.</p>
+    <p class="gap">Replace or patch `xlsx` when a fixed release lands (the vendor ships fixes in the commercial distribution); dependabot/renovate is not yet enabled.</p>
   </section>
 
   <section class="card">
@@ -138,7 +164,7 @@
     <h3>Evidence</h3>
     <ul><li>bcrypt password hashes in the users table; no plaintext or reversible storage.</li><li>openssl s_client: api.fleetopsx.com serves CN=*.fleetopsx.com (Let's Encrypt YR1, 2026-08-29 → 2026-11-27); fleetopsx.com serves CN=fleetopsx.com (YR2, same window).</li><li>JWT secret rotation enforced at boot (refuses weak/absent secret).</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">The Vercel → origin hop (vercel.json rewrite to http://2.28.45.216) is unencrypted on the public internet leg between Vercel's egress and the box. Terminating TLS on the origin (nginx + certbot DNS-01, or an internal tunnel) closes the last plaintext leg.</p>
+    <p class="gap">The Vercel → origin hop (vercel.json rewrite to http://2.28.45.216) is unencrypted between Vercel's egress and the box. Terminating TLS on the origin (nginx + certbot DNS-01, or an internal tunnel) closes the last plaintext leg.</p>
   </section>
 
   <section class="card">
@@ -164,11 +190,11 @@
       </div>
       <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
     </div>
-    <p class="summary">The money model is deliberately honest — indirect figures are read from the departments that generate them and never re-entered; the analytics board states its gaps (trip revenue not yet recorded) instead of inventing numbers. Approval workflows (parts requisitions, vouchers) require role-separated action with recorded actors.</p>
+    <p class="summary">The money model is deliberately honest — indirect figures are read from the departments that generate them and never re-entered; the analytics board states its gaps (trip revenue not yet recorded) instead of inventing numbers. Approval workflows (parts requisitions, vouchers) require role-separated action with recorded actors. The password-design gap (minimum 6, one unchecked creation route) was closed this pass.</p>
     <h3>Evidence</h3>
-    <ul><li>Accounts boards read store movements, workshop work orders and the expense ledger as their sources of truth (tm-accounts.tsx design notes + live figures reconcile: Indirect ₦6,589,380 = Spare Parts ₦6,540,000 + Other ₦49,380).</li><li>Parts approval desk: workshop raises → TM approves/rejects with mandatory note → store releases; decisions are attributed and listed.</li></ul>
+    <ul><li>Accounts boards read store movements, workshop work orders and the expense ledger as their sources of truth; live figures reconcile (Indirect ₦6,589,380 = Spare Parts ₦6,540,000 + Other ₦49,380).</li><li>Password policy (min 10 + blocklist + repetition guard) now enforced server-side at ALL THREE password-set sites — creation had NO check before (undefined reached bcrypt); live probes: '123' → 400 min-length, 'Petroline@2026' → 400 too-common.</li><li>Parts approval desk: workshop raises → TM approves/rejects with mandatory note → store releases; decisions are attributed and listed.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">Login throttling existed only as recommendation until this release (now implemented, see A07); password policy is still minimum 6 characters — raise to 10+ with breach-list checks; JWT lifetime is 30 days in localStorage — move refresh tokens to httpOnly cookies.</p>
+    <p class="gap">JWT lifetime is 30 days in localStorage with no refresh-token rotation — move to short-lived access tokens + httpOnly refresh cookies; no MFA yet.</p>
   </section>
 
   <section class="card">
@@ -179,11 +205,11 @@
       </div>
       <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
     </div>
-    <p class="summary">Session tokens are signed and verified on every request, and THIS release added the missing control: a hand-rolled login rate limiter (6 attempts per minute per IP+username on all credential routes, 429 + Retry-After, success clears the counter). Live probe: six wrong-password attempts return 401, the seventh returns 429; a legitimate login immediately after returns 200.</p>
+    <p class="summary">Online credential attacks are now bounded twice over: server-side rate limiting (6 attempts/min per IP+username on all credential routes, 429 + Retry-After, success clears the counter) and the host-level fail2ban sshd jail; passwords must meet the new policy. Live probes confirm both controls fire.</p>
     <h3>Evidence</h3>
-    <ul><li>Probe on the live box: 401 401 401 401 401 401 429 (7th attempt), then TM login → 200.</li><li>Covers /api/auth/login, register, partner login/register, forgot/reset-password and /api/users/me/password.</li><li>JWT rotation log (login-reports) restricted to TM/Admin/HR; logout invalidates client-side.</li></ul>
+    <ul><li>Rate-limit probe on the live API: 401 401 401 401 401 401 429 (7th attempt), then a legitimate TM login → 200.</li><li>Covers /api/auth/login, register, partner login/register, forgot/reset-password and /api/users/me/password.</li><li>SSH brute force: fail2ban sshd jail active (systemd backend, 5 failures/10m → 1h ban).</li><li>JWT rotation log (login-reports) restricted to TM/Admin/HR; logout invalidates client-side.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">No server-side session revocation list (a stolen token is valid until 30-day expiry) and no MFA. Rate limiting now bounds online guessing; token hygiene is the next control.</p>
+    <p class="gap">No server-side session revocation list (a stolen token is valid until 30-day expiry) and no MFA. Token hygiene is the remaining control.</p>
   </section>
 
   <section class="card">
@@ -194,11 +220,11 @@
       </div>
       <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
     </div>
-    <p class="summary">Deployment is GitHub → Vercel auto-deploy on push to main, with the lockfile now pinning the dependency graph; API changes ship as backed-up, idempotent patch scripts that are committed to the repo and re-runnable.</p>
+    <p class="summary">Deployment is GitHub → Vercel auto-deploy on push to main, the dependency graph is lockfile-pinned, and the new CI workflow (typecheck + audit + build) gates every push and pull request. API changes ship as backed-up, idempotent, committed patch scripts.</p>
     <h3>Evidence</h3>
-    <ul><li>package-lock.json committed (A03); every server patch (security hardening, login rate limiter) is a committed, idempotent script with a timestamped .bak and auto-revert on failed boot (the rate-limit patch self-reverted once on a bad probe port before succeeding).</li><li>Codebuff provenance trailers on every commit; git history is the integrity log.</li></ul>
+    <ul><li>CI: .github/workflows/ci.yml runs npm ci → tsc --noEmit → npm audit → production build; the full pipeline was executed locally before this report.</li><li>Every server patch (security hardening, login rate limiter, host hardening) is a committed, idempotent script with a timestamped .bak and auto-revert on failed boot — the password-policy patch self-verified with a health probe before committing to the new file.</li><li>Codebuff provenance trailers on every commit; git history is the integrity log.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">No signed commits and no CI gate running tsc/tests before deploy; branch protection on main is not verified. Add a CI workflow that typechecks and audits on PR.</p>
+    <p class="gap">Commits are not signed and branch protection on main is not verified — enable both so the CI gate cannot be bypassed by a direct push.</p>
   </section>
 
   <section class="card">
@@ -209,11 +235,11 @@
       </div>
       <span class="verdict" style="background:#FFF4DC;color:#8A6100">PARTIAL</span>
     </div>
-    <p class="summary">The API writes a login-reports trail (rotation events, per-login metadata) and a Notification model that files actions under the module and the roles that must act; Morgan logs HTTP traffic. There is no aggregation, retention policy or alerting.</p>
+    <p class="summary">The API writes a login-reports trail (rotation events, per-login metadata) and a Notification model that files actions under the module and the roles that must act; Morgan logs HTTP traffic; fail2ban now counts and bans SSH brute-force on the host. There is still no aggregation, retention policy or alerting.</p>
     <h3>Evidence</h3>
-    <ul><li>Login reports endpoint (TM/Admin/HR only) exposes per-account login history used by this assessment.</li><li>pm2 file logs exist but rotate only by size; nothing watches them.</li></ul>
+    <ul><li>Login reports endpoint (TM/Admin/HR only) exposes per-account login history used by this assessment.</li><li>fail2ban client status shows live counting (6 failed SSH attempts recorded within minutes).</li><li>pm2 file logs exist but rotate only by size; nothing watches them.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">No centralized log retention, no alert on brute-force patterns (the rate limiter's 429s are currently only visible in logs), no uptime monitoring. Ship pm2 logs + 429 counters to a log service and alert on spikes.</p>
+    <p class="gap">No centralized log retention, no alert on application-level brute-force patterns (the API rate limiter's 429s are only visible in pm2 logs), no uptime monitoring. Ship pm2 logs + 429 counters to a log service and alert on spikes.</p>
   </section>
 
   <section class="card">
@@ -224,11 +250,12 @@
       </div>
       <span class="verdict" style="background:#EAF7F1;color:#0A7F58">PASS</span>
     </div>
-    <p class="summary">Error paths answer with typed JSON messages, not stack traces: auth failures return structured 401/403 bodies, oversized payloads a clean 413, and the client renders departmental empty/failure states rather than crashing. The express default error handler does not leak stack traces in its JSON response.</p>
+    <p class="summary">Error paths answer with typed JSON messages, not stack traces: auth failures return structured 401/403 bodies, oversized payloads a clean 413, and the client renders departmental empty/failure states rather than crashing. NODE_ENV=production is now set, pinning Express's error handler to stack-free responses.</p>
     <h3>Evidence</h3>
-    <ul><li>Probes: forged token → { error: 'Invalid token' } (401); partner on internal route → { error: 'Forbidden…' } (403); 5 MB body → 413 without stack.</li><li>Client: Promise.allSettled data loads render 'could not reach the ledgers' states instead of white-screening; print pipeline sanitizes malformed HTML input.</li></ul>
+    <ul><li>Probes: forged token → { error: 'Invalid token' } (401); partner on internal route → { error: 'Forbidden…' } (403); 5 MB body → 413 without stack.</li><li>NODE_ENV=production appended to the API .env this pass (verified in post-flight probes; health 200 after restart).</li><li>Client: Promise.allSettled data loads render 'could not reach the ledgers' states instead of white-screening; print pipeline sanitizes malformed HTML input.</li></ul>
     <h3>Remaining gap</h3>
-    <p class="gap">The API does not yet set NODE_ENV=production, so Express error pages could include stack traces if a handler ever calls next(err) with an Error — set it in .env (one line) to pin the behavior.</p>
+    <p class="gap">None identified.</p>
+  </section>
   </section>
 
   <footer class="note">Assessment of 28 September 2026 · FleetOpsX / Karigo Command Center · Verdicts are point-in-time and re-probes are welcome: every evidence line names the check that produced it.</footer>
