@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ChevronLeft, ChevronRight, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
@@ -29,6 +29,7 @@ import { formatLicenseDate, licenseExpiry, licenseToneClass } from "@/lib/fleeto
 import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import {
   driverHasOpenDispatches,
+  driverStatusWord,
   liveTripsFor,
   releaseConfirmBody,
 } from "@/lib/fleetopsx/driver-duty";
@@ -36,7 +37,6 @@ import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import {
   HR_ACCESS_ROLES,
   employmentStatusForWrite,
-  employmentStatusOf,
   rolesCanMaintainStaff,
   staffStatusLabel,
   type EmploymentStatus,
@@ -174,7 +174,7 @@ function HrStaffDirectory() {
       { label: "Name", value: driver.name || "—" },
       { label: "Phone", value: driver.phone || "—" },
       { label: "Department", value: driver.department || "—" },
-      { label: "Employment status", value: staffStatusLabel(driver) },
+      { label: "Employment status", value: driverStatusWord(driver, trips) },
       { label: "Guarantor", value: driver.guarantorName || "—" },
       { label: "Guarantor phone", value: driver.guarantorPhone || "—" },
       { label: "Licence document", value: driver.licenseDocName || "— none on file" },
@@ -223,21 +223,30 @@ function HrStaffDirectory() {
     [periodFilter, rangeCustom.custom],
   );
 
+  /** The ONE status word, from the dispatches — the platform's single truth. */
+  const statusWordOf = useCallback((d: Driver) => driverStatusWord(d, trips), [trips]);
+
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
-      // The column's word decides, so the filter and the pills can never
-      // disagree about who is Active, On Leave or Suspended.
-      if (statusFilter !== "All" && staffStatusLabel(d) !== statusFilter) return false;
+      // The derived word decides, so the filter, the pills and the summary can
+      // never disagree with the fleet or tracking boards.
+      const word = statusWordOf(d);
+      if (
+        statusFilter !== "All" &&
+        word !== statusFilter &&
+        !(statusFilter === "Active" && word === "On Trip")
+      )
+        return false;
       if (!inWindow(d.dateJoined, range)) return false;
       const salary = displayDriverSalary(d);
       // The licence date is searchable too ("2027", "Mar 2027") so the expiry can
       // be found without knowing whose licence it is; so are the department, the
       // guarantor HR recorded and the truck pairing.
       const hay =
-        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${staffStatusLabel(d)}`.toLowerCase();
+        `${salary} ${d.employeeId} ${d.name} ${d.phone} ${d.department} ${d.guarantorName ?? ""} ${d.guarantorPhone ?? ""} ${d.licenseNumber} ${d.licenseCategory} ${d.licenseExpiry} ${formatLicenseDate(d.licenseExpiry)} ${d.assignedTruck ?? ""} ${d.assignedTail ?? ""} ${statusWordOf(d)}`.toLowerCase();
       return !query || hay.includes(query.toLowerCase());
     });
-  }, [drivers, query, statusFilter, range]);
+  }, [drivers, query, statusFilter, range, statusWordOf]);
 
   /** The roster's footer: heads on file and the licence clock against them. */
   const staffSummary = (
@@ -246,11 +255,15 @@ function HrStaffDirectory() {
         { label: "Staff", value: String(filtered.length) },
         {
           label: "Active",
-          value: String(filtered.filter((d) => staffStatusLabel(d) === "Active").length),
+          value: String(filtered.filter((d) => statusWordOf(d) === "Active").length),
+        },
+        {
+          label: "On trip",
+          value: String(filtered.filter((d) => statusWordOf(d) === "On Trip").length),
         },
         {
           label: "On leave",
-          value: String(filtered.filter((d) => staffStatusLabel(d) === "On Leave").length),
+          value: String(filtered.filter((d) => statusWordOf(d) === "On Leave").length),
         },
         {
           label: "Licences expiring soon",
@@ -459,7 +472,7 @@ function HrStaffDirectory() {
           d.name,
           d.phone,
           d.department,
-          employmentStatusOf(d),
+          statusWordOf(d),
           d.licenseNumber,
           d.licenseCategory,
           d.licenseExpiry ? formatLicenseDate(d.licenseExpiry) : "",
@@ -583,7 +596,7 @@ function HrStaffDirectory() {
             const sn = currentPage * PAGE_SIZE + index + 1;
             const licence = licenseState(driver);
             // The register's own word for the row: HR's employment decision.
-            const statusWord = staffStatusLabel(driver);
+            const statusWord = driverStatusWord(driver, trips);
             return (
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
@@ -803,13 +816,20 @@ function HrStaffDirectory() {
         subtitle="Staff record · read only"
         badge={
           details ? (
-            <span
-              className={cn(
-                "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
-                statusPillClass(staffStatusLabel(details)),
-              )}
-            >
-              {staffStatusLabel(details)}
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
+                  statusPillClass(driverStatusWord(details, trips)),
+                )}
+              >
+                {driverStatusWord(details, trips)}
+              </span>
+              {driverStatusWord(details, trips) !== staffStatusLabel(details) ? (
+                <span className="text-[10px] uppercase tracking-[0.4px] text-[#9CA3AF]">
+                  filed {staffStatusLabel(details)}
+                </span>
+              ) : null}
             </span>
           ) : null
         }

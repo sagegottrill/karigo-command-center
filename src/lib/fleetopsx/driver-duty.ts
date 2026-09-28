@@ -232,6 +232,29 @@ export function releaseConfirmBody(driver: Driver, trips: Trip[], targetWord: st
 }
 
 /**
+ * The ONE word every board prints for a driver, decided from ONE source of
+ * truth: the live dispatch list.
+ *
+ *   a live dispatch names him  -> "On Trip"   (the dispatch is the fact)
+ *   HR filed Off Duty          -> "On Leave"  (HR's own decision, respected)
+ *   HR filed Suspended         -> "Suspended"
+ *   anything else              -> "Active"    (the register's ready-to-work word)
+ *
+ * This is the register's answer to "if they are on a trip, what will it be?":
+ * the staff directory no longer prints the stored column (which only ever says
+ * Active) — it reads the same dispatches the fleet, tracking and gate boards
+ * read, so every surface answers with the same word.
+ */
+export type DriverStatusWord = "On Trip" | "On Leave" | "Suspended" | "Active";
+
+export function driverStatusWord(driver: Driver, trips: Trip[]): DriverStatusWord {
+  if (driverHasOpenDispatches(driver, trips)) return "On Trip";
+  if (driver.status === "Off Duty") return "On Leave";
+  if (driver.status === "Suspended") return "Suspended";
+  return "Active";
+}
+
+/**
  * The duty word a roster, a staff record or a headcount should carry: the four
  * HR words, plus IN TRANSIT for a man the dispatch list says is on the road.
  */
@@ -310,7 +333,11 @@ export function driverIsAssignable(driver: Driver, trips: Trip[], excludeTripId?
 }
 
 /** The assignable roster, in the order it arrived (the roster's own ranking). */
-export function assignableDrivers(drivers: Driver[], trips: Trip[], excludeTripId?: string): Driver[] {
+export function assignableDrivers(
+  drivers: Driver[],
+  trips: Trip[],
+  excludeTripId?: string,
+): Driver[] {
   return drivers.filter((d) => driverIsAssignable(d, trips, excludeTripId));
 }
 
