@@ -1,0 +1,6 @@
+# Line endings are part of the build: bash on the VPS refuses CRLF scripts
+# (e2e_suite.sh died on "$'\r': command not found"), so shell scripts are
+# pinned to LF everywhere. Everything else stays default (autocrlf handles it).
+*.sh text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf

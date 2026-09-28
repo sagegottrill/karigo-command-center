@@ -45,19 +45,20 @@ req GET /api/users "${TOKENS[partner]}" ""
 check "partner cannot list users (403)" 403
 
 echo "=== 3. FLEET MASTERS ==="
+# The suite runs on the DEDICATED E2E assets created by e2e_prep.cjs — it never
+# borrows a real truck, tail or driver, because the gate cycle flips whatever it
+# touches to Out of Yard / On Trip (a real head was once stranded on the yard
+# board for two days this way). Cleanup restores/deletes these by name.
 req GET /api/trucks "${TOKENS[fo]}" ""; check "list trucks (FO)" 200
-echo "  trucks: $(jqget '.length')"
+TRUCK_REG=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.cabId==='E2E-CAP-001'); console.log(t?t.registration:'')")
 req GET /api/tails "${TOKENS[fo]}" ""; check "list tails (FO)" 200
-echo "  tails:  $(jqget '.length')"
-TAIL_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.status==='Available'); console.log(t?t.id:'')")
-TAIL_NO=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.status==='Available'); console.log(t?t.number:'')")
+TAIL_NO=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.number==='E2E-TAIL-001'); console.log(t?t.number:'')")
+TAIL_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.number==='E2E-TAIL-001'); console.log(t?t.id:'')")
 req GET /api/drivers "${TOKENS[fo]}" ""; check "list drivers (FO)" 200
-echo "  drivers: $(jqget '.length')"
-DRV_NAME=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const x=d.find(x=>x.status==='Active'); console.log(x?x.name:'')")
-req GET /api/trucks "${TOKENS[fo]}" ""
-TRUCK_REG=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.status==='Active'); console.log(t?t.registration:'')")
-echo "  using tail=$TAIL_NO driver=$DRV_NAME truck=$TRUCK_REG"
-[ -n "$TAIL_ID" ] && [ -n "$DRV_NAME" ] && [ -n "$TRUCK_REG" ] && { PASS=$((PASS+1)); echo "  ok   fleet masters populated"; } || { FAIL=$((FAIL+1)); FAILED_NAMES+=("fleet masters populated"); }
+DRV_NAME=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const x=d.find(x=>x.staffId==='E2E-DRV-001'); console.log(x?x.name:'')")
+echo "  masters: trucks=$(jqget '.length') tails=$(jqget '.length') drivers=$(jqget '.length')"
+echo "  using E2E truck=$TRUCK_REG tail=$TAIL_NO driver=$DRV_NAME"
+[ -n "$TRUCK_REG" ] && [ -n "$TAIL_ID" ] && [ -n "$TAIL_NO" ] && [ -n "$DRV_NAME" ] && { PASS=$((PASS+1)); echo "  ok   E2E fleet masters present"; } || { FAIL=$((FAIL+1)); FAILED_NAMES+=("E2E fleet masters present (prep.cjs creates them)"); }
 
 echo "=== 4. LIFECYCLE: request -> TM approve -> FO assign -> TM schedule -> gate -> tracking -> complete ==="
 STAMP=$(date +%s)
@@ -78,18 +79,49 @@ req PATCH "/api/trips/$TRIP_ID" "${TOKENS[fo]}" "{\"driverName\":\"$DRV_NAME\",\
 check "FO assigns truck+tail+driver (Awaiting Approval)" 200
 req PATCH "/api/trips/$TRIP_ID" "${TOKENS[tm]}" '{"status":"Scheduled"}'
 check "TM schedules (Scheduled)" 200
-req POST "/api/gate" "${TOKENS[gate]}" "{\"type\":\"Departure\",\"truckReg\":\"$TRUCK_REG\",\"driver\":\"E2E Gate Test\",\"purpose\":\"Delivery to LIVECHECK consignee\"}"
+# Departure names the E2E plate AND the E2E driver — both match the trip, so the
+# server-side cycle (trip -> En Route, assets Out of Yard, driver On Trip)
+# demonstrably keys on THIS dispatch.
+req POST "/api/gate" "${TOKENS[gate]}" "{\"type\":\"Departure\",\"truckReg\":\"$TRUCK_REG\",\"driver\":\"$DRV_NAME\",\"purpose\":\"Delivery to LIVECHECK consignee\"}"
 check "gate logs departure" 200
+sleep 2
+req GET "/api/trips/$TRIP_ID" "${TOKENS[tm]}" ""
+TRIP_STATUS_AFTER_DEP="$(jqget .status)"
+if [ "$TRIP_STATUS_AFTER_DEP" = "En Route" ]; then PASS=$((PASS+1)); echo "  ok   gate departure moved trip to En Route";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate departure moves trip to En Route"); echo "       trip status after departure: $TRIP_STATUS_AFTER_DEP"; fi
+req GET /api/trucks "${TOKENS[fo]}" ""
+TRUCK_AFTER_DEP=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.cabId==='E2E-CAP-001'); console.log(t?t.status:'')")
+if [ "$TRUCK_AFTER_DEP" = "Out of Yard" ]; then PASS=$((PASS+1)); echo "  ok   gate departure sent E2E truck Out of Yard";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate departure sends truck Out of Yard"); echo "       E2E truck status after departure: $TRUCK_AFTER_DEP"; fi
+req GET /api/drivers "${TOKENS[fo]}" ""
+DRV_AFTER_DEP=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const x=d.find(x=>x.staffId==='E2E-DRV-001'); console.log(x?x.status:'')")
+if [ "$DRV_AFTER_DEP" = "On Trip" ]; then PASS=$((PASS+1)); echo "  ok   gate departure marked E2E driver On Trip";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate departure marks driver On Trip"); echo "       E2E driver status after departure: $DRV_AFTER_DEP"; fi
 req POST "/api/tracking" "${TOKENS[tracking]}" "{\"tripId\":\"$TRIP_ID\",\"location\":\"Ikeja Toll Gate\",\"leg\":\"Outbound\"}"
 check "tracking logs checkpoint" 200
 req GET "/api/tracking/$TRIP_ID" "${TOKENS[tracking]}" ""
 check "tracking lists checkpoints ($(jqget '.length'))" 200
-req PATCH "/api/trips/$TRIP_ID" "${TOKENS[fo]}" '{"status":"In Transit"}'
-check "FO marks In Transit" 200
-req POST "/api/gate" "${TOKENS[gate]}" "{\"type\":\"Return\",\"truckReg\":\"$TRUCK_REG\",\"driver\":\"E2E Gate Test\",\"purpose\":\"Return to yard after LIVECHECK\"}"
+# NOTE: no FO "In Transit" PATCH here — "In Transit" is the UI bucket over the
+# moving statuses, not a stored one; the stored word after departure is En Route,
+# which is exactly what the gate's return cycle scans for. Writing 'In Transit'
+# (as this suite once did) knocked the trip OUT of the return's open list.
+req POST "/api/gate" "${TOKENS[gate]}" "{\"type\":\"Return\",\"truckReg\":\"$TRUCK_REG\",\"driver\":\"$DRV_NAME\",\"purpose\":\"Return to yard after LIVECHECK\"}"
 check "gate logs return" 200
-req PATCH "/api/trips/$TRIP_ID" "${TOKENS[fo]}" '{"status":"Completed"}'
-check "FO completes trip" 200
+sleep 2
+# The return stamp closes the dispatch server-side (Completed) and sends the E2E
+# truck+tail to Check Up — assert the whole server cycle, not just the 200s.
+req GET "/api/trips/$TRIP_ID" "${TOKENS[tm]}" ""
+TRIP_STATUS_AFTER_RET="$(jqget .status)"
+if [ "$TRIP_STATUS_AFTER_RET" = "Completed" ]; then PASS=$((PASS+1)); echo "  ok   gate return closed the trip (Completed)";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate return closes the trip"); echo "       trip status after return: $TRIP_STATUS_AFTER_RET"; fi
+req GET /api/trucks "${TOKENS[fo]}" ""
+TRUCK_AFTER_RET=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const t=d.find(x=>x.cabId==='E2E-CAP-001'); console.log(t?t.status:'')")
+if [ "$TRUCK_AFTER_RET" = "Check Up" ]; then PASS=$((PASS+1)); echo "  ok   gate return sent E2E truck to Check Up";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate return sends truck to Check Up"); echo "       E2E truck status after return: $TRUCK_AFTER_RET"; fi
+req GET /api/drivers "${TOKENS[fo]}" ""
+DRV_AFTER_RET=$(node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/last_body','utf8')); const x=d.find(x=>x.staffId==='E2E-DRV-001'); console.log(x?x.status:'')")
+if [ "$DRV_AFTER_RET" = "Active" ]; then PASS=$((PASS+1)); echo "  ok   gate return freed the E2E driver (Active)";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("gate return frees the driver"); echo "       E2E driver status after return: $DRV_AFTER_RET"; fi
 req GET "/api/trips/$TRIP_ID" "${TOKENS[partner]}" ""
 check "partner reads completed trip" 200
 echo "  final status: $(jqget .status)"

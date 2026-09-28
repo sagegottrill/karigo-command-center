@@ -36,6 +36,11 @@ fi
 echo "==> Uploading E2E suite to $VPS_HOST"
 SSH "mkdir -p $API_DIR/e2e"
 SCP scripts/e2e/e2e_prep.cjs scripts/e2e/e2e_cleanup.cjs scripts/e2e/e2e_suite.sh "root@$VPS_HOST:$API_DIR/e2e/"
+# Belt and braces: this checkout runs on Windows (core.autocrlf=true), so an
+# scp'd file can still carry CRLF even with .gitattributes pinning *.sh to LF —
+# and bash on the VPS dies on the first `\r` ("command not found"). Strip CR
+# server-side before bash ever reads the file.
+SSH "cd $API_DIR/e2e && sed -i 's/\r$//' e2e_prep.cjs e2e_cleanup.cjs e2e_suite.sh"
 
 echo "==> Preparing isolated E2E accounts"
 SSH "cd $API_DIR && node e2e/e2e_prep.cjs"
