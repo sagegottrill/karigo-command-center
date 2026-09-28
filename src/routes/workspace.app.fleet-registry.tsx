@@ -91,7 +91,10 @@ function statusPillClass(status: TruckStatus) {
     case "Assigned":
       return "bg-[#627084] text-white";
     case "Out of Yard":
-      return "bg-[#EA3A3D] text-white";
+      // Yellow (dark text) — the client asked for it explicitly: next to
+      // Maintenance's orange it read as a second orange, and a truck simply
+      // out on the road is not the alarm that red implied.
+      return "bg-[#F2C200] text-[#1B2432]";
     case "Check Up":
       return "bg-[#8B5CF6] text-white";
     case "Maintenance":

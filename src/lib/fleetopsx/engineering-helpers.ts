@@ -76,7 +76,9 @@ export function truckStatusPillClass(status: TruckHead["status"]) {
     case "Assigned":
       return "bg-[#2F6BD8] text-white";
     case "Out of Yard":
-      return "bg-[#627084] text-white";
+      // Yellow (dark text), matching the registry — one word, one colour
+      // everywhere (the client asked for yellow over the grey it wore here).
+      return "bg-[#F2C200] text-[#1B2432]";
     case "Check Up":
       return "bg-[#2F6BD8] text-white";
     case "Maintenance":
@@ -115,7 +117,9 @@ export function workOrderKeys(order: WorkOrder) {
 
 export function headKeys(head: TruckHead) {
   return {
-    plate: String(head.registration ?? "").trim().toLowerCase(),
+    plate: String(head.registration ?? "")
+      .trim()
+      .toLowerCase(),
     head: [head.capNumber, head.number].filter(Boolean).map((v) => String(v).trim().toLowerCase()),
   };
 }
@@ -156,7 +160,8 @@ export function indexWorkOrdersByTruck(orders: WorkOrder[]) {
     if (!current || new Date(order.reportedAt || 0) > new Date(current.reportedAt || 0)) {
       latest.set(key, order);
     }
-    if (order.status !== "Completed" && order.status !== "Cancelled" && !open.has(key)) open.set(key, order);
+    if (order.status !== "Completed" && order.status !== "Cancelled" && !open.has(key))
+      open.set(key, order);
   }
   return { latest, open };
 }
