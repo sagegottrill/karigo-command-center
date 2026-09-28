@@ -24,7 +24,7 @@ import {
   isNoValue,
 } from "@/lib/fleetopsx/display-ids";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, fleetService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import {
   gateDepartureStamp,
   gateReturnStamp,
@@ -358,6 +358,48 @@ departure silently never logs. */
         // WHO logged it — the Guard Activity Ledger on the TM's Security view.
         gateOutBy: authService.getCurrentUser()?.name || "Security",
       });
+      // The TRUCK physically left the yard — say so where the fleet reads it.
+      // Logging only the trip left the head and tail on "Assigned", so the
+      // availability boards the TM and Fleet Operations read kept answering
+      // "in the yard" while the gate had the truck on the road. Best-effort:
+      // the departure itself must stand even if an asset row cannot be claimed.
+      try {
+        const norm = (value: string) => value.replace(/\s/g, "").toLowerCase();
+        const plate = logForm.plateNumber.trim();
+        const tailCode = logForm.tailNumber.trim();
+        if (plate) {
+          const heads = await fleetService.listHeads();
+          const head =
+            heads.find((h) => norm(h.registration) === norm(plate)) ??
+            heads.find((h) => norm(h.capNumber ?? "") === norm(plate));
+          if (head && ["Available", "Assigned"].includes(head.status)) {
+            await fleetService.updateHeadStatus(
+              head.id,
+              "Out of Yard",
+              head.capNumber || head.registration,
+            );
+          }
+        }
+        if (tailCode) {
+          const tails = await fleetService.listTails();
+          const tail = tails.find((t) => norm(t.number) === norm(tailCode));
+          if (tail && ["Available", "Assigned"].includes(tail.status)) {
+            await fleetService.updateTailStatus(tail.id, "Out of Yard", tail.number);
+          }
+        }
+        // The driver rode out with the truck. Assignment may have claimed him
+        // already; when it did not, claim him here from either working word.
+        const outDriver = logForm.driverName.trim();
+        if (outDriver && !/^unassigned$/i.test(outDriver)) {
+          const drivers = await driverService.list();
+          const driver = drivers.find((d) => norm(d.name) === norm(outDriver));
+          if (driver && ["Available", "Active"].includes(driver.status)) {
+            await driverService.update(driver.id, { status: "On Trip" });
+          }
+        }
+      } catch {
+        /* the stamp is the gate's fact; bookkeeping is best-effort */
+      }
       toast.success("Departure logged");
       setLogOpen(false);
       await refresh();

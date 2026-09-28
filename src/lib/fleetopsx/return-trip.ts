@@ -70,7 +70,11 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         : undefined) ??
       heads.find((h) => cap && cap !== "—" && (displayHeadCap(h) === cap || h.number === cap));
     if (head) {
-      await fleetService.updateHeadStatus(head.id, "Check Up", displayHeadCap(head) || head.registration);
+      await fleetService.updateHeadStatus(
+        head.id,
+        "Check Up",
+        displayHeadCap(head) || head.registration,
+      );
       marked = true;
     }
     // The TAIL came back with the truck — and it was set to Assigned when the
@@ -89,13 +93,16 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
       }
     }
     // The DRIVER comes off the trip with the truck. Assigning set him to "On
-    // Trip", and nothing ever set him back — so every driver who had ever driven
-    // a dispatch stayed on the road forever and could not be assigned again.
+    // Trip" from "Available" OR "Active" (the working-driver register word), so
+    // the release must accept both words — matching on "On Trip" alone left
+    // every driver assigned from "Active" out on the road forever, which is
+    // exactly the report the gate house brought back: the TRUCK reflects the
+    // return, the DRIVER does not.
     const heldByName = String(trip.driverName || "").trim();
     if (heldByName && !/^unassigned$/i.test(heldByName)) {
       const drivers = await driverService.list();
       const driver = drivers.find((d) => d.name.trim().toLowerCase() === heldByName.toLowerCase());
-      if (driver && driver.status === "On Trip") {
+      if (driver && ["On Trip", "Active"].includes(driver.status)) {
         await driverService.update(driver.id, { status: "Available" });
       }
     }
