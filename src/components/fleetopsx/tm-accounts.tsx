@@ -30,6 +30,7 @@ import { TmVouchers } from "@/components/fleetopsx/tm-vouchers";
 import { DepartmentTabStrip } from "@/components/fleetopsx/department-sidebar";
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
+import { escHtml, printSheet } from "@/components/fleetopsx/dashboard-drill";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   CustomRangePicker,
@@ -927,12 +928,86 @@ function DeltaChip({
   );
 }
 
+/**
+ * One print-ready table — the building block of the Analytics report pages.
+ * Every cell passes through `escHtml` before `printSheet`'s allowlist sees it.
+ */
+function reportTable(head: string[], rows: Array<Array<string | number>>) {
+  const th = head.map((h) => `<th>${escHtml(h)}</th>`).join("");
+  const body = rows
+    .map((cells) => `<tr>${cells.map((cell) => `<td>${escHtml(cell)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/** The P&L card's report: income against expenses over the card's window. */
+function printProfitLossReport(period: string, grain: string, series: MoneyPoint[]) {
+  const income = series.reduce((sum, point) => sum + point.income, 0);
+  const expenses = series.reduce((sum, point) => sum + point.expenses, 0);
+  printSheet(
+    "Profit and Loss Report",
+    `${period} · ${grain} · Accrual (paid & unpaid)`,
+    reportTable(
+      ["Period", "Income (Revenue)", "Expenses"],
+      [
+        ...series.map((point) => [point.label, money(point.income), money(point.expenses)]),
+        ["Window total", money(income), money(expenses)],
+      ],
+    ),
+  );
+}
+
+/** The donut's report: the breakdown as the card holds it. */
+function printBreakdownReport(period: string, slices: Array<{ label: string; amount: number }>) {
+  const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
+  printSheet(
+    "Expenses Breakdown Report",
+    `${period} · Direct and indirect`,
+    reportTable(
+      ["Category", "Amount", "Share"],
+      [
+        ...slices.map((slice) => [
+          slice.label,
+          money(slice.amount),
+          percentOf(slice.amount, total),
+        ]),
+        ["Total", money(total), ""],
+      ],
+    ),
+  );
+}
+
+/** The cash card's report: inflow, outflow and the net line, per period. */
+function printCashFlowReport(period: string, grain: string, series: MoneyPoint[]) {
+  const inflow = series.reduce((sum, point) => sum + point.inflow, 0);
+  const outflow = series.reduce((sum, point) => sum + point.outflow, 0);
+  const net = series.reduce((sum, point) => sum + point.net, 0);
+  printSheet(
+    "Cash Flow Report",
+    `${period} · ${grain} · Cash basis (paid)`,
+    reportTable(
+      ["Period", "Cash In", "Cash Out", "Net Change"],
+      [
+        ...series.map((point) => [
+          point.label,
+          money(point.inflow),
+          money(point.outflow),
+          money(point.net),
+        ]),
+        ["Window total", money(inflow), money(outflow), money(net)],
+      ],
+    ),
+  );
+}
+
 function ChartCard({
   title,
   basis,
   badge,
   chip,
   periodNode,
+  headline,
+  onReport,
   children,
 }: {
   title: string;
@@ -942,6 +1017,10 @@ function ChartCard({
   chip?: ReactNode;
   /** The card's own window select — the mock puts one on every card. */
   periodNode?: ReactNode;
+  /** The card's headline figure, for its OWN window. */
+  headline?: ReactNode;
+  /** Opens this card's printable report; falls back to the browser print. */
+  onReport?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -958,12 +1037,13 @@ function ChartCard({
             {chip}
           </h3>
           <p className="mt-0.5 text-[12.5px] text-[#5C6470]">{basis}</p>
+          {headline}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {periodNode}
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={onReport ?? (() => window.print())}
             className="flex h-8 items-center rounded-full bg-[#2E6FF2] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#2459C9]"
           >
             View report
@@ -1012,10 +1092,14 @@ function ProfitLossCard({
   data,
   chip,
   periodNode,
+  headline,
+  onReport,
 }: {
   data: MoneyPoint[];
   chip?: ReactNode;
   periodNode?: ReactNode;
+  headline?: ReactNode;
+  onReport?: () => void;
 }) {
   return (
     <ChartCard
@@ -1023,6 +1107,8 @@ function ProfitLossCard({
       basis="Accrual (paid & unpaid)"
       chip={chip}
       periodNode={periodNode}
+      headline={headline}
+      onReport={onReport}
     >
       <div className="mb-2 flex items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Income" />
@@ -1098,10 +1184,18 @@ function BreakdownDonutCard({
   slices,
   basis,
   periodNode,
+  headline,
+  activeCategory,
+  onSliceClick,
 }: {
   slices: Array<{ label: string; amount: number }>;
   basis?: string;
   periodNode?: ReactNode;
+  headline?: ReactNode;
+  /** The ledger's drill-down filter — echoed here as "(filtered)". */
+  activeCategory: string | null;
+  /** Click a slice or legend row to steer the Monthly Ledger below. */
+  onSliceClick: (label: string | null) => void;
 }) {
   const total = slices.reduce((sum, slice) => sum + slice.amount, 0);
   return (
@@ -1110,6 +1204,7 @@ function BreakdownDonutCard({
       basis={basis ?? "Direct and indirect, this period"}
       badge="Live data"
       periodNode={periodNode}
+      headline={headline}
     >
       {total > 0 ? (
         <div className="flex flex-col items-center gap-6 lg:flex-row lg:gap-10">
@@ -1167,6 +1262,11 @@ function BreakdownDonutCard({
                   }}
                   labelLine={false}
                   isAnimationActive={false}
+                  onClick={(data: unknown) => {
+                    const payload = data as { name?: string } | undefined;
+                    if (payload?.name) onSliceClick(String(payload.name));
+                  }}
+                  style={{ cursor: "pointer" }}
                 >
                   {slices.map((slice, index) => (
                     <Cell
@@ -1204,28 +1304,50 @@ function BreakdownDonutCard({
             </div>
           </div>
           <ul className="flex flex-col gap-2.5">
-            {slices.map((slice, index) => (
-              <li
-                key={slice.label}
-                className="flex items-center gap-2.5 text-[13.5px] text-[#344256]"
-              >
-                <span className="flex w-3 shrink-0 items-center justify-center">
-                  {slice.label === "Other" ? (
-                    OTHER_HATCH
-                  ) : (
-                    <span
-                      className="size-3 rounded-[3px]"
-                      style={{ backgroundColor: DONUT_PALETTE[index] }}
-                    />
-                  )}
-                </span>
-                <span className="font-semibold tabular-nums text-[#1B2432]">
-                  {percentOf(slice.amount, total)}
-                </span>
-                <span>{slice.label}</span>
-                <span className="text-[12px] text-[#5C6470]">{money(slice.amount)}</span>
+            {slices.map((slice, index) => {
+              const isActive = activeCategory === slice.label;
+              return (
+                <li key={slice.label}>
+                  <button
+                    type="button"
+                    onClick={() => onSliceClick(slice.label)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1 -mx-2 text-left text-[13.5px] transition-colors",
+                      isActive
+                        ? "bg-[#F1F2F4] font-semibold text-[#1B2432]"
+                        : "text-[#344256] hover:bg-[#F7F8FA]",
+                    )}
+                  >
+                    <span className="flex w-3 shrink-0 items-center justify-center">
+                      {slice.label === "Other" ? (
+                        OTHER_HATCH
+                      ) : (
+                        <span
+                          className="size-3 rounded-[3px]"
+                          style={{ backgroundColor: DONUT_PALETTE[index] }}
+                        />
+                      )}
+                    </span>
+                    <span className="font-semibold tabular-nums text-[#1B2432]">
+                      {percentOf(slice.amount, total)}
+                    </span>
+                    <span>{slice.label}</span>
+                    <span className="text-[12px] text-[#5C6470]">{money(slice.amount)}</span>
+                  </button>
+                </li>
+              );
+            })}
+            {activeCategory ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onSliceClick(null)}
+                  className="mt-1 text-[12px] font-medium text-[#5C6470] underline hover:text-[#1B2432]"
+                >
+                  Clear ledger filter ({activeCategory})
+                </button>
               </li>
-            ))}
+            ) : null}
           </ul>
         </div>
       ) : (
@@ -1242,10 +1364,14 @@ function CashFlowCard({
   data,
   chip,
   periodNode,
+  headline,
+  onReport,
 }: {
   data: MoneyPoint[];
   chip?: ReactNode;
   periodNode?: ReactNode;
+  headline?: ReactNode;
+  onReport?: () => void;
 }) {
   return (
     <ChartCard
@@ -1253,6 +1379,8 @@ function CashFlowCard({
       basis="Always displays cash basis (paid)"
       chip={chip}
       periodNode={periodNode}
+      headline={headline}
+      onReport={onReport}
     >
       <div className="mb-2 flex flex-wrap items-center gap-6 pl-1 text-[13px] text-[#344256]">
         <LegendSwatch className="bg-[#0A7F58]" label="Inflow" />
@@ -1377,6 +1505,8 @@ function AnalyticsBoard({
   const [plPeriod, setPlPeriod] = useState<CardPeriod>("Last 12 months");
   const [donutPeriod, setDonutPeriod] = useState<CardPeriod>("Last 12 months");
   const [cashPeriod, setCashPeriod] = useState<CardPeriod>("Last 12 months");
+  /** The donut's drill-down: click a slice, the Monthly Ledger follows. */
+  const [ledgerFilter, setLedgerFilter] = useState<string | null>(null);
   const rangeCustom = useCustomRange();
 
   const monthsBack = 12;
@@ -1493,6 +1623,13 @@ function AnalyticsBoard({
     [seriesFor, window.from, window.to],
   );
   const totals = totalsOf(rackSeries.series);
+
+  /** The card headline figure, for the window the card is actually showing. */
+  const headlineLabel = (label: string, value: number) => (
+    <p className="mt-1 text-[12.5px] text-[#5C6470]">
+      {label} · <span className="font-semibold tabular-nums text-[#1B2432]">{money(value)}</span>
+    </p>
+  );
   const filtersActive =
     periodFilter !== "All time" ||
     grain !== "Monthly" ||
@@ -1658,6 +1795,8 @@ function AnalyticsBoard({
           <ProfitLossCard
             data={pl.series}
             periodNode={<CardPeriodSelect value={plPeriod} onChange={setPlPeriod} />}
+            headline={headlineLabel("Total income · expenses", plTotals.income - plTotals.expenses)}
+            onReport={() => printProfitLossReport(plPeriod, grain, pl.series)}
             chip={
               <DeltaChip
                 current={plTotals.expenses}
@@ -1669,6 +1808,12 @@ function AnalyticsBoard({
           <BreakdownDonutCard
             slices={donut.slices}
             periodNode={<CardPeriodSelect value={donutPeriod} onChange={setDonutPeriod} />}
+            headline={headlineLabel(
+              "Total",
+              donut.slices.reduce((sum, s) => sum + s.amount, 0),
+            )}
+            activeCategory={ledgerFilter}
+            onSliceClick={setLedgerFilter}
             basis={
               focus
                 ? `Direct and indirect — ${focus}`
@@ -1683,6 +1828,8 @@ function AnalyticsBoard({
             <CashFlowCard
               data={cash.series}
               periodNode={<CardPeriodSelect value={cashPeriod} onChange={setCashPeriod} />}
+              headline={headlineLabel("Net change", cashTotals.net)}
+              onReport={() => printCashFlowReport(cashPeriod, grain, cash.series)}
               chip={
                 <DeltaChip
                   current={cashTotals.net}
@@ -1698,9 +1845,37 @@ function AnalyticsBoard({
       {/* The ledger behind the charts, for the days a picture is not enough. */}
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
-            {grain === "Weekly" ? "Weekly Ledger" : "Monthly Ledger"}
-          </h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              {grain === "Weekly" ? "Weekly Ledger" : "Monthly Ledger"}
+            </h3>
+            {ledgerFilter ? (
+              <button
+                type="button"
+                onClick={() => setLedgerFilter(null)}
+                className={cn(
+                  "flex h-7 items-center gap-1.5 rounded-full bg-[#1B2432] px-3 text-[12px] font-semibold text-white",
+                )}
+              >
+                {ledgerFilter}
+                <span aria-hidden>×</span>
+              </button>
+            ) : null}
+            {ledgerFilter === "Other" && stream !== "Direct" ? (
+              <span className="flex flex-wrap items-center gap-2">
+                {INDIRECT_CATEGORIES.filter((c) => !categories.has(c)).map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    className="h-7 rounded-full border border-[#E2E5E9] bg-white px-3 text-[12px] font-medium text-[#5C6470] hover:border-[#1B2432] hover:text-[#1B2432]"
+                  >
+                    include {category}
+                  </button>
+                ))}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={() =>
@@ -1729,7 +1904,14 @@ function AnalyticsBoard({
               "border-b border-[#E2E5E9] pb-3 text-[13.5px] font-semibold text-[#1B2432]",
             )}
           >
-            <span>{grain === "Weekly" ? "Week" : "Month"}</span>
+            <span>
+              {grain === "Weekly" ? "Week" : "Month"}
+              {ledgerFilter ? (
+                <span className="ml-2 text-[11px] font-medium uppercase tracking-[0.4px] text-[#9CA3AF]">
+                  · {ledgerFilter}
+                </span>
+              ) : null}
+            </span>
             <span className="text-right">Income (Revenue)</span>
             <span className="text-right">Expenses</span>
             <span className="text-right">Cash In</span>
