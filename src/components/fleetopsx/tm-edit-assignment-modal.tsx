@@ -86,7 +86,10 @@ export function TmEditAssignmentModal({
   const currentDriver =
     drivers.find((d) => d.id === trip.driverId) ??
     drivers.find(
-      (d) => d.name && trip.driverName && d.name.trim().toLowerCase() === trip.driverName.trim().toLowerCase(),
+      (d) =>
+        d.name &&
+        trip.driverName &&
+        d.name.trim().toLowerCase() === trip.driverName.trim().toLowerCase(),
     ) ??
     null;
   const [driverId, setDriverId] = useState(currentDriver?.id ?? "");
@@ -120,8 +123,7 @@ export function TmEditAssignmentModal({
   // cost is derived (qty × TM price) — never typed, so a price change re-prices
   // every open assignment consistently.
   const { price: fuelPricePerLitre } = useFuelPrices();
-  const lubricantCost =
-    (Number(lubricantQty) || 0) * fuelPricePerLitre(lubricant);
+  const lubricantCost = (Number(lubricantQty) || 0) * fuelPricePerLitre(lubricant);
 
   // When the TM expects this to leave the yard (YYYY-MM-DD, as the date input
   // gives it). Security's real gate stamp supersedes it on the board.
@@ -255,10 +257,10 @@ export function TmEditAssignmentModal({
           </button>
         </div>
 
-        {/* Estimated dispatch date — the working date the board shows until the
-            truck actually leaves the gate. */}
+        {/* Estimated time of return — the working date the board shows until
+            the truck actually leaves the gate. */}
         <label className="flex flex-col gap-1.5 border-b border-[#E2E5E9] pb-3">
-          <span className="text-[13px] font-medium text-[#141A1F]">Estimated Dispatch Date</span>
+          <span className="text-[13px] font-medium text-[#141A1F]">Estimated Time of Return</span>
           <input
             type="date"
             value={estimatedDate}
@@ -273,12 +275,17 @@ export function TmEditAssignmentModal({
         {/* Step 1: Truck */}
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Truck Head &amp; Tail</h4>
+            <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">
+              Truck Head &amp; Tail
+            </h4>
             {/* The partner asked for this body — shown right where the truck is
                 chosen so the wrong body is obvious before it is saved. */}
             {displayRequestedTruckType(trip) ? (
               <span className="rounded bg-[#F1F2F4] px-2 py-0.5 text-[12px] font-medium tracking-[0.4px] text-[#344256]">
-                Requested: <span className="font-semibold text-[#141A1F]">{displayRequestedTruckType(trip)}</span>
+                Requested:{" "}
+                <span className="font-semibold text-[#141A1F]">
+                  {displayRequestedTruckType(trip)}
+                </span>
               </span>
             ) : null}
           </div>
@@ -336,7 +343,8 @@ export function TmEditAssignmentModal({
               </select>
               {tail ? (
                 <span className="text-[12px] leading-4 text-[#5C6470]">
-                  Body: <span className="font-semibold text-[#141A1F]">{tail.type || "Unknown"}</span>
+                  Body:{" "}
+                  <span className="font-semibold text-[#141A1F]">{tail.type || "Unknown"}</span>
                   {truckTailRest(tail) ? ` · ${truckTailRest(tail)}` : ""}
                 </span>
               ) : null}
@@ -372,12 +380,11 @@ export function TmEditAssignmentModal({
                 }}
               >
                 <option value="">Select driver</option>
-                {assignableDrivers(drivers, trips, trip.id)
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {displayDriverOption(d)}
-                    </option>
-                  ))}
+                {assignableDrivers(drivers, trips, trip.id).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {displayDriverOption(d)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="flex flex-col gap-1.5">
@@ -400,14 +407,16 @@ export function TmEditAssignmentModal({
             </label>
           </div>
           <p className="text-[12px] text-[#5C6470]">
-            Manual override allowed — clear the Salary Number and type the name + phone for a
-            driver not yet fully registered.
+            Manual override allowed — clear the Salary Number and type the name + phone for a driver
+            not yet fully registered.
           </p>
         </section>
 
         {/* Step 3: Direct costs */}
         <section className="flex flex-col gap-3 border-t border-[#E2E5E9] pt-3">
-          <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">Direct Cost Configuration</h4>
+          <h4 className="text-[14px] font-bold tracking-[0.4px] text-[#1B2432]">
+            Direct Cost Configuration
+          </h4>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {(
               [
@@ -477,7 +486,8 @@ export function TmEditAssignmentModal({
                 title={`Auto-calculated: ${lubricantQty || 0} L × ₦${fuelPricePerLitre(lubricant)} per litre (your TM-set rate)`}
               />
               <span className="text-[11px] tracking-[0.4px] text-[#627084]">
-                Auto: {lubricantQty || 0} L × ₦{fuelPricePerLitre(lubricant) || "—"}/L — update the rate in HR → Fuel Pricing
+                Auto: {lubricantQty || 0} L × ₦{fuelPricePerLitre(lubricant) || "—"}/L — update the
+                rate in HR → Fuel Pricing
               </span>
             </label>
           </div>

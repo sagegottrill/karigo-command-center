@@ -358,7 +358,7 @@ function FleetDispatchRequests() {
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
     const header =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Est. Date,Trip Duration,Status,Dispatch ID";
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Estimated Time of Return,Trip Duration,Status,Dispatch ID";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
@@ -707,7 +707,7 @@ function FleetDispatchRequests() {
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
                 <MetaRow
-                  label="Est. Date:"
+                  label="Estimated Time of Return:"
                   value={trip.estimatedDate ? formatTableDate(trip.estimatedDate) : ""}
                 />
                 <MetaRow label="Trip Duration:" value={formatTripDuration(trip.estimatedDays)} />
@@ -835,10 +835,11 @@ function FleetDispatchRequests() {
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Date Approved
                 </span>
-                {/* The date the TM is working to — his own estimate, until the
-                    gate stamp records when the truck really left. */}
+                {/* The date the TM is working to — his own estimate of when the
+                    truck is due back, until the gate stamp records the real
+                    departure and the trip's clock takes over. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Est. Date
+                  Estimated Time of Return
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Status
@@ -1048,7 +1049,7 @@ function FleetDispatchRequests() {
             <h3 className="text-[16px] font-bold text-[#1B2432]">
               {estimateApproveAfter
                 ? "Approve and set trip duration"
-                : "Trip duration & estimated date"}
+                : "Trip duration & estimated time of return"}
             </h3>
             <p className="mt-1 text-[13px] text-[#5C6470]">
               Dispatch {dispatchId(estimateTrip)}.{" "}
@@ -1078,7 +1079,7 @@ function FleetDispatchRequests() {
             </label>
             <label className="mt-3 flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#1B2432]">
-                Estimated dispatch date
+                Estimated Time of Return
               </span>
               <input
                 type="date"
