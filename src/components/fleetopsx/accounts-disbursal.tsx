@@ -597,11 +597,14 @@ function CaptureDisbursementModal({
     return initial;
   });
   const [paymentMethod, setPaymentMethod] = useState(sheet.disbursement?.paymentMethod ?? "");
-  const [bankRef, setBankRef] = useState(sheet.disbursement?.bankRef ?? "");
   const [officer, setOfficer] = useState(
     sheet.disbursement?.officer ?? authService.getCurrentUser()?.name ?? "",
   );
-  const [status, setStatus] = useState(sheet.disbursement?.status ?? "");
+  // Fortune removed the Bank Ref input and the status dropdown from this form:
+  // recording a payment simply means the money left. New records are Disbursed;
+  // an already-recorded sheet keeps whichever state it carried.
+  const status = sheet.disbursement?.status || DISBURSEMENT_STATUSES[0];
+  const bankRef = sheet.disbursement?.bankRef ?? "";
   const [busy, setBusy] = useState(false);
 
   const total =
@@ -609,11 +612,7 @@ function CaptureDisbursementModal({
     (sheet.extras ?? []).reduce((sum, line) => sum + Number(line.amount ?? 0), 0);
 
   const save = async () => {
-    if (!status) {
-      toast.error("Record what happened to the money before saving.");
-      return;
-    }
-    if (status === DISBURSEMENT_STATUSES[0] && !paymentMethod) {
+    if (!paymentMethod) {
       toast.error("A disbursal needs the method it left by.");
       return;
     }
@@ -745,32 +744,8 @@ function CaptureDisbursementModal({
           </select>
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] text-[#344256]">Payment/Bank Ref. No.</span>
-          <input
-            value={bankRef}
-            onChange={(e) => setBankRef(e.target.value)}
-            placeholder="REF-"
-            className={FIELD}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
           <span className="text-[13px] text-[#344256]">Disbursing Officer</span>
           <input value={officer} onChange={(e) => setOfficer(e.target.value)} className={FIELD} />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] text-[#344256]">Disbursement Status</span>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className={cn(FIELD, !status && "text-[#9CA3AF]")}
-          >
-            <option value="">Select</option>
-            {DISBURSEMENT_STATUSES.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
         </label>
       </div>
 
