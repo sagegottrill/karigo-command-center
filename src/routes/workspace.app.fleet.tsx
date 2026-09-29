@@ -1066,6 +1066,25 @@ function FleetDispatchRequests() {
                 ? "Approving puts the truck on the road — say how long it is expected to take, so delay is measured against your number and the partner knows when to expect the cargo."
                 : "Fleet Operations and Tracking see this date on the dispatch board until Security logs the truck out of the gate — which replaces it with the real time."}
             </p>
+            {/* WHAT he is approving: the load behind the number — partner,
+                customer, route and the loading sites the truck will work. */}
+            <div className="mt-3 flex flex-col gap-1 rounded bg-[#F1F2F4] p-3 text-[12.5px]">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                Approving
+              </span>
+              <span className="font-medium text-[#1B2432]">
+                {estimateTrip.customer || "Internal"}
+                {estimateTrip.customerConsignee ? ` · ${estimateTrip.customerConsignee}` : ""}
+              </span>
+              <span className="text-[#5C6470]">
+                {estimateTrip.pickup || "—"} → {estimateTrip.dropoff || "—"}
+              </span>
+              {(estimateTrip.loadingSite?.filter(Boolean).length ?? 0) > 0 ? (
+                <span className="text-[#627084]">
+                  Loading: {estimateTrip.loadingSite!.filter(Boolean).join(", ")}
+                </span>
+              ) : null}
+            </div>
             <label className="mt-3 flex flex-col gap-1.5">
               <span className="text-[13px] font-medium text-[#1B2432]">
                 Trip duration (days){" "}

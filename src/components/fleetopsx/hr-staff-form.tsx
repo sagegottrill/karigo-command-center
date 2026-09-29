@@ -31,6 +31,9 @@ export type StaffDraft = {
   status: EmploymentStatus;
   guarantorName: string;
   guarantorPhone: string;
+  /** Second guarantor — two per driver, each reachable by phone. */
+  guarantor2Name: string;
+  guarantor2Phone: string;
   /** Licence class — "Professional", "Heavy Duty"… stored as `category`. */
   licenseCategory: string;
   /** The truck normally paired with this driver: head (cap/plate) and tail. */
@@ -56,6 +59,8 @@ export const emptyStaffDraft = (): StaffDraft => ({
   status: "Active",
   guarantorName: "",
   guarantorPhone: "",
+  guarantor2Name: "",
+  guarantor2Phone: "",
   licenseCategory: "",
   truckReg: "",
   truckReg2: "",
@@ -76,6 +81,8 @@ export function draftFromDriver(driver: Driver): StaffDraft {
     status: employmentStatusOf(driver),
     guarantorName: driver.guarantorName ?? "",
     guarantorPhone: driver.guarantorPhone ?? "",
+    guarantor2Name: driver.guarantor2Name ?? "",
+    guarantor2Phone: driver.guarantor2Phone ?? "",
     licenseCategory: driver.licenseCategory ?? "",
     truckReg: driver.assignedTruck ?? "",
     truckReg2: driver.assignedTail ?? "",
@@ -399,6 +406,22 @@ export function StaffRecordForm({
             value={value.guarantorPhone}
             onChange={(e) => set("guarantorPhone", e.target.value)}
             placeholder="eg: 070 56 1456"
+            className={staffInputClass}
+          />
+        </Field>
+        <Field label="Second Guarantor Name">
+          <input
+            value={value.guarantor2Name}
+            onChange={(e) => set("guarantor2Name", e.target.value)}
+            placeholder="eg: Musa Ibrahim"
+            className={staffInputClass}
+          />
+        </Field>
+        <Field label="Second Guarantor Phone Number">
+          <input
+            value={value.guarantor2Phone}
+            onChange={(e) => set("guarantor2Phone", e.target.value)}
+            placeholder="eg: 080 22 3456"
             className={staffInputClass}
           />
         </Field>

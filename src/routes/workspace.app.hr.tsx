@@ -401,6 +401,8 @@ function HrStaffDirectory() {
         truckReg2: draft.truckReg2.trim(),
         guarantorName: draft.guarantorName.trim(),
         guarantorPhone: draft.guarantorPhone.trim(),
+        guarantor2Name: draft.guarantor2Name.trim(),
+        guarantor2Phone: draft.guarantor2Phone.trim(),
         ...(closeDispatches ? { closeDispatches: true } : {}),
       } as never);
 

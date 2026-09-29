@@ -11,6 +11,7 @@ import {
   useCustomRange,
 } from "@/lib/fleetopsx/report-kit";
 import { tripService } from "@/lib/fleetopsx/services";
+import { statusIsReleased } from "@/lib/fleetopsx/lubricant";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
 import {
@@ -85,9 +86,21 @@ export function TmVouchers() {
     void refresh();
   }, [refresh]);
 
-  /** Only dispatches that actually carry a cost sheet are vouchers. */
+  /**
+   * Only dispatches that actually carry a cost sheet are vouchers — and only
+   * what the Transport Manager has CLEARED (Scheduled or beyond) may appear
+   * here at all. Pre-approval states (Requested / Awaiting Approval / Approved)
+   * are the TM's and Fleet Ops' business: Accounts must never see, total or
+   * pay a cost sheet the manager has not signed off yet (client, 29 Sept).
+   */
   const vouchers = useMemo(
-    () => trips.filter((t) => t.directCosts && sum(sheetOf(t)) > 0),
+    () =>
+      trips.filter(
+        (t) =>
+          statusIsReleased(t.status) &&
+          t.directCosts &&
+          sum(sheetOf(t)) > 0,
+      ),
     [trips],
   );
 

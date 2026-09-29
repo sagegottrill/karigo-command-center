@@ -155,6 +155,9 @@ export interface Driver {
   /** Who stands for the staff member, and how to reach them. */
   guarantorName?: string;
   guarantorPhone?: string;
+  /** Second guarantor — every driver records two, each with a phone. */
+  guarantor2Name?: string;
+  guarantor2Phone?: string;
   /**
    * The licence document on file — its name and whether the bytes are
    * attached. The document itself never travels with the list: a roster of 120

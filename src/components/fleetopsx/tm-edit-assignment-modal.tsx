@@ -284,8 +284,9 @@ export function TmEditAssignmentModal({
               className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
             />
             <span className="text-[12px] leading-4 text-[#5C6470]">
-              {formatTripDuration(Number(estimatedDays)) ||
-                "How many days the vehicle is expected to spend on the road."}
+              {formatTripDuration(Number(estimatedDays))
+                ? `${formatTripDuration(Number(estimatedDays))} to return`
+                : "How many days until the truck returns."}
             </span>
           </label>
           <label className="flex flex-col gap-1.5">

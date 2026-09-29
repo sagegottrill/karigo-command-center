@@ -326,7 +326,14 @@ export function DispatchDetailsModal({
     displayRequestedTruckType(trip),
   );
   const hasExpense = Boolean(costs || typeof total === "number");
-  const canAct = trip.status === "Requested";
+  // The TM's approval actions show on the NEW request (Requested) and on the
+  // dispatch Fleet Ops has configured and sent up for his second approval
+  // (Awaiting Approval). He was seeing the details with no button to act on —
+  // "what am I approving?" (client, 29 Sept).
+  const canAct =
+    trip.status === "Requested" ||
+    trip.status === "Awaiting Approval" ||
+    trip.status === "Draft";
   // TM can modify what FO configured while the dispatch is still pre-road.
   const canEdit =
     Boolean(onEdit) &&
@@ -499,7 +506,9 @@ export function DispatchDetailsModal({
                   onClick={onApprove}
                   className="flex h-8 items-center rounded bg-[#1B2432] px-2.5 text-[12px] tracking-[0.4px] text-white"
                 >
-                  Approve Request
+                  {trip.status === "Requested" || trip.status === "Draft"
+                    ? "Approve Request"
+                    : "Approve Dispatch"}
                 </button>
               </>
             )}

@@ -167,6 +167,8 @@ export function mapDriver(d: Record<string, unknown>): Driver {
     // field was empty, which read as a fact nobody had recorded.
     guarantorName: d["guarantorName"] ? String(d["guarantorName"]) : undefined,
     guarantorPhone: d["guarantorPhone"] ? String(d["guarantorPhone"]) : undefined,
+    guarantor2Name: d["guarantor2Name"] ? String(d["guarantor2Name"]) : undefined,
+    guarantor2Phone: d["guarantor2Phone"] ? String(d["guarantor2Phone"]) : undefined,
     licenseDocName: d["licenseDocName"] ? String(d["licenseDocName"]) : undefined,
     hasLicenseDoc: Boolean(d["hasLicenseDoc"]),
     currentTripId: d["currentTripId"] ? String(d["currentTripId"]) : null,
@@ -558,6 +560,8 @@ export async function liveCreateDriver(body: Record<string, unknown>): Promise<D
     department: body.department || null,
     guarantorName: body.guarantorName || null,
     guarantorPhone: body.guarantorPhone || null,
+    guarantor2Name: body.guarantor2Name || null,
+    guarantor2Phone: body.guarantor2Phone || null,
   };
   return mapDriver(await api.post("/drivers", payload));
 }
@@ -582,6 +586,8 @@ export async function liveUpdateDriver(id: string, body: Record<string, unknown>
   if (body.department != null) payload.department = body.department;
   if (body.guarantorName != null) payload.guarantorName = body.guarantorName;
   if (body.guarantorPhone != null) payload.guarantorPhone = body.guarantorPhone;
+  if (body.guarantor2Name != null) payload.guarantor2Name = body.guarantor2Name;
+  if (body.guarantor2Phone != null) payload.guarantor2Phone = body.guarantor2Phone;
   await api.patch(`/drivers/${id}`, payload);
 }
 

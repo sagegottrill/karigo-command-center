@@ -49,6 +49,7 @@ import {
   tripService,
 } from "@/lib/fleetopsx/services";
 import { costTotal, dayLabel, money, sheetOf, truckDetails } from "@/lib/fleetopsx/direct-costs";
+import { statusIsReleased } from "@/lib/fleetopsx/lubricant";
 import type { Expense, InventoryMovement, TruckHead, WorkOrder, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -771,6 +772,10 @@ function buildMoneySeries(
   };
 
   const tripMatches = (trip: Trip) => {
+    // Accounts reads CLEARED money only: a dispatch the Transport Manager has
+    // not approved (Requested / Awaiting Approval / Approved) is not yet a
+    // cost the company owes — it must never enter the income/expense series.
+    if (!statusIsReleased(trip.status)) return false;
     if (!inScope(trip.createdAt)) return false;
     if (!focusTruck) return true;
     return truckDetails(trip) === focusTruck;
@@ -1978,6 +1983,17 @@ export function TmAccounts() {
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  /*
+   * Accounts sees CLEARED dispatches only. Every board on this page — direct
+   * expense, analytics, the money series — is downstream of this one filter:
+   * a dispatch the Transport Manager has not approved (Requested / Awaiting
+   * Approval / Approved) carries no payable cost yet and must not be counted,
+   * totalled or shown (client, 29 Sept: "they only see what has been approved").
+   */
+  const clearedTrips = useMemo(
+    () => trips.filter((t) => statusIsReleased(t.status)),
+    [trips],
+  );
 
   const refresh = useCallback(async () => {
     // One department, four boards — the figures are read once, here, from the
@@ -2052,7 +2068,7 @@ export function TmAccounts() {
       ) : null}
       {tab === "Analytics" ? (
         <AnalyticsBoard
-          trips={trips}
+          trips={clearedTrips}
           indirectRows={indirectRows}
           trucks={truckOptions}
           loading={loading}
