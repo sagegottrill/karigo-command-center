@@ -19,6 +19,7 @@ import {
   useCustomRange,
 } from "@/lib/fleetopsx/report-kit";
 import { authService, tripService } from "@/lib/fleetopsx/services";
+import { statusIsReleased } from "@/lib/fleetopsx/lubricant";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { CostBreakdownCell, DirectCostBanner } from "@/components/fleetopsx/direct-cost-banner";
 import { VoucherPreviewModal } from "@/components/fleetopsx/accounts-vouchers";
@@ -108,9 +109,20 @@ export function AccountsDisbursal() {
     void refresh();
   }, [refresh]);
 
-  /** Only dispatches that were actually configured with costs are payable. */
+  /**
+   * Only dispatches the Transport Manager has CLEARED (Scheduled or beyond)
+   * that carry a cost sheet are payable. A sheet Fleet Ops configured but the
+   * manager has not approved is not yet the company's debt — it must never
+   * reach this board or its totals (client, 29 Sept).
+   */
   const payable = useMemo(
-    () => trips.filter((trip) => trip.directCosts && costTotal(sheetOf(trip)) > 0),
+    () =>
+      trips.filter(
+        (trip) =>
+          statusIsReleased(trip.status) &&
+          trip.directCosts &&
+          costTotal(sheetOf(trip)) > 0,
+      ),
     [trips],
   );
 
