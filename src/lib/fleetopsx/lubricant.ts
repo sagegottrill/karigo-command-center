@@ -121,6 +121,8 @@ export interface LubricantTripRow {
   status?: string;
   /** The client the litres are pumped for — the ledger's contract filter. */
   customer?: string | null;
+  /** The end customer the partner named on the request (consignee). */
+  customerConsignee?: string | null;
   driverName?: string;
   truckReg?: string;
   tailType?: string;
@@ -139,6 +141,8 @@ export interface LubricantTripRow {
 }
 
 export interface LubricantRequestRow extends LubricantTripRow {
+  /** The full trip row, when the API carries it alongside the request. */
+  trip?: LubricantTripRow | null;
   request: { fuelType: LubricantFuel; quantity: number };
   unitPrice: number;
   estimatedAmount: number;

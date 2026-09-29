@@ -418,8 +418,36 @@ export function RestockModal({
   );
 }
 
-/** The read-only block at the top of the disbursal dialog. */
-function VehicleDetails({
+/**
+ * Customer Details — the two lines the pump ticket must name: the partner
+ * account the dispatch belongs to and the end customer the partner is
+ * carrying for. Same pairing the dispatch board's Customer Details block shows.
+ */
+function CustomerDetails({ row }: { row: LubricantRequestRow | LubricantDisbursalRow }) {
+  const partner = row.customer?.trim();
+  const consignee = row.customerConsignee?.trim() || row.trip?.customerConsignee?.trim();
+  const lines: Array<[string, string]> = [
+    ["Partner (Account)", partner || "Petroline Internal"],
+    ["Customer Name", consignee || "—"],
+  ];
+  return (
+    <div className="flex flex-col gap-2.5 rounded-lg bg-[#F1F2F4] p-4">
+      <span className="text-[13px] font-semibold tracking-[0.4px] text-[#1B2432]">
+        Customer Details
+      </span>
+      <div className="flex flex-col gap-1.5">
+        {lines.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4">
+            <span className="text-[12.5px] text-[#5C6470]">{label}:</span>
+            <span className="text-right text-[12.5px] font-medium text-[#141A1F]">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The read-only block at the top of the disbursal dialog. */function VehicleDetails({
   vehicle,
   row,
 }: {
@@ -555,6 +583,7 @@ export function DispatchDetailsModal({
          * "Disburse Lubricant". Step two is the pour: the fuel, the quantity
          * and who dispensed it, where the design's "Go Back" sits.
          */}
+        <CustomerDetails row={row} />
         <VehicleDetails vehicle={vehicle} row={row} />
 
         {step === "details" ? (
@@ -712,6 +741,7 @@ export function DisbursalViewModal({
           </span>
         </div>
 
+        <CustomerDetails row={row} />
         <VehicleDetails vehicle={vehicle} row={row} />
 
         {/**
