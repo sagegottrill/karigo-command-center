@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { SignaturePad } from "@/components/fleetopsx/signature-pad";
-import { adminService, driverService, lubricantService } from "@/lib/fleetopsx/services";
+import { adminService, authService, driverService, lubricantService } from "@/lib/fleetopsx/services";
 import {
   driverLabel,
   formatQuantity,
@@ -482,18 +482,21 @@ export function DispatchDetailsModal({
   const [step, setStep] = useState<"details" | "log">("details");
   const [fuelType, setFuelType] = useState<LubricantFuel>("Diesel");
   const [quantity, setQuantity] = useState("");
-  const [dispensedBy, setDispensedBy] = useState("");
+  /*
+   * "Dispensed by" removed per the client — the attendant no longer picks a
+   * name. The server stamps the logged-in account as the dispenser, so the
+   * record keeps its actor without a manual field.
+   */
+  const dispensedBy = authService.getCurrentUser()?.name?.trim() || "Lubricant Attendant";
   const [signature, setSignature] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
-  const staff = useStaffOptions();
 
   useEffect(() => {
     if (open && row) {
       setStep(initialStep);
       setFuelType(requested?.fuelType ?? "Diesel");
       setQuantity(requested?.quantity ? String(requested.quantity) : "");
-      setDispensedBy("");
       setSignature(null);
       setConfirming(false);
     }
@@ -510,7 +513,7 @@ export function DispatchDetailsModal({
   const inTank = stocks.find((s) => s.fuelType === fuelType)?.quantity ?? 0;
   const tooMuch = Number.isFinite(amount) && amount > inTank;
   const valid =
-    Number.isFinite(amount) && amount > 0 && dispensedBy.trim().length > 0 && rate > 0 && !tooMuch;
+    Number.isFinite(amount) && amount > 0 && rate > 0 && !tooMuch;
 
   const submit = async () => {
     setSaving(true);
@@ -608,15 +611,6 @@ export function DispatchDetailsModal({
                   : `${fuelType} rate not set by the Transport Manager yet`}
               </span>
             </div>
-
-            <StaffSelect
-              label="Dispensed by"
-              required
-              value={dispensedBy}
-              onChange={setDispensedBy}
-              options={staff}
-              placeholder="Select who dispensed"
-            />
 
             {/*
           The receiving driver signs for the exact quantity — the same
