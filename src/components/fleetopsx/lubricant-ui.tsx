@@ -939,12 +939,25 @@ export function printDisbursalTicket(row: LubricantDisbursalRow | LubricantReque
   const client =
     row.customer?.trim() ||
     (isPour ? (row as LubricantDisbursalRow).trip?.customer?.trim() : null) ||
-    "—";
+    "";
+  const consignee =
+    row.customerConsignee?.trim() || row.trip?.customerConsignee?.trim() || "";
   const destination =
     (isPour
       ? (row as LubricantDisbursalRow).destination
       : (row as LubricantRequestRow).dropoff
     )?.trim() || "—";
+  const dateOf =
+    (isPour
+      ? (row as LubricantDisbursalRow).createdAt
+      : ((row as LubricantRequestRow).createdAt ??
+         (row as LubricantRequestRow).trip?.createdAt)) || new Date().toISOString();
+  const capPlate =
+    v.capNumber !== "—" && v.plate !== "—"
+      ? `${v.capNumber} · ${v.plate}`
+      : v.capNumber !== "—"
+        ? v.capNumber
+        : v.plate;
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const win = window.open("", "_blank", "width=760,height=820");
   if (!win) {
@@ -970,15 +983,13 @@ export function printDisbursalTicket(row: LubricantDisbursalRow | LubricantReque
 <p class="sub">${isPour ? "As dispensed at the pump" : "Approved for physical fueling · cleared via Accounts for trip allowance"} · Printed ${esc(csvStamp(new Date().toISOString()))}</p>
 <div class="ticket">${esc(lubricantDispatchId(row))}</div>
 <table>
-<tr><th>Client / Contract</th><td>${esc(client)}</td></tr>
-<tr><th>Truck Head (Cab)</th><td>${esc(v.capNumber)}</td></tr>
-<tr><th>Plate Number</th><td>${esc(v.plate)}</td></tr>
-<tr><th>Attached Trailer (Tail)</th><td>${esc(v.bodyType)}${v.tailNumber && v.tailNumber !== "—" ? ` · ${esc(v.tailNumber)}` : ""}</td></tr>
-<tr><th>Driver</th><td>${esc(v.driverName)}${v.driverCode ? ` (${esc(v.driverCode)})` : ""}</td></tr>
-<tr><th>Driver Phone</th><td>${esc(v.driverPhone)}</td></tr>
+<tr><th>Date</th><td>${esc(csvStamp(dateOf))}</td></tr>
+<tr><th>Cap &amp; Plate</th><td>${esc(capPlate)}</td></tr>
+<tr><th>Partner</th><td>${esc(client || "Petroline Internal")}</td></tr>
+<tr><th>Customer</th><td>${esc(consignee || "—")}</td></tr>
 <tr><th>Destination</th><td>${esc(destination)}</td></tr>
-<tr><th>${isPour ? "Quantity Dispensed" : "Approved Quantity"}</th><td class="qty">${esc(formatQuantity(qty))} ${esc(lubricantUnit(fuel))} — ${esc(fuel)}</td></tr>
-${isPour ? `<tr><th>Dispensed by</th><td>${esc((row as LubricantDisbursalRow).dispensedBy || "—")}</td></tr><tr><th>Dispensed At</th><td>${esc(csvStamp((row as LubricantDisbursalRow).createdAt))}</td></tr>` : ""}
+<tr><th>Quantity</th><td class="qty">${esc(formatQuantity(qty))} ${esc(lubricantUnit(fuel))} — ${esc(fuel)}</td></tr>
+<tr><th>Dispatch ID</th><td>${esc(lubricantDispatchId(row))}</td></tr>
 </table>
 <div class="sign"><div>Dispensed by (name &amp; signature)</div><div>Received by (driver's signature)</div></div>
 <p class="noprint" style="margin-top:18px"><button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer">Print</button></p>
