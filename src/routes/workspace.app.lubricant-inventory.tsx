@@ -16,7 +16,6 @@ import {
   exportCsv,
   LubricantSearch,
   LubricantTableFooter,
-  RestockModal,
   TankCard,
 } from "@/components/fleetopsx/lubricant-ui";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
@@ -87,7 +86,11 @@ function LubricantInventoryPage() {
   const [query, setQuery] = useState("");
   const [fuelFilter, setFuelFilter] = useState<RestockFilter>("All");
   const [page, setPage] = useState(0);
-  const [restocking, setRestocking] = useState<false | "Diesel" | "Gas">(false);
+  /*
+   * RESTOCKING MOVED TO THE TRANSPORT MANAGER. The department reads the tank
+   * and its ledger; every delivery into it is now logged from the TM's own
+   * Lubricant Inventory — the tank cards here no longer open a restock form.
+   */
 
   const refresh = useCallback(async () => {
     try {
@@ -177,8 +180,9 @@ function LubricantInventoryPage() {
         </div>
         <button
           type="button"
-          onClick={() => setRestocking("Diesel")}
-          className="flex h-10 items-center justify-center rounded bg-[#ED351D] px-4 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+          disabled
+          title="Restocking is done by the Transport Manager from the TM Lubricant module"
+          className="flex h-10 cursor-not-allowed items-center justify-center rounded bg-[#9AA1AC] px-4 text-[14px] font-medium tracking-[0.4px] text-white"
         >
           Restock Inventory
         </button>
@@ -190,8 +194,8 @@ function LubricantInventoryPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {diesel && <TankCard stock={diesel} onClick={() => setRestocking("Diesel")} />}
-          {gas && <TankCard stock={gas} onClick={() => setRestocking("Gas")} />}
+          {diesel && <TankCard stock={diesel} />}
+          {gas && <TankCard stock={gas} />}
         </div>
       )}
 
@@ -334,18 +338,6 @@ function LubricantInventoryPage() {
           }
         />
       </div>
-
-      <RestockModal
-        open={restocking !== false}
-        stocks={stocks}
-        initialFuel={restocking === false ? undefined : restocking}
-        onClose={() => setRestocking(false)}
-        onDone={(message) => {
-          setRestocking(false);
-          toast.success(message);
-          void refresh();
-        }}
-      />
     </div>
   );
 }

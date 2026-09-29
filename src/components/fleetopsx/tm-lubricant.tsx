@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
-import { exportCsv, printDisbursalLedger } from "@/components/fleetopsx/lubricant-ui";
+import { exportCsv, printDisbursalLedger, RestockModal } from "@/components/fleetopsx/lubricant-ui";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   CustomRangePicker,
@@ -420,6 +420,8 @@ export function TmLubricant() {
   const restockCustom = useCustomRange();
   /** The approval whose details the ⋮ opened — a read, not a review. */
   const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
+  /** Restocking moved from the department to the TM — this is his button now. */
+  const [restocking, setRestocking] = useState<false | LubricantFuel>(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -708,8 +710,15 @@ export function TmLubricant() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setView("log")}
+            onClick={() => setRestocking("Diesel")}
             className="h-10 rounded-[6px] bg-[#ED351D] px-4 text-[13.5px] font-semibold text-white hover:bg-[#d92c15]"
+          >
+            Restock Inventory
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("log")}
+            className="h-10 rounded-[6px] bg-[#1B2432] px-4 text-[13.5px] font-semibold text-white hover:bg-[#2a3547]"
           >
             View Disbursal Log
           </button>
@@ -1656,6 +1665,18 @@ export function TmLubricant() {
         busy={busy}
         onConfirm={() => void confirmPrice()}
         onCancel={() => setPricePending(null)}
+      />
+
+      <RestockModal
+        open={restocking !== false}
+        stocks={overview?.stocks ?? []}
+        initialFuel={restocking === false ? undefined : restocking}
+        onClose={() => setRestocking(false)}
+        onDone={(message) => {
+          setRestocking(false);
+          toast.success(message);
+          void refresh();
+        }}
       />
     </div>
   );
