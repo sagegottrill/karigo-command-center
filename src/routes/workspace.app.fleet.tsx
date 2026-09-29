@@ -894,7 +894,7 @@ function FleetDispatchRequests() {
                       {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
                       {formatTripDuration(trip.estimatedDays) ? (
                         <span className="block text-[12px] text-[#627084]">
-                          {formatTripDuration(trip.estimatedDays)} on the road
+                          {formatTripDuration(trip.estimatedDays)} to return
                         </span>
                       ) : null}
                     </span>
