@@ -8,9 +8,10 @@
 #   ./backend/sync-api.sh smoke    run the live fuel-desk smoke test
 #   ./backend/sync-api.sh logs     last 40 lines of the API's own logs
 #
-# NOTE: this folder must not be named `server/` — TanStack Start's SSR entry in
-# vite.config.ts is `server: { entry: "server" }` (src/server.ts) and a top-level
-# server/index.ts shadows it, which broke the Vercel production build.
+# NOTE: named `backend/`, not `server/`, to stay clear of TanStack Start's SSR
+# entry (vite.config.ts: `server: { entry: "server" }` → src/server.ts).
+# (A failing Vercel deploy on 2026-10-03 was NOT this folder — it was the
+# @tanstack/react-start advisory gate; see API-DEPLOY.md.)
 #
 set -euo pipefail
 

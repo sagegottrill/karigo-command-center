@@ -4,11 +4,31 @@
 has no git checkout — this folder is where the backend code gets a history, so
 it can be read, diffed and reviewed like the frontend.
 
-> **Do not rename this folder back to `server/`.** `vite.config.ts` configures
-> TanStack Start with `server: { entry: "server" }`, which resolves the SSR entry
-> against `src/server.ts`; a top-level `server/index.ts` shadows it and Vercel
-> then tries to bundle THIS API as the SSR entry — the 2026-10-03 production
-> deploy failed exactly that way (`42c34bf`). `backend/` cannot collide.
+> **A note on the name.** This folder was briefly `server/` (commit `42c34bf`).
+> That commit did NOT break the build — the Vercel log shows it compiling
+> cleanly and failing later, at the deploy gate described below. The name stays
+> `backend/` only because `server/` sits confusingly close to TanStack Start's
+> SSR entry (`vite.config.ts`: `server: { entry: "server" }` → `src/server.ts`),
+> so it is clearer not to reuse the word.
+
+## The deploy gate: vulnerable TanStack Start (2026-10-03)
+
+Vercel now REFUSES to deploy an app on `@tanstack/react-start` >= 1.143.12 and
+< 1.168.60 — critical unauthenticated reflected XSS (**CVE-2026-102989**,
+GHSA-qx66-fv34-fjm8, published 2026-09-30). The **build** succeeds; the
+**deploy** step stops with:
+
+```
+Deploying outputs...
+Vulnerable TanStack Start package detected (@tanstack/react-start@1.168.32).
+```
+
+Fix: upgrade to `@tanstack/react-start@1.168.60`+ (the advisory also names
+`@tanstack/start-server-core@1.169.39`+) and redeploy. Vercel names an escape
+hatch, `DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS=1` — that ships the
+vulnerability to production; do not set it on an app holding partner, HR and
+accounts data. The last good deployment keeps serving while this is unresolved,
+so nothing goes down in the meantime.
 
 * Host: `root@2.28.45.216` (ubuntu-8gb-fsn1-1, Falkenstein)
 * Path: `/var/www/fleetopsx-api`

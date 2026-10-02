@@ -8,8 +8,9 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   // `backend/` is the mirror of the API that runs on the VPS (see
   // backend/API-DEPLOY.md). It is Node code, not frontend code, and linting it
-  // with the browser/react config only produces noise. (It is NOT called
-  // `server/`: that shadows TanStack Start's SSR entry — see API-DEPLOY.md.)
+  // with the browser/react config only produces noise. (The folder is called
+  // `backend/`, not `server/`, to stay clear of TanStack Start's SSR entry —
+  // see API-DEPLOY.md.)
   { ignores: ["dist", ".output", ".vinxi", "backend"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
