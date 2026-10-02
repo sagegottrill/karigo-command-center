@@ -3,10 +3,14 @@
 # The link between the API source in this repo and the API running on the VPS.
 # The host has no git checkout — this script IS the connection.
 #
-#   ./server/sync-api.sh pull     server → repo (then: git diff)
-#   ./server/sync-api.sh push     repo → server (backup, syntax-check, restart, health)
-#   ./server/sync-api.sh smoke    run the live fuel-desk smoke test
-#   ./server/sync-api.sh logs     last 40 lines of the API's own logs
+#   ./backend/sync-api.sh pull     server → repo (then: git diff)
+#   ./backend/sync-api.sh push     repo → server (backup, syntax-check, restart, health)
+#   ./backend/sync-api.sh smoke    run the live fuel-desk smoke test
+#   ./backend/sync-api.sh logs     last 40 lines of the API's own logs
+#
+# NOTE: this folder must not be named `server/` — TanStack Start's SSR entry in
+# vite.config.ts is `server: { entry: "server" }` (src/server.ts) and a top-level
+# server/index.ts shadows it, which broke the Vercel production build.
 #
 set -euo pipefail
 
@@ -22,7 +26,7 @@ case "${1:-}" in
   pull)
     "${SCP[@]}" "$HOST:$DIR/index.ts" "$HERE/index.ts"
     "${SCP[@]}" "$HOST:$DIR/prisma/schema.prisma" "$HERE/prisma/schema.prisma"
-    echo "pulled from $HOST:$DIR — run 'git diff server/' to see what the live API changed"
+    echo "pulled from $HOST:$DIR — run 'git diff backend/' to see what the live API changed"
     ;;
 
   push)

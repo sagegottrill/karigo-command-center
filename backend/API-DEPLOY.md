@@ -1,8 +1,14 @@
 # The API behind FleetOpsx / Petroline (how it lives and how it ships)
 
-`server/` is a **mirror** of the API that actually runs on the VPS. The API host
+`backend/` is a **mirror** of the API that actually runs on the VPS. The API host
 has no git checkout — this folder is where the backend code gets a history, so
 it can be read, diffed and reviewed like the frontend.
+
+> **Do not rename this folder back to `server/`.** `vite.config.ts` configures
+> TanStack Start with `server: { entry: "server" }`, which resolves the SSR entry
+> against `src/server.ts`; a top-level `server/index.ts` shadows it and Vercel
+> then tries to bundle THIS API as the SSR entry — the 2026-10-03 production
+> deploy failed exactly that way (`42c34bf`). `backend/` cannot collide.
 
 * Host: `root@2.28.45.216` (ubuntu-8gb-fsn1-1, Falkenstein)
 * Path: `/var/www/fleetopsx-api`
@@ -13,9 +19,9 @@ it can be read, diffed and reviewed like the frontend.
 ## Sync
 
 ```bash
-./server/sync-api.sh pull     # server → repo (then `git diff` to see what changed)
-./server/sync-api.sh push     # repo → server: backup, syntax-check, restart, health
-./server/sync-api.sh smoke    # run the fuel-desk smoke test against the live API
+./backend/sync-api.sh pull     # server → repo (then `git diff` to see what changed)
+./backend/sync-api.sh push     # repo → server: backup, syntax-check, restart, health
+./backend/sync-api.sh smoke    # run the fuel-desk smoke test against the live API
 ```
 
 `push` backs the live file up to `index.ts.bak-<timestamp>` first and refuses to
@@ -37,7 +43,7 @@ node_modules/.bin/prisma migrate diff \
 
 * `-- This is an empty migration.` → the file matches the DB. Nothing to do.
 * Anything else → apply **only the statements you intend** (a `CREATE TABLE`,
-  an `ADD COLUMN`) with `psql`, then write them into `server/migrations/`.
+  an `ADD COLUMN`) with `psql`, then write them into `backend/migrations/`.
 
 **Never run `prisma db push` on this database.** On 2026-10-03 it wanted to
 `DROP COLUMN` four live `LubricantDisbursal` columns (`status`, `reviewedBy`,

@@ -6,10 +6,11 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  // `server/` is the mirror of the API that runs on the VPS (see
-  // server/API-DEPLOY.md). It is Node code, not frontend code, and linting it
-  // with the browser/react config only produces noise.
-  { ignores: ["dist", ".output", ".vinxi", "server"] },
+  // `backend/` is the mirror of the API that runs on the VPS (see
+  // backend/API-DEPLOY.md). It is Node code, not frontend code, and linting it
+  // with the browser/react config only produces noise. (It is NOT called
+  // `server/`: that shadows TanStack Start's SSR entry — see API-DEPLOY.md.)
+  { ignores: ["dist", ".output", ".vinxi", "backend"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
