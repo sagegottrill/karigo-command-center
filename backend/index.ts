@@ -3205,7 +3205,7 @@ app.post('/api/trips/:id/direct-cost', authenticate, authorize('Accounts', 'Acco
 });
 app.get('/api/lubricant/notifications', authenticate, async (_req: any, res) => {
   try {
-    const [stocks, pending, disbursals, restocks, pushed] = await Promise.all([
+    const [stocks, pending, disbursals, restocks, pushed, fuelDesk] = await Promise.all([
       Promise.all(LUBRICANT_TYPES.map(ensureLubricantStock)),
       lubricantPending(20),
       prisma.lubricantDisbursal.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
@@ -3214,6 +3214,13 @@ app.get('/api/lubricant/notifications', authenticate, async (_req: any, res) => 
       // Lubricant alerts are skipped here — they are what the bell is for, and the
       // page was otherwise showing every restock and disbursal twice.
       prisma.notification.findMany({ where: { AND: [{ category: { not: 'Lubricant' } }, { audience: { contains: 'Lubricant' } }] }, orderBy: { createdAt: 'desc' }, take: 30 }),
+      // The desk's OWN queue: a walk-in buyer with a paper slip, or an internal
+      // draw (a mechanic washing an engine). These live in FuelRequest, not on a
+      // dispatch, so they are listed here rather than in the trip feed below —
+      // this page is where the diesel attendant looks.
+      // (Order matters: this must stay LAST, or `pushed` and `fuelDesk` swap and
+      // the feed silently shows neither.)
+      prisma.fuelRequest.findMany({ where: { status: { in: ['Requested', 'Authorized'] } }, orderBy: { createdAt: 'desc' }, take: 20 }),
     ]);
     const vehicles = await lubricantTripVehicles(pending.map((p) => p.trip));
     const feed: any[] = [];
@@ -3243,6 +3250,21 @@ app.get('/api/lubricant/notifications', authenticate, async (_req: any, res) => 
         title: 'Successful ' + String(d.fuelType).toLowerCase() + ' disbursal',
         body: d.quantity.toLocaleString() + ' ' + lubricantUnit(d.fuelType) + ' • ' + dispatchRef(d.tripId),
         at: d.createdAt,
+      });
+    }
+    for (const f of fuelDesk) {
+      const unit = lubricantUnit(f.fuelType);
+      feed.push({
+        id: 'fuel-' + f.id,
+        kind: 'fuel-request',
+        severity: f.status === 'Authorized' ? 'info' : 'warning',
+        title: 'New ' + f.fuelType + ' request — ' + f.quantity.toLocaleString() + ' ' + unit + ' (' + f.reference + ')',
+        body: (f.source === 'Walk-In Sale' ? 'Walk-in buyer' : 'Internal draw') +
+          ' • ' + f.requestedBy +
+          (f.requestedFor ? ' • ' + f.requestedFor : '') +
+          (f.purpose ? ' • ' + f.purpose : '') +
+          (f.status === 'Authorized' ? ' • cleared, dispense at the pump' : ' • the desk dispenses it'),
+        at: f.createdAt,
       });
     }
     for (const r of restocks) {
