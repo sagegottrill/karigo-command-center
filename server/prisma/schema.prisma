@@ -1,0 +1,476 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String
+  phone     String?
+  tenantId  String?
+  roles     String?
+  status    String   @default("Active")
+  passwordResetRequired Boolean @default(false)
+  partnerCompanyName String?
+  companyLogo String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  /// This partner company's own loading sites ('|'-separated).
+  loadingSites String?
+}
+
+model Tenant {
+  id           String   @id @default(uuid())
+  name         String
+  domain       String   @unique
+  tenantSlug   String?  @unique
+  logo         String?
+  status       String   @default("Active")
+  activeTrucks Int      @default(0)
+  totalOrders  Int      @default(0)
+  joinedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Trip {
+  /// Which security account stamped Log Out at the gate (Guard Activity Ledger).
+  gateOutBy String?
+  /// Which security account stamped Log In (the return).
+  gateInBy  String?
+  id                String   @id @default(uuid())
+  driverName        String
+  truckReg          String
+  tailType          String?
+  /// What the partner asked for at request time (never overwritten by assignment).
+  requestedTruckType String?
+  pickup            String
+  dropoff           String
+  /// Street address at the drop-off destination (optional).
+  dropoffAddress    String?
+  customerConsignee String
+  customer          String?
+  cargo             String
+  loadingSite       String?
+  revenue           Float    @default(0)
+  status            String   @default("Draft")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  dispatchedAt      DateTime?
+  directCosts       Json?
+  tailNumber       String?
+  approvedAt        DateTime?
+  assignedAt        DateTime?
+  /// What the Transport Manager estimates the dispatch date to be (YYYY-MM-DD).
+  estimatedDate     String?
+  /// How many days the Transport Manager expects the trip to take on the road.
+  estimatedDays     Int?
+  /// The gate stamp Security writes when the truck leaves the yard.
+  startTime         String?
+  /// When the truck came back — the gate's return stamp (closes the trip).
+  eta               String?
+  /// Why the Transport Manager sent this dispatch back to Fleet Ops.
+  sendBackReason    String?
+  /// Note shown to the PARTNER when a request is sent back or declined.
+  partnerNote       String?
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  requester   String
+  department  String
+  type        String
+  category    String
+  amount      Float
+  description String
+  status      String   @default("Pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkOrder {
+  id        String   @id @default(uuid())
+  truckReg  String
+  defect    String
+  priority  String
+  status    String   @default("Reported")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  category    String?  @default("General")
+  mechanic    String?
+  reportedBy  String?
+  cost        Float    @default(0)
+  notes       String?
+  startedAt   DateTime?
+  /// The workshop's projected return-to-service date for this truck.
+  estimatedReadyAt DateTime?
+  completedAt DateTime?
+}
+
+model GateEntry {
+  id        String   @id @default(uuid())
+  type      String
+  truckReg  String
+  driver    String
+  purpose   String
+  status    String   @default("Logged")
+  timestamp DateTime @default(now())
+}
+
+model Driver {
+  licenseNumber String?
+  licenseExpiry String? // ISO yyyy-mm-dd, as entered in Staff Records
+
+  /// Which part of the business he belongs to: Driver, Fleet Operation, Accounts.
+  department      String?
+  /// Who stands for him, and how to reach them.
+  guarantorName   String?
+  guarantorPhone  String?
+  /// The licence document itself (data URL) with its name and attach date.
+  /// Never leaves the list response — staff lists carry the flag, not the bytes.
+  licenseDocument String?
+  licenseDocName  String?
+  licenseDocAt    DateTime?
+  id        String   @id @default(uuid())
+  staffId   String   @unique
+  name      String
+  phone     String?
+  truckReg  String?
+  truckReg2 String?
+  category  String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Truck {
+  id           String   @id @default(uuid())
+  cabId        String   @unique
+  registration String
+  category     String?
+  destination  String?
+  status       String   @default("Active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Tail {
+  id        String   @id @default(uuid())
+  number    String   @unique
+  type      String?
+  destination String?
+  status    String   @default("Available")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryItem {
+  id           String   @id @default(uuid())
+  name         String
+  sku          String   @unique
+  category     String
+  stock        Int      @default(0)
+  reorderLevel Int      @default(5)
+  unitCost     Float    @default(0)
+  /// The vendor this line is normally bought from. A reorder is addressed
+  /// to it until the store records a purchase against a different one.
+  /// Which vehicles this part fits — the catalog's compatibility column.
+  vehicleCompatibility String @default("")
+  supplier     String   @default("")
+  location     String   @default("Main Store")
+  status       String   @default("In Stock")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model InventoryRequisition {
+  id         String   @id @default(uuid())
+  workOrder  String
+  truckReg   String
+  mechanic   String
+  part       String
+  itemId     String?
+  quantity   Int
+  reason     String
+  /// Part price at request time — the queue is audited by value even if the
+  /// store item is later removed or re-priced.
+  unitCost     Float?
+  /// Why the Transport Manager rejected the request.
+
+  /// The handoff record: approved but not yet physically released, or
+  /// flagged out of stock and waiting on procurement. Mechanics sign here.
+  handoffAt    DateTime?
+  pickedBy     String?
+  /// The mechanic's signature captured at handoff (data URL).
+  signature    String?
+  releasedQty  Int?
+  releasedValue Float?
+  decisionNote String?
+  status     String   @default("Pending")
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ProcurementRequest {
+  id         String   @id @default(uuid())
+  partName   String
+  quantity   Int
+  linkedId   String
+  truckReg   String?
+  /// "Part" (workshop store) or "Fuel" (a tank restock PO the TM raised).
+  kind       String   @default("Part")
+  /// What the buyer agreed to pay per unit — the price receiving posts.
+  unitPrice  Float?
+  /// Who the buy is from — procurement owns the vendor record.
+  vendor     String?
+  status     String   @default("Requested")
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model FuelRequisition {
+  id                  String   @id @default(uuid())
+  tripId              String
+  truckReg            String
+  driverName          String
+  requiredLitres      Float
+  approvedLitres      Float?
+  expectedConsumption Float    @default(0)
+  standardEfficiency  Float    @default(0)
+  odometer            Float    @default(0)
+  status              String   @default("Pending")
+  date                DateTime @default(now())
+  cost                Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  category  String
+  audience  String?
+  title     String
+  body      String
+  time      String   @default("Just now")
+  read      Boolean  @default(false)
+  severity  String   @default("info")
+  /// User ids who removed this from THEIR notification center.
+  dismissedBy        String[] @default([])
+  /// User ids who have READ this. Reading is per person — the shared
+  /// `read` flag cleared every colleague's badge when one person pressed it.
+  readBy            String[] @default([])
+  /// Which department produced this alert: Fleet Operations, Gate Security,
+  /// Tracking, Engineering, HR, Accounts, Fuel & Lubricant, Partners, System.
+  module            String?
+  /// The catalogue key that produced it (dispatch.departed, parts.requested…).
+  eventKey          String?
+  /// The record it is about, so a row can open that record instead of a list.
+  refId             String?
+  refLabel          String?
+  /// Does somebody have to decide something, or is it for information?
+  actionRequired    Boolean  @default(false)
+  /// The roles that must ACT on this. A reader is told "this is yours"
+  /// only when one of these is their own role — the Transport Manager's queue
+  /// is his decisions, not Fleet Ops' assignments.
+  actionRoles       String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Conversation {
+  id           String   @id @default(uuid())
+  kind         String   @default("direct")
+  name         String
+  subtitle     String   @default("")
+  unread       Int      @default(0)
+  lastAt       String   @default("now")
+  tripId       String?
+  participants Json
+  messages     Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ConversationRead {
+  id             String   @id @default(uuid())
+  userId         String
+  conversationId String
+  lastReadAt     DateTime @default(now())
+
+  @@unique([userId, conversationId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  user      String
+  module    String
+  action    String
+  record    String
+  device    String   @default("Web")
+  ip        String   @default("—")
+}
+
+model LoginReport {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  role      String
+  timestamp DateTime @default(now())
+  device    String   @default("Web")
+  ip        String   @default("—")
+  status    String   @default("Success")
+}
+
+model TrackingCheckpoint {
+  id        String   @id @default(uuid())
+  tripId    String
+  location  String
+  leg       String
+  at        DateTime @default(now())
+}
+
+// fuel-prices-patch
+model FuelPrice {
+  id            String   @id @default(uuid())
+  fuelType      String   @unique // "Diesel" | "Gas"
+  pricePerLitre Float
+  updatedBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// How much diesel / gas is in the tank right now (one row per fuel type).
+model LubricantStock {
+  id        String   @id @default(uuid())
+  fuelType  String   @unique // "Diesel" | "Gas"
+  quantity  Float    @default(0)
+  /// Below this the department is warned (the "Min:" caption on the tank card).
+  minLevel  Float    @default(0)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+/// A purchase of diesel / gas into the tank (the Restock Records table).
+model LubricantRestock {
+  id        String   @id @default(uuid())
+  reference String   @unique // DSL-00023 | GAS-00023
+  fuelType  String
+  quantity  Float
+  loggedBy  String
+  /// What the delivery actually cost per litre, when the buyer knows it.
+  unitCost Float?
+  createdAt DateTime @default(now())
+}
+
+/// Lubricant handed to one dispatch. unitPrice is the Transport Manager's
+/// price per litre SNAPSHOT at the moment of dispensing, so a later price change
+/// never re-prices history.
+model LubricantDisbursal {
+  id          String   @id @default(uuid())
+  tripId      String
+  fuelType    String
+  quantity    Float
+  unitPrice   Float    @default(0)
+  amount      Float    @default(0)
+  dispensedBy String
+  /// Drop-off the load is going to, copied at dispense time for the history row.
+  destination String?
+  createdAt   DateTime @default(now())
+  /// Lubricant review, owned by the Transport Manager: Pending | Approved | Declined.
+  /// These four were added to the live table by a patch script and were missing
+  /// here, so `prisma db push` saw them as removals and would have DROPPED them.
+  status      String   @default("Pending")
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+
+  @@index([tripId])
+  @@index([createdAt])
+}
+
+/// A diesel / gas request that is NOT tied to a dispatch.
+///
+/// Two live cases need this queue and a dispatch never covers them:
+///   • a WALK-IN buyer at the yard holding a paper slip ("50 L of diesel"),
+///   • an INTERNAL draw on the tank — a yard mechanic washing an engine
+///     ("the boss wants 50 L of diesel to wash the engine").
+/// Whoever takes the slip raises it (gate, fuel desk, Transport Manager or the
+/// mobile app); every raise pushes a notification at the Lubricant desk and
+/// lands in this queue, so the diesel attendant SEES the request and dispenses
+/// it against the tank, at the Transport Manager's price per litre.
+model FuelRequest {
+  id               String   @id @default(uuid())
+  reference        String   @unique // FQ-00012
+  fuelType         String   @default("Diesel") // Diesel | Gas
+  quantity         Float
+  /// 'Walk-In Sale' | 'Internal Use'
+  source           String   @default("Internal Use")
+  /// Who is asking: the buyer's name on the slip, or the person raising it.
+  requestedBy      String
+  /// The account that raised it, so the raiser can watch their own request.
+  requestedById    String?
+  requestedByEmail String?
+  /// The company / department / partner the fuel is FOR ('Petroline', 'Silver Steel').
+  requestedFor     String?
+  /// Free text: 'engine wash — boss requested', the buyer's paper slip number.
+  purpose          String?
+  buyerPhone       String?
+  plateNumber      String?
+  /// Requested → Authorized → Dispensed · or Declined. One tank draw per row.
+  status           String   @default("Requested")
+  /// Price per litre SNAPSHOT at dispense time (the Transport Manager's price).
+  unitPrice        Float    @default(0)
+  amount           Float    @default(0)
+  /// Unpaid | Paid | Credit
+  paymentStatus    String   @default("Unpaid")
+  paymentRef       String?
+  authorizedBy     String?
+  authorizedAt     DateTime?
+  dispensedBy      String?
+  dispensedAt      DateTime?
+  declinedBy       String?
+  declinedAt       DateTime?
+  declineReason    String?
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+
+model InventoryMovement {
+  id        String   @id @default(uuid())
+  itemId    String
+  /// Name and SKU are copied, not joined: the ledger has to stay readable after
+  /// a store line is renamed or deleted.
+  itemName  String
+  sku       String
+  /// Purchase | Issue | Adjustment | Write-off
+  kind      String
+  /// Signed stock effect: + in from a vendor, - drawn against a truck.
+  quantity  Int
+  /// Price per unit at the moment of the movement, and the line's total.
+  unitCost  Float?
+  value     Float?
+  vendor    String?
+  /// What the movement was for: a requisition id, a work order, a delivery note.
+  reference String?
+  truckReg  String?
+  note      String?
+  actedBy   String?
+  actedAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
