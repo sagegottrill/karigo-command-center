@@ -72,6 +72,13 @@ export function TmVouchers() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [preview, setPreview] = useState<Trip | null>(null);
+  /**
+   * The Direct Cost Vouchers banner reads "Daily" = the day the dispatch was
+   * raised. Keep the total moving as the day goes on: refresh the trip list
+   * once on mount and then on a 30-second interval, identical to the other
+   * live dashboards on this page. Without a poller this banner is a point-in-time
+   * snapshot, which is why a Transport Manager sees figures that stop changing.
+   */
   const refresh = useCallback(async () => {
     try {
       setTrips(await tripService.list());
@@ -84,6 +91,12 @@ export function TmVouchers() {
 
   useEffect(() => {
     void refresh();
+    const id = setInterval(() => {
+      void refresh();
+    }, 30_000);
+    return () => {
+      clearInterval(id);
+    };
   }, [refresh]);
 
   /**
