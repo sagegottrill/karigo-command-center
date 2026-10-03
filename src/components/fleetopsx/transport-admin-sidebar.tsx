@@ -107,6 +107,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // dashboard; this is the department's own working page.
       { label: "Parts & Inventory", to: "/workspace/app/parts", icon: Package },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
+      // The Transport Manager's own raise: a tank draw that lands straight in the
+      // diesel attendant's waiting queue, filed under whichever partner it is for.
+      { label: "Fuel Request", to: "/workspace/app/fuel-request", icon: CirclePlus },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into.
       { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
@@ -352,6 +355,7 @@ const ADMIN_MOBILE_NAV = [
       "/workspace/app/hr",
       "/workspace/app/engineering",
       "/workspace/app/fuel-pricing",
+      "/workspace/app/fuel-request",
     ],
   },
   {

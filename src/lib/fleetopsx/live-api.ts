@@ -10,6 +10,7 @@ import type {
   Expense,
   ExpenseStatus,
   FuelRequisition,
+  FuelRequest,
   GateEntry,
   InventoryItem,
   InventoryMovement,
@@ -906,6 +907,91 @@ export async function liveUpdateFuel(
   body: Record<string, unknown>,
 ): Promise<FuelRequisition> {
   return mapFuel(await api.patch(`/fuel/${id}`, body));
+}
+
+/*
+ * THE FUEL DESK'S QUEUE — a different feature from the /fuel requisitions above.
+ * A requisition is costed against a trip; a fuel request is one tank draw that
+ * must reach the attendant at the pump (gate slip, mechanic, Transport Manager).
+ */
+export function mapFuelRequest(f: Record<string, unknown>): FuelRequest {
+  const status = String(f.status ?? "Requested");
+  return {
+    id: String(f.id ?? ""),
+    reference: String(f.reference ?? ""),
+    fuelType: String(f.fuelType ?? "Diesel"),
+    quantity: Number(f.quantity ?? 0),
+    source: f.source === "Walk-In Sale" ? "Walk-In Sale" : "Internal Use",
+    requestedBy: String(f.requestedBy ?? ""),
+    requestedFor: f.requestedFor == null ? null : String(f.requestedFor),
+    purpose: f.purpose == null ? null : String(f.purpose),
+    plateNumber: f.plateNumber == null ? null : String(f.plateNumber),
+    note: f.note == null ? null : String(f.note),
+    status:
+      status === "Authorized" || status === "Dispensed" || status === "Declined"
+        ? status
+        : "Requested",
+    unit: String(f.unit ?? "litres"),
+    unitPrice: Number(f.unitPrice ?? 0),
+    amount: Number(f.amount ?? 0),
+    createdAt: String(f.createdAt ?? ""),
+  };
+}
+
+export type FuelRequestsResponse = {
+  requests: FuelRequest[];
+  counts: {
+    requested: number;
+    authorized: number;
+    dispensed: number;
+    declined: number;
+    walkIn: number;
+    internal: number;
+  };
+  tanks: Record<string, unknown>[];
+  prices: Record<string, number>;
+};
+
+/** The desk's queue: ?status=Requested,Authorized · ?mine=1 · ?source=Walk-In Sale */
+export async function liveListFuelRequests(query: string = ""): Promise<FuelRequestsResponse> {
+  // Typed as the WIRE shape: the mapper is what turns the JSON into FuelRequest.
+  const raw = (await api.get(`/fuel-requests${query}`)) as {
+    requests?: Record<string, unknown>[];
+    counts?: FuelRequestsResponse["counts"];
+    tanks?: Record<string, unknown>[];
+    prices?: Record<string, number>;
+  };
+  return {
+    requests: (Array.isArray(raw?.requests) ? raw.requests : []).map(mapFuelRequest),
+    counts: raw.counts ?? {
+      requested: 0,
+      authorized: 0,
+      dispensed: 0,
+      declined: 0,
+      walkIn: 0,
+      internal: 0,
+    },
+    tanks: Array.isArray(raw.tanks) ? raw.tanks : [],
+    prices: raw.prices && typeof raw.prices === "object" ? raw.prices : {},
+  };
+}
+
+/** Raise a tank draw. The backend answers 201 with the row and its FQ reference. */
+export async function liveCreateFuelRequest(body: Record<string, unknown>): Promise<FuelRequest> {
+  return mapFuelRequest(await api.post("/fuel-requests", body));
+}
+
+export type PartnerCompany = { company: string; accounts: number; source: string };
+
+/** The Transport Manager's partner picker: every company the yard hauls for. */
+export async function liveListPartnerCompanies(): Promise<PartnerCompany[]> {
+  return asList(await api.get("/partners"))
+    .map((p) => ({
+      company: String(p.company ?? ""),
+      accounts: Number(p.accounts ?? 0),
+      source: String(p.source ?? ""),
+    }))
+    .filter((p) => p.company);
 }
 
 export async function liveListNotifications(opts?: {

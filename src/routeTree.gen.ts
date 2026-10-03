@@ -34,6 +34,7 @@ import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
 import { Route as WorkspaceAppFleetRegistryRouteImport } from './routes/workspace.app.fleet-registry'
 import { Route as WorkspaceAppFuelPricingRouteImport } from './routes/workspace.app.fuel-pricing'
+import { Route as WorkspaceAppFuelRequestRouteImport } from './routes/workspace.app.fuel-request'
 import { Route as WorkspaceAppGateRouteImport } from './routes/workspace.app.gate'
 import { Route as WorkspaceAppHrRouteImport } from './routes/workspace.app.hr'
 import { Route as WorkspaceAppHrOnboardRouteImport } from './routes/workspace.app.hr-onboard'
@@ -192,6 +193,11 @@ const WorkspaceAppFleetRegistryRoute =
 const WorkspaceAppFuelPricingRoute = WorkspaceAppFuelPricingRouteImport.update({
   id: '/fuel-pricing',
   path: '/fuel-pricing',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppFuelRequestRoute = WorkspaceAppFuelRequestRouteImport.update({
+  id: '/fuel-request',
+  path: '/fuel-request',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
 const WorkspaceAppGateRoute = WorkspaceAppGateRouteImport.update({
@@ -391,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
+  '/workspace/app/fuel-request': typeof WorkspaceAppFuelRequestRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
@@ -444,6 +451,7 @@ export interface FileRoutesByTo {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
+  '/workspace/app/fuel-request': typeof WorkspaceAppFuelRequestRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
@@ -501,6 +509,7 @@ export interface FileRoutesById {
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
+  '/workspace/app/fuel-request': typeof WorkspaceAppFuelRequestRoute
   '/workspace/app/gate': typeof WorkspaceAppGateRoute
   '/workspace/app/hr': typeof WorkspaceAppHrRoute
   '/workspace/app/hr-onboard': typeof WorkspaceAppHrOnboardRoute
@@ -560,6 +569,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
+    | '/workspace/app/fuel-request'
     | '/workspace/app/gate'
     | '/workspace/app/hr'
     | '/workspace/app/hr-onboard'
@@ -613,6 +623,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
+    | '/workspace/app/fuel-request'
     | '/workspace/app/gate'
     | '/workspace/app/hr'
     | '/workspace/app/hr-onboard'
@@ -669,6 +680,7 @@ export interface FileRouteTypes {
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
+    | '/workspace/app/fuel-request'
     | '/workspace/app/gate'
     | '/workspace/app/hr'
     | '/workspace/app/hr-onboard'
@@ -886,6 +898,13 @@ declare module '@tanstack/react-router' {
       path: '/fuel-pricing'
       fullPath: '/workspace/app/fuel-pricing'
       preLoaderRoute: typeof WorkspaceAppFuelPricingRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/fuel-request': {
+      id: '/workspace/app/fuel-request'
+      path: '/fuel-request'
+      fullPath: '/workspace/app/fuel-request'
+      preLoaderRoute: typeof WorkspaceAppFuelRequestRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/gate': {
@@ -1132,6 +1151,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
   WorkspaceAppFleetRegistryRoute: typeof WorkspaceAppFleetRegistryRoute
   WorkspaceAppFuelPricingRoute: typeof WorkspaceAppFuelPricingRoute
+  WorkspaceAppFuelRequestRoute: typeof WorkspaceAppFuelRequestRoute
   WorkspaceAppGateRoute: typeof WorkspaceAppGateRoute
   WorkspaceAppHrRoute: typeof WorkspaceAppHrRoute
   WorkspaceAppHrOnboardRoute: typeof WorkspaceAppHrOnboardRoute
@@ -1170,6 +1190,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
   WorkspaceAppFleetRegistryRoute: WorkspaceAppFleetRegistryRoute,
   WorkspaceAppFuelPricingRoute: WorkspaceAppFuelPricingRoute,
+  WorkspaceAppFuelRequestRoute: WorkspaceAppFuelRequestRoute,
   WorkspaceAppGateRoute: WorkspaceAppGateRoute,
   WorkspaceAppHrRoute: WorkspaceAppHrRoute,
   WorkspaceAppHrOnboardRoute: WorkspaceAppHrOnboardRoute,

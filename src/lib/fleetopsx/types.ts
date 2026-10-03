@@ -319,6 +319,34 @@ export interface FuelRequisition {
 }
 
 /**
+ * A tank draw — the fuel desk's queue (`/api/fuel-requests`).
+ *
+ * This is NOT a FuelRequisition above: a requisition is costed against a trip,
+ * while this is one drawer of diesel or gas asked for at the pump, from the
+ * gate slip, the mechanic, or the Transport Manager raising it for a partner.
+ */
+export interface FuelRequest {
+  id: ID;
+  /** FQ-00012 — the reference the slip, the desk screen and the ledger share. */
+  reference: string;
+  fuelType: string;
+  quantity: number;
+  source: "Walk-In Sale" | "Internal Use";
+  requestedBy: string;
+  /** The partner / company / department the fuel is for, or null when it is our own draw. */
+  requestedFor: string | null;
+  purpose: string | null;
+  plateNumber: string | null;
+  note: string | null;
+  status: "Requested" | "Authorized" | "Dispensed" | "Declined";
+  /** Litres — the desk never reports a bare number. */
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  createdAt: string;
+}
+
+/**
  * The workshop pipeline, in the order a job actually moves through it.
  *
  * `Cancelled` is a job raised in error or withdrawn before any work started —

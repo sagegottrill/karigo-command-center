@@ -3391,7 +3391,14 @@ app.post('/api/fuel-requests', authenticate, async (req: any, res) => {
   const quantity = Number(req.body?.quantity);
   const requestedBy = String(req.body?.requestedBy || req.user?.name || '').trim();
   const source = normaliseFuelSource(req.body?.source);
-  const requestedFor = String(req.body?.requestedFor || '').trim() || null;
+  const typedFor = String(req.body?.requestedFor || '').trim();
+  // File the row under the EXACT spelling the partner's own portal reads. A typed
+  // variant ("silver steel", "SilverSteel") would sit outside the partner's queue
+  // forever, because that queue matches the company name literally. This is the
+  // same canonicalisation dispatch already uses for onBehalfOfPartner.
+  const requestedFor = typedFor
+    ? await canonicalPartnerCompany(typedFor).catch(() => typedFor)
+    : null;
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return res.status(400).json({ error: 'quantity is what is asked for — it must be a positive number of litres' });
   }
