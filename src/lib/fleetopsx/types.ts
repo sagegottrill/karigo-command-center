@@ -344,6 +344,20 @@ export interface FuelRequest {
   unitPrice: number;
   amount: number;
   createdAt: string;
+  /** Who asked, as an account, so the raiser can be traced back to a login. */
+  requestedByEmail: string | null;
+  buyerPhone: string | null;
+  /** The desk's decision and who made it. */
+  authorizedBy: string | null;
+  authorizedAt: string | null;
+  dispensedBy: string | null;
+  dispensedAt: string | null;
+  declinedBy: string | null;
+  declinedAt: string | null;
+  declineReason: string | null;
+  /** Unpaid | Paid | Credit — set at (or after) dispense. */
+  paymentStatus: string;
+  updatedAt: string;
 }
 
 /**

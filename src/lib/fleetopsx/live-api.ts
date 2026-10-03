@@ -935,6 +935,17 @@ export function mapFuelRequest(f: Record<string, unknown>): FuelRequest {
     unitPrice: Number(f.unitPrice ?? 0),
     amount: Number(f.amount ?? 0),
     createdAt: String(f.createdAt ?? ""),
+    requestedByEmail: f.requestedByEmail == null ? null : String(f.requestedByEmail),
+    buyerPhone: f.buyerPhone == null ? null : String(f.buyerPhone),
+    authorizedBy: f.authorizedBy == null ? null : String(f.authorizedBy),
+    authorizedAt: f.authorizedAt == null ? null : String(f.authorizedAt),
+    dispensedBy: f.dispensedBy == null ? null : String(f.dispensedBy),
+    dispensedAt: f.dispensedAt == null ? null : String(f.dispensedAt),
+    declinedBy: f.declinedBy == null ? null : String(f.declinedBy),
+    declinedAt: f.declinedAt == null ? null : String(f.declinedAt),
+    declineReason: f.declineReason == null ? null : String(f.declineReason),
+    paymentStatus: String(f.paymentStatus ?? "Unpaid"),
+    updatedAt: String(f.updatedAt ?? ""),
   };
 }
 

@@ -8,6 +8,8 @@ import {
   liveListPartnerCompanies,
 } from "@/lib/fleetopsx/live-api";
 import { authService } from "@/lib/fleetopsx/services";
+import { FuelRequestDetails } from "@/components/fleetopsx/fuel-request-details";
+import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import type { FuelRequest } from "@/lib/fleetopsx/types";
 
 /**
@@ -90,6 +92,9 @@ function FuelRequestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [raised, setRaised] = useState<FuelRequest | null>(null);
+  /** The row whose 3-dots is open, and the row currently read in full. */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const [fuelType, setFuelType] = useState("Diesel");
   const [quantity, setQuantity] = useState("");
@@ -127,6 +132,20 @@ function FuelRequestPage() {
     if (requestedFor === OTHER) return customFor.trim();
     return requestedFor.trim();
   }, [requestedFor, customFor]);
+
+  /** Read the row LIVE from the queue, so a decision made elsewhere shows here. */
+  const viewed = viewingId ? (mine.find((r) => r.id === viewingId) ?? null) : null;
+
+  const copyReference = async (reference: string) => {
+    try {
+      await navigator.clipboard.writeText(reference);
+      toast.success(`${reference} copied.`);
+    } catch {
+      // The clipboard refuses when the window is not focused — show the ref so
+      // the caller can still take it, rather than a dead-end error.
+      toast.error(`Could not copy — the reference is ${reference}.`);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,11 +390,18 @@ function FuelRequestPage() {
                   <th className="py-2 pr-3 font-medium">For</th>
                   <th className="py-2 pr-3 font-medium">Purpose</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 pr-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {mine.map((r) => (
-                  <tr key={r.id} className="border-b border-[#F1F2F4] text-[14px] text-[#1B2432]">
+                  <tr
+                    key={r.id}
+                    onClick={() => setViewingId(r.id)}
+                    className="cursor-pointer border-b border-[#F1F2F4] text-[14px] text-[#1B2432] hover:bg-[#F7F8F9]"
+                  >
                     <td className="py-2.5 pr-3 font-medium tabular-nums">{r.reference}</td>
                     <td className="py-2.5 pr-3">{r.fuelType}</td>
                     <td className="py-2.5 pr-3 tabular-nums">
@@ -390,6 +416,33 @@ function FuelRequestPage() {
                         {r.status}
                       </span>
                     </td>
+                    <td
+                      className="py-2.5 pr-3 justify-self-end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <RowActionMenu
+                        open={menuFor === r.id}
+                        onOpenChange={(o) => setMenuFor(o ? r.id : null)}
+                        label={`Options for ${r.reference}`}
+                        width={190}
+                        items={[
+                          {
+                            label: "View Details",
+                            onSelect: () => {
+                              setMenuFor(null);
+                              setViewingId(r.id);
+                            },
+                          },
+                          {
+                            label: "Copy reference",
+                            onSelect: () => {
+                              setMenuFor(null);
+                              void copyReference(r.reference);
+                            },
+                          },
+                        ]}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -397,6 +450,8 @@ function FuelRequestPage() {
           </div>
         )}
       </section>
+
+      <FuelRequestDetails row={viewed} onClose={() => setViewingId(null)} />
     </div>
   );
 }
