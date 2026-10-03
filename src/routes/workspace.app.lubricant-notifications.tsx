@@ -56,6 +56,13 @@ function LubricantNotificationsPage() {
 
   const attention = feed.filter((f) => f.severity === "warning" || f.severity === "error" || f.kind === "request").length;
 
+  /**
+   * Both queues lead to the same screen: a dispatch waiting on lubricant, and a
+   * tank draw (the Transport Manager asking for diesel) that never touches a
+   * trip. The draw used to dead-end here — it now opens the desk's own queue.
+   */
+  const opensDesk = (kind?: string) => kind === "request" || kind === "fuel-request";
+
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px]">
@@ -88,19 +95,25 @@ function LubricantNotificationsPage() {
             {feed.map((item) => (
               <div
                 key={item.id}
-                role={item.kind === "request" ? "button" : undefined}
-                tabIndex={item.kind === "request" ? 0 : undefined}
-                onClick={item.kind === "request" ? () => void navigate({ to: "/workspace/app/lubricant-disbursal" }) : undefined}
+                role={opensDesk(item.kind) ? "button" : undefined}
+                tabIndex={opensDesk(item.kind) ? 0 : undefined}
+                onClick={
+                  opensDesk(item.kind)
+                    ? () => void navigate({ to: "/workspace/app/lubricant-disbursal" })
+                    : undefined
+                }
                 onKeyDown={
-                  item.kind === "request"
+                  opensDesk(item.kind)
                     ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") void navigate({ to: "/workspace/app/lubricant-disbursal" });
+                        if (e.key === "Enter" || e.key === " ") {
+                          void navigate({ to: "/workspace/app/lubricant-disbursal" });
+                        }
                       }
                     : undefined
                 }
                 className={cn(
                   "flex items-start gap-3 border-b border-[#E2E5E9] px-1 py-3.5 last:border-b-0",
-                  item.kind === "request" && "cursor-pointer hover:bg-[#F7F8F9]",
+                  opensDesk(item.kind) && "cursor-pointer hover:bg-[#F7F8F9]",
                 )}
               >
                 <SeverityDot severity={item.severity} />
@@ -109,9 +122,9 @@ function LubricantNotificationsPage() {
                   <span className="truncate text-[12.5px] tracking-[0.4px] text-[#5C6470]">{item.body}</span>
                   <span className="text-[11.5px] tracking-[0.4px] text-[#9AA1AC]">{relativeTime(item.at)}</span>
                 </div>
-                {item.kind === "request" && (
+                {opensDesk(item.kind) && (
                   <span className="shrink-0 self-center rounded border border-[#ED351D] px-3 py-1.5 text-[12.5px] font-medium text-[#ED351D]">
-                    Log
+                    {item.kind === "fuel-request" ? "Open" : "Log"}
                   </span>
                 )}
               </div>

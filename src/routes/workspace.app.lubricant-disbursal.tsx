@@ -2,6 +2,12 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { authService, lubricantService } from "@/lib/fleetopsx/services";
+import {
+  liveListFuelDesk,
+  liveSetFuelRequestStatus,
+  type FuelDesk,
+} from "@/lib/fleetopsx/live-api";
+import type { FuelRequest } from "@/lib/fleetopsx/types";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
@@ -72,6 +78,18 @@ const REQUEST_GRID =
 type FuelFilter = "All" | "Diesel" | "Gas";
 const FUEL_FILTERS: readonly FuelFilter[] = ["All", "Diesel", "Gas"];
 
+/** "03 Oct, 14:32" — when the draw was raised, so the oldest ask reads first. */
+function deskStamp(iso: string) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  return at.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function LogDisbursalPage() {
   const [requests, setRequests] = useState<LubricantRequestRow[]>([]);
   const [overview, setOverview] = useState<LubricantOverview | null>(null);
@@ -84,14 +102,33 @@ function LogDisbursalPage() {
   const [activeStep, setActiveStep] = useState<"details" | "log">("details");
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
+  /**
+   * The tank draws themselves — a request the Transport Manager (or the gate,
+   * or a mechanic) raises never touches a dispatch, so the ticket queue above
+   * can never show it. It belongs on the SAME screen the attendant works from,
+   * because the pump that pours for a partner's truck is the pump that answers
+   * this.
+   */
+  const [desk, setDesk] = useState<FuelDesk | null>(null);
+  const [deskAction, setDeskAction] = useState<{
+    row: FuelRequest;
+    action: "Authorized" | "Declined";
+  } | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [acting, setActing] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
-      const [rows, next] = await Promise.all([
+      const [rows, next, deskRows] = await Promise.all([
         lubricantService.requests(),
         lubricantService.overview(),
+        // The desk queue is a second source; if it is unavailable the dispatch
+        // register above must still load.
+        liveListFuelDesk().catch(() => null),
       ]);
       setRequests(rows);
       setOverview(next);
+      setDesk(deskRows);
     } catch (err) {
       if (loading)
         toast.error(err instanceof Error ? err.message : "Failed to load the disbursal requests.");
@@ -180,6 +217,37 @@ function LogDisbursalPage() {
   const stocks = overview?.stocks ?? [];
   const prices = overview?.prices ?? {};
 
+  /** Waiting first — the pump reads what is owed before what is already cleared. */
+  const deskRows = useMemo(() => [...(desk?.waiting ?? []), ...(desk?.cleared ?? [])], [desk]);
+  const deskWaiting = desk?.waiting.length ?? 0;
+  const deskCleared = desk?.cleared.length ?? 0;
+
+  const applyDeskDecision = async () => {
+    if (!deskAction) return;
+    const { row, action } = deskAction;
+    setActing(true);
+    try {
+      await liveSetFuelRequestStatus(
+        row.id,
+        action,
+        action === "Declined" ? declineReason.trim() : undefined,
+      );
+      toast.success(
+        action === "Authorized"
+          ? `${row.reference} cleared — ${formatQuantity(row.quantity)} ${row.unit} of ${row.fuelType} is released to draw.`
+          : `${row.reference} declined${declineReason.trim() ? " — the raiser sees the reason" : ""}.`,
+      );
+      setDeskAction(null);
+      setDeclineReason("");
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The decision did not save.");
+    } finally {
+      setActing(false);
+    }
+  };
+
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:gap-[30px] md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px]">
@@ -190,6 +258,111 @@ function LogDisbursalPage() {
           Log disbursement for active dispatch
         </p>
       </div>
+
+      {/*
+       * The OTHER thing the pump answers: tank draws that never touch a trip.
+       * The Transport Manager raises them from his own portal (or the gate, or a
+       * mechanic), and until now only the bell and the mobile worklist carried
+       * them — the attendant working THIS screen could scroll past one forever.
+       * Same pump, same queue, same screen as the diesel that goes to partners.
+       */}
+      <section className="flex flex-col gap-3 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E5E9] pb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[17px] font-semibold tracking-[0.4px] text-[#1B2432]">
+              Fuel requests at the desk
+            </h3>
+            {deskWaiting > 0 && (
+              <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#ED351D] px-1.5 text-[12px] font-medium text-white">
+                {deskWaiting}
+              </span>
+            )}
+          </div>
+          <p className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
+            {deskWaiting > 0
+              ? `${formatQuantity(deskWaiting)} waiting on your word · ${formatQuantity(deskCleared)} cleared to draw`
+              : "tank draws from the Transport Manager, the gate and the mechanic"}
+          </p>
+        </div>
+
+        {deskRows.length === 0 ? (
+          <p className="py-4 text-center text-[13.5px] text-[#5C6470]">
+            {desk === null
+              ? "Loading the desk queue…"
+              : "No fuel request is waiting. The moment the Transport Manager raises one, it appears here."}
+          </p>
+        ) : (
+          <div className="flex flex-col">
+            {deskRows.map((r) => {
+              const waiting = r.status === "Requested";
+              return (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
+                >
+                  <span className="w-[86px] shrink-0 text-[14px] font-medium tabular-nums tracking-[0.4px] text-[#1B2432]">
+                    {r.reference}
+                  </span>
+                  <span className="shrink-0 text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+                    {r.fuelType} · {formatQuantity(r.quantity)} {r.unit}
+                  </span>
+                  <span className="min-w-[150px] shrink-0 text-[13.5px] tracking-[0.4px] text-[#5C6470]">
+                    {r.requestedBy}
+                    {r.requestedFor ? ` · for ${r.requestedFor}` : ""}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] tracking-[0.4px] text-[#627084]">
+                    {r.purpose ||
+                      (r.source === "Walk-In Sale"
+                        ? "Walk-in buyer at the gate"
+                        : "Internal draw on the tank")}
+                  </span>
+                  <span className="shrink-0 text-[12px] tabular-nums tracking-[0.4px] text-[#8A93A0]">
+                    {deskStamp(r.createdAt)}
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded px-2 py-1 text-[12px] font-medium",
+                      r.status === "Authorized"
+                        ? "bg-[#E7F6EC] text-[#137A3D]"
+                        : r.status === "Declined"
+                          ? "bg-[#FDECEA] text-[#C0392B]"
+                          : "bg-[#FFF3D6] text-[#8A5A00]",
+                    )}
+                  >
+                    {r.status}
+                  </span>
+
+                  {waiting ? (
+                    <span className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDeskAction({ row: r, action: "Authorized" })}
+                        className="h-8 rounded bg-[#1B2432] px-3 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#0F1620]"
+                      >
+                        Authorize
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeclineReason("");
+                          setDeskAction({ row: r, action: "Declined" });
+                        }}
+                        className="h-8 rounded border border-[#E2E5E9] px-3 text-[13px] font-medium tracking-[0.4px] text-[#C0392B] hover:bg-[#FDECEA]"
+                      >
+                        Decline
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-[12.5px] tracking-[0.4px] text-[#137A3D]">
+                      Cleared — awaiting the pump
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)] md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -446,6 +619,70 @@ function LogDisbursalPage() {
           void refresh();
         }}
       />
+
+      {/* The desk's word on one draw: clear it to pour, or push it back with a
+          reason the Transport Manager reads on his own screen. */}
+      {deskAction && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-[400px] max-w-full flex-col gap-4 rounded-[10px] bg-white p-6 shadow-[0px_4px_16px_rgba(12,12,13,0.2)]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                {deskAction.action === "Authorized"
+                  ? `Clear ${deskAction.row.reference} to draw?`
+                  : `Decline ${deskAction.row.reference}?`}
+              </span>
+              <p className="text-[14px] leading-5 text-[#5C6470]">
+                {`${deskAction.row.fuelType} · ${formatQuantity(deskAction.row.quantity)} ${deskAction.row.unit} · raised by ${deskAction.row.requestedBy}${deskAction.row.requestedFor ? ` for ${deskAction.row.requestedFor}` : ""}.`}
+                {deskAction.action === "Authorized"
+                  ? " The litres leave the tank when they are poured."
+                  : " The raiser is told it was declined."}
+              </p>
+            </div>
+
+            {deskAction.action === "Declined" && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-medium tracking-[0.4px] text-[#141A1F]">
+                  Reason <span className="text-[#5C6470]">(optional)</span>
+                </span>
+                <textarea
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  rows={3}
+                  placeholder="example: tank below minimum until the restock lands"
+                  className="w-full rounded border border-[#E2E5E9] bg-white px-3 py-2 text-[14px] tracking-[0.4px] text-[#1B2432] outline-none placeholder:text-[#8A93A0] focus:border-[#1B2432]"
+                />
+              </label>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeskAction(null);
+                  setDeclineReason("");
+                }}
+                disabled={acting}
+                className="h-10 rounded px-5 text-[14px] font-medium text-[#5C6470] hover:bg-[#F1F2F4]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyDeskDecision()}
+                disabled={acting}
+                className={cn(
+                  "h-10 rounded px-5 text-[14px] font-medium text-white disabled:opacity-60",
+                  deskAction.action === "Authorized"
+                    ? "bg-[#1B2432] hover:bg-[#0F1620]"
+                    : "bg-[#ED351D] hover:bg-[#D52F18]",
+                )}
+              >
+                {acting ? "Saving…" : deskAction.action === "Authorized" ? "Authorize" : "Decline"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

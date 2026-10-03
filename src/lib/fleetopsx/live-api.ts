@@ -981,6 +981,73 @@ export async function liveCreateFuelRequest(body: Record<string, unknown>): Prom
   return mapFuelRequest(await api.post("/fuel-requests", body));
 }
 
+export type FuelDesk = {
+  /** Requested — raised, still waiting on the attendant's word. */
+  waiting: FuelRequest[];
+  /** Authorized — cleared to draw, not yet dispensed. */
+  cleared: FuelRequest[];
+  today: FuelRequest[];
+  recent: FuelRequest[];
+  counts: {
+    waiting: number;
+    cleared: number;
+    dispensedToday: number;
+    litresToday: number;
+    salesToday: number;
+    unpaid: number;
+  };
+  tanks: Record<string, unknown>[];
+  prices: Record<string, number>;
+  generatedAt: string;
+};
+
+/**
+ * The diesel attendant's own screen in one call: what is waiting, what is
+ * cleared and un-dispensed, what moved today, plus the tanks behind it.
+ */
+export async function liveListFuelDesk(): Promise<FuelDesk> {
+  const raw = (await api.get("/fuel-requests/desk")) as {
+    waiting?: Record<string, unknown>[];
+    cleared?: Record<string, unknown>[];
+    today?: Record<string, unknown>[];
+    recent?: Record<string, unknown>[];
+    counts?: FuelDesk["counts"];
+    tanks?: Record<string, unknown>[];
+    prices?: Record<string, number>;
+    generatedAt?: string;
+  };
+  const rows = (list?: Record<string, unknown>[]) =>
+    (Array.isArray(list) ? list : []).map(mapFuelRequest);
+  return {
+    waiting: rows(raw.waiting),
+    cleared: rows(raw.cleared),
+    today: rows(raw.today),
+    recent: rows(raw.recent),
+    counts: raw.counts ?? {
+      waiting: 0,
+      cleared: 0,
+      dispensedToday: 0,
+      litresToday: 0,
+      salesToday: 0,
+      unpaid: 0,
+    },
+    tanks: Array.isArray(raw.tanks) ? raw.tanks : [],
+    prices: raw.prices && typeof raw.prices === "object" ? raw.prices : {},
+    generatedAt: String(raw.generatedAt ?? ""),
+  };
+}
+
+/** The desk's word on a draw: Authorize it, push it back, or Decline it. */
+export async function liveSetFuelRequestStatus(
+  id: string,
+  status: "Requested" | "Authorized" | "Declined",
+  reason?: string,
+): Promise<FuelRequest> {
+  return mapFuelRequest(
+    await api.patch(`/fuel-requests/${id}`, reason ? { status, reason } : { status }),
+  );
+}
+
 export type PartnerCompany = { company: string; accounts: number; source: string };
 
 /** The Transport Manager's partner picker: every company the yard hauls for. */
