@@ -10,8 +10,10 @@ export default tseslint.config(
   // backend/API-DEPLOY.md). It is Node code, not frontend code, and linting it
   // with the browser/react config only produces noise. (The folder is called
   // `backend/`, not `server/`, to stay clear of TanStack Start's SSR entry —
-  // see API-DEPLOY.md.)
-  { ignores: ["dist", ".output", ".vinxi", "backend"] },
+  // see API-DEPLOY.md.) `backend-patches/` holds one-shot server scripts kept
+  // byte-identical to the copies that ran on the VPS, so they are not
+  // reformatted either.
+  { ignores: ["dist", ".output", ".vinxi", "backend", "backend-patches"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

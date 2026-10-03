@@ -3786,6 +3786,177 @@ app.get('/api/worklist', authenticate, async (req: any, res) => {
   }
 });
 
+// --- push notifications (server-patch-push-notifications) ---
+// Every new notification is pushed to the phones of the people who can see it
+// in their own feed (notificationScope + notDismissed — the bell's own rules),
+// flagged "Action needed" for the roles that must act on it.
+const PUSH_SEND_URL = 'https://exp.host/--/api/v2/push/send';
+const PUSH_PRICE_ROLES = ['Transport Manager', 'Platform Admin', 'Accounts', 'Finance'];
+const pushHttps: any = require('https');
+
+app.post('/api/push-tokens', authenticate, async (req: any, res: any) => {
+  const token = String(req.body?.token || '').trim();
+  if (!/^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
+    return res.status(400).json({ error: 'A valid Expo push token is required.' });
+  }
+  const platform = String(req.body?.platform || '').slice(0, 16) || null;
+  await prisma.$executeRawUnsafe(
+    'INSERT INTO "PushToken" ("token", "userId", "platform", "createdAt", "updatedAt") ' +
+      "VALUES ($1, $2, $3, (now() AT TIME ZONE 'UTC'), (now() AT TIME ZONE 'UTC')) " +
+      'ON CONFLICT ("token") DO UPDATE SET "userId" = EXCLUDED."userId", "platform" = EXCLUDED."platform", ' +
+      "\"updatedAt\" = (now() AT TIME ZONE 'UTC')",
+    token,
+    String(req.user.id),
+    platform,
+  );
+  res.json({ ok: true });
+});
+
+// No sign-in needed: a phone that signed out with no signal removes its token
+// later, and removing a token only stops pushes to that one phone.
+app.delete('/api/push-tokens', async (req: any, res: any) => {
+  const token = String(req.body?.token || '').trim();
+  if (token) await prisma.$executeRawUnsafe('DELETE FROM "PushToken" WHERE "token" = $1', token);
+  res.json({ ok: true });
+});
+
+function pushPost(payload: any): Promise<any> {
+  return new Promise((resolve) => {
+    const body = JSON.stringify(payload);
+    const request = pushHttps.request(
+      PUSH_SEND_URL,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (response: any) => {
+        let text = '';
+        response.on('data', (chunk: any) => {
+          text += chunk;
+        });
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(text));
+          } catch (e) {
+            resolve(null);
+          }
+        });
+      },
+    );
+    request.on('error', () => resolve(null));
+    request.setTimeout(15000, () => {
+      request.destroy();
+      resolve(null);
+    });
+    request.write(body);
+    request.end();
+  });
+}
+
+/** "75 litres • DIS-1 • \u20A6975 • dispensed by Musa" → no amount, for people who do not price fuel. */
+function pushWithoutPrices(text: string): string {
+  return text
+    .replace(/\s*[\u2022\u00B7]\s*\u20A6\s?[\d,.]+/g, '')
+    .replace(/\s*\u20A6\s?[\d,.]+/g, '')
+    .trim();
+}
+
+let pushBusy = false;
+
+async function pushNewNotifications() {
+  if (pushBusy) return;
+  pushBusy = true;
+  try {
+    // Claim what nobody has pushed yet — atomic, so two API processes never
+    // both send one. Older than 30 minutes is news nobody wants buzzing now.
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      'UPDATE "Notification" SET "pushedAt" = (now() AT TIME ZONE \'UTC\') WHERE "id" IN (' +
+        'SELECT "id" FROM "Notification" WHERE "pushedAt" IS NULL ' +
+        'AND "createdAt" > (now() AT TIME ZONE \'UTC\') - INTERVAL \'30 minutes\' ' +
+        'ORDER BY "createdAt" ASC LIMIT 100 FOR UPDATE SKIP LOCKED) ' +
+        'RETURNING "id", "title", "body", "module", "eventKey", "refId", "actionRoles"',
+    );
+    if (!rows.length) return;
+    const holders: any[] = await prisma.$queryRawUnsafe('SELECT "token", "userId" FROM "PushToken"');
+    if (!holders.length) return;
+    const tokensOf = new Map<string, string[]>();
+    for (const h of holders) {
+      const key = String(h.userId);
+      tokensOf.set(key, [...(tokensOf.get(key) || []), String(h.token)]);
+    }
+    const people = (await (prisma as any).user.findMany({ where: { status: 'Active' } })).filter((u: any) =>
+      tokensOf.has(String(u.id)),
+    );
+    const ids = rows.map((r: any) => r.id);
+    const messages: any[] = [];
+    for (const u of people) {
+      const roles: string[] = Array.from(
+        new Set([u.role, ...String(u.roles || '').split(',').map((r: string) => r.trim()).filter(Boolean)]),
+      );
+      // Read exactly as this person would — their own feed's rules.
+      const asReader: any = { user: { id: u.id, email: u.email, name: u.name, role: u.role, roles }, query: {}, params: {}, headers: {} };
+      let visible: any[] = [];
+      try {
+        visible = await prisma.notification.findMany({
+          where: { AND: [{ id: { in: ids } }, await notificationScope(asReader), notDismissed(asReader)] },
+          select: { id: true },
+        });
+      } catch (e) {
+        console.error('[push] could not read the feed of', u.id, e);
+        continue;
+      }
+      const seesPrices = roles.some((r: string) => PUSH_PRICE_ROLES.includes(r));
+      for (const v of visible) {
+        const row = rows.find((r: any) => String(r.id) === String(v.id));
+        if (!row) continue;
+        const mustAct = (row.actionRoles || []).some((r: string) => roles.includes(r));
+        const text = String(row.body || '');
+        for (const to of tokensOf.get(String(u.id)) || []) {
+          messages.push({
+            to,
+            title: mustAct ? 'Action needed: ' + row.title : row.title,
+            body: (seesPrices ? text : pushWithoutPrices(text)).slice(0, 300),
+            sound: 'default',
+            priority: mustAct ? 'high' : 'default',
+            channelId: mustAct ? 'action' : 'updates',
+            data: {
+              notificationId: String(row.id),
+              userId: String(u.id),
+              module: row.module || null,
+              eventKey: row.eventKey || null,
+              refId: row.refId || null,
+              actionRequired: mustAct,
+            },
+          });
+        }
+      }
+    }
+    for (let i = 0; i < messages.length; i += 100) {
+      const chunk = messages.slice(i, i + 100);
+      const reply = await pushPost(chunk);
+      const tickets: any[] = Array.isArray(reply?.data) ? reply.data : [];
+      for (let k = 0; k < tickets.length; k += 1) {
+        // The app was removed or the token replaced — stop sending to it.
+        if (tickets[k]?.details?.error === 'DeviceNotRegistered') {
+          await prisma.$executeRawUnsafe('DELETE FROM "PushToken" WHERE "token" = $1', chunk[k].to).catch(() => {});
+        }
+      }
+    }
+    if (messages.length) console.log('[push] sent', messages.length, 'for', rows.length, 'notification(s)');
+  } catch (e) {
+    console.error('[push] run failed', e);
+  } finally {
+    pushBusy = false;
+  }
+}
+
+if (!(global as any).__fleetopsxPushTimer) {
+  (global as any).__fleetopsxPushTimer = setInterval(() => {
+    void pushNewNotifications();
+  }, 10000);
+}
+// --- end push notifications ---
+
 app.get('/api/notifications', authenticate, async (req: any, res) => {
   // Filters: ?module=Engineering · ?action=1 (only what needs a decision) ·
   // ?unread=1. Read state is per user, so the row is returned with THIS

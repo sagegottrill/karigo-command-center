@@ -284,6 +284,8 @@ model Notification {
   actionRoles       String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  /// When this was pushed to phones (server-patch-push-notifications).
+  pushedAt          DateTime?
 }
 
 model Conversation {
@@ -473,4 +475,16 @@ model InventoryMovement {
   actedAt   DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+/// A phone that receives push notifications for a user (FleetOpsX mobile).
+model PushToken {
+  token     String   @id
+  userId    String
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([userId])
 }
