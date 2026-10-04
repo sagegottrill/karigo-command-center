@@ -35,6 +35,8 @@ type AdminNavItem = {
   icon: typeof LayoutDashboard;
   /** Which live badge count drives the orange dot (only rendered when > 0). */
   liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread" | "messages";
+  /** Rendered indented beneath the item above — e.g. Internal Request under New Request. */
+  sub?: boolean;
 };
 
 type AdminNavGroup = {
@@ -50,6 +52,10 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // Petroline's own haulage: a request raised here enters the same lifecycle
       // as a partner's, which is what books the cost against the trip.
       { label: "New Request", to: "/workspace/app/new-request", icon: FilePlus },
+      // The Transport Manager's own raise: a tank draw that lands straight in the
+      // diesel attendant's waiting queue. Fortune moved it out of DEPARTMENTS to
+      // slim the sidebar — it now nests under New Request as "Internal Request".
+      { label: "Internal Request", to: "/workspace/app/fuel-request", icon: CirclePlus, sub: true },
     ],
   },
   {
@@ -107,9 +113,6 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // dashboard; this is the department's own working page.
       { label: "Parts & Inventory", to: "/workspace/app/parts", icon: Package },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
-      // The Transport Manager's own raise: a tank draw that lands straight in the
-      // diesel attendant's waiting queue, filed under whichever partner it is for.
-      { label: "Fuel Request", to: "/workspace/app/fuel-request", icon: CirclePlus },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into.
       { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
@@ -241,6 +244,7 @@ export function TransportAdminSidebar({
                       className={cn(
                         "flex h-8 items-center gap-2 overflow-hidden rounded p-2",
                         collapsed ? "w-8 justify-center" : "w-full",
+                        item.sub && !collapsed && "pl-8",
                         active ? "bg-[#ED351D]" : "hover:bg-white/5",
                       )}
                     >
