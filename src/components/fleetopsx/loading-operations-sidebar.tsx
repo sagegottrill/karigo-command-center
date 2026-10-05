@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
+import { SidebarCollapseButton } from "./sidebar-collapse-button";
 type LoadingNavItem = {
   label: string;
   to: string;
@@ -79,6 +80,8 @@ export function LoadingOperationsSidebar({
           collapsed ? "-translate-x-full md:translate-x-0 md:w-[80px]" : "translate-x-0 w-[240px]",
         )}
       >
+        {/* Wave-style edge toggle — the circular chevron on the sidebar's right edge */}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={onToggle} />
         <Link
           to="/workspace/account-type"
           className={cn(

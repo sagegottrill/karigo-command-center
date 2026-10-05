@@ -47,6 +47,27 @@ import { getActiveRoleHome } from "@/lib/fleetopsx/role-home";
 import { installSessionGuards } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 
+const SIDEBAR_COLLAPSED_KEY = "fleetopsx.sidebar.collapsed";
+
+/** Last desktop collapse choice — remembered across reloads, Wave-style. */
+function readSidebarCollapsed() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSidebarCollapsed(collapsed: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Storage unavailable (private mode) — the toggle still works this session.
+  }
+}
+
 /**
  * Is this session a PARTNER session right now?
  *
@@ -140,6 +161,8 @@ function PortalNotFound() {
 function AppShell() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  // Set once the stored collapse choice has been applied — persistence waits for it
+  const [collapseReady, setCollapseReady] = useState(false);
   const [useFoShell, setUseFoShell] = useState(false);
   const [useGateShell, setUseGateShell] = useState(false);
   const [useTrackingShell, setUseTrackingShell] = useState(false);
@@ -153,7 +176,8 @@ function AppShell() {
   const [activeRole, setActiveRoleState] = useState<string>("");
 
   useEffect(() => {
-    setCollapsed(window.innerWidth < 768);
+    setCollapsed(window.innerWidth < 768 || readSidebarCollapsed());
+    setCollapseReady(true);
     const applyShell = () => {
       const roles = authService.getRoles();
       // Department switch: evaluate shell predicates against the active role only.
@@ -218,6 +242,13 @@ function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Desktop-only preference: remember the last collapse choice. Mobile forces
+  // the drawer closed regardless, so its state is never stored.
+  useEffect(() => {
+    if (!collapseReady || typeof window === "undefined") return;
+    if (window.innerWidth >= 768) writeSidebarCollapsed(collapsed);
+  }, [collapsed, collapseReady]);
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">

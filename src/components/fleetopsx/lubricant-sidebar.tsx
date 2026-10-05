@@ -6,6 +6,7 @@ import { hardLogout } from "@/lib/fleetopsx/session";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 
+import { SidebarCollapseButton } from "./sidebar-collapse-button";
 type LubricantNavItem = {
   label: string;
   to: string;
@@ -111,6 +112,8 @@ export function LubricantSidebar({
           collapsed ? "-translate-x-full md:translate-x-0 md:w-[80px]" : "translate-x-0 w-[240px]",
         )}
       >
+        {/* Wave-style edge toggle — the circular chevron on the sidebar's right edge */}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={onToggle} />
         <Link
           to="/workspace/account-type"
           className={cn("flex w-full items-end px-5 py-2", collapsed ? "justify-center px-2" : "justify-end")}

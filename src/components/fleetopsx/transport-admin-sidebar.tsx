@@ -29,6 +29,7 @@ import { hardLogout } from "@/lib/fleetopsx/session";
 import { Route as RootRoute } from "../../routes/__root";
 import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
 
+import { SidebarCollapseButton } from "./sidebar-collapse-button";
 type AdminNavItem = {
   label: string;
   to: string;
@@ -202,6 +203,8 @@ export function TransportAdminSidebar({
           collapsed ? "-translate-x-full md:translate-x-0 md:w-[80px]" : "translate-x-0 w-[240px]",
         )}
       >
+        {/* Wave-style edge toggle — the circular chevron on the sidebar's right edge */}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={onToggle} />
         {/* Logo — Figma 107×60 in 20px padded container */}
         <Link
           to="/workspace/account-type"
