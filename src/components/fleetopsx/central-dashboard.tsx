@@ -60,6 +60,8 @@ import {
   formatDateTimeStamp,
   formatTableDate,
 } from "@/lib/fleetopsx/display-dates";
+import { liveListFuelRequests } from "@/lib/fleetopsx/live-api";
+import type { FuelRequest } from "@/lib/fleetopsx/types";
 import {
   DOWNTIME_FLAG_DAYS,
   buildEngineeringOversight,
@@ -389,6 +391,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   const [restocks, setRestocks] = useState<LubricantRestock[]>([]);
   const [disbursals, setDisbursals] = useState<LubricantDisbursalRow[]>([]);
   const [fuelAsks, setFuelAsks] = useState<LubricantRequestRow[]>([]);
+  /** The desk's DISPENSED ledger — what the pump actually poured, for the In Transit card. */
+  const [deskPours, setDeskPours] = useState<FuelRequest[]>([]);
   const [fuelPrices, setFuelPrices] = useState<Record<string, number>>({});
   /** The restock POs he has raised — the trigger, and what is still undelivered. */
   const [fuelOrders, setFuelOrders] = useState<ProcurementRequest[]>([]);
@@ -595,6 +599,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           setAsksRead(true);
         })
         .catch(() => {});
+      // Fortune counts the pump, not the paperwork: the In Transit card's
+      // diesel/gas/direct-cost columns read the desk's DISPENSED ledger — the
+      // rows the pump itself wrote when it poured — refreshed on the same
+      // 10-second cycle as every other figure on this board.
+      void liveListFuelRequests("?status=Dispensed&limit=500")
+        .then((res) => {
+          if (!cancelled) setDeskPours(res.requests ?? []);
+        })
+        .catch(() => {});
       void procurementService
         .fuelRestockOrders()
         .then((rows) => {
@@ -746,6 +759,33 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       }
     }
 
+    /**
+     * What the pump actually RELEASED in the window — the desk's own ledger,
+     * not the paperwork. The loop above summed the direct costs configured on
+     * each on-road trip, so a truck "carried" its whole requested load for as
+     * long as it stayed out. But "the total amount of diesel worked on today"
+     * is what the desk has DISPENSED in the window: FuelRequest rows already
+     * poured (status Dispensed), timed on dispensedAt — walk-in sales included,
+     * because they too left the tank. A request still waiting at the pump never
+     * touches these figures.
+     */
+    let pouredCost = 0;
+    let pouredDieselLitres = 0;
+    let pouredDieselCost = 0;
+    let pouredGasKg = 0;
+    let pouredGasCost = 0;
+    for (const pour of deskPours) {
+      if (!inPeriod(pour.dispensedAt ?? pour.createdAt, range)) continue;
+      pouredCost += Number(pour.amount ?? 0);
+      if (pour.fuelType === "Diesel") {
+        pouredDieselLitres += Number(pour.quantity ?? 0);
+        pouredDieselCost += Number(pour.amount ?? 0);
+      } else if (pour.fuelType === "Gas") {
+        pouredGasKg += Number(pour.quantity ?? 0);
+        pouredGasCost += Number(pour.amount ?? 0);
+      }
+    }
+
     const headStat = (status: string) => heads.filter((h) => h.status === status).length;
     const tailStat = (status: string) => (tails ?? []).filter((t) => t.status === status).length;
 
@@ -778,7 +818,19 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         inTransitByStatus,
         lists: { pending, declined, completed, all: requests, live: liveOnRoad },
       },
-      spend: { cost, dieselLitres, dieselCost, gasKg, gasCost },
+      spend: {
+        cost,
+        dieselLitres,
+        dieselCost,
+        gasKg,
+        gasCost,
+        /** The pump's side of the same card — what the desk actually dispensed. */
+        pouredCost,
+        pouredDieselLitres,
+        pouredDieselCost,
+        pouredGasKg,
+        pouredGasCost,
+      },
       dispatch: {
         total: active.length,
         onSchedule: active.filter((t) => getTrackingDelayStatus(t) === "On Schedule").length,
@@ -833,7 +885,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [live.trips, live.trucks, live.drivers, tails, users, range]);
+  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, range]);
 
   /** The window's own activity — raised / approved / dispatched / declined. */
   const activity = useMemo(
@@ -1916,23 +1968,24 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     }))}
                   />
                   <TileCostColumns
-                    /* Committed on the loads that are on the road right now. */
+                    /* What the pump DISPENSED in the window — the desk's own
+                       ledger, not the direct costs written on in-road trips. */
                     columns={[
                       {
                         label: "Direct Cost:",
-                        value: formatMoney(stats.spend.cost),
+                        value: formatMoney(stats.spend.pouredCost),
                         tone: "purple",
                       },
                       {
                         label: "Diesel:",
-                        value: `${stats.spend.dieselLitres}L`,
-                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
+                        value: `${stats.spend.pouredDieselLitres}L`,
+                        sub: `(${formatMoney(stats.spend.pouredDieselCost)})`,
                         tone: "amber",
                       },
                       {
                         label: "Gas:",
-                        value: `${stats.spend.gasKg}KG`,
-                        sub: `(${formatMoney(stats.spend.gasCost)})`,
+                        value: `${stats.spend.pouredGasKg}KG`,
+                        sub: `(${formatMoney(stats.spend.pouredGasCost)})`,
                         tone: "amber",
                       },
                     ]}
@@ -1960,27 +2013,31 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Committed Direct Cost</span>
+                    <span>Dispensed Direct Cost</span>
                     <span className="font-semibold text-white">
-                      {formatMoney(stats.spend.cost)}
+                      {formatMoney(stats.spend.pouredCost)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Committed Diesel</span>
+                    <span>Dispensed Diesel</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.dieselLitres}L ({formatMoney(stats.spend.dieselCost)})
+                      {stats.spend.pouredDieselLitres}L ({formatMoney(stats.spend.pouredDieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Committed Gas</span>
+                    <span>Dispensed Gas</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.gasKg}KG ({formatMoney(stats.spend.gasCost)})
+                      {stats.spend.pouredGasKg}KG ({formatMoney(stats.spend.pouredGasCost)})
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
-                    <span>Total:</span>
+                    <span>Total dispensed:</span>
                     <span className="font-bold" style={{ color: TONE.green.line }}>
-                      {formatMoney(stats.spend.cost + stats.spend.dieselCost + stats.spend.gasCost)}
+                      {formatMoney(
+                        stats.spend.pouredCost +
+                          stats.spend.pouredDieselCost +
+                          stats.spend.pouredGasCost,
+                      )}
                     </span>
                   </div>
                 </div>
