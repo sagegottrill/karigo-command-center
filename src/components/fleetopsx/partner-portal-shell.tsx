@@ -41,7 +41,11 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     setUserEmail(currentUser?.email || "");
     setUserInitials(currentUser?.initials || "PT");
     setOtherRoles(
-      authService.getRoles().filter((r: string) => r !== "Customer Portals (External)"),
+      authService
+        .getRoles()
+        // "Partner Requester" / "Partner Loader" are account-type tags stamped
+        // at partner creation, not departments — never offer them as switches.
+        .filter((r: string) => r !== "Customer Portals (External)" && !r.startsWith("Partner ")),
     );
     // Uploaded partner company logo (persisted at account creation) takes
     // priority over the tenant logo in the side menu.

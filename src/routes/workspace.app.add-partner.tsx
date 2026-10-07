@@ -35,6 +35,10 @@ function AddPartner() {
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
+  // What the partner DOES on the platform: raises requests (Requester) or runs
+  // a loading site (Loader). Persisted as an extra role on the account, so the
+  // Partner-loading-site module can gate on it without a schema change.
+  const [partnerType, setPartnerType] = useState<"Requester" | "Loader">("Requester");
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -90,7 +94,7 @@ function AddPartner() {
         const created = (await adminService.createUser({
           firstName,
           surname,
-          roles: ["Customer Portals (External)"],
+          roles: ["Customer Portals (External)", partnerType === "Loader" ? "Partner Loader" : "Partner Requester"],
           username: usernameForLogin,
           email: `${usernameForLogin}@${emailDomain}`,
           department: "External Partner",
@@ -207,6 +211,38 @@ function AddPartner() {
             />
           </div>
 
+          {/* Account Type */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              Account type <span className="text-[#8e95a1] font-[400]">— what this partner does on the platform</span>
+            </label>
+            <div className="flex gap-[12px]">
+              {(["Requester", "Loader"] as const).map((t) => {
+                const selected = partnerType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setPartnerType(t)}
+                    className={
+                      "flex-1 flex flex-col items-start gap-[2px] rounded-[4px] border-[1px] px-[16px] py-[10px] text-left transition-colors " +
+                      (selected
+                        ? "border-[#e3351d] bg-[#e3351d]/5"
+                        : "border-[#e2e5e9] bg-[#ffffff] hover:border-[#141a1f]")
+                    }
+                  >
+                    <span className={"text-[14px] font-[600] " + (selected ? "text-[#e3351d]" : "text-[#141a1f]")}>{t}</span>
+                    <span className="text-[12px] leading-4 text-[#8e95a1]">
+                      {t === "Requester"
+                        ? "Raises loading and fuel requests from their portal"
+                        : "Runs a loading site — trucks load at their yard"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Logo Upload */}
           <div className="flex flex-col gap-[8px] w-full">
             <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
@@ -266,6 +302,16 @@ function AddPartner() {
                 <div className="flex flex-col gap-2">
                   <label className="text-[14px] font-semibold text-[#141A1F]">Last Name</label>
                   <input type="text" value={surname} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Account Type</label>
+                  <input
+                    type="text"
+                    value={`${partnerType} — ${partnerType === "Loader" ? "runs a loading site" : "raises loading and fuel requests"}`}
+                    disabled
+                    className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -373,7 +419,12 @@ function AddPartner() {
                 await adminService.createUser({
                   firstName: rowFirst,
                   surname: rowLast,
-                  roles: ["Customer Portals (External)"],
+                  roles: [
+                    "Customer Portals (External)",
+                    String(row["account type"] || row["type"] || "").toLowerCase().includes("loader")
+                      ? "Partner Loader"
+                      : "Partner Requester",
+                  ],
                   username: usernameForLogin,
                   email: `${usernameForLogin}@${emailDomain}`,
                   department: "External Partner",
