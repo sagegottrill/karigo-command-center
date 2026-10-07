@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import {
+  liveDispenseFuelRequest,
   liveListFuelDesk,
   liveSetFuelRequestStatus,
   type FuelDesk,
@@ -116,6 +117,10 @@ function LogDisbursalPage() {
   } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [acting, setActing] = useState(false);
+  /** The pour itself: which cleared draw the pump is working, and how much. */
+  const [pumpFor, setPumpFor] = useState<FuelRequest | null>(null);
+  const [pumpQty, setPumpQty] = useState("");
+  const [pumping, setPumping] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -217,10 +222,43 @@ function LogDisbursalPage() {
   const stocks = overview?.stocks ?? [];
   const prices = overview?.prices ?? {};
 
-  /** Waiting first — the pump reads what is owed before what is already cleared. */
-  const deskRows = useMemo(() => [...(desk?.waiting ?? []), ...(desk?.cleared ?? [])], [desk]);
+  /** Waiting first, then what is cleared to pour, then what the pump poured
+   * today — one ledger from ask to litres-out, so the attendant can always
+   * find where a draw stands. */
+  const deskRows = useMemo(
+    () => [...(desk?.waiting ?? []), ...(desk?.cleared ?? []), ...(desk?.today ?? [])],
+    [desk],
+  );
   const deskWaiting = desk?.waiting.length ?? 0;
   const deskCleared = desk?.cleared.length ?? 0;
+  const deskPouredToday = desk?.today.length ?? 0;
+
+  /** The pump — the one action that moves the tank. Authorized rows pour as
+   * cleared; a Requested row (cleared at the nozzle) is authorized on the way
+   * through, stamped by the server, never skipped. */
+  const pourFromPump = async () => {
+    if (!pumpFor) return;
+    const litres = Number(pumpQty);
+    if (!Number.isFinite(litres) || litres <= 0) {
+      toast.error("How many litres left the pump? Type the poured quantity.");
+      return;
+    }
+    setPumping(true);
+    try {
+      const row = await liveDispenseFuelRequest(pumpFor.id, { quantity: litres });
+      toast.success(
+        `${row.reference} dispensed — ${formatQuantity(row.quantity)} ${row.unit} of ${row.fuelType} left the tank (₦${Number(row.amount ?? 0).toLocaleString()}).`,
+      );
+      setPumpFor(null);
+      setPumpQty("");
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The dispense did not save.");
+    } finally {
+      setPumping(false);
+    }
+  };
 
   const applyDeskDecision = async () => {
     if (!deskAction) return;
@@ -281,7 +319,11 @@ function LogDisbursalPage() {
           <p className="text-[12.5px] tracking-[0.4px] text-[#5C6470]">
             {deskWaiting > 0
               ? `${formatQuantity(deskWaiting)} waiting on your word · ${formatQuantity(deskCleared)} cleared to draw`
-              : "tank draws from the Transport Manager, the gate and the mechanic"}
+              : deskCleared > 0
+                ? `${formatQuantity(deskCleared)} cleared to draw — the pump pours these`
+                : deskPouredToday > 0
+                  ? `${formatQuantity(deskPouredToday)} poured today — the pump is quiet`
+                  : "tank draws from the Transport Manager, the gate and the mechanic"}
           </p>
         </div>
 
@@ -352,9 +394,20 @@ function LogDisbursalPage() {
                         Decline
                       </button>
                     </span>
+                  ) : r.status === "Authorized" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPumpQty(String(r.quantity));
+                        setPumpFor(r);
+                      }}
+                      className="h-8 shrink-0 rounded bg-[#137A3D] px-3 text-[13px] font-medium tracking-[0.4px] text-white hover:bg-[#0F5E2E]"
+                    >
+                      Dispense
+                    </button>
                   ) : (
                     <span className="shrink-0 text-[12.5px] tracking-[0.4px] text-[#137A3D]">
-                      Cleared — awaiting the pump
+                      Poured — {deskStamp(r.dispensedAt ?? r.createdAt)}
                     </span>
                   )}
                 </div>
@@ -619,6 +672,63 @@ function LogDisbursalPage() {
           void refresh();
         }}
       />
+
+      {/* The pump's word on one cleared draw: the litres that actually leave
+          the tank, priced by the Transport Manager and snapshotted server-side. */}
+      {pumpFor && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#141A1F]/60 p-4">
+          <div className="flex w-[400px] max-w-full flex-col gap-4 rounded-[10px] bg-white p-6 shadow-[0px_4px_16px_rgba(12,12,13,0.2)]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Dispense {pumpFor.reference}
+              </span>
+              <p className="text-[14px] leading-5 text-[#5C6470]">
+                {`${pumpFor.fuelType} · raised by ${pumpFor.requestedBy}${pumpFor.requestedFor ? ` for ${pumpFor.requestedFor}` : ""} · cleared by ${pumpFor.authorizedBy || "the desk"}.`}
+                {" "}
+                These litres leave the tank the moment you dispense.
+              </p>
+            </div>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium tracking-[0.4px] text-[#141A1F]">
+                Quantity poured ({pumpFor.unit})
+                <span className="text-[#5C6470]"> — full {formatQuantity(pumpFor.quantity)} {pumpFor.unit} unless the draw was part-poured</span>
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={pumpQty}
+                onChange={(e) => setPumpQty(e.target.value)}
+                autoFocus
+                className="w-full rounded border border-[#E2E5E9] bg-white px-3 py-2 text-[14px] tabular-nums tracking-[0.4px] text-[#1B2432] outline-none focus:border-[#1B2432]"
+              />
+            </label>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPumpFor(null);
+                  setPumpQty("");
+                }}
+                disabled={pumping}
+                className="h-10 rounded px-5 text-[14px] font-medium text-[#5C6470] hover:bg-[#F1F2F4]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void pourFromPump()}
+                disabled={pumping}
+                className="h-10 rounded bg-[#137A3D] px-5 text-[14px] font-medium text-white hover:bg-[#0F5E2E] disabled:opacity-60"
+              >
+                {pumping ? "Pouring…" : "Dispense"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* The desk's word on one draw: clear it to pour, or push it back with a
           reason the Transport Manager reads on his own screen. */}
