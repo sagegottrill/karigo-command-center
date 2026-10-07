@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, LogOut, MapPinCheck, MessageSquare, MoreVertical } from "lucide-react";
+import { Bell, ClipboardList, FilePlus, LogOut, MapPinCheck, MessageSquare, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -14,10 +14,17 @@ type TrackingNavItem = {
   icon: typeof ClipboardList;
 };
 
-/** Figma Tracking Ops sidebar — TRACKING group (459:10574) */
+/**
+ * Figma Tracking Ops sidebar — TRACKING group (459:10574), plus the raise.
+ * Fortune, 07/10/2026: Tracking should "make request same, but TM must approve
+ *" — so the department gets the same New Delivery Request form the TM's portal
+ * raises with. The request enters the identical lifecycle (Requested → TM
+ * approves → Fleet Ops assigns), only the fingers on the keyboard change.
+ */
 const TRACKING_NAV: TrackingNavItem[] = [
   { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: ClipboardList },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
+  { label: "New Request", to: "/workspace/app/new-request", icon: FilePlus },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
   { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
 ];

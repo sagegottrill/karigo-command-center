@@ -11,7 +11,7 @@ import {
   resolvePartnerLoadingSite,
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
-import { notificationService, orderService, partnerSiteService } from "@/lib/fleetopsx/services";
+import { authService, notificationService, orderService, partnerSiteService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 /**
@@ -154,7 +154,15 @@ function TransportManagerNewRequest() {
         .catch(() => {});
 
       toast.success("Request raised — it is now in Partner Requests for approval.");
-      navigate({ to: "/workspace/app/partner-requests" });
+      // Landing after the raise follows the guard on Partner Requests itself
+      // (TM / Fleet Ops / Platform Admin only): the department that raised the
+      // job goes back to its own board, the approver goes to the queue he acts
+      // on. Tracking raises the request; the TM approves it — that is all.
+      const roles = authService.getRoles();
+      const canSeeApprovals = ["Transport Manager", "Fleet Operations", "Platform Admin"].some((r) =>
+        roles.includes(r),
+      );
+      navigate({ to: canSeeApprovals ? "/workspace/app/partner-requests" : "/workspace/app/active-dispatch" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit the request");
     } finally {
