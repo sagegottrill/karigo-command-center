@@ -48,6 +48,7 @@ import {
   ACTIVE_DISPATCH_BUCKETS,
   countBuckets,
   isInBucket,
+  statusesInBucket,
   toPartnerUiStatus,
   tripBucket,
   type PartnerUiStatus,
@@ -708,6 +709,16 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
      */
     const liveOnRoad = trips.filter((t) => tripBucket(t) === "inTransit");
 
+    /**
+     * The road in its own words — how many of the on-road trucks are En Route,
+     * Offloading, Returning, Loaded or Delayed. The In Transit card breaks its
+     * total into these rows, so "70" is a sum anyone can audit, never a black
+     * box. Zero-count statuses drop out; the list follows the one status map.
+     */
+    const inTransitByStatus = statusesInBucket("inTransit")
+      .map((status) => ({ status, count: liveOnRoad.filter((t) => t.status === status).length }))
+      .filter((s) => s.count > 0);
+
     const pending = requests.filter((t) => tripBucket(t) === "pending");
     const declined = requests.filter((t) => tripBucket(t) === "declined");
     const completed = requests.filter((t) => tripBucket(t) === "completed");
@@ -763,6 +774,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         declined: counts.declined,
         /** Trucks on the road right now — live, all requests (the card). */
         dispatched: liveOnRoad.length,
+        /** The card's own breakdown: the total is the sum of these rows. */
+        inTransitByStatus,
         lists: { pending, declined, completed, all: requests, live: liveOnRoad },
       },
       spend: { cost, dieselLitres, dieselCost, gasKg, gasCost },
@@ -1892,28 +1905,39 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               hasDrill
               onClick={() => drill.toggle("req-dispatched")}
               detail={
-                <TileCostColumns
-                  /* Committed on the loads that are on the road right now. */
-                  columns={[
-                    {
-                      label: "Direct Cost:",
-                      value: formatMoney(stats.spend.cost),
-                      tone: "purple",
-                    },
-                    {
-                      label: "Diesel:",
-                      value: `${stats.spend.dieselLitres}L`,
-                      sub: `(${formatMoney(stats.spend.dieselCost)})`,
-                      tone: "amber",
-                    },
-                    {
-                      label: "Gas:",
-                      value: `${stats.spend.gasKg}KG`,
-                      sub: `(${formatMoney(stats.spend.gasCost)})`,
-                      tone: "amber",
-                    },
-                  ]}
-                />
+                <div className="flex flex-col gap-2">
+                  {/* The road, in its own words — the big number is the sum of
+                      these rows, so the total can always be audited at a glance. */}
+                  <TileDetailRows
+                    rows={stats.requests.inTransitByStatus.map((s) => ({
+                      label: s.status,
+                      value: s.count,
+                      tone: "purple" as const,
+                    }))}
+                  />
+                  <TileCostColumns
+                    /* Committed on the loads that are on the road right now. */
+                    columns={[
+                      {
+                        label: "Direct Cost:",
+                        value: formatMoney(stats.spend.cost),
+                        tone: "purple",
+                      },
+                      {
+                        label: "Diesel:",
+                        value: `${stats.spend.dieselLitres}L`,
+                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
+                        tone: "amber",
+                      },
+                      {
+                        label: "Gas:",
+                        value: `${stats.spend.gasKg}KG`,
+                        sub: `(${formatMoney(stats.spend.gasCost)})`,
+                        tone: "amber",
+                      },
+                    ]}
+                  />
+                </div>
               }
             />
             <DrillPopover
@@ -1927,6 +1951,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     <span>On the road now</span>
                     <span className="font-semibold text-white">
                       {stats.requests.dispatched} dispatches
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-0.5 text-white/70">
+                    <span className="shrink-0">By road status</span>
+                    <span className="text-right text-white">
+                      {stats.requests.inTransitByStatus.map((s) => `${s.status} ${s.count}`).join(" · ")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
