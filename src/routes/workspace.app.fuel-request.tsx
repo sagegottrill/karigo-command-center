@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   liveCreateFuelRequest,
+  liveDeleteFuelRequest,
   liveListFuelRequests,
   liveListPartnerCompanies,
 } from "@/lib/fleetopsx/live-api";
 import { authService } from "@/lib/fleetopsx/services";
 import { FuelRequestDetails } from "@/components/fleetopsx/fuel-request-details";
+import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import type { FuelRequest } from "@/lib/fleetopsx/types";
 
@@ -92,13 +94,15 @@ function FuelRequestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [raised, setRaised] = useState<FuelRequest | null>(null);
+  /*   * The row pending removal — a real dialog asks before the DELETE goes out. */
+  const [removing, setRemoving] = useState<FuelRequest | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   /** The row whose 3-dots is open, and the row currently read in full. */
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
 
   const [fuelType, setFuelType] = useState("Diesel");
   const [quantity, setQuantity] = useState("");
-  const [source, setSource] = useState("Internal Use");
   const [requestedFor, setRequestedFor] = useState("");
   const [customFor, setCustomFor] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -106,7 +110,6 @@ function FuelRequestPage() {
   const [note, setNote] = useState("");
 
   const currentUser = authService.getCurrentUser();
-  const [requestedBy, setRequestedBy] = useState(currentUser?.name || "");
   const raiser = currentUser?.name || "Transport Manager";
 
   const refreshMine = useCallback(async () => {
@@ -147,17 +150,31 @@ function FuelRequestPage() {
     }
   };
 
+  /**
+   * Withdraw one of his own raises. The action is only offered before the
+   * desk has dispensed, so the row leaves the queue cleanly.
+   */
+  const handleRemove = async () => {
+    if (!removing) return;
+    setDeleteBusy(true);
+    try {
+      await liveDeleteFuelRequest(removing.id);
+      toast.success(`${removing.reference} removed.`);
+      setRemoving(null);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      await refreshMine();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The request could not be removed.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const litres = Number(quantity);
     if (!Number.isFinite(litres) || litres <= 0) {
       toast.error("Quantity is what is asked for — it must be a positive number of litres.");
-      return;
-    }
-    if (!requestedBy.trim()) {
-      toast.error(
-        "Requested by is who is asking: the buyer on the slip, the mechanic, or the department.",
-      );
       return;
     }
     if (requestedFor === OTHER && !customFor.trim()) {
@@ -170,8 +187,7 @@ function FuelRequestPage() {
       const row = await liveCreateFuelRequest({
         fuelType,
         quantity: litres,
-        source,
-        requestedBy: requestedBy.trim(),
+        requestedBy: raiser,
         requestedFor: effectiveFor || undefined,
         purpose: purpose.trim(),
         plateNumber: plateNumber.trim(),
@@ -179,7 +195,7 @@ function FuelRequestPage() {
       });
       setRaised(row);
       toast.success(
-        `${row.reference} raised — ${row.quantity.toLocaleString()} ${row.unit} of ${row.fuelType} is now waiting at the fuel desk.`,
+        `${row.reference} raised and cleared — ${row.quantity.toLocaleString()} ${row.unit} of ${row.fuelType} waits at the pump for the attendant to dispense.`,
       );
       setQuantity("");
       setPurpose("");
@@ -201,14 +217,15 @@ function FuelRequestPage() {
           Internal Request
         </h2>
         <p className="text-[12px] text-[#5C6470] md:text-[11.4px] md:uppercase md:tracking-[0.4px] md:text-[rgba(92,100,112,0.6)]">
-          raise a tank draw for our yard or for a partner — it reaches the pump straight away
+          raise a tank draw for our yard or for a partner — it lands cleared, straight for the pump
         </p>
       </div>
 
       <div className="rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 text-[13px] text-[#5C6470]">
-        Every raise lands in the diesel attendant's waiting queue and alerts the
-        <span className="font-semibold text-[#1B2432]"> Lubricant desk</span>. Nothing leaves the
-        tank until the attendant authorises and dispenses it against {` `}
+        Your raise IS the approval: it reaches the
+        <span className="font-semibold text-[#1B2432]"> Lubricant desk already cleared</span> in your
+        name — for our yard or for a partner. Nothing leaves the tank until the attendant
+        dispenses it against {` `}
         <span className="font-semibold text-[#1B2432]">your price per litre</span>.
       </div>
 
@@ -283,37 +300,12 @@ function FuelRequestPage() {
               )}
             </Field>
 
-            <Field
-              label="Source"
-              required
-              hint="Walk-in is a buyer at the gate with a slip; internal is the yard asking the yard."
-            >
-              <div className="relative">
-                <select
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="Internal Use">Internal Use</option>
-                  <option value="Walk-In Sale">Walk-In Sale</option>
-                </select>
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[12px] text-[#5C6470]">
-                  ▾
-                </span>
-              </div>
-            </Field>
 
             <Field
               label="Requested by"
-              required
-              hint="The buyer on the slip, the mechanic, or the department."
+              hint="Raised in your name — your word is the approval."
             >
-              <input
-                value={requestedBy}
-                onChange={(e) => setRequestedBy(e.target.value)}
-                placeholder="who is asking"
-                className={inputClass}
-              />
+              <div className={`${inputClass} flex items-center text-[#5C6470]`}>{raiser}</div>
             </Field>
 
             <Field label="Purpose" hint="example: engine wash — boss requested">
@@ -434,6 +426,15 @@ function FuelRequestPage() {
                             },
                           },
                           {
+                            label: "Remove request",
+                            danger: true,
+                            hidden: r.status === "Dispensed",
+                            onSelect: () => {
+                              setMenuFor(null);
+                              setRemoving(r);
+                            },
+                          },
+                          {
                             label: "Copy reference",
                             onSelect: () => {
                               setMenuFor(null);
@@ -452,6 +453,20 @@ function FuelRequestPage() {
       </section>
 
       <FuelRequestDetails row={viewed} onClose={() => setViewingId(null)} />
+      <ConfirmDialog
+        open={Boolean(removing)}
+        busy={deleteBusy}
+        tone="danger"
+        title="Remove this request?"
+        body={
+          removing
+            ? `${removing.reference} — ${removing.quantity.toLocaleString()} ${removing.unit} of ${removing.fuelType}${removing.requestedFor ? ` for ${removing.requestedFor}` : ""} will leave the desk's queue.`
+            : ""
+        }
+        confirmLabel="Remove"
+        onConfirm={() => void handleRemove()}
+        onCancel={() => setRemoving(null)}
+      />
     </div>
   );
 }

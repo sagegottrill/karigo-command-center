@@ -991,6 +991,14 @@ export async function liveListFuelRequests(query: string = ""): Promise<FuelRequ
 export async function liveCreateFuelRequest(body: Record<string, unknown>): Promise<FuelRequest> {
   return mapFuelRequest(await api.post("/fuel-requests", body));
 }
+/**
+ * The Transport Manager withdrawing one of his own raises. The server refuses
+ * once the desk has dispensed it - history is corrected on the record, not by
+ * a delete.
+ */
+export async function liveDeleteFuelRequest(id: string): Promise<void> {
+  await api.delete(`/fuel-requests/${id}`);
+}
 
 export type FuelDesk = {
   /** Requested — raised, still waiting on the attendant's word. */
@@ -1046,6 +1054,27 @@ export async function liveListFuelDesk(): Promise<FuelDesk> {
     prices: raw.prices && typeof raw.prices === "object" ? raw.prices : {},
     generatedAt: String(raw.generatedAt ?? ""),
   };
+}
+
+/**
+ * Pour a desk request: the ONE call that moves the tank. The price per litre
+ * is the Transport Manager's, read server-side and snapshotted onto the row;
+ * a Requested row is authorized on the way through (stamped, not skipped).
+ * Optional quantity covers a part-draw; payment rides along for walk-in sales.
+ */
+export async function liveDispenseFuelRequest(
+  id: string,
+  body?: {
+    quantity?: number;
+    paymentStatus?: "Paid" | "Unpaid" | "Credit";
+    paymentRef?: string;
+    note?: string;
+  },
+): Promise<FuelRequest> {
+  const payload = Object.fromEntries(
+    Object.entries(body ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+  );
+  return mapFuelRequest(await api.post(`/fuel-requests/${id}/dispense`, payload));
 }
 
 /** The desk's word on a draw: Authorize it, push it back, or Decline it. */
