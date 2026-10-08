@@ -71,6 +71,7 @@ export function AppHeader({
   forceGateSecurity = false,
   forceLoadingOps = false,
   forceLubricantOps = false,
+  forceFieldOps = false,
   forceDepartment = null,
 }: {
   onToggleSidebar: () => void;
@@ -84,6 +85,8 @@ export function AppHeader({
   forceLoadingOps?: boolean;
   /** When the Lubricant shell is active, use the Lubricants portal chrome */
   forceLubricantOps?: boolean;
+  /** When the Fleet Field Ops shell is active, use the yard desk's portal chrome */
+  forceFieldOps?: boolean;
   /** When a department shell (HR / Engineering / Accounts) is active, use that portal's chrome */
   forceDepartment?: DepartmentKey | null;
 }) {
@@ -173,9 +176,10 @@ export function AppHeader({
     const gateSecurity = forceGateSecurity;
     const loadingOps = !gateSecurity && forceLoadingOps;
     const lubricantOps = !gateSecurity && !loadingOps && forceLubricantOps;
-    const trackingOps = !gateSecurity && !loadingOps && !lubricantOps && forceTrackingOps;
+    const fieldOps = !gateSecurity && !loadingOps && !lubricantOps && forceFieldOps;
+    const trackingOps = !gateSecurity && !loadingOps && !lubricantOps && !fieldOps && forceTrackingOps;
     const fleetOps =
-      !gateSecurity && !trackingOps && !loadingOps && !lubricantOps &&
+      !gateSecurity && !trackingOps && !loadingOps && !lubricantOps && !fieldOps &&
       (forceFleetOps || isFleetOpsPortalPath(pathname));
     const initials = mounted && currentUser?.initials ? currentUser.initials : "";
 
@@ -294,6 +298,15 @@ export function AppHeader({
             </div>
           </header>
         </>
+      );
+    }
+
+    // FLEET FIELD OPERATIONS — the yard desk's own portal chrome, before the
+    // Lubricant branch so neither chrome ever swallows the other.
+    if (fieldOps) {
+      return departmentHeader(
+        "Fleet Field Operations Portal",
+        "Register the fleet, inspect trucks returning from trip and file maintenance reports",
       );
     }
 

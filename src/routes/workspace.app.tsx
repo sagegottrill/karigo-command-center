@@ -26,6 +26,11 @@ import {
   shouldUseLubricantShell,
 } from "@/components/fleetopsx/lubricant-sidebar";
 import {
+  FieldOpsMobileNav,
+  FieldOpsSidebar,
+  shouldUseFieldOpsShell,
+} from "@/components/fleetopsx/field-ops-sidebar";
+import {
   TransportAdminMobileNav,
   TransportAdminSidebar,
 } from "@/components/fleetopsx/transport-admin-sidebar";
@@ -168,6 +173,7 @@ function AppShell() {
   const [useTrackingShell, setUseTrackingShell] = useState(false);
   const [useLoadingShell, setUseLoadingShell] = useState(false);
   const [useLubricantShell, setUseLubricantShell] = useState(false);
+  const [useFieldOpsShell, setUseFieldOpsShell] = useState(false);
   // HR, Engineering, Inventory and Accounts own their portals; the manager reads
   // them as an audit.
   const [departmentShell, setDepartmentShell] = useState<DepartmentKey | null>(null);
@@ -188,6 +194,7 @@ function AppShell() {
       setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
       setUseLoadingShell(shouldUseLoadingShell(scoped));
       setUseLubricantShell(shouldUseLubricantShell(scoped));
+      setUseFieldOpsShell(shouldUseFieldOpsShell(scoped));
       setDepartmentShell(
         shouldUseHrShell(scoped)
           ? "hr"
@@ -264,6 +271,8 @@ function AppShell() {
         <LoadingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useLubricantShell ? (
         <LubricantSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      ) : useFieldOpsShell ? (
+        <FieldOpsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useTrackingShell ? (
         <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : useFoShell ? (
@@ -281,6 +290,7 @@ function AppShell() {
           forceGateSecurity={shellReady ? useGateShell : false}
           forceLoadingOps={shellReady ? useLoadingShell : false}
           forceLubricantOps={shellReady ? useLubricantShell : false}
+          forceFieldOps={shellReady ? useFieldOpsShell : false}
           forceDepartment={shellReady ? departmentShell : null}
         />
         <main className={cn("scroll-edge min-w-0 flex-1 overflow-auto", "pb-24 md:pb-0")}>
@@ -296,6 +306,8 @@ function AppShell() {
           <LoadingOperationsMobileNav />
         ) : useLubricantShell ? (
           <LubricantMobileNav />
+        ) : useFieldOpsShell ? (
+          <FieldOpsMobileNav />
         ) : useTrackingShell ? (
           <TrackingOperationsMobileNav />
         ) : useFoShell ? (

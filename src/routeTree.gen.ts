@@ -31,6 +31,8 @@ import { Route as WorkspaceAppDisbursalVoucherRouteImport } from './routes/works
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
 import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
+import { Route as WorkspaceAppFieldReportsRouteImport } from './routes/workspace.app.field-reports'
+import { Route as WorkspaceAppFieldReturningRouteImport } from './routes/workspace.app.field-returning'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
 import { Route as WorkspaceAppFleetRegistryRouteImport } from './routes/workspace.app.fleet-registry'
 import { Route as WorkspaceAppFuelPricingRouteImport } from './routes/workspace.app.fuel-pricing'
@@ -179,6 +181,18 @@ const WorkspaceAppEngineeringRoute = WorkspaceAppEngineeringRouteImport.update({
   path: '/engineering',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppFieldReportsRoute =
+  WorkspaceAppFieldReportsRouteImport.update({
+    id: '/field-reports',
+    path: '/field-reports',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppFieldReturningRoute =
+  WorkspaceAppFieldReturningRouteImport.update({
+    id: '/field-returning',
+    path: '/field-returning',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppFleetRoute = WorkspaceAppFleetRouteImport.update({
   id: '/fleet',
   path: '/fleet',
@@ -394,6 +408,8 @@ export interface FileRoutesByFullPath {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
+  '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
@@ -448,6 +464,8 @@ export interface FileRoutesByTo {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
+  '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
@@ -506,6 +524,8 @@ export interface FileRoutesById {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
+  '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
   '/workspace/app/fleet-registry': typeof WorkspaceAppFleetRegistryRoute
   '/workspace/app/fuel-pricing': typeof WorkspaceAppFuelPricingRoute
@@ -566,6 +586,8 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/field-reports'
+    | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
@@ -620,6 +642,8 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/field-reports'
+    | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
@@ -677,6 +701,8 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/field-reports'
+    | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
     | '/workspace/app/fleet-registry'
     | '/workspace/app/fuel-pricing'
@@ -877,6 +903,20 @@ declare module '@tanstack/react-router' {
       path: '/engineering'
       fullPath: '/workspace/app/engineering'
       preLoaderRoute: typeof WorkspaceAppEngineeringRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/field-reports': {
+      id: '/workspace/app/field-reports'
+      path: '/field-reports'
+      fullPath: '/workspace/app/field-reports'
+      preLoaderRoute: typeof WorkspaceAppFieldReportsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/field-returning': {
+      id: '/workspace/app/field-returning'
+      path: '/field-returning'
+      fullPath: '/workspace/app/field-returning'
+      preLoaderRoute: typeof WorkspaceAppFieldReturningRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/fleet': {
@@ -1148,6 +1188,8 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
   WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
+  WorkspaceAppFieldReportsRoute: typeof WorkspaceAppFieldReportsRoute
+  WorkspaceAppFieldReturningRoute: typeof WorkspaceAppFieldReturningRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
   WorkspaceAppFleetRegistryRoute: typeof WorkspaceAppFleetRegistryRoute
   WorkspaceAppFuelPricingRoute: typeof WorkspaceAppFuelPricingRoute
@@ -1187,6 +1229,8 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
   WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
+  WorkspaceAppFieldReportsRoute: WorkspaceAppFieldReportsRoute,
+  WorkspaceAppFieldReturningRoute: WorkspaceAppFieldReturningRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
   WorkspaceAppFleetRegistryRoute: WorkspaceAppFleetRegistryRoute,
   WorkspaceAppFuelPricingRoute: WorkspaceAppFuelPricingRoute,

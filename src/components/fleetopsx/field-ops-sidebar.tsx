@@ -1,0 +1,260 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+import {
+  Bell,
+  ClipboardList,
+  LogOut,
+  MoreVertical,
+  Truck,
+  Wrench,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { authService, fleetService } from "@/lib/fleetopsx/services";
+import { hardLogout } from "@/lib/fleetopsx/session";
+import { cn } from "@/lib/utils";
+import { Route as RootRoute } from "../../routes/__root";
+
+import { SidebarCollapseButton } from "./sidebar-collapse-button";
+type FieldOpsNavItem = {
+  label: string;
+  to: string;
+  icon: typeof Truck;
+};
+
+/**
+ * The Fleet Field Operations department's own portal — the Figma set
+ * ("Fleet Field Operations" shell): the register it works, the trucks stamped
+ * returned at the gate that still need its physical inspection, and the
+ * maintenance reports it has filed.
+ */
+export const FIELD_OPS_NAV: FieldOpsNavItem[] = [
+  { label: "Fleet Registry", to: "/workspace/app/fleet-registry", icon: Truck },
+  { label: "Returning Fleet", to: "/workspace/app/field-returning", icon: Wrench },
+  { label: "Report History", to: "/workspace/app/field-reports", icon: ClipboardList },
+  { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
+];
+
+export function fieldOpsPathActive(pathname: string, to: string) {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/**
+ * Which sessions see the Fleet Field Operations portal.
+ *
+ * Only the yard desk itself: the Transport Manager, Platform Admin, dispatch
+ * Fleet Ops and Engineering keep their own portals — the registry is the
+ * department's working register, not the manager's.
+ */
+export function shouldUseFieldOpsShell(roles: string[]) {
+  if (roles.includes("Transport Manager") || roles.includes("Platform Admin")) return false;
+  if (roles.includes("Fleet Operations")) return false;
+  return roles.some((r) => /fleet field/i.test(r));
+}
+
+/**
+ * How many things in this portal want attention: trucks on Check Up (the
+ * field desk inspects them before Engineering's verdict) plus trucks stamped
+ * returned at the gate whose registry row has not followed them home. It
+ * refreshes on the app's shared 10-second tick.
+ */
+export function useFieldOpsBadges() {
+  const [pending, setPending] = useState(0);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [heads, tails] = await Promise.all([fleetService.listHeads(), fleetService.listTails()]);
+      const attention =
+        heads.filter((h) => h.status === "Check Up").length +
+        tails.filter((t) => t.status === "Check Up").length;
+      setPending(attention);
+    } catch {
+      /* the sidebar badge is not worth an error surface */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const onRefresh = () => void refresh();
+    window.addEventListener("fleetopsx:badges-refresh", onRefresh);
+    window.addEventListener("focus", onRefresh);
+    return () => {
+      window.removeEventListener("fleetopsx:badges-refresh", onRefresh);
+      window.removeEventListener("focus", onRefresh);
+    };
+  }, [refresh]);
+
+  return pending;
+}
+
+export function FieldOpsSidebar({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { tenantName, tenantLogo } = RootRoute.useRouteContext();
+  const [showLogout, setShowLogout] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const attention = useFieldOpsBadges();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentUser = authService.getCurrentUser();
+  const userName = mounted && currentUser?.name ? currentUser.name : "";
+  const userEmail = mounted && currentUser?.email ? currentUser.email : "";
+  const userInitials = mounted && currentUser?.initials ? currentUser.initials : "";
+  const logoSrc = tenantLogo || "/figma/petroline-logo.png";
+
+  const handleLogout = () => hardLogout("/workspace/login");
+
+  return (
+    <>
+      {!collapsed && <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onToggle} />}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col bg-[#1B2432] transition-all duration-300 md:sticky md:top-0",
+          collapsed ? "-translate-x-full md:translate-x-0 md:w-[80px]" : "translate-x-0 w-[240px]",
+        )}
+      >
+        {/* Wave-style edge toggle — the circular chevron on the sidebar's right edge */}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={onToggle} />
+        <Link
+          to="/workspace/account-type"
+          className={cn("flex w-full items-end px-5 py-2", collapsed ? "justify-center px-2" : "justify-end")}
+        >
+          <img
+            src={logoSrc}
+            alt={tenantName || "Petroline"}
+            className={cn("object-contain", collapsed ? "h-10 w-10" : "h-[60px] w-[107px]")}
+          />
+        </Link>
+
+        <nav className="sleek-scrollbar flex flex-1 flex-col items-center overflow-y-auto py-5">
+          <div className={cn("flex w-full flex-col gap-[5px]", collapsed ? "items-center px-2" : "w-[224px]")}>
+            {!collapsed && (
+              <span className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-white/70">
+                FLEET FIELD OPERATIONS
+              </span>
+            )}
+            {FIELD_OPS_NAV.map((item) => {
+              const active = fieldOpsPathActive(pathname, item.to);
+              const Icon = item.icon;
+              const badge = item.to.includes("notifications") ? attention : 0;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex h-8 items-center gap-2 overflow-hidden rounded p-2",
+                    collapsed ? "w-8 justify-center" : "w-full",
+                    active ? "bg-[#ED351D]" : "hover:bg-white/5",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0 text-white" strokeWidth={1.5} />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 truncate text-[14px] font-normal leading-5 tracking-[0.4px] text-white">
+                        {item.label}
+                      </span>
+                      {badge > 0 && (
+                        <span
+                          className={cn(
+                            "grid size-5 shrink-0 place-items-center rounded-[10px] text-[12px] tracking-[0.4px]",
+                            active ? "bg-white text-[#ED351D]" : "bg-[#ED351D] text-white",
+                          )}
+                        >
+                          {badge > 9 ? "9+" : badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="w-full p-2">
+          {showLogout && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded border border-[#ED351D] bg-[#ED351D]/10 text-[14px] font-medium text-[#ED351D]"
+            >
+              <LogOut className="size-3.5" />
+              {!collapsed && "Log Out"}
+            </button>
+          )}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setShowLogout((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v);
+            }}
+            className={cn(
+              "flex h-12 w-full cursor-pointer items-center gap-2 overflow-hidden rounded p-2 hover:bg-white/5",
+              collapsed && "justify-center",
+            )}
+          >
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
+              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">{userInitials}</span>
+            </div>
+            {!collapsed && (
+              <>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-[14px] font-medium leading-[17.5px] tracking-[0.4px] text-white">{userName}</p>
+                  <p className="truncate text-[12px] font-normal leading-4 tracking-[0.4px] text-[#5C6470]">{userEmail}</p>
+                </div>
+                <div className="shrink-0 p-0.5">
+                  <MoreVertical className="size-4 text-white/70" />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+/** Fleet Field Operations mobile bottom tab bar. */
+export function FieldOpsMobileNav() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const attention = useFieldOpsBadges();
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-5 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
+      {FIELD_OPS_NAV.map((item) => {
+        const active = fieldOpsPathActive(pathname, item.to);
+        const Icon = item.icon;
+        const badge = item.to.includes("notifications") ? attention : 0;
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={cn(
+              "relative flex flex-1 flex-col items-center justify-center gap-1 px-0.5",
+              active ? "border-b-[5px] border-white text-white" : "text-white/70",
+            )}
+          >
+            <span className="relative">
+              <Icon className="size-[22px]" strokeWidth={1.5} />
+              {badge > 0 && (
+                <span className="absolute -right-3 -top-1 grid size-4 place-items-center rounded-[10px] bg-[#ED351D] text-[10px] font-medium text-white">
+                  {badge > 9 ? "9+" : badge}
+                </span>
+              )}
+            </span>
+            <span className="w-full text-center text-[10px] font-medium leading-tight">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
