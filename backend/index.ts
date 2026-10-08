@@ -1250,12 +1250,27 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
 
     let closed = 0;
     const freed: string[] = [];
+    let tailsReleased = 0;
     for (const trip of stillOpen) {
       await prisma.trip.update({
         where: { id: trip.id },
         data: { status: 'Completed', eta: trip.eta || stamp, gateInBy: actor },
       });
       closed += 1;
+      // RETURN-COUPLES-TAIL — the TAIL rode in with the truck; it cannot stay
+      // 'Assigned'/'Out of Yard' to a completed run while the head stands on
+      // Check Up. Same rule the dispatch-level return (completeTripReturn)
+      // already applies.
+      const tailCode = String(trip.tailNumber || (String(trip.truckReg || '').split('/')[1] || '')).trim();
+      if (tailCode) {
+        const tk = TRUCK_KEY(tailCode);
+        const tails = await prisma.tail.findMany();
+        const tailRow = tails.find((t) => TRUCK_KEY(t.number) === tk);
+        if (tailRow && !['Check Up', 'Maintenance', 'Accident'].includes(String(tailRow.status))) {
+          await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
+          tailsReleased += 1;
+        }
+      }
       if (trip.driverName && trip.driverName !== 'Unassigned') {
         await prisma.driver.updateMany({
           where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
@@ -1267,6 +1282,25 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
 
     // The truck itself goes to engineering, exactly as a returned truck should.
     if (truck && !['Check Up', 'Maintenance', 'Accident'].includes(String(truck.status))) {
+      // RETURN-COUPLES-TAIL (truck level) — the tail the gate was told about (or
+      // the one any closed dispatch carried) comes home with the head, even when
+      // no open dispatch named it (a legacy truck logged in by plate alone).
+      try {
+        const tailCandidates = [raw, ...stillOpen.map((t) => String(t.tailNumber || (String(t.truckReg || '').split('/')[1] || '')))]
+          .map((v) => TRUCK_KEY(v)).filter((k) => k.length > 2);
+        if (tailCandidates.length) {
+          const tails = await prisma.tail.findMany();
+          for (const tailRow of tails) {
+            const tn = TRUCK_KEY(tailRow.number);
+            if (tailCandidates.some((k) => k === tn || k.includes(tn) || tn.includes(k)) &&
+                !['Check Up', 'Maintenance', 'Accident'].includes(String(tailRow.status))) {
+              await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
+              tailsReleased += 1;
+              break;
+            }
+          }
+        }
+      } catch (_) { /* best-effort: the head's return stands */ }
       await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Check Up' } });
     }
 
@@ -1283,6 +1317,7 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
       truck: truck ? { id: truck.id, capId: truck.cabId, registration: truck.registration, status: 'Check Up' } : null,
       dispatchClosed: closed,
       driversFreed: freed,
+      tailsReleased,
       stamp,
     });
   } catch (e: any) {
