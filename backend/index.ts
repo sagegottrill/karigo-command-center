@@ -1033,8 +1033,15 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     const movingHome = String(trip.status) === 'Completed';
     const movingOut =
       ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'].includes(String(trip.status));
-    if (movingHome) void coupleTruckRegistry(trip, 'home');
-    else if (movingOut) void coupleTruckRegistry(trip, 'out');
+    if (movingHome) {
+      void coupleTruckRegistry(trip, 'home');
+      // The TAIL rode in with the truck — it follows the head home to Check Up
+      // in the same transition, so no return can strand a body out of yard.
+      void coupleTailRegistry(trip, 'home');
+    } else if (movingOut) {
+      void coupleTruckRegistry(trip, 'out');
+      void coupleTailRegistry(trip, 'out');
+    }
     // lifecycle-coupling-v2: a COMPLETED dispatch frees its driver — full stop.
   // The old check demanded gateInBy in the request body, which a tracking-leg
   // completion never carries, stranding the man as 'On Trip' with no load.
@@ -1219,6 +1226,37 @@ async function coupleTruckRegistry(trip: any, movement: 'out' | 'home'): Promise
     return moved;
   } catch (e: any) {
     console.error('[yard] couple failed:', e?.message || e);
+    return 0;
+  }
+}
+
+/**
+ * RETURN-COUPLES-TAIL — the tail rode out with the truck, so the tail follows
+ * the truck's movement too. "home" = the body came back with the head: it
+ * goes to Check Up beside the head, never left 'Assigned'/'Out of Yard' to a
+ * completed run. Engineering's own verdicts (Maintenance, Accident) are never
+ * overwritten. Every return path funnels through here (trip completion and
+ * the truck-level gate return), so no return can strand a body out of yard.
+ */
+async function coupleTailRegistry(trip: any, movement: 'out' | 'home'): Promise<number> {
+  try {
+    const code = String(trip.tailNumber || (String(trip.truckReg || '').split('/')[1] || '')).trim();
+    const key = TRUCK_KEY(code);
+    if (!key || key.length < 3) return 0;
+    const tails = await prisma.tail.findMany();
+    const tail = tails.find((t) => TRUCK_KEY(t.number) === key);
+    if (!tail) return 0;
+    const current = String(tail.status || '');
+    if (movement === 'out') {
+      if (current === 'Out of Yard') return 0;
+      await prisma.tail.update({ where: { id: tail.id }, data: { status: 'Out of Yard' } });
+    } else {
+      if (current === 'Check Up' || current === 'Maintenance' || current === 'Accident') return 0;
+      await prisma.tail.update({ where: { id: tail.id }, data: { status: 'Check Up' } });
+    }
+    return 1;
+  } catch (e: any) {
+    console.error('[yard] tail couple failed:', e?.message || e);
     return 0;
   }
 }
