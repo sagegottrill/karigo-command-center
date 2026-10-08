@@ -136,6 +136,10 @@ function Dashboard() {
   const has = (r: string) => active === r;
   if (has("Transport Manager") || has("Platform Admin")) return <CentralDashboard data={data} />;
   if (has("Fleet Operations")) return <FleetManagerDashboard {...data} />;
+  // FLEET FIELD OPS lands on the registry (role-home) but keeps a dashboard
+  // view of the yard when it opens the app root — the same fleet lens, without
+  // the dispatch-planning boards it does not work.
+  if (has("Fleet Field Ops") || has("Fleet Field Operations")) return <FleetManagerDashboard {...data} />;
   if (has("Diesel")) return <FuelManagerDashboard {...data} />;
   if (has("Accounts")) return <AccountantDashboard {...data} />;
   if (has("Security")) return <GateDashboard {...data} />;

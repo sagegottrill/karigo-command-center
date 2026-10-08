@@ -17,6 +17,7 @@ const ACCOUNTS = [
   { email: "e2e.admin@livecheck.io", role: "Platform Admin", name: "E2E Admin" },
   { email: "e2e.tm@livecheck.io", role: "Transport Manager", name: "E2E TM" },
   { email: "e2e.fo@livecheck.io", role: "Fleet Operations", name: "E2E FO" },
+  { email: "e2e.field@livecheck.io", role: "Fleet Field Ops", name: "E2E Field" },
   { email: "e2e.gate@livecheck.io", role: "Security", name: "E2E Gate" },
   { email: "e2e.tracking@livecheck.io", role: "Tracking", name: "E2E Tracking" },
   { email: "e2e.hr@livecheck.io", role: "HR", name: "E2E HR" },

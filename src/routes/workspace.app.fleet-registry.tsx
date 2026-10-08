@@ -119,7 +119,14 @@ function headLabel(head: TruckHead) {
  * they are and whether they may be used. Fleet Ops works the trucks (status,
  * where one is standing) but does not add, re-plate or retire them.
  */
-const FLEET_ADMIN_ROLES = ["Transport Manager", "Platform Admin"];
+// Who may add / edit / block an asset. FLEET FIELD OPS owns this register: it
+// adds heads and tails and flips their status as trucks return from trip.
+const FLEET_ADMIN_ROLES = [
+  "Transport Manager",
+  "Platform Admin",
+  "Fleet Field Ops",
+  "Fleet Field Operations",
+];
 
 /** The editable shape of an asset, whichever tab it came from. */
 type AssetDraft = {
@@ -306,7 +313,13 @@ function FleetRegistryPage() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
-    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    const allowed = [
+      "Transport Manager",
+      "Fleet Operations",
+      "Platform Admin",
+      "Fleet Field Ops",
+      "Fleet Field Operations",
+    ];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;

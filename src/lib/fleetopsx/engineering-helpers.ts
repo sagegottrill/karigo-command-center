@@ -20,10 +20,15 @@ export const ENGINEERING_OWNER_ROLES = [
   "Engineering & Maintenance",
   "Engineering and Maintenance",
   "Platform Admin",
+  // FLEET FIELD OPS files the maintenance report on a truck it inspects at the
+  // yard (the physical check the return stamps demand) — it raises the report;
+  // the workshop verdict stays Engineering's.
+  "Fleet Field Ops",
+  "Fleet Field Operations",
 ];
 
 /** Who may open the boards at all: the department itself plus its supervisor. */
-export const ENGINEERING_ACCESS_ROLES = [...ENGINEERING_OWNER_ROLES, "Transport Manager"];
+export const ENGINEERING_ACCESS_ROLES = [...ENGINEERING_OWNER_ROLES, "Transport Manager", "Fleet Operations"];
 
 export function rolesCanWorkOnTrucks() {
   if (typeof window === "undefined") return false;

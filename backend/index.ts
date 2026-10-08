@@ -1121,7 +1121,7 @@ app.patch('/api/expenses/:id', authenticate, authorize('Transport Manager', 'Pla
 app.get('/api/work-orders', authenticate, async (_req, res) => {
   res.json(await prisma.workOrder.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/work-orders', authenticate, async (req, res) => {
+app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   res.json(await prisma.workOrder.create({ data: req.body }));
 });
 app.patch('/api/work-orders/:id', authenticate, async (req, res) => {
@@ -1795,7 +1795,7 @@ app.get('/api/trucks', authenticate, async (_req, res) => {
   res.json(await prisma.truck.findMany({ orderBy: { cabId: 'asc' } }));
 });
 // The cap number is UNIQUE: a duplicate is the operator's mistake, not a crash.
-app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Manager'), async (req, res) => {
+app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
     res.json(await prisma.truck.create({ data: req.body }));
   } catch (e: any) {
@@ -1803,7 +1803,10 @@ app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Man
     throw e;
   }
 });
-app.patch('/api/trucks/:id', authenticate, async (req, res) => {
+// FIELD-OPS-STATUS — the yard desk flips a head's registry status (Available,
+// Check Up, Maintenance, Out of Yard…) as it inspects trucks returning from
+// trip; the status is the one column the whole availability story hangs on.
+app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   try {
     res.json(await prisma.truck.update({ where: { id: req.params.id }, data: req.body }));
   } catch (e: any) {
@@ -1821,7 +1824,7 @@ app.delete('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transpo
 app.get('/api/tails', authenticate, async (_req, res) => {
   res.json(await prisma.tail.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations'), async (req, res) => {
+app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   const data = { number: req.body.number, type: req.body.type || null, status: req.body.status || 'Available' };
   if (!data.number) return res.status(400).json({ error: 'Tail number is required' });
   try {
@@ -1831,7 +1834,7 @@ app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Mana
     throw e;
   }
 });
-app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations'), async (req, res) => {
+app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   const data = { ...req.body };
   delete data.id;
   delete data.createdAt;

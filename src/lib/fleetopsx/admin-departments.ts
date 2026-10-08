@@ -2,6 +2,7 @@
 export const ADMIN_DEPARTMENTS = [
   "Transport Admin",
   "Fleet Operations",
+  "Fleet Field Operations",
   "Tracking Operations",
   "Loading Operations",
   "Lubricant",
@@ -24,6 +25,10 @@ export function departmentToRoleKey(department: string): string {
     case "Fleet Operations":
     case "Fuel Management":
       return "Fleet Operations";
+    // The YARD desk — it registers heads/tails and reports trucks returning
+    // from trip. Its own role, distinct from the dispatch-planning Fleet Ops.
+    case "Fleet Field Operations":
+      return "Fleet Field Ops";
     case "Tracking Operations":
       return "Tracking";
     case "Loading Operations":
@@ -59,6 +64,7 @@ export function departmentToRoleKey(department: string): string {
 const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   "Transport Admin": ["Transport Manager", "Platform Admin"],
   "Fleet Operations": ["Fleet Operations", "Fuel Management", "Fuel Manager"],
+  "Fleet Field Operations": ["Fleet Field Ops", "Fleet Field Operations"],
   "Tracking Operations": ["Tracking", "Tracking Operations"],
   "Loading Operations": ["Loading", "Loading Operations"],
   // The department that dispenses diesel and gas has its own portal; the older

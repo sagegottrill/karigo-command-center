@@ -9,6 +9,9 @@ const ROLE_HOME: Record<string, string> = {
   "Platform Admin": "/workspace/app",
   "Transport Manager": "/workspace/app",
   "Fleet Operations": "/workspace/app/dispatch",
+  // The yard desk signs in onto the fleet registry — the register it owns.
+  "Fleet Field Ops": "/workspace/app/fleet-registry",
+  "Fleet Field Operations": "/workspace/app/fleet-registry",
   Security: "/workspace/app/gate",
   Gate: "/workspace/app/gate",
   "Gate Security": "/workspace/app/gate",
