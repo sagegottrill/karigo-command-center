@@ -252,8 +252,12 @@ export function ConfirmDialog({
 }
 
 /**
- * Restock a tank: how much went in, and who logged it. It can only ever ADD —
- * a mistake is corrected with another entry, never by editing the tank's level.
+ * Restock a tank: how much went in. It can only ever ADD — a mistake is
+ * corrected with another entry, never by editing the tank's level.
+ *
+ * No "Logged by" field: the restock is stamped with the signed-in account's
+ * own name (the server derives it from the token), so the record can never
+ * name anyone but the person who actually performed it.
  */
 export function RestockModal({
   open,
@@ -270,16 +274,13 @@ export function RestockModal({
 }) {
   const [fuelType, setFuelType] = useState<LubricantFuel>(initialFuel ?? "Diesel");
   const [quantity, setQuantity] = useState("");
-  const [loggedBy, setLoggedBy] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
-  const staff = useStaffOptions();
 
   useEffect(() => {
     if (open) {
       setFuelType(initialFuel ?? "Diesel");
       setQuantity("");
-      setLoggedBy("");
       setConfirming(false);
     }
   }, [open, initialFuel]);
@@ -287,7 +288,7 @@ export function RestockModal({
   if (!open) return null;
 
   const amount = Number(quantity);
-  const valid = Number.isFinite(amount) && amount > 0 && loggedBy.trim().length > 0;
+  const valid = Number.isFinite(amount) && amount > 0;
   const stockOf = (t: LubricantFuel) => stocks.find((s) => s.fuelType === t);
 
   const submit = async () => {
@@ -296,7 +297,7 @@ export function RestockModal({
       const res = await lubricantService.restock({
         fuelType,
         quantity: amount,
-        loggedBy: loggedBy.trim(),
+        loggedBy: authService.getCurrentUser()?.name || "Transport Manager",
       });
       window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
       onDone(
@@ -377,15 +378,6 @@ export function RestockModal({
             />
           </div>
         </div>
-
-        <StaffSelect
-          label="Logged by"
-          required
-          value={loggedBy}
-          onChange={setLoggedBy}
-          options={staff}
-          placeholder="example: J.Doe"
-        />
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <button

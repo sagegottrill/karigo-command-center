@@ -2858,12 +2858,14 @@ app.get('/api/lubricant/restocks', authenticate, async (_req: any, res) => {
 app.post('/api/lubricant/restocks', authenticate, authorize(...LUBRICANT_WRITE_ROLES), async (req: any, res) => {
   const fuelType = String(req.body?.fuelType || '').trim();
   const quantity = Number(req.body?.quantity);
-  const loggedBy = String(req.body?.loggedBy || '').trim();
+  // RESTOCK-ACTOR — the person doing this IS the authenticated account: the
+  // restock is stamped with the name on the token, never a name somebody typed
+  // into a form (the modal no longer even asks).
+  const loggedBy = actingUser(req);
   if (!LUBRICANT_TYPES.includes(fuelType)) return res.status(400).json({ error: 'fuelType must be Diesel or Gas' });
   if (!Number.isFinite(quantity) || quantity <= 0) return res.status(400).json({ error: 'quantity must be a positive number' });
     const unitCost = Number(req.body?.unitCost);
     const restockCost = Number.isFinite(unitCost) && unitCost > 0 ? unitCost : null;
-  if (!loggedBy) return res.status(400).json({ error: 'loggedBy is required' });
   try {
     const count = await prisma.lubricantRestock.count();
     const row = await prisma.lubricantRestock.create({
