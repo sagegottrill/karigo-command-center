@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { Trip } from "@/lib/fleetopsx/types";
+import { geocodeDeterministic, FALLBACK_DEPOT } from "@/lib/fleetopsx/geo";
 import type { LocationCheckpoint } from "@/lib/fleetopsx/tracking-ops";
 import "leaflet/dist/leaflet.css";
 
@@ -9,7 +10,6 @@ import "leaflet/dist/leaflet.css";
  * every Tracking Ops checkpoint logged along the route. Positions come from
  * the trip row + checkpoints (no mock points).
  */
-const FALLBACK_DEPOT: [number, number] = [9.0765, 7.3986]; // Abuja
 
 export function PartnerLiveMap({ trip, checkpoints }: { trip: Trip; checkpoints: LocationCheckpoint[] }) {
   const mapEl = useRef<HTMLDivElement>(null);
@@ -168,36 +168,4 @@ export function PartnerLiveMap({ trip, checkpoints }: { trip: Trip; checkpoints:
       </div>
     </div>
   );
-}
-
-/**
- * Deterministic text→coords for Nigerian locations. Hashes the place name into
- * a stable offset around a named-city anchor so pins are consistent between
- * renders (no external geocoder dependency; checkpoints pin near their city).
- */
-const CITY_ANCHORS: Array<[RegExp, [number, number]]> = [
-  [/abuja|kubwa|kurudu|gwagwalada|kute|airport road/i, [9.0765, 7.3986]],
-  [/lagos|ikeja|apapa|victoria island|lekki/i, [6.5244, 3.3792]],
-  [/warri|benin|asaba|sapele|ughelli/i, [5.5167, 5.75]],
-  [/kano|kaduna|zaria/i, [12.0022, 8.592]],
-  [/port harcourt|portharcourt|abia|owerri|aba\b/i, [4.8156, 7.0498]],
-  [/bauchi|jalingo|yola|gombe/i, [10.3157, 9.8442]],
-  [/ibadan|ilorin|osogbo|akure|ado/i, [7.3775, 3.947]],
-  [/enugu|nsukka|makurdi|jos|lokoja/i, [6.4667, 7.5]],
-  [/sokoto|birnin|kebbi|minna|bida/i, [13.0533, 5.2389]],
-  [/calabar|uyo|yenagoa|brass/i, [4.9757, 8.3417]],
-];
-
-function geocodeDeterministic(place: string): [number, number] | null {
-  const clean = place.trim();
-  if (!clean) return null;
-  const anchor = CITY_ANCHORS.find(([re]) => re.test(clean))?.[1] ?? FALLBACK_DEPOT;
-  let hash = 0;
-  for (let i = 0; i < clean.length; i += 1) {
-    hash = (hash * 31 + clean.charCodeAt(i)) >>> 0;
-  }
-  // Deterministic ±0.18° scatter around the anchor (~20km spread)
-  const latOffset = ((hash % 1000) / 1000 - 0.5) * 0.36;
-  const lngOffset = (((hash >> 10) % 1000) / 1000 - 0.5) * 0.36;
-  return [anchor[0] + latOffset, anchor[1] + lngOffset];
 }

@@ -1,37 +1,50 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { displayCapPlateFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import { geocodeDeterministic } from "@/lib/fleetopsx/geo";
+import {
+  getTrackingDelayStatus,
+  TRACKING_DELAY_COLOR,
+  type TrackingDelayStatus,
+} from "@/lib/fleetopsx/tracking-ops";
 import type { Trip } from "@/lib/fleetopsx/types";
 import { Plus, Minus } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 
-const STATUS_COLOR: Record<string, string> = {
-  "On Schedule": "#34c759", // Green
-  "Slight delay": "#ff9f0a", // Orange
-  "Significant Delay": "#ff3b30", // Red
-};
+/**
+ * LIVE DISPATCH MAP — every active dispatch, plotted from its OWN data.
+ *
+ * The platform's location facts are words: the loading site the load starts
+ * from, the drop-off it is heading to, the Tracking Ops checkpoints logged
+ * along the way, and the progress the boards already compute from the TM's
+ * own duration promise. Each truck plots on ITS route between ITS real
+ * origin and destination — moved along by the real progress figure — and
+ * wears the same delay colour the stats above this map count. No demo
+ * points, no mock addresses.
+ */
 
-// Map status from trips to our 3 states for demo purposes
-function getDelayStatus(status: string) {
-  if (status === "Delayed") return "Significant Delay";
-  return "On Schedule"; // En Route, Loaded, Returning etc
+function tripOrigin(trip: Trip): string {
+  return trip.loadingSite?.[0] || trip.pickup || "";
 }
 
-const NIGERIA_CENTER: [number, number] = [9.0765, 7.3986]; // Abuja
-const NIGERIA_ZOOM = 13; // closer zoom to see streets
-
-function statusDot(color: string) {
-  return `
-    <span style="
-      display:block;width:16px;height:16px;border-radius:999px;
-      background:${color};border:2px solid #fff;
-      box-shadow:0 2px 6px rgba(0,0,0,.3);
-    "></span>
-  `;
+function tripPosition(trip: Trip, origin: string, destination: string): [number, number] {
+  const o = geocodeDeterministic(origin) ?? geocodeDeterministic(trip.dropoff);
+  const d = geocodeDeterministic(destination);
+  const from = o ?? d;
+  if (!from) return [9.0765, 7.3986];
+  if (!d) return from;
+  // The truck sits along its own route, at the progress the boards compute
+  // from the departure stamp and the TM's duration — clamped so a rounding
+  // oddity can never park a truck outside its road.
+  const progress = Math.min(0.95, Math.max(0.05, (trip.progress ?? 0) / 100));
+  return [from[0] + (d[0] - from[0]) * progress, from[1] + (d[1] - from[1]) * progress];
 }
 
-function popupHtml(trip: Trip, status: string, color: string) {
-  // We mock a street address for the design requirement
-  const mockAddress = "Street 5 ABC, Orijako Avenue";
+function popupHtml(
+  trip: Trip,
+  status: TrackingDelayStatus,
+  origin: string,
+  destination: string,
+) {
   // The cap number leads, exactly as on the gate log and the TM's boards.
   const truck = displayCapPlateFromTrip(trip) || "—";
   const plate = displayPlateFromTrip(trip);
@@ -49,30 +62,47 @@ function popupHtml(trip: Trip, status: string, color: string) {
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <span style="font-weight: 600; font-size: 13px;">${esc(truck)}</span>
         <span style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: #d1d5db;">
-          <span style="display: block; width: 8px; height: 8px; border-radius: 999px; background-color: ${color};"></span>
+          <span style="display: block; width: 8px; height: 8px; border-radius: 999px; background-color: ${TRACKING_DELAY_COLOR[status]};"></span>
           ${esc(status)}
         </span>
       </div>
       <div style="display: grid; grid-template-columns: 80px 1fr; gap: 6px; font-size: 11px;">
         <span style="color: #9ca3af;">Registration:</span>
         <span style="color: #f3f4f6; font-weight: 500;">${esc(plate || "—")}</span>
-        
+
         <span style="color: #9ca3af;">Driver:</span>
         <span style="color: #f3f4f6;">${esc(trip.driverName || "—")}</span>
-        
-        <span style="color: #9ca3af;">Location:</span>
-        <span style="color: #f3f4f6;">${mockAddress}</span>
+
+        <span style="color: #9ca3af;">From:</span>
+        <span style="color: #f3f4f6;">${esc(origin || "—")}</span>
+
+        <span style="color: #9ca3af;">To:</span>
+        <span style="color: #f3f4f6;">${esc(destination || "—")}</span>
+
+        <span style="color: #9ca3af;">Progress:</span>
+        <span style="color: #f3f4f6;">${esc(Math.round(trip.progress ?? 0) + "%")}</span>
       </div>
     </div>
   `;
 }
 
 export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
-  const activeTrips = useMemo(() => trips.slice(0, 4), [trips]); // limit to a few for demo (badge says 4 in mockup)
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const layerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const fitDoneRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+
+  // One plotted row per active dispatch: its real route and real position.
+  const plotted = useMemo(() => {
+    return trips.map((trip) => {
+      const origin = tripOrigin(trip);
+      const destination = trip.dropoff || "";
+      const position = tripPosition(trip, origin, destination);
+      const status = getTrackingDelayStatus(trip);
+      return { trip, origin, destination, position, status };
+    });
+  }, [trips]);
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
@@ -83,14 +113,14 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       if (cancelled || !mapEl.current) return;
 
       const map = L.map(mapEl.current, {
-        center: NIGERIA_CENTER,
-        zoom: NIGERIA_ZOOM,
+        center: [9.0765, 7.3986],
+        zoom: 6, // country view — fitBounds tightens to the real routes
         zoomControl: false,
         attributionControl: false,
       });
 
       // Using a light detailed street map similar to the mockup
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}{r}.png", {
         subdomains: "abcd",
         maxZoom: 19,
       }).addTo(map);
@@ -111,6 +141,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       mapRef.current?.remove();
       mapRef.current = null;
       layerRef.current = null;
+      fitDoneRef.current = false;
     };
   }, []);
 
@@ -146,33 +177,41 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
       `;
       document.head.appendChild(style);
 
-      // Define some hardcoded points near Abuja to ensure they show up in the zoom
-      const demoPoints: [number, number][] = [
-        [9.0765, 7.3986],
-        [9.082, 7.41],
-        [9.07, 7.39],
-        [9.085, 7.385],
-      ];
-
-      activeTrips.forEach((t, i) => {
-        const point = demoPoints[i % demoPoints.length]!;
-        const statusStr = getDelayStatus(t.status);
-        const color = STATUS_COLOR[statusStr]!;
-
+      const points: [number, number][] = [];
+      for (const { trip, origin, destination, position, status } of plotted) {
+        const color = TRACKING_DELAY_COLOR[status];
         const icon = L.divIcon({
           className: "fleetopsx-map-marker",
-          html: statusDot(color),
+          html: `<span style="display:block;width:16px;height:16px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)"></span>`,
           iconSize: [16, 16],
           iconAnchor: [8, 8],
         });
 
-        L.marker(point, { icon })
+        // The route itself, origin → destination, so a pin always sits ON a road.
+        if (origin && destination) {
+          const o = geocodeDeterministic(origin);
+          const d = geocodeDeterministic(destination);
+          if (o && d) {
+            L.polyline([o, d], { color: "#1B2432", weight: 2, opacity: 0.25, dashArray: "6 8" }).addTo(layers);
+            points.push(o, d);
+          }
+        }
+
+        L.marker(position, { icon })
           .addTo(layers)
-          .bindPopup(popupHtml(t, statusStr, color), {
+          .bindPopup(popupHtml(trip, status, origin, destination), {
             className: "fleetopsx-custom-popup",
             offset: [0, -10],
           });
-      });
+        points.push(position);
+      }
+
+      // The view follows the fleet: one truck or fifty, the map frames the
+      // real routes instead of staring at one city.
+      if (points.length && !fitDoneRef.current) {
+        fitDoneRef.current = true;
+        map.fitBounds(L.latLngBounds(points).pad(0.2));
+      }
 
       requestAnimationFrame(() => map.invalidateSize());
     })();
@@ -180,15 +219,15 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, activeTrips]);
+  }, [mapReady, plotted]);
 
   const zoomBy = (delta: number) => {
-    mapRef.current?.setZoom((mapRef.current.getZoom() ?? NIGERIA_ZOOM) + delta);
+    mapRef.current?.setZoom((mapRef.current.getZoom() ?? 6) + delta);
   };
 
   return (
     <div className="w-full mt-2 md:mt-4">
-      {/* Mobile Tracking Operations header — the badge is the real trip count, not a mockup number. */}
+      {/* Mobile Tracking Operations header — the badge is the real trip count. */}
       <div className="flex items-center gap-2 mb-4 md:hidden">
         <h2 className="text-[16px] font-bold text-[#141a1f]">Tracking Operations</h2>
         <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-5 px-1.5 rounded-[4px] flex items-center justify-center">
@@ -201,22 +240,24 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
           <div className="flex items-center gap-2">
             <h2 className="text-[18px] font-bold text-[#141a1f]">Dispatch Overview</h2>
             <span className="bg-[#ea3a3d] text-white text-[11px] font-bold h-6 px-2 rounded-[4px] flex items-center justify-center">
-              4
+              {trips.length}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
-            {Object.entries(STATUS_COLOR).map(([label, color]) => (
-              <div
-                key={label}
-                className="flex items-center gap-1.5 text-[11px] md:text-[12px] font-semibold text-[#5c6470]"
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                ></span>
-                {label}
-              </div>
-            ))}
+            {(Object.entries(TRACKING_DELAY_COLOR) as [TrackingDelayStatus, string][]).map(
+              ([label, color]) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-1.5 text-[11px] md:text-[12px] font-semibold text-[#5c6470]"
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: color }}
+                  ></span>
+                  {label}
+                </div>
+              ),
+            )}
           </div>
         </div>
 
