@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { PartnerLiveMap } from "@/components/fleetopsx/partner-live-map";
-import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import { TripChatPanel } from "@/components/fleetopsx/trip-chat";
 import { chatService, CHAT_POLL_MS, type ChatThread } from "@/lib/fleetopsx/chat";
@@ -27,9 +26,7 @@ import {
   type TrackingLeg,
 } from "@/lib/fleetopsx/tracking-ops";
 import {
-  ADD_LOADING_SITE_LABEL,
-  isAddingLoadingSite,
-  loadingSiteChoices,
+  loadingSiteChoiceGroups,
   loadingSiteDraftFor,
   PARTNER_TRUCK_TYPE_OPTIONS,
   resolvePartnerLoadingSite,
@@ -565,20 +562,6 @@ function PartnerRequestDetailsPage() {
     }
     setSaving(true);
     try {
-      // Nothing saves itself any more: a typed-in site joins the company's
-      // list only when the partner explicitly opted in while editing. The
-      // old behaviour added every site used, so one-off pickup points
-      // haunted the dropdown forever.
-      const optIns = draftSites.filter(
-        (s) => isAddingLoadingSite(s.type) && s.saveToSites === true && s.customValue.trim(),
-      );
-      const toSave = optIns
-        .map((s) => s.customValue.trim())
-        .filter((site) => !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()));
-      if (toSave.length > 0) {
-        await Promise.all(toSave.map((site) => partnerSiteService.add(site).catch(() => null)));
-        setSavedSites((prev) => [...prev, ...toSave]);
-      }
       const updated = await tripService.updateTrip(trip.id, {
         customerConsignee: draftCustomer.trim(),
         cargo: draftProduct.trim(),
@@ -1213,127 +1196,88 @@ function PartnerRequestDetailsPage() {
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                   Select Loading Site
                 </span>
-                {draftSites.map((site, index) => {
-                  const display = isAddingLoadingSite(site.type)
-                    ? site.customValue.trim() || ADD_LOADING_SITE_LABEL
-                    : site.type || "Select";
-                  return (
-                    <div
-                      key={site.id}
-                      className={cn(
-                        "relative flex flex-col gap-2",
-                        siteDropdownIndex === index ? "z-50" : "z-10",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
+                {draftSites.map((site, index) => (
+                  <div
+                    key={site.id}
+                    className={cn(
+                      "relative flex flex-col gap-2",
+                      siteDropdownIndex === index ? "z-50" : "z-10",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSiteDropdownIndex(siteDropdownIndex === index ? null : index);
+                          setTruckDropdownOpen(false);
+                        }}
+                        className={cn(inputClass, "flex-1 justify-between")}
+                      >
+                        <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>
+                          {site.type || "Select"}
+                        </span>
+                        <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
+                      </button>
+                      {draftSites.length > 1 ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSiteDropdownIndex(siteDropdownIndex === index ? null : index);
-                            setTruckDropdownOpen(false);
-                          }}
-                          className={cn(inputClass, "flex-1 justify-between")}
+                          onClick={() =>
+                            setDraftSites((prev) => prev.filter((_, i) => i !== index))
+                          }
+                          className="rounded p-2 hover:bg-black/5"
+                          aria-label="Remove loading site"
                         >
-                          <span className={site.type ? "text-[#1B2432]" : "text-[#5C6470]"}>
-                            {display}
-                          </span>
-                          <ChevronDown className="size-4 shrink-0 text-[#5C6470]" />
+                          <Trash2 className="size-5 text-[#ED351D]" />
                         </button>
-                        {draftSites.length > 1 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDraftSites((prev) => prev.filter((_, i) => i !== index))
-                            }
-                            className="rounded p-2 hover:bg-black/5"
-                            aria-label="Remove loading site"
-                          >
-                            <Trash2 className="size-5 text-[#ED351D]" />
-                          </button>
-                        ) : null}
-                      </div>
-                      {siteDropdownIndex === index ? (
-                        <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[220px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                          {loadingSiteChoices(savedSites).map((opt) => {
-                            const takenElsewhere = draftSites.some((s, i) => {
-                              if (i === index) return false;
-                              if (isAddingLoadingSite(opt)) return false;
-                              return s.type === opt;
-                            });
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                disabled={takenElsewhere}
-                                onClick={() => {
-                                  if (takenElsewhere) return;
-                                  setDraftSites((prev) =>
-                                    prev.map((s, i) =>
-                                      i === index
-                                        ? {
-                                            id: s.id,
-                                            type: opt,
-                                            customValue: isAddingLoadingSite(opt)
-                                              ? s.customValue
-                                              : "",
-                                          }
-                                        : s,
-                                    ),
-                                  );
-                                  setSiteDropdownIndex(null);
-                                }}
-                                className={cn(
-                                  "w-full px-3 py-2.5 text-left text-[14px]",
-                                  takenElsewhere
-                                    ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
-                                    : site.type === opt
-                                      ? "bg-[#ED351D] text-white"
-                                      : "text-[#1B2432] hover:bg-[#F1F2F4]",
-                                )}
-                              >
-                                {opt}
-                                {takenElsewhere ? " (already selected)" : ""}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                      {isAddingLoadingSite(site.type) ? (
-                        <div className="flex flex-col gap-1.5">
-                          <input
-                            value={site.customValue}
-                            onChange={(e) =>
-                              setDraftSites((prev) =>
-                                prev.map((s, i) =>
-                                  i === index ? { ...s, customValue: e.target.value } : s,
-                                ),
-                              )
-                            }
-                            placeholder="Enter loading site name"
-                            className={inputClass}
-                          />
-                          {site.customValue.trim() ? (
-                            <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.4px] text-[#5C6470]">
-                              <input
-                                type="checkbox"
-                                checked={site.saveToSites === true}
-                                onChange={(e) =>
-                                  setDraftSites((prev) =>
-                                    prev.map((s, i) =>
-                                      i === index ? { ...s, saveToSites: e.target.checked } : s,
-                                    ),
-                                  )
-                                }
-                                className="size-3.5 accent-[#ED351D]"
-                              />
-                              Save this site to my loading sites for next time
-                            </label>
-                          ) : null}
-                        </div>
                       ) : null}
                     </div>
-                  );
-                })}
+                    {siteDropdownIndex === index ? (
+                      <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                        {loadingSiteChoiceGroups(savedSites).map((group) => (
+                          <div key={group.heading ?? "named"}>
+                            {group.heading ? (
+                              <p className="sticky top-0 bg-[#F1F2F4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                                {group.heading}
+                              </p>
+                            ) : null}
+                            {group.options.map((opt) => {
+                              const takenElsewhere = draftSites.some(
+                                (s, i) => i !== index && s.type === opt,
+                              );
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  disabled={takenElsewhere}
+                                  onClick={() => {
+                                    if (takenElsewhere) return;
+                                    setDraftSites((prev) =>
+                                      prev.map((s, i) =>
+                                        i === index ? { id: s.id, type: opt, customValue: "" } : s,
+                                      ),
+                                    );
+                                    setSiteDropdownIndex(null);
+                                  }}
+                                  className={cn(
+                                    "w-full px-3 py-2.5 text-left text-[14px]",
+                                    takenElsewhere
+                                      ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
+                                      : site.type === opt
+                                        ? "bg-[#ED351D] text-white"
+                                        : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                                  )}
+                                >
+                                  {opt}
+                                  {takenElsewhere ? " (already selected)" : ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
                 <button
                   type="button"
                   onClick={() =>
@@ -1346,9 +1290,6 @@ function PartnerRequestDetailsPage() {
                 >
                   + Add loading site
                 </button>
-                {/* The company's own list, editable — a yard that closed should not
-                    sit in the dropdown of every future request. */}
-                <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />
               </div>
             </div>
 

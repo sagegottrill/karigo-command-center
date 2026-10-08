@@ -882,6 +882,11 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
     // A partner's request waits on the Transport Manager FIRST; Fleet Operations
     // is told it exists but has nothing to do until it is approved.
     void notify('Approvals', 'New Delivery Request', `${partnerName} requested a ${data.tailType || 'truck'} for ${data.customerConsignee || 'a customer'} to ${data.dropoff}.`, 'info', 'Transport Manager,Fleet Operations', { module: 'Partners', eventKey: 'request.submitted', refId: trip.id, refLabel: dispatchRef(trip.id), actionRoles: ['Transport Manager'] });
+    // partner-received-notice: the partner gets the receipt TOO. Their follow-up
+    // starts the moment they send: this lands in their bell immediately, and
+    // every later move (approved, truck assigned, departed, checkpoint,
+    // completed) rides the same channel.
+    void notify('Approvals', 'Request Received', `We received your delivery request ${dispatchRef(trip.id)} — ${data.tailType || 'truck'} for ${data.customerConsignee || 'your customer'} to ${data.dropoff}. The Transport Manager will review it and you will be notified at every step.`, 'info', `Partner:${partnerName}`, { module: 'Partners', eventKey: 'request.received', refId: trip.id, refLabel: dispatchRef(trip.id) });
   } else {
     void notify('Operations', 'Dispatch Created', `Dispatch ${dispatchRef(trip.id)} created for ${data.customer || 'internal operations'} (${data.pickup} → ${data.dropoff}).`, 'info', 'Transport Manager,Fleet Operations', { module: 'Fleet Operations', eventKey: 'dispatch.created', refId: trip.id, refLabel: dispatchRef(trip.id) });
   }
@@ -1596,7 +1601,14 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
   }
     // The gate logged this itself, so it is a record for everyone else — nobody
     // is being asked to act.
-    void notify('Security', entry.type === 'Return' ? 'Gate Return Logged' : 'Gate Departure Logged', `Truck ${entry.truckReg} (${entry.driver}) — ${entry.type} logged at the gate.`, 'info', 'Partner,TransportManager,Fleet Operations,Security', { module: 'Gate Security', eventKey: entry.type === 'Return' ? 'gate.return' : 'gate.departure', refId: entry.tripId ?? entry.id, refLabel: entry.truckReg });
+    // partner-gate-notice: tagged like every other notice — the trip's own
+    // company (Partner:<Company>) instead of the bare 'Partner' word, so the
+    // partner sees its truck's gate departures and returns. Transport Manager
+    // regains its space (TransportManager matched nobody).
+    const gateAudience = ['Fleet Operations', 'Security', 'Transport Manager'];
+    const gateTrip = entry.tripId ? await prisma.trip.findUnique({ where: { id: entry.tripId }, select: { customer: true } }).catch(() => null) : null;
+    if (gateTrip?.customer) gateAudience.push('Partner:' + gateTrip.customer);
+    void notify('Security', entry.type === 'Return' ? 'Gate Return Logged' : 'Gate Departure Logged', `Truck ${entry.truckReg} (${entry.driver}) — ${entry.type} logged at the gate.`, 'info', gateAudience.join(','), { module: 'Gate Security', eventKey: entry.type === 'Return' ? 'gate.return' : 'gate.departure', refId: entry.tripId ?? entry.id, refLabel: entry.truckReg });
   res.json(entry);
 });
 
@@ -1824,7 +1836,16 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
     // A checkpoint must still be recorded even if the trip cannot be moved.
     console.error('departure stamp failed', e?.message);
   }
-    void notify('Operations', 'New Location has been Logged', `Dispatch ${dispatchRef(tripId)} checkpoint recorded at ${location} (${leg}).`, 'info', 'Partner,TransportManager,Fleet Operations,Tracking,Loading', { module: 'Tracking', eventKey: 'tracking.checkpoint', refId: tripId, refLabel: dispatchRef(tripId) });
+    // partner-checkpoint-notice: the trip's OWN partner is tagged
+    // (Partner:<Company>) — the partner scope only matches its company tag or
+    // the exact word 'Partner', so the bare 'Partner' used here reached NO
+    // partner at all: the trucks moved and the owner never got the track.
+    // 'TransportManager' was also missing its space, so the Transport Manager
+    // missed every checkpoint too.
+    const checkpointTrip = await prisma.trip.findUnique({ where: { id: tripId }, select: { customer: true } }).catch(() => null);
+    const checkpointAudience = ['Fleet Operations', 'Tracking', 'Loading', 'Transport Manager'];
+    if (checkpointTrip?.customer) checkpointAudience.push('Partner:' + checkpointTrip.customer);
+    void notify('Operations', 'New Location has been Logged', `Dispatch ${dispatchRef(tripId)} checkpoint recorded at ${location} (${leg}).`, 'info', checkpointAudience.join(','), { module: 'Tracking', eventKey: 'tracking.checkpoint', refId: tripId, refLabel: dispatchRef(tripId) });
   res.json(checkpoint);
 });
 

@@ -1,17 +1,12 @@
 /**
- * A partner's OWN loading sites.
+ * Loading-site choices for the partner request forms.
  *
- * The request form used to offer one hardcoded list to every customer, so the
- * yards Saba Steel loads from (Saba Factory, Ijesha, Babangida…) were shown to
- * every other partner — and a partner with its own yard had no way to record it.
- *
- * Each site now belongs to a partner COMPANY and is stored on the company's own
- * account (`GET/POST/DELETE /api/partner-sites`). The form shows that partner's
- * list and nothing else:
- *
- *   - a partner with sites picks one from the dropdown;
- *   - a partner with none gets "Add your loading site" and types it;
- *   - anything typed is saved back to the company, so the next request offers it.
+ * A partner no longer types a yard by hand: the selector offers the platform's
+ * NAMED loading locations — the Apapa and Tincan yards the register added —
+ * grouped under the port each one works from, plus (when the company has
+ * recorded its own yards) the sites saved on that company's account. Anything
+ * outside these names has to be added to the company account by the Transport
+ * Manager, so a request can no longer arrive with a location nobody filed.
  */
 
 export const PARTNER_TRUCK_TYPE_OPTIONS = [
@@ -25,37 +20,73 @@ export const PARTNER_TRUCK_TYPE_OPTIONS = [
   "Pick Up",
 ] as const;
 
-/** The one entry a partner with no sites yet is offered. */
-export const ADD_LOADING_SITE_LABEL = "Add your loading site";
+/**
+ * The named loading locations, grouped by the port they sit in. The port name
+ * is the heading the dropdown shows — "Tincan", "Apapa" — and the sites under
+ * it are what the request stores.
+ */
+export const PARTNER_LOADING_LOCATION_GROUPS: { port: string; sites: string[] }[] = [
+  { port: "Apapa", sites: ["ENL", "Eco Support", "Dangote"] },
+  { port: "Tincan", sites: ["Port and Cargo", "Niger Dock", "Joseph Dam"] },
+];
+
+/**
+ * The dropdown's contents: the named locations first (grouped under their
+ * port), then the company's own saved sites under their own heading. A
+ * company with no saved sites sees the named locations and nothing else.
+ */
+export function loadingSiteChoiceGroups(
+  savedSites: string[],
+): { heading: string | null; options: string[] }[] {
+  const groups: { heading: string | null; options: string[] }[] =
+    PARTNER_LOADING_LOCATION_GROUPS.map((g) => ({ heading: g.port, options: [...g.sites] }));
+  const named = new Set(PARTNER_LOADING_LOCATION_GROUPS.flatMap((g) => g.sites));
+  const own = savedSites.filter((s) => !named.has(s));
+  if (own.length > 0) groups.push({ heading: "Your saved sites", options: own });
+  return groups;
+}
+
+/** The flat list a draft row may hold: every named location + saved sites. */
+export function partnerLoadingSiteNames(savedSites: string[]): string[] {
+  return loadingSiteChoiceGroups(savedSites).flatMap((g) => g.options);
+}
 
 export type PartnerLoadingSiteDraft = {
   id: string;
+  /** The picked site's stored name — or ADD_LOADING_SITE_LABEL while typing. */
   type: string;
+  /** The typed yard when the row is an "add" row; empty on a pick. */
   customValue: string;
   /**
-   * The partner's explicit say-so that a TYPED-IN site should join their
-   * saved list. Nothing saves itself any more: a one-off pickup point typed
-   * through "Add your loading site" rides the request alone unless this is
-   * ticked, so the dropdown never fills up with yards nobody meant to keep.
+   * The requester's explicit say-so that a TYPED-IN site should join the
+   * saved list (internal raise-on-behalf form only).
    */
   saveToSites?: boolean;
 };
 
-/**
- * The list a partner may pick from: their own sites, plus the "add" entry.
- * The add entry is always last — the saved sites are the fast path.
- */
+/* ------------------------------------------------------------------ *
+ * Free-typing support — INTERNAL raise-on-behalf form ONLY.
+ *
+ * The partner portal no longer offers typed yards: its selector lists the
+ * named locations (Apapa / Tincan) plus the company's own saved sites. The
+ * internal form still lets Fleet Ops record a yard the register does not
+ * carry yet, so these stay exported for it.
+ * ------------------------------------------------------------------ */
+
+/** The one entry a partner with no sites yet is offered (internal form). */
+export const ADD_LOADING_SITE_LABEL = "Add your loading site";
+
+/** The list the internal form offers: saved sites, then the "add" entry. */
 export function loadingSiteChoices(sites: string[]): string[] {
   return [...sites, ADD_LOADING_SITE_LABEL];
 }
 
-/** True when a site is being added rather than picked from the saved list. */
+/** True when a row is being typed rather than picked from a list. */
 export function isAddingLoadingSite(type: string): boolean {
   return type === ADD_LOADING_SITE_LABEL;
 }
 
-/**
- * The stored name for a draft row: the typed value for an added site, otherwise
+/** The stored name for a draft row: the typed value for an added site, otherwise
  * the picked one.
  */
 export function resolvePartnerLoadingSite(site: PartnerLoadingSiteDraft): string {
@@ -64,18 +95,18 @@ export function resolvePartnerLoadingSite(site: PartnerLoadingSiteDraft): string
 }
 
 /**
- * A partner's list in the shape the request form holds while editing: a saved
- * site is a plain pick, and anything NOT in the saved list opens as an added
- * site holding its own name — so correcting a request never silently drops a
- * yard the request was raised with.
+ * A partner's list in the shape the request form holds while editing: an
+ * editing request always opens with the sites it was raised with, even one
+ * that has since left the dropdown — correcting a request never silently
+ * drops a yard the request was raised with.
  */
 export function loadingSiteDraftFor(
   name: string,
-  saved: string[],
+  _saved: string[],
   id: () => string,
 ): PartnerLoadingSiteDraft {
-  const known = saved.some((s) => s.toLowerCase() === name.trim().toLowerCase());
-  return known
-    ? { id: id(), type: name, customValue: "" }
-    : { id: id(), type: ADD_LOADING_SITE_LABEL, customValue: name };
+  // The row always carries the request's own site name — even one that has
+  // since left the dropdown — so correcting a request never silently drops
+  // the yard it was raised with.
+  return { id: id(), type: name, customValue: "" };
 }

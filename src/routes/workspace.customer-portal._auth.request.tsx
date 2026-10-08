@@ -2,17 +2,20 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { LoadingSitesManager } from "@/components/fleetopsx/loading-sites-manager";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
-  ADD_LOADING_SITE_LABEL,
-  isAddingLoadingSite,
-  loadingSiteChoices,
+  loadingSiteChoiceGroups,
+  partnerLoadingSiteNames,
   PARTNER_TRUCK_TYPE_OPTIONS,
   resolvePartnerLoadingSite,
   type PartnerLoadingSiteDraft,
 } from "@/lib/fleetopsx/partner-request-options";
-import { orderService, partnerSiteService } from "@/lib/fleetopsx/services";
+import {
+  authService,
+  orderService,
+  partnerSiteService,
+  tripService,
+} from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/request")({
@@ -40,15 +43,38 @@ function PartnerNewRequest() {
   ]);
   const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // THIS partner's own sites — loaded from their company account. Nobody sees
-  // another company's yards: a partner with none gets "Add your loading site".
+  // THIS partner's own recorded yards — shown under the named locations.
   const [savedSites, setSavedSites] = useState<string[]>([]);
+  // The boss's tally, shown BEFORE another request is sent: everything this
+  // company has raised, what came back approved, and what is still waiting.
+  const [tally, setTally] = useState<{ total: number; approved: number; waiting: number } | null>(
+    null,
+  );
 
   useEffect(() => {
+    const company = authService.getCurrentUser()?.partnerCompanyName;
     void partnerSiteService
-      .list()
+      .list(company)
       .then(setSavedSites)
       .catch(() => setSavedSites([]));
+    void tripService
+      .list()
+      .then((trips) => {
+        let approved = 0;
+        let waiting = 0;
+        for (const t of trips) {
+          // The partner's words, not the internal lifecycle's: Scheduled (or
+          // further) means approved; Requested/Awaiting Approval still waits
+          // on the Transport Manager; everything Stopped is closed, not waited.
+          if (["Scheduled", "En Route", "Loaded", "Offloading", "Returning", "Delayed", "Completed"].includes(t.status)) {
+            approved += 1;
+          } else if (t.status === "Requested" || t.status === "Awaiting Approval") {
+            waiting += 1;
+          }
+        }
+        setTally({ total: trips.length, approved, waiting });
+      })
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,28 +108,6 @@ function PartnerNewRequest() {
 
     setSubmitting(true);
     try {
-      // A typed-in site joins the company's saved list ONLY when the partner
-      // ticked "Save this site" beside it. It used to save itself on every
-      // submit, so a one-off pickup point typed through "Add your loading
-      // site" haunted the dropdown forever. The trip still carries whatever
-      // was typed; this only governs what the dropdown offers next time.
-      const optIns = loadingSites.filter(
-        (s) => isAddingLoadingSite(s.type) && s.saveToSites === true && s.customValue.trim(),
-      );
-      const toSave = optIns
-        .map((s) => s.customValue.trim())
-        .filter(
-          (site) =>
-            !savedSites.some((known) => known.toLowerCase() === site.toLowerCase()) &&
-            !optIns.some(
-              (s, i) =>
-                optIns.indexOf(s) < i && s.customValue.trim().toLowerCase() === site.toLowerCase(),
-            ),
-        );
-      if (toSave.length > 0) {
-        await Promise.all(toSave.map((site) => partnerSiteService.add(site).catch(() => null)));
-        setSavedSites((prev) => [...prev, ...toSave]);
-      }
       await orderService.submitCustomerOrder({
         customerConsignee: customerConsignee.trim(),
         cargo: product.trim(),
@@ -136,6 +140,27 @@ function PartnerNewRequest() {
             Submit delivery requests
           </p>
         </div>
+
+        {/* The tally BEFORE another request goes out: everything raised so
+            far, what came back approved, and what is still waiting on the
+            Transport Manager — the follow-up picture in one line. */}
+        {tally ? (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 text-[13px] tracking-[0.4px] text-[#1B2432]">
+            <span>
+              <strong className="font-semibold">{tally.total}</strong> request{tally.total === 1 ? "" : "s"} sent
+            </span>
+            <span className="text-[#34C759]">
+              <strong className="font-semibold">{tally.approved}</strong> approved
+            </span>
+            <span className="text-[#F99E1F]">
+              <strong className="font-semibold">{tally.waiting}</strong> awaiting response
+            </span>
+            <span className="text-[12px] text-[#5C6470]">
+              Every move on your requests reaches your Notification bell — open a request on the
+              dashboard to follow its journey.
+            </span>
+          </div>
+        ) : null}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4 md:gap-4">
           <section className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_5px_rgba(0,0,0,0.05)] md:px-5 md:py-6 md:shadow-[0px_4px_4px_rgba(12,12,13,0.05),0px_16px_32px_rgba(12,12,13,0.1)]">
@@ -291,6 +316,11 @@ function PartnerNewRequest() {
                 <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                   Select Loading Site
                 </span>
+                {/* Where the load starts — picked from the NAMED locations
+                    (Apapa / Tincan yards, plus the company's own recorded
+                    sites). No typing: a request can only name a location the
+                    register knows, so the Transport Manager never deciphers
+                    free text to find the truck's yard. */}
                 {loadingSites.map((site, index) => (
                   <div
                     key={site.id}
@@ -326,109 +356,52 @@ function PartnerNewRequest() {
                       ) : null}
                     </div>
                     {openDropdownIndex === index ? (
-                      <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[220px] overflow-y-auto overscroll-contain rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
-                        {loadingSiteChoices(savedSites).map((opt) => {
-                          const takenElsewhere = loadingSites.some((s, i) => {
-                            if (i === index) return false;
-                            if (isAddingLoadingSite(opt)) return false;
-                            return s.type === opt;
-                          });
-                          return (
-                            <button
-                              key={opt}
-                              type="button"
-                              disabled={takenElsewhere}
-                              onClick={() => {
-                                if (takenElsewhere) return;
-                                setLoadingSites((prev) =>
-                                  prev.map((s, i) =>
-                                    i === index
-                                      ? {
-                                          id: s.id,
-                                          type: opt,
-                                          customValue: isAddingLoadingSite(opt)
-                                            ? s.customValue
-                                            : "",
-                                        }
-                                      : s,
-                                  ),
-                                );
-                                setOpenDropdownIndex(null);
-                              }}
-                              className={cn(
-                                "w-full px-3 py-2.5 text-left text-[14px]",
-                                takenElsewhere
-                                  ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
-                                  : site.type === opt
-                                    ? "bg-[#ED351D] text-white"
-                                    : "text-[#1B2432] hover:bg-[#F1F2F4]",
-                              )}
-                            >
-                              {opt}
-                              {takenElsewhere ? " (already selected)" : ""}
-                            </button>
-                          );
-                        })}
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[260px] overflow-y-auto overscroll-contain rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
+                        {loadingSiteChoiceGroups(savedSites).map((group) => (
+                          <div key={group.heading ?? "named"}>
+                            {group.heading ? (
+                              <p className="sticky top-0 bg-[#F1F2F4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                                {group.heading}
+                              </p>
+                            ) : null}
+                            {group.options.map((opt) => {
+                              const takenElsewhere = loadingSites.some(
+                                (s, i) => i !== index && s.type === opt,
+                              );
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  disabled={takenElsewhere}
+                                  onClick={() => {
+                                    if (takenElsewhere) return;
+                                    setLoadingSites((prev) =>
+                                      prev.map((s, i) =>
+                                        i === index ? { id: s.id, type: opt, customValue: "" } : s,
+                                      ),
+                                    );
+                                    setOpenDropdownIndex(null);
+                                  }}
+                                  className={cn(
+                                    "w-full px-3 py-2.5 text-left text-[14px]",
+                                    takenElsewhere
+                                      ? "cursor-not-allowed text-[#A8AEB7] opacity-50"
+                                      : site.type === opt
+                                        ? "bg-[#ED351D] text-white"
+                                        : "text-[#1B2432] hover:bg-[#F1F2F4]",
+                                  )}
+                                >
+                                  {opt}
+                                  {takenElsewhere ? " (already selected)" : ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                    {isAddingLoadingSite(site.type) ? (
-                      <input
-                        value={site.customValue}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setLoadingSites((prev) =>
-                            prev.map((s, i) => (i === index ? { ...s, customValue: value } : s)),
-                          );
-                        }}
-                        onBlur={() => {
-                          const custom = site.customValue.trim().toLowerCase();
-                          if (!custom) return;
-                          const duplicate = loadingSites.some((s, i) => {
-                            if (i === index) return false;
-                            const other = (s.type === "Others" ? s.customValue : s.type)
-                              .trim()
-                              .toLowerCase();
-                            return Boolean(other) && other === custom;
-                          });
-                          if (duplicate) {
-                            toast.error("Each loading site can only be selected once");
-                            setLoadingSites((prev) =>
-                              prev.map((s, i) => (i === index ? { ...s, customValue: "" } : s)),
-                            );
-                          }
-                        }}
-                        placeholder="Enter specific loading address"
-                        className={inputClass}
-                      />
-                    ) : null}
-                    {isAddingLoadingSite(site.type) && site.customValue.trim() ? (
-                      <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.4px] text-[#5C6470]">
-                        <input
-                          type="checkbox"
-                          checked={site.saveToSites === true}
-                          onChange={(e) =>
-                            setLoadingSites((prev) =>
-                              prev.map((s, i) =>
-                                i === index ? { ...s, saveToSites: e.target.checked } : s,
-                              ),
-                            )
-                          }
-                          className="size-3.5 accent-[#ED351D]"
-                        />
-                        Save this site to my loading sites for next time
-                      </label>
                     ) : null}
                   </div>
                 ))}
-                {/* A partner with no sites yet is told so plainly, and the dropdown
-                    below still opens with "Add your loading site" in it. */}
-                {savedSites.length === 0 ? (
-                  <p className="text-[11px] tracking-[0.4px] text-[#5C6470]">
-                    You have no saved loading sites yet — choose “{ADD_LOADING_SITE_LABEL}” and type
-                    the site. Tick “Save this site” to keep it for your next request.
-                  </p>
-                ) : null}
-                <LoadingSitesManager sites={savedSites} onChange={setSavedSites} />
                 {routingType === "Multiple" ? (
                   <button
                     type="button"
