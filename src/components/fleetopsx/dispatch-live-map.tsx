@@ -60,11 +60,12 @@ function progressFraction(trip: Trip): number {
   return Math.min(0.95, Math.max(0.05, (trip.progress ?? 0) / 100));
 }
 
-function positionAt(from: [number, number], to: [number, number], fraction: number): [number, number] {
-  return [
-    from[0] + (to[0] - from[0]) * fraction,
-    from[1] + (to[1] - from[1]) * fraction,
-  ];
+function positionAt(
+  from: [number, number],
+  to: [number, number],
+  fraction: number,
+): [number, number] {
+  return [from[0] + (to[0] - from[0]) * fraction, from[1] + (to[1] - from[1]) * fraction];
 }
 
 function TripPopup({
@@ -212,7 +213,10 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
                       <RouteProgress color={color} width={3} opacity={0.9} />
                       <RouteMarker at="start">
                         <MarkerContent>
-                          <MapPin className="size-3.5 fill-[#1B2432] text-white" strokeWidth={1.5} />
+                          <MapPin
+                            className="size-3.5 fill-[#1B2432] text-white"
+                            strokeWidth={1.5}
+                          />
                         </MarkerContent>
                       </RouteMarker>
                       <RouteMarker at="end">
