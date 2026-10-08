@@ -993,9 +993,16 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   if (isGateAccount && before && before.status !== data.status) {
     if (data.status === 'En Route') {
       data.gateOutBy = gateActor;
+      // The gate's Log Out is also the readable departure stamp — without it
+      // the departure column had only the status word and no date+time.
+      if (!String(before.startTime || '').trim()) data.startTime = data.startTime || autoStamp(new Date());
     }
     if (data.status === 'Completed') {
       data.gateInBy = gateActor;
+      // The gate's Log In is the return: stamp `eta` if the run never wrote
+      // one, so the return column shows the real moment instead of the bare
+      // word "Returned".
+      if (!String(before.eta || '').trim()) data.eta = data.eta || autoStamp(new Date());
     }
   }
   // SECURITY NO-SHOW OVERRIDE — the gate refuses a truck the TM released when
@@ -1541,7 +1548,10 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Security';
         const closed = await prisma.trip.update({
           where: { id: trip.id },
-          data: { status: 'Completed', gateInBy: trip.gateInBy || actor },
+          // return-stamp-on-gate-return: the return stamp the gate log shows is
+          // `eta` — leaving it empty made the board print the bare word
+          // "Returned" where every other row shows a real date+time.
+          data: { status: 'Completed', eta: trip.eta || autoStamp(entry.timestamp), gateInBy: trip.gateInBy || actor },
         });
         // The driver's cycle ends with the truck's. Only 'On Trip' is moved, so
         // a Suspended or Off Duty record is never quietly overwritten.
@@ -1823,6 +1833,15 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
       }
       const next = statusFromLeg(trip.status, leg);
       if (next) data.status = next;
+      // return-stamp-on-offload: the RETURN column on the gate log is the truck
+      // back at base — but the readable moment the road ended is the OFFLOAD
+      // checkpoint. When that leg is logged and no return stamp exists, write
+      // the checkpoint's own timestamp into `eta`, so the gate log shows the
+      // real date+time instead of the bare word "Returned" (which is what the
+      // board prints when the status says completed but eta holds nothing).
+      if (!data.eta && String(leg || '').trim().toLowerCase() === 'offloaded' && !String(trip.eta || '').trim()) {
+        data.eta = (checkpoint.at instanceof Date ? checkpoint.at : new Date()).toISOString();
+      }
       if (Object.keys(data).length > 0) {
         await prisma.trip.update({ where: { id: tripId }, data });
         // lifecycle-coupling-v2: a checkpoint that advances the dispatch moves the

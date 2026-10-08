@@ -303,8 +303,10 @@ export function TransportAdminSidebar({
               collapsed && "justify-center",
             )}
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
-              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+            {/* The initials tile: a light grey square vanished against the navy
+                rail — darkened so it reads as a tile, not a hole. */}
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#3B4657]">
+              <span className="text-[14px] font-semibold tracking-[0.4px] text-white">
                 {userInitials}
               </span>
             </div>

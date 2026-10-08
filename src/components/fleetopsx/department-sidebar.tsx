@@ -342,8 +342,9 @@ export function DepartmentSidebar({
               collapsed && "justify-center",
             )}
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#F1F2F4]">
-              <span className="text-[14px] font-normal tracking-[0.4px] text-[#5C6470]">
+            {/* Same tile as the TM sidebar: dark grey on the navy rail, not light. */}
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#3B4657]">
+              <span className="text-[14px] font-semibold tracking-[0.4px] text-white">
                 {userInitials}
               </span>
             </div>
