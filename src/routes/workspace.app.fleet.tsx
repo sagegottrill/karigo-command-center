@@ -99,12 +99,9 @@ function isDispatchRequest(trip: Trip) {
  * rather than a local copy, so this table cannot drift from the others. */
 
 /**
- * Every status this table can DISPLAY on a row.
- *
- * It is deliberately wider than the filter below: a dispatch can read "Approved"
- * (released to Fleet Ops, no truck yet) or "Completed" while the red filter only
- * offers the three the Transport Manager actually acts on. Rows must keep their
- * real status even when the filter cannot select it.
+ * Every status this table can DISPLAY on a row — the pill column is the source
+ * of truth, and the filter below must never offer fewer words than the rows
+ * carry.
  */
 type FleetStatus =
   "Awaiting Approval" | "Approved" | "Scheduled" | "In Transit" | "Completed" | "Declined";
@@ -112,13 +109,19 @@ type FleetStatus =
 /**
  * What the red filter offers, in the order the work arrives: the dispatch sitting
  * on the TM's approval first, then what is on the board, then what he closed.
- * "Approved" and "Completed" were dropped from this menu on the client's call —
- * three choices that each mean one clear action beat six that needed reading.
+ *
+ * EVERY state the table can display is selectable here — the pill column is the
+ * source of truth, and a filter that cannot name a state the rows carry hides
+ * half the board from anyone looking for it. (Approved / In Transit / Completed
+ * were once dropped from this menu; the client asked for the full set back.)
  */
-const STATUS_FILTERS: Array<"All" | "Awaiting Approval" | "Scheduled" | "Declined"> = [
+const STATUS_FILTERS: Array<"All" | FleetStatus> = [
   "All",
   "Awaiting Approval",
+  "Approved",
   "Scheduled",
+  "In Transit",
+  "Completed",
   "Declined",
 ];
 

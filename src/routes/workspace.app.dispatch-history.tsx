@@ -73,15 +73,23 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   component: DispatchHistoryPage,
 });
 
+/** Every state the history table can print on a row. */
 type DisplayStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
 
 /**
- * The client asked for exactly three working states here — Scheduled, Pending,
- * Declined — with "All" kept only as the way back to the full list. In Transit
- * and Completed are deliberately dropped: the live ones are followed on Active
- * Dispatch and Live Tracking, not in a history filter.
+ * Every state the history table can print is selectable — the pill column is
+ * the source of truth, so the filter never offers fewer words than the rows
+ * carry. (In Transit and Completed were once dropped from this menu; the
+ * client asked for the full set back.)
  */
-const HISTORY_STATUS_FILTERS = ["All", "Scheduled", "Pending", "Declined"] as const;
+const HISTORY_STATUS_FILTERS = [
+  "All",
+  "In Transit",
+  "Pending",
+  "Scheduled",
+  "Declined",
+  "Completed",
+] as const;
 
 const STATUS_STYLES: Record<DisplayStatus, string> = {
   "In Transit": "bg-[#A259FF] text-white",
