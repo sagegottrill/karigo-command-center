@@ -117,6 +117,68 @@ export function tripDelay(trip: Trip, now: Date = new Date()): TripDelay | null 
   };
 }
 
+/**
+ * The anchor the Duration ↔ Expected-Return sync is measured from (both TM edit
+ * surfaces): the trip's REAL departure when it has left the yard, otherwise
+ * today — a promise is written from the day you are standing on. estimatedDate
+ * is deliberately NOT an anchor: it is one half of the pair being synced, so
+ * anchoring on it would move the return date every time the duration is
+ * retyped. Local date components only; never UTC .toISOString(), which shifts
+ * the day.
+ */
+export function estimateAnchor(
+  trip: Pick<Partial<Trip>, "startTime" | "dispatchedAt">,
+  now: Date = new Date(),
+): {
+  /** Midnight local of the anchor day (real departure or today). */
+  at: Date;
+  /** YYYY-MM-DD, local components — the form the date input wants. */
+  date: string;
+} {
+  for (const raw of [trip.startTime, trip.dispatchedAt]) {
+    const value = String(raw ?? "").trim();
+    if (!value) continue;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return asAnchor(parsed);
+  }
+  return asAnchor(now);
+}
+
+function asAnchor(value: Date): { at: Date; date: string } {
+  const base = startOfDay(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    at: base,
+    date: `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}`,
+  };
+}
+
+/**
+ * Expected return as a date-input string: anchor + duration days, in local
+ * date components. Empty string when the duration cannot be given — the field
+ * stays untouched rather than being cleared by a half-typed number.
+ */
+export function daysToReturnDate(days: number | null | undefined, anchor: { at: Date }): string {
+  const value = Number(days);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  const due = new Date(anchor.at.getTime() + value * DAY_MS);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`;
+}
+
+/**
+ * Duration implied by a chosen return date: calendar-day difference from the
+ * anchor, ignoring the handed-in time. Empty string for no/past dates so the
+ * number field never holds junk a save would then persist.
+ */
+export function returnDateToDays(returnDate: string | null | undefined, anchor: { at: Date }): string {
+  if (!returnDate) return "";
+  const due = new Date(`${returnDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return "";
+  const diff = Math.round((due.getTime() - startOfDay(anchor.at).getTime()) / DAY_MS);
+  return diff >= 1 ? String(diff) : "";
+}
+
 /** "4 days" — how the TM's duration is written everywhere. */
 export function formatTripDuration(days: number | null | undefined): string {
   const value = Number(days);

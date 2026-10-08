@@ -19,7 +19,13 @@ import {
   formatTableDate,
 } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
-import { expectedReturnAt, formatTripDuration } from "@/lib/fleetopsx/trip-duration";
+import {
+  daysToReturnDate,
+  estimateAnchor,
+  expectedReturnAt,
+  formatTripDuration,
+  returnDateToDays,
+} from "@/lib/fleetopsx/trip-duration";
 import { CheckboxFilterButton, FilterButton } from "@/components/fleetopsx/filter-button";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayDispatchId as dispatchId, displayRequestId } from "@/lib/fleetopsx/request-id";
@@ -1096,7 +1102,11 @@ function FleetDispatchRequests() {
                 autoFocus
                 inputMode="numeric"
                 value={estimateDays}
-                onChange={(e) => setEstimateDays(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEstimateDays(next);
+                  setEstimateValue(daysToReturnDate(Number(next), estimateAnchor(estimateTrip)));
+                }}
                 placeholder="e.g. 4"
                 className="h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
               />
@@ -1112,25 +1122,26 @@ function FleetDispatchRequests() {
               <input
                 type="date"
                 value={estimateValue}
-                onChange={(e) => setEstimateValue(e.target.value)}
+                onChange={(e) => {
+                  setEstimateValue(e.target.value);
+                  setEstimateDays(returnDateToDays(e.target.value, estimateAnchor(estimateTrip)));
+                }}
                 className="h-10 w-full rounded border border-[#E2E5E9] px-3 text-[14px] text-[#1B2432] outline-none focus:border-[#ED351D]"
               />
-              {expectedReturnAt({
-                ...(estimateTrip as Trip),
-                estimatedDays: Number(estimateDays) || null,
-                estimatedDate: estimateValue || null,
-              }) ? (
-                <span className="text-[12px] text-[#627084]">
-                  Expected return:{" "}
-                  {formatTableDate(
-                    expectedReturnAt({
-                      ...(estimateTrip as Trip),
-                      estimatedDays: Number(estimateDays) || null,
-                      estimatedDate: estimateValue || null,
-                    })!.toISOString(),
-                  )}
-                </span>
-              ) : null}
+              {/* The return the duration promises — from the trip's real
+                  departure when it is on the road, else today, never the picked
+                  date fed back in as its own start. Falls back to a manually
+                  chosen date when no duration is set. */}
+              {(() => {
+                const hintDate =
+                  daysToReturnDate(Number(estimateDays), estimateAnchor(estimateTrip)) ||
+                  estimateValue.trim();
+                return hintDate ? (
+                  <span className="text-[12px] text-[#627084]">
+                    Expected return: {formatTableDate(hintDate)}
+                  </span>
+                ) : null;
+              })()}
             </label>
             <div className="mt-4 flex items-center justify-end gap-3">
               <button

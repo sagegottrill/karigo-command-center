@@ -9,7 +9,12 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
-import { formatTripDuration } from "@/lib/fleetopsx/trip-duration";
+import {
+  daysToReturnDate,
+  estimateAnchor,
+  formatTripDuration,
+  returnDateToDays,
+} from "@/lib/fleetopsx/trip-duration";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { assignmentReleaseService, tripService } from "@/lib/fleetopsx/services";
 import { useFuelPrices } from "@/lib/fleetopsx/use-fuel-prices";
@@ -279,7 +284,11 @@ export function TmEditAssignmentModal({
               min={1}
               inputMode="numeric"
               value={estimatedDays}
-              onChange={(e) => setEstimatedDays(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setEstimatedDays(next);
+                setEstimatedDate(daysToReturnDate(Number(next), estimateAnchor(trip)));
+              }}
               placeholder="e.g. 4"
               className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
             />
@@ -294,11 +303,15 @@ export function TmEditAssignmentModal({
             <input
               type="date"
               value={estimatedDate}
-              onChange={(e) => setEstimatedDate(e.target.value)}
+              onChange={(e) => {
+                setEstimatedDate(e.target.value);
+                setEstimatedDays(returnDateToDays(e.target.value, estimateAnchor(trip)));
+              }}
               className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
             />
             <span className="text-[12px] leading-4 text-[#5C6470]">
-              Shown on the dispatch board until Security logs the truck out of the gate.
+              Shown on the dispatch board until Security logs the truck out of the gate. Picking a
+              date fills or refreshes the duration from it — and typing a duration moves this date.
             </span>
           </label>
         </div>
