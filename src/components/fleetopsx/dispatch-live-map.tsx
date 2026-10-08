@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef } from "react";
-import { displayCapPlateFromTrip, displayPlateFromTrip } from "@/lib/fleetopsx/display-ids";
+import {
+  displayCapPlateFromTrip,
+  displayDriverSalary,
+  displayPlateFromTrip,
+  enrichDriver,
+} from "@/lib/fleetopsx/display-ids";
+import { driverForTrip } from "@/lib/fleetopsx/driver-duty";
 import { geocodeDeterministic } from "@/lib/fleetopsx/geo";
 import {
   getTrackingDelayStatus,
   TRACKING_DELAY_COLOR,
   type TrackingDelayStatus,
 } from "@/lib/fleetopsx/tracking-ops";
-import type { Trip } from "@/lib/fleetopsx/types";
+import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import type * as MapLibreGL from "maplibre-gl";
 import { Car, MapPin, Flag } from "lucide-react";
 import {
@@ -73,14 +79,24 @@ function TripPopup({
   status,
   origin,
   destination,
+  drivers,
 }: {
   trip: Trip;
   status: TrackingDelayStatus;
   origin: string;
   destination: string;
+  drivers: Driver[];
 }) {
   const truck = displayCapPlateFromTrip(trip) || "—";
   const plate = displayPlateFromTrip(trip);
+  // The dispatch stores only the driver's NAME as somebody typed it — the
+  // staff number and phone live on the roster. The same resolver the boards
+  // use handles id, exact name, partial name and truck-pairing matches, so a
+  // truck popup can never show less than the roster knows.
+  const match = driverForTrip(trip, drivers);
+  const driver = match ? enrichDriver(match.driver) : undefined;
+  const driverId = driver ? displayDriverSalary(driver) : "";
+  const phone = driver?.phone?.trim() || "";
   return (
     <div className="w-64 space-y-2 p-0">
       <div className="flex items-center justify-between rounded-t-md bg-[#1B2432] px-3 py-2">
@@ -98,6 +114,10 @@ function TripPopup({
         <span className="font-medium text-gray-900">{plate || "—"}</span>
         <span className="text-gray-500">Driver</span>
         <span className="text-gray-900">{trip.driverName || "—"}</span>
+        <span className="text-gray-500">Driver ID</span>
+        <span className="font-medium text-gray-900">{driverId || "—"}</span>
+        <span className="text-gray-500">Phone</span>
+        <span className="font-medium text-gray-900">{phone || "—"}</span>
         <span className="text-gray-500">From</span>
         <span className="text-gray-900">{origin || "—"}</span>
         <span className="text-gray-500">To</span>
@@ -109,7 +129,7 @@ function TripPopup({
   );
 }
 
-export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
+export function DispatchLiveMap({ trips, drivers = [] }: { trips: Trip[]; drivers?: Driver[] }) {
   const mapRef = useRef<MapLibreGL.Map | null>(null);
   const fitDoneRef = useRef(false);
 
@@ -243,6 +263,7 @@ export function DispatchLiveMap({ trips }: { trips: Trip[] }) {
                         status={status}
                         origin={origin}
                         destination={destination}
+                        drivers={drivers}
                       />
                     </MarkerPopup>
                   </MapMarker>

@@ -124,25 +124,38 @@ export function driverForTrip(trip: Trip, drivers: Driver[]): TripDriverMatch | 
   const stored = normPersonName(trip.driverName);
   if (!stored || !isNamedDriver(trip.driverName)) return undefined;
 
-  const exact = soleRow(drivers.filter((d) => normPersonName(d.name) === stored));
-  // Two people on the roster share one name: neither can be handed the dispatch
-  // on the strength of the name alone.
+  const exactRows = drivers.filter((d) => normPersonName(d.name) === stored);
+  const exact = soleRow(exactRows);
+  // One exact match settles it.
   if (exact) return { driver: exact, via: "name" };
-  if (drivers.some((d) => normPersonName(d.name) === stored)) return undefined;
 
+  // The name alone is ambiguous. The TRUCK the dispatch is on can still pick
+  // the man out: the roster files a driver against his truck as cap codes
+  // ("P041") in the HR pairing columns (assignedTruck/assignedTail). Exactly
+  // one candidate paired with this dispatch's truck is the driver; anything
+  // else stays blank, because a wrong staff number is worse than none.
+  const cap = capCode(displayCapFromTrip(trip));
+  const onTruck = (rows: Driver[]) => {
+    if (!cap) return undefined;
+    return soleRow(
+      rows.filter((d) => [d.assignedTruck, d.assignedTail].some((v) => capCode(v) === cap)),
+    );
+  };
+
+  // Ambiguous exact-name rows first (two "Abdullahi Adamu"s — the truck says which).
+  if (exactRows.length > 1) {
+    const onTruckExact = onTruck(exactRows);
+    if (onTruckExact) return { driver: onTruckExact, via: "truck" };
+  }
+
+  // Then widen: a hand-typed partial name ("rabiu", "SEMIU") that fits
+  // exactly one roster row.
   const candidates = drivers.filter((d) => nameFits(stored, d.name));
   const only = soleRow(candidates);
   if (only) return { driver: only, via: "token" };
   if (candidates.length > 1) {
-    const cap = capCode(displayCapFromTrip(trip));
-    if (cap) {
-      const onTruck = soleRow(
-        candidates.filter(
-          (d) => capCode(d.assignedTruck) === cap || capCode(d.assignedTail) === cap,
-        ),
-      );
-      if (onTruck) return { driver: onTruck, via: "truck" };
-    }
+    const onTruckWide = onTruck(candidates);
+    if (onTruckWide) return { driver: onTruckWide, via: "truck" };
   }
   return undefined;
 }

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DispatchLiveMap } from "@/components/fleetopsx/dispatch-live-map";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
-import { authService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
   getTrackingDelayStatus,
@@ -12,7 +12,7 @@ import {
   sortLatestFirst,
   TRACKING_DELAY_COLOR,
 } from "@/lib/fleetopsx/tracking-ops";
-import type { Trip } from "@/lib/fleetopsx/types";
+import type { Driver, Trip } from "@/lib/fleetopsx/types";
 
 export const Route = createFileRoute("/workspace/app/live-tracking")({
   beforeLoad: () => {
@@ -40,12 +40,21 @@ export const Route = createFileRoute("/workspace/app/live-tracking")({
 
 function LiveTrackingPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   // "Just show me Saba's trucks" — the whole board (stats + map) follows this.
   const [partner, setPartner] = useState<string>("All partners");
 
   useEffect(() => {
     let cancelled = false;
+    // The roster rides along: every truck popup resolves its driver's staff
+    // number and phone against it (dispatches store the NAME only).
+    void driverService
+      .list()
+      .then((all) => {
+        if (!cancelled) setDrivers(all);
+      })
+      .catch(() => {});
     void tripService
       .list()
       .then((all) => {
@@ -189,7 +198,7 @@ function LiveTrackingPage() {
           />
         ) : (
           <div className="h-[420px] overflow-hidden rounded-[10px] border border-[#E2E5E9] md:h-[536px]">
-            <DispatchLiveMap trips={visibleTrips} />
+            <DispatchLiveMap trips={visibleTrips} drivers={drivers} />
           </div>
         )}
       </section>

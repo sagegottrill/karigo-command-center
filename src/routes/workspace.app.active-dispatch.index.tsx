@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import { ArrowBigRight, Check, ChevronLeft, ChevronRight, ListFilter, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -9,7 +9,9 @@ import {
   displayCapFromTrip,
   displayDriverSalary,
   displayPlateFromTrip,
+  enrichDriver,
 } from "@/lib/fleetopsx/display-ids";
+import { driverForTrip } from "@/lib/fleetopsx/driver-duty";
 import { formatMovementStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
@@ -268,25 +270,18 @@ function ActiveDispatchPage() {
     })();
   });
 
-  const phoneByDriverId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const d of drivers) map.set(d.id, d.phone);
-    return map;
-  }, [drivers]);
-
-  // FO assignment stores driver NAME only — resolve phones by name too.
-  const phoneByDriverName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const d of drivers) map.set(d.name.trim().toLowerCase(), d.phone);
-    return map;
-  }, [drivers]);
-
-  /** The driver record behind a row, matched on the name the dispatch stores. */
-  const driverByName = useMemo(() => {
-    const map = new Map<string, Driver>();
-    for (const d of drivers) map.set(d.name.trim().toLowerCase(), d);
-    return map;
-  }, [drivers]);
+  // The dispatch stores the driver's NAME as somebody typed it ("rabiu",
+  // "Tijani", "MUSA") — an exact-name map left those rows with a blank staff
+  // number and phone. The duty resolver matches id, exact name, partial name,
+  // and (when several men share a name) the truck the dispatch is on, so every
+  // row can show the driver's id and phone the roster holds.
+  const driverMatchFor = useCallback(
+    (trip: Trip) => {
+      const match = driverForTrip(trip, drivers);
+      return match ? enrichDriver(match.driver) : undefined;
+    },
+    [drivers],
+  );
 
   /**
    * The driver's staff number — the id HR, payroll and the gate know him by.
@@ -294,8 +289,7 @@ function ActiveDispatchPage() {
    * roster (name → staff number), never from the trip record.
    */
   const driverIdFor = (trip: Trip) => {
-    const name = trip.driverName?.trim().toLowerCase();
-    const driver = name ? driverByName.get(name) : undefined;
+    const driver = driverMatchFor(trip);
     return driver ? humanDriverId(driver) : "";
   };
 
@@ -328,10 +322,8 @@ function ActiveDispatchPage() {
       : "Track every active dispatch and its location history";
 
   const phoneFor = (trip: Trip) => {
-    const byId = trip.driverId ? phoneByDriverId.get(trip.driverId) : undefined;
-    if (byId) return byId;
-    const name = trip.driverName?.trim().toLowerCase();
-    return (name && phoneByDriverName.get(name)) || "";
+    const driver = driverMatchFor(trip);
+    return driver?.phone?.trim() || "";
   };
 
   /** Every site on the request, as the partner listed them. */
@@ -440,7 +432,7 @@ function ActiveDispatchPage() {
         .join(" ");
       return matchesQuery(hay, q);
     });
-  }, [trips, search, filter, partner, phoneByDriverId, phoneByDriverName]);
+  }, [trips, search, filter, partner, driverMatchFor]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
