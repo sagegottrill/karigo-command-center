@@ -92,7 +92,7 @@ export const Route = createFileRoute("/workspace/app/partner-requests")({
   // 403 "Insufficient privileges" on Approve / Decline.
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin"];
+    const allowed = ["Transport Manager", "Fleet Operations", "Platform Admin", "Tracking"];
     if (!authService.getRoles().some((r: any) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
@@ -361,7 +361,7 @@ function AdminPartnerRequests() {
 
   const exportCSV = () => {
     const header =
-      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Point,Drop-off Location,Date Approved,Request ID,Status";
+      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Site,Drop-off Location,Date Approved,Request ID,Status";
     const csv = filtered
       .map((t) =>
         csvRow([
@@ -697,7 +697,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Product:" value={trip.cargo || ""} />
                 <MetaRow label="Truck Type:" value={displayRequestedTruckType(trip)} />
                 <MetaRow label="Truck:" value={displayTruckAssigned(trip) || "—"} />
-                <MetaRow label="Loading Point:" value={loadingPointLabel(trip)} />
+                <MetaRow label="Loading Site:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow
                   label="Date Approved:"
@@ -823,7 +823,7 @@ function AdminPartnerRequests() {
                   Truck
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Loading Point
+                  Loading Site
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Drop-off Location

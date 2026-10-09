@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, FilePlus, LogOut, MapPinCheck, MessageSquare, MoreVertical } from "lucide-react";
+import { Bell, ClipboardList, FilePlus, FileText, LogOut, MapPinCheck, MessageSquare, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -24,6 +24,7 @@ type TrackingNavItem = {
 const TRACKING_NAV: TrackingNavItem[] = [
   { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: ClipboardList },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
+  { label: "Requests", to: "/workspace/app/partner-requests", icon: FileText },
   { label: "New Request", to: "/workspace/app/new-request", icon: FilePlus },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
   { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
