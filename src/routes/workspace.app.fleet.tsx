@@ -56,7 +56,7 @@ const FLEET_GRID =
   // reference you look up after you have found the row, not the first thing you
   // read. Status keeps its own wide track: it has to hold "Awaiting Approval" on
   // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
-  "grid grid-cols-[minmax(108px,0.75fr)_minmax(72px,0.85fr)_minmax(64px,0.7fr)_minmax(104px,0.75fr)_minmax(80px,0.55fr)_minmax(72px,0.85fr)_minmax(108px,0.75fr)_minmax(100px,0.7fr)_minmax(146px,0.8fr)_minmax(92px,0.55fr)_auto]";
+  "grid grid-cols-[minmax(108px,0.75fr)_minmax(72px,0.85fr)_minmax(64px,0.7fr)_minmax(104px,0.75fr)_minmax(80px,0.55fr)_minmax(100px,0.7fr)_minmax(72px,0.85fr)_minmax(108px,0.75fr)_minmax(100px,0.7fr)_minmax(146px,0.8fr)_minmax(92px,0.55fr)_auto]";
 
 /** What the search box actually reaches, said out loud when it finds nothing. */
 const SEARCH_COVERS =
@@ -376,7 +376,7 @@ function FleetDispatchRequests() {
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
     const header =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Drop-off Location,Date Approved,Estimated Time of Return,Trip Duration,Status,Dispatch ID";
+      "Date Requested,Customer,Driver,Truck Head,Truck Type,Loading Point,Drop-off Location,Date Approved,Estimated Time of Return,Trip Duration,Status,Dispatch ID";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
