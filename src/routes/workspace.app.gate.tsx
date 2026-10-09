@@ -653,18 +653,18 @@ departure silently never logs. */
                   ledger. Empty (italic) until a signed stamp exists. */}
               <span
                 className={
-                  (trip.gateOutBy || trip.gateInBy) && ret
+                  trip.gateInBy && ret
                     ? "text-[13px] tracking-[0.4px] text-[#1F7A33]"
-                    : (trip.gateOutBy || trip.gateInBy) && dep
+                    : trip.gateOutBy && dep
                       ? "text-[13px] tracking-[0.4px] text-[#8E3D2D]"
                       : "text-[13px] italic tracking-[0.4px] text-[#627084]"
                 }
               >
                 <span className="text-[#627084] md:hidden">Logged By: </span>
-                {(trip.gateInBy || trip.gateOutBy) && ret
-                  ? trip.gateInBy
-                  : (trip.gateOutBy || trip.gateInBy) && dep
-                    ? trip.gateOutBy
+                {ret
+                  ? trip.gateInBy || "Unsigned"
+                  : dep
+                    ? trip.gateOutBy || "Unsigned"
                     : "Unsigned"}
               </span>
               <div className="hidden justify-self-end md:block">
