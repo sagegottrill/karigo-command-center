@@ -1979,7 +1979,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     columns={[
                       {
                         label: "Direct Cost:",
-                        value: formatMoney(stats.spend.pouredCost),
+                        value: formatMoney(stats.spend.cost),
                         tone: "purple",
                       },
                       {
