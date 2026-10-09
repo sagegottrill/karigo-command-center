@@ -243,6 +243,7 @@ function AdminPartnerRequests() {
   // Ticked partner companies. Empty = no company filter (every row shows), so the
   // table is never mysteriously empty on first load.
   const [companyFilter, setCompanyFilter] = useState<string[]>([]);
+  const [loadingSiteFilter, setLoadingSiteFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Trip | null>(null);
@@ -298,9 +299,23 @@ function AdminPartnerRequests() {
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [listing]);
 
+  const loadingSiteOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of listing) {
+      for (const site of loadingSitesFor(t)) {
+        if (site) names.add(site);
+      }
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [listing]);
+
   const filtered = listing.filter((t) => {
     if (statusFilter !== "All" && toPartnerUiStatus(t) !== statusFilter) return false;
     if (companyFilter.length > 0 && !companyFilter.includes(partnerNameOf(t))) return false;
+    if (loadingSiteFilter.length > 0) {
+      const sites = loadingSitesFor(t);
+      if (!loadingSiteFilter.some((ls) => sites.includes(ls))) return false;
+    }
     if (!inWindow(t.createdAt, range)) return false;
     // Search reaches the TRUCK as the operators name it — the cap code on the cab
     // and the plate beside it — plus the tail, the assigned driver, the loading
@@ -633,6 +648,17 @@ function AdminPartnerRequests() {
             emptyLabel="No partner company has a request yet"
             noun="partner company"
           />
+          <CheckboxFilterButton
+            options={loadingSiteOptions}
+            selected={loadingSiteFilter}
+            onChange={(next) => {
+              setLoadingSiteFilter(next);
+              setPage(0);
+            }}
+            allLabel="All loading sites"
+            emptyLabel="No loading sites found"
+            noun="loading site"
+          />
         </div>
 
         <div className="flex flex-col gap-[11px] md:hidden">
@@ -796,6 +822,17 @@ function AdminPartnerRequests() {
               allLabel="All companies"
               emptyLabel="No partner company has a request yet"
               noun="partner company"
+            />
+            <CheckboxFilterButton
+              options={loadingSiteOptions}
+              selected={loadingSiteFilter}
+              onChange={(next) => {
+                setLoadingSiteFilter(next);
+                setPage(0);
+              }}
+              allLabel="All loading sites"
+              emptyLabel="No loading sites found"
+              noun="loading site"
             />
           </div>
 
