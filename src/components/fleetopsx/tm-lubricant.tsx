@@ -553,9 +553,17 @@ export function TmLubricant() {
   const logPageCount = Math.max(1, Math.ceil(logRows.length / PAGE_SIZE));
   const safeLogPage = Math.min(logPage, logPageCount - 1);
   const logSlice = logRows.slice(safeLogPage * PAGE_SIZE, (safeLogPage + 1) * PAGE_SIZE);
-  const pendingReviews = disbursals.filter(
-    (d) => String(d.status ?? "Pending") === "Pending",
-  ).length;
+  /** The pours awaiting his word, newest first — the queue that leads the board. */
+  const pendingRows = useMemo(
+    () =>
+      disbursals
+        .filter((d) => String(d.status ?? "Pending") === "Pending")
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+    [disbursals],
+  );
+  const pendingReviews = pendingRows.length;
+  const PENDING_PAGE_SIZE = 5;
+  const pendingSlice = pendingRows.slice(0, PENDING_PAGE_SIZE);
   /** Aggregated analytics (PRD §6): summed volume per fuel in the window. */
   const logTotals = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -720,8 +728,9 @@ export function TmLubricant() {
            * sat one click behind a plain dark button with no hint a queue was
            * waiting (Fortune, 9 Oct — "I cannot see it to make approval").
            * When pours are awaiting review, the review door becomes a red
-           * first-class button with the count on it; when the desk is clear,
-           * it reads as the plain log again.
+           * first-class button with the count on it — read as "Pending
+           * Approval (n)" — and the log view itself opens with the pending
+           * queue on top. When the desk is clear, it reads as the plain log.
            */}
           {pendingReviews > 0 ? (
             <button
@@ -729,7 +738,7 @@ export function TmLubricant() {
               onClick={() => setView("log")}
               className="flex h-10 items-center gap-2 rounded-[6px] bg-[#ED351D] px-4 text-[13.5px] font-semibold text-white hover:bg-[#d92c15]"
             >
-              Review Disbursals
+              Pending Approval
               <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white px-1.5 text-[12px] font-bold text-[#ED351D]">
                 {formatQuantity(pendingReviews)}
               </span>
@@ -769,6 +778,87 @@ export function TmLubricant() {
           );
         })}
       </div>
+
+      {/**
+       * PENDING APPROVAL, on the landing itself: the department's pours wait
+       * here for his word (Approve / Decline inline, newest first) — the queue
+       * used to hide a click deep behind "View Disbursal Log" with no count,
+       * so 111 pours sat unreviewed. Full ledger stays in the log view.
+       */}
+      {pendingReviews > 0 ? (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Pending Approval
+              </h3>
+              <span className="grid h-7 min-w-[28px] place-items-center rounded-[4px] bg-[#ED351D] px-2 text-[13px] font-bold text-white">
+                {formatQuantity(pendingReviews)}
+              </span>
+              <span className="text-[12.5px] text-[#5C6470]">
+                lubricant pours from the department awaiting your endorsement
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setView("log")}
+              className="h-9 rounded-[6px] border border-[#E2E5E9] px-3 text-[13px] font-medium text-[#1B2432] hover:bg-[#F1F2F4]"
+            >
+              Open full ledger
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col">
+            {pendingSlice.map((row) => {
+              const v = resolveVehicle(row);
+              const capPlate = [v.capNumber, v.plate].filter((x) => x && x !== "—").join(" · ");
+              return (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[1fr_1fr_1.2fr_1fr_1fr_auto] items-center gap-3 border-b border-[#E2E5E9] py-3 text-[13.5px] text-[#344256] last:border-b-0"
+                >
+                  <span className="truncate font-medium text-[#1B2432]">
+                    {lubricantDispatchId(row)}
+                  </span>
+                  <span className="truncate">{v.driverName || "—"}</span>
+                  <span className="truncate text-[#5C6470]">{capPlate || "—"}</span>
+                  <span>
+                    {lubricantWithQuantity(row.fuelType, row.quantity)}
+                  </span>
+                  <span className="truncate text-[#5C6470]">{row.dispensedBy}</span>
+                  <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void review(row, "Approved")}
+                      className="h-8 rounded-[4px] bg-[#ED351D] px-3 text-[13px] font-semibold text-white hover:bg-[#d92c15] disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setDecline(row)}
+                      className="h-8 rounded-[4px] border border-[#E2E5E9] bg-white px-3 text-[13px] font-semibold text-[#1B2432] hover:bg-[#F1F2F4] disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
+            {pendingReviews > PENDING_PAGE_SIZE ? (
+              <button
+                type="button"
+                onClick={() => setView("log")}
+                className="mt-2 self-start text-[13px] font-medium text-[#1B4FA0] hover:underline"
+              >
+                See all {formatQuantity(pendingReviews)} pending pours in the ledger →
+              </button>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
 
       {/**
        * HIS APPROVALS, drawn as the sheet he reads from: every trip his FINAL
