@@ -2019,30 +2019,30 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>TM Approved Direct Cost</span>
+                    <span>Direct Cost</span>
                     <span className="font-semibold text-white">
                       {formatMoney(stats.spend.cost)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>TM Approved Diesel</span>
+                    <span>Dispensed Diesel</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.dieselLitres}L ({formatMoney(stats.spend.dieselCost)})
+                      {stats.spend.pouredDieselLitres}L ({formatMoney(stats.spend.pouredDieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>TM Approved Gas</span>
+                    <span>Dispensed Gas</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.gasKg}KG ({formatMoney(stats.spend.gasCost)})
+                      {stats.spend.pouredGasKg}KG ({formatMoney(stats.spend.pouredGasCost)})
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
-                    <span>Total TM Approved:</span>
+                    <span>Total Cost:</span>
                     <span className="font-bold" style={{ color: TONE.green.line }}>
                       {formatMoney(
                         stats.spend.cost +
-                          stats.spend.dieselCost +
-                          stats.spend.gasCost,
+                          stats.spend.pouredDieselCost +
+                          stats.spend.pouredGasCost,
                       )}
                     </span>
                   </div>
