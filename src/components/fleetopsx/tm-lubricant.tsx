@@ -715,6 +715,26 @@ export function TmLubricant() {
           >
             Restock Inventory
           </button>
+          {/*
+           * The approvals a manager could never find: the pending disbursals
+           * sat one click behind a plain dark button with no hint a queue was
+           * waiting (Fortune, 9 Oct — "I cannot see it to make approval").
+           * When pours are awaiting review, the review door becomes a red
+           * first-class button with the count on it; when the desk is clear,
+           * it reads as the plain log again.
+           */}
+          {pendingReviews > 0 ? (
+            <button
+              type="button"
+              onClick={() => setView("log")}
+              className="flex h-10 items-center gap-2 rounded-[6px] bg-[#ED351D] px-4 text-[13.5px] font-semibold text-white hover:bg-[#d92c15]"
+            >
+              Review Disbursals
+              <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white px-1.5 text-[12px] font-bold text-[#ED351D]">
+                {formatQuantity(pendingReviews)}
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setView("log")}
