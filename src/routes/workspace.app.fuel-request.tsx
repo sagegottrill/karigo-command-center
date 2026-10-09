@@ -30,7 +30,7 @@ import type { FuelRequest } from "@/lib/fleetopsx/types";
 export const Route = createFileRoute("/workspace/app/fuel-request")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = ["Transport Manager", "Platform Admin"];
+    const allowed = ["Transport Manager", "Platform Admin", "Lubricant", "Fuel Manager", "Fuel Management"];
     if (!authService.getRoles().some((r: string) => allowed.includes(r))) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }

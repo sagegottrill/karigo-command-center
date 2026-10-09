@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Droplets, History, LogOut, MoreVertical, NotebookPen } from "lucide-react";
+import { Bell, Droplets, History, LogOut, MoreVertical, NotebookPen, FilePlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -21,6 +21,7 @@ type LubricantNavItem = {
 export const LUBRICANT_NAV: LubricantNavItem[] = [
   { label: "Disburse Request", to: "/workspace/app/lubricant-disbursal", icon: NotebookPen },
   { label: "Lubricant Inventory", to: "/workspace/app/lubricant-inventory", icon: Droplets },
+  { label: "New Request", to: "/workspace/app/fuel-request", icon: FilePlus },
   { label: "Disbursal History", to: "/workspace/app/lubricant-history", icon: History },
   { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
 ];
