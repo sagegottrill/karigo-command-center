@@ -18,6 +18,7 @@ import {
   formatDateTimeStamp,
   formatTableDate,
 } from "@/lib/fleetopsx/display-dates";
+import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
   daysToReturnDate,
@@ -386,6 +387,7 @@ function FleetDispatchRequests() {
           t.driverName || driver?.name || "",
           headLabel(t, heads),
           fleetTruckTypeOf(t),
+          tripLoadingSites(t).join(", ") || "",
           t.dropoff,
           formatDateTimeStamp(t.dispatchedAt),
           t.estimatedDate ? formatTableDate(t.estimatedDate) : "",
@@ -721,6 +723,7 @@ function FleetDispatchRequests() {
                 <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
                 <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
                 <MetaRow label="Truck Type:" value={fleetTruckTypeOf(trip)} />
+                <MetaRow label="Loading Point:" value={tripLoadingSites(trip).join(", ") || "—"} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
                 <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
@@ -848,6 +851,9 @@ function FleetDispatchRequests() {
                   Truck Type
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                  Loading Point
+                </span>
+                <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Drop-off Location
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
@@ -894,6 +900,9 @@ function FleetDispatchRequests() {
                     </span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {fleetTruckTypeOf(trip)}
+                    </span>
+                    <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
+                      {tripLoadingSites(trip).join(", ") || "—"}
                     </span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.dropoff}
