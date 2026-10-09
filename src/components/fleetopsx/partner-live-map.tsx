@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Trip } from "@/lib/fleetopsx/types";
-import { geocodeDeterministic, FALLBACK_DEPOT } from "@/lib/fleetopsx/geo";
+import {
+  geocode,
+  geocodeDeterministic,
+  FALLBACK_DEPOT,
+  type GeoPoint,
+} from "@/lib/fleetopsx/geo";
 import type { LocationCheckpoint } from "@/lib/fleetopsx/tracking-ops";
 import "leaflet/dist/leaflet.css";
 
@@ -17,33 +22,78 @@ export function PartnerLiveMap({ trip, checkpoints }: { trip: Trip; checkpoints:
   const layerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const fitDoneRef = useRef(false);
 
+  /**
+   * REAL PLACES: the trip's sites, destination and every checkpoint are
+   * geocoded through Nominatim (cached in localStorage, rate-limited); the
+   * deterministic scatter only holds the first paint until answers land.
+   */
+  const [resolved, setResolved] = useState<Record<string, GeoPoint>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const places = [
+      trip.dropoff || "",
+      trip.loadingSite?.[0] || trip.pickup || "",
+      ...checkpoints.map((c) => c.location || ""),
+    ]
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (!places.length) return;
+    void (async () => {
+      const next: Record<string, GeoPoint> = {};
+      for (const place of Array.from(new Set(places))) {
+        const point = await geocode(place);
+        if (cancelled) return;
+        if (point && point.source === "nominatim") next[place.toLowerCase()] = point;
+      }
+      if (!cancelled && Object.keys(next).length) setResolved(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trip.dropoff, trip.loadingSite, trip.pickup, checkpoints]);
+
+  /** The real coordinate for a place, else the deterministic fallback. */
+  const realOf = (place: string): [number, number] | null => {
+    const hit = resolved[place.trim().toLowerCase()];
+    return hit ? [hit.lat, hit.lng] : null;
+  };
+
   const destination = useMemo<[number, number]>(() => {
     if (trip.dropoff) {
+      const real = realOf(trip.dropoff);
+      if (real) return real;
       const parsed = geocodeDeterministic(trip.dropoff);
       if (parsed) return parsed;
     }
     return FALLBACK_DEPOT;
-  }, [trip.dropoff]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip.dropoff, resolved]);
 
   const origin = useMemo<[number, number]>(() => {
     const site = trip.loadingSite?.[0] || trip.pickup;
     if (site) {
+      const real = realOf(site);
+      if (real) return real;
       const parsed = geocodeDeterministic(site);
       if (parsed) return parsed;
     }
     return FALLBACK_DEPOT;
-  }, [trip.loadingSite, trip.pickup]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip.loadingSite, trip.pickup, resolved]);
 
   // Truck position: latest checkpoint wins, else progress-blend origin→destination.
   const truckPos = useMemo<[number, number]>(() => {
     const latest = checkpoints[0];
     if (latest) {
+      const real = realOf(latest.location);
+      if (real) return real;
       const parsed = geocodeDeterministic(latest.location);
       if (parsed) return parsed;
     }
     const progress = Math.min(0.95, Math.max(0.05, (trip.progress ?? 0) / 100));
     return [origin[0] + (destination[0] - origin[0]) * progress, origin[1] + (destination[1] - origin[1]) * progress];
-  }, [checkpoints, trip.progress, origin, destination]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkpoints, trip.progress, origin, destination, resolved]);
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
@@ -107,7 +157,7 @@ export function PartnerLiveMap({ trip, checkpoints }: { trip: Trip; checkpoints:
 
       // Checkpoints (oldest → newest)
       for (const cp of [...checkpoints].reverse()) {
-        const pos = geocodeDeterministic(cp.location);
+        const pos = realOf(cp.location) ?? geocodeDeterministic(cp.location);
         if (!pos) continue;
         L.marker(pos, { icon: pin("#F99E1F") })
           .addTo(layers)

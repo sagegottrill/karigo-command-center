@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   displayCapPlateFromTrip,
   displayDriverSalary,
@@ -6,7 +6,7 @@ import {
   enrichDriver,
 } from "@/lib/fleetopsx/display-ids";
 import { driverForTrip } from "@/lib/fleetopsx/driver-duty";
-import { geocodeDeterministic } from "@/lib/fleetopsx/geo";
+import { geocode, geocodeDeterministic, lngLatOf, type GeoPoint } from "@/lib/fleetopsx/geo";
 import {
   getTrackingDelayStatus,
   TRACKING_DELAY_COLOR,
@@ -55,6 +55,8 @@ function tripEndpoints(trip: Trip): {
 } {
   const origin = tripOrigin(trip);
   const destination = trip.dropoff || "";
+  // SYNCHRONOUS FALLBACK ONLY — the real coordinates arrive through the
+  // resolved-places effect below; this keeps the first paint never-empty.
   const from =
     toLngLat(geocodeDeterministic(origin)) ?? toLngLat(geocodeDeterministic(trip.dropoff));
   const to = toLngLat(geocodeDeterministic(destination));
@@ -133,10 +135,53 @@ export function DispatchLiveMap({ trips, drivers = [] }: { trips: Trip[]; driver
   const mapRef = useRef<MapLibreGL.Map | null>(null);
   const fitDoneRef = useRef(false);
 
+  /**
+   * REAL PLACES: every unique origin/destination is geocoded once through
+   * Nominatim (cached in localStorage), and the map re-plots onto the real
+   * coordinates as answers land. The fallback scatter keeps the first paint
+   * from ever being empty; a `source: "nominatim"` answer replaces it.
+   */
+  const [resolved, setResolved] = useState<Record<string, GeoPoint>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const places = Array.from(
+      new Set(
+        trips.flatMap((t) => [tripOrigin(t), t.dropoff || ""].map((p) => p.trim())).filter(Boolean),
+      ),
+    );
+    if (!places.length) return;
+    void (async () => {
+      const next: Record<string, GeoPoint> = {};
+      // Feed the shared rate-limited resolver one place at a time, publishing
+      // progressively so the map sharpens as answers arrive.
+      for (const place of places) {
+        const point = await geocode(place);
+        if (cancelled) return;
+        if (point && point.source === "nominatim") next[place.toLowerCase()] = point;
+      }
+      if (!cancelled && Object.keys(next).length) setResolved(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trips]);
+
+  /** The real coordinate for a place, or null while only the fallback exists. */
+  const realOf = (place: string): [number, number] | null => {
+    const hit = resolved[place.trim().toLowerCase()];
+    return hit ? lngLatOf(hit) : null;
+  };
+
   // One plotted row per active dispatch: its real route and real position.
   const plotted = useMemo(() => {
     return trips.map((trip) => {
-      const { origin, destination, from, to } = tripEndpoints(trip);
+      const { origin, destination } = tripEndpoints(trip);
+      const fallbackFrom =
+        toLngLat(geocodeDeterministic(origin)) ??
+        toLngLat(geocodeDeterministic(trip.dropoff));
+      const fallbackTo = toLngLat(geocodeDeterministic(destination));
+      const from = realOf(origin) ?? realOf(trip.dropoff) ?? fallbackFrom;
+      const to = realOf(destination) ?? fallbackTo;
       const status = getTrackingDelayStatus(trip);
       const fraction = progressFraction(trip);
       const route = from && to ? [from, to] : null;
@@ -150,7 +195,9 @@ export function DispatchLiveMap({ trips, drivers = [] }: { trips: Trip[]; driver
         position: route ? positionAt(from!, to!, fraction) : from,
       };
     });
-  }, [trips]);
+    // `resolved` drives the re-plot; `trips` covers new dispatches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips, resolved]);
 
   // The view follows the fleet: one truck or fifty, the map frames the real
   // routes instead of staring at one city.
