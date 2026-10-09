@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Download,
   Droplet,
+  Edit2,
   Flame,
   MoreVertical,
   Printer,
@@ -347,6 +348,7 @@ function TankCard({
   opening,
   inbound,
   disbursed,
+  onMinLevelEdit,
 }: {
   fuel: LubricantFuel;
   quantity: number;
@@ -355,6 +357,7 @@ function TankCard({
   opening: number;
   inbound: number;
   disbursed: number;
+  onMinLevelEdit?: (fuel: LubricantFuel, current: number) => void;
 }) {
   // How full the tank stands against the highest level ever recorded for it —
   // the only honest denominator we hold (there is no typed-in capacity).
@@ -404,8 +407,13 @@ function TankCard({
           <span>
             ₦{formatQuantity(price)} / {fuel === "Gas" ? "KG" : "LITER"}
           </span>
-          <span>
+          <span
+            className="flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors"
+            onClick={() => onMinLevelEdit?.(fuel, minLevel)}
+            title="Set minimum level"
+          >
             Min: {formatQuantity(minLevel)} {unitWord(fuel)}
+            <Edit2 className="size-3" />
           </span>
         </div>
       </div>
@@ -469,6 +477,31 @@ export function TmLubricant() {
   const [releaseDetail, setReleaseDetail] = useState<LubricantRequestRow | null>(null);
   /** Restocking moved from the department to the TM — this is his button now. */
   const [restocking, setRestocking] = useState<false | LubricantFuel>(false);
+
+  const handleMinLevelEdit = async (fuel: LubricantFuel, current: number) => {
+    const raw = window.prompt(`Set new minimum level for ${fuel} (current: ${current}):`, String(current));
+    if (!raw) return;
+    const num = Number(raw.replace(/,/g, ""));
+    if (!Number.isFinite(num) || num < 0) return;
+    try {
+      setBusy(true);
+      const res = await fetch(`/api/lubricant/tank/${fuel}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ minLevel: num }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success(`Updated ${fuel} minimum level.`);
+      void refresh();
+    } catch (e: any) {
+      toast.error(`Failed to update ${fuel} minimum: ` + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -821,6 +854,7 @@ export function TmLubricant() {
               opening={openingFor(fuel)}
               inbound={inboundFor(fuel)}
               disbursed={disbursedFor(fuel)}
+              onMinLevelEdit={handleMinLevelEdit}
             />
           );
         })}
