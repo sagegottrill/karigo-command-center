@@ -1968,24 +1968,24 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     }))}
                   />
                   <TileCostColumns
-                    /* What the pump DISPENSED in the window — the desk's own
-                       ledger, not the direct costs written on in-road trips. */
+                    /* What the TM actually APPROVED — the direct costs written on in-road trips,
+                       not the dispensed fuel from the desk. */
                     columns={[
                       {
                         label: "Direct Cost:",
-                        value: formatMoney(stats.spend.pouredCost),
+                        value: formatMoney(stats.spend.cost),
                         tone: "purple",
                       },
                       {
                         label: "Diesel:",
-                        value: `${stats.spend.pouredDieselLitres}L`,
-                        sub: `(${formatMoney(stats.spend.pouredDieselCost)})`,
+                        value: `${stats.spend.dieselLitres}L`,
+                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
                         tone: "amber",
                       },
                       {
                         label: "Gas:",
-                        value: `${stats.spend.pouredGasKg}KG`,
-                        sub: `(${formatMoney(stats.spend.pouredGasCost)})`,
+                        value: `${stats.spend.gasKg}KG`,
+                        sub: `(${formatMoney(stats.spend.gasCost)})`,
                         tone: "amber",
                       },
                     ]}
@@ -2013,30 +2013,30 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Dispensed Direct Cost</span>
+                    <span>TM Approved Direct Cost</span>
                     <span className="font-semibold text-white">
-                      {formatMoney(stats.spend.pouredCost)}
+                      {formatMoney(stats.spend.cost)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Dispensed Diesel</span>
+                    <span>TM Approved Diesel</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.pouredDieselLitres}L ({formatMoney(stats.spend.pouredDieselCost)})
+                      {stats.spend.dieselLitres}L ({formatMoney(stats.spend.dieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Dispensed Gas</span>
+                    <span>TM Approved Gas</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.pouredGasKg}KG ({formatMoney(stats.spend.pouredGasCost)})
+                      {stats.spend.gasKg}KG ({formatMoney(stats.spend.gasCost)})
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
-                    <span>Total dispensed:</span>
+                    <span>Total TM Approved:</span>
                     <span className="font-bold" style={{ color: TONE.green.line }}>
                       {formatMoney(
-                        stats.spend.pouredCost +
-                          stats.spend.pouredDieselCost +
-                          stats.spend.pouredGasCost,
+                        stats.spend.cost +
+                          stats.spend.dieselCost +
+                          stats.spend.gasCost,
                       )}
                     </span>
                   </div>
