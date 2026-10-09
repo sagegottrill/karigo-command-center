@@ -813,7 +813,7 @@ app.get('/api/trips', authenticate, async (req: any, res) => {
   res.json(await prisma.trip.findMany({ where: filter, orderBy: { createdAt: 'desc' } }));
 });
 
-app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Customer Portals (External)'), async (req: any, res) => {
+app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Tracking', 'Customer Portals (External)'), async (req: any, res) => {
   const isPartner = req.user.role === 'Customer Portals (External)';
   const partnerName = await partnerCompanyForUser(req.user.id, req.user.email, req.user.role);
   /*
