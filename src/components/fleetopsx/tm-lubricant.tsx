@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -131,39 +133,71 @@ function SearchField({
 }
 
 /** The red square beside every search box: narrows the list without a query. */
+/**
+ * The filter, redesigned: a BOX THAT NAMES WHAT IT IS DOING — the active
+ * choice is printed on the face with a chevron, and the menu shows how many
+ * rows each option holds, so "Approved — 0" reads honestly instead of looking
+ * like the filter dropped rows. The old red icon square hid the current
+ * choice entirely, which is how a filter reads as broken.
+ */
 function FilterButton({
   options,
   value,
   onChange,
+  counts,
 }: {
   options: string[];
   value: string;
   onChange: (v: string) => void;
+  /** Optional per-option row counts, keyed by option — shown in the menu. */
+  counts?: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const isAll = value === options[0];
   return (
-    <div className="relative shrink-0">
+    <div ref={wrapRef} className="relative shrink-0">
       <button
         type="button"
-        aria-label="Filter"
+        aria-label={`Filter: ${value}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "grid size-10 place-items-center rounded-[6px] text-white",
-          value === options[0] ? "bg-[#ED351D]" : "bg-[#1B2432]",
+          "flex h-10 shrink-0 items-center gap-2 rounded-[6px] border bg-white px-3 text-[13.5px] transition-colors hover:bg-[#F7F8F9]",
+          isAll
+            ? "border-[#E2E5E9] font-normal text-[#141A1F]"
+            : "border-[#ED351D] font-semibold text-[#1B2432]",
         )}
       >
-        <SlidersHorizontal className="size-4" />
+        <SlidersHorizontal className="size-4 text-[#5C6470]" strokeWidth={1.75} />
+        <span className="max-w-[150px] truncate">{value}</span>
+        <ChevronDown
+          className={cn("size-4 text-[#5C6470] transition-transform", open && "rotate-180")}
+          strokeWidth={1.75}
+        />
       </button>
       {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close filter"
-            className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 z-20 mt-2 w-[170px] overflow-hidden rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
-            {options.map((opt) => (
+        <div className="absolute right-0 z-20 mt-2 w-[200px] overflow-hidden rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
+          {options.map((opt) => {
+            const count = counts?.[opt];
+            return (
               <button
                 key={opt}
                 type="button"
@@ -172,15 +206,28 @@ function FilterButton({
                   setOpen(false);
                 }}
                 className={cn(
-                  "block w-full px-3 py-2 text-left text-[13px] hover:bg-[#F1F2F4]",
+                  "flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-[#F1F2F4]",
                   opt === value ? "font-semibold text-[#1B2432]" : "text-[#5C6470]",
                 )}
               >
-                {opt}
+                <span className="w-4 shrink-0">
+                  {opt === value && <Check className="size-3.5 text-[#ED351D]" strokeWidth={2.5} />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{opt}</span>
+                {typeof count === "number" ? (
+                  <span
+                    className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
+                      count > 0 ? "bg-[#F1F2F4] text-[#344256]" : "bg-white text-[#9CA3AF]",
+                    )}
+                  >
+                    {formatQuantity(count)}
+                  </span>
+                ) : null}
               </button>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       ) : null}
     </div>
   );
@@ -923,6 +970,11 @@ export function TmLubricant() {
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={releaseFuel}
+              counts={{
+                "All lubricants": asks.length,
+                Diesel: asks.filter((a) => a.request?.fuelType === "Diesel").length,
+                Gas: asks.filter((a) => a.request?.fuelType === "Gas").length,
+              }}
               onChange={(v) => {
                 setReleaseFuel(v);
                 setApprovedPage(0);
@@ -1104,6 +1156,11 @@ export function TmLubricant() {
             <FilterButton
               options={["All lubricants", "Diesel", "Gas"]}
               value={restockFuel}
+              counts={{
+                "All lubricants": restocks.length,
+                Diesel: restocks.filter((r) => r.fuelType === "Diesel").length,
+                Gas: restocks.filter((r) => r.fuelType === "Gas").length,
+              }}
               onChange={(v) => {
                 setRestockFuel(v);
                 setRestockPage(0);
@@ -1236,6 +1293,12 @@ export function TmLubricant() {
             <FilterButton
               options={["All statuses", "Pending", "Approved", "Declined"]}
               value={logStatus}
+              counts={{
+                "All statuses": disbursals.length,
+                Pending: disbursals.filter((d) => String(d.status ?? "Pending") === "Pending").length,
+                Approved: disbursals.filter((d) => d.status === "Approved").length,
+                Declined: disbursals.filter((d) => d.status === "Declined").length,
+              }}
               onChange={(v) => {
                 setLogStatus(v);
                 setLogPage(0);
