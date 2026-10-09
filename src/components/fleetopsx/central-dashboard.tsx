@@ -748,8 +748,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     for (const trip of liveOnRoad) {
       cost += directCostOf(trip);
       const type = trip.directCosts?.lubricantType;
-      const qty = Number(trip.directCosts?.lubricantQuantity ?? 0);
-      const spend = Number(trip.directCosts?.lubricantCost ?? 0);
+      const requestedQty = Number(trip.directCosts?.lubricantQuantity ?? 0);
+      const qty = trip.directCosts?.lubricantApprovedLitres !== undefined ? Number(trip.directCosts.lubricantApprovedLitres) : requestedQty;
+      const requestedSpend = Number(trip.directCosts?.lubricantCost ?? 0);
+      const spend = requestedQty > 0 ? (qty / requestedQty) * requestedSpend : 0;
       if (type === "Diesel") {
         dieselLitres += qty;
         dieselCost += spend;
@@ -1147,11 +1149,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <span className="text-[10px] text-white/60">
           Lubricant:{" "}
           <span className="font-semibold" style={{ color: TONE.amber.line }}>
-            {trip.directCosts?.lubricantQuantity
-              ? `${trip.directCosts.lubricantQuantity}${
-                  trip.directCosts.lubricantType === "Gas" ? "KG" : "L"
-                } (${formatMoney(trip.directCosts.lubricantCost)})`
-              : "—"}
+            {(() => {
+              const rQty = trip.directCosts?.lubricantQuantity ?? 0;
+              const aQty = trip.directCosts?.lubricantApprovedLitres !== undefined ? trip.directCosts.lubricantApprovedLitres : rQty;
+              const rCost = trip.directCosts?.lubricantCost ?? 0;
+              const cost = rQty > 0 ? (aQty / rQty) * rCost : 0;
+              return aQty
+                ? `${aQty}${trip.directCosts?.lubricantType === "Gas" ? "KG" : "L"} (${formatMoney(cost)})`
+                : "—";
+            })()}
           </span>
         </span>
         <span className="col-span-2 text-[10px] text-white/60">
@@ -2437,11 +2443,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[11px] text-[#5C6470]">
                           Lubricant:{" "}
-                          {c?.lubricantQuantity
-                            ? `${c.lubricantQuantity}${
-                                c.lubricantType === "Gas" ? "KG" : "L"
-                              } (${formatMoney(c.lubricantCost)})`
-                            : "—"}
+                          {(() => {
+                            const rQty = c?.lubricantQuantity ?? 0;
+                            const aQty = c?.lubricantApprovedLitres !== undefined ? c.lubricantApprovedLitres : rQty;
+                            const rCost = c?.lubricantCost ?? 0;
+                            const cost = rQty > 0 ? (aQty / rQty) * rCost : 0;
+                            return aQty
+                              ? `${aQty}${c?.lubricantType === "Gas" ? "KG" : "L"} (${formatMoney(cost)})`
+                              : "—";
+                          })()}
                         </span>
                         <span className="text-[11px] font-semibold text-[#5C6470]">
                           Total:{" "}
