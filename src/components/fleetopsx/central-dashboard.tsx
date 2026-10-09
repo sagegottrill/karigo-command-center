@@ -1974,24 +1974,24 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     }))}
                   />
                   <TileCostColumns
-                    /* What the TM actually APPROVED — the direct costs written on in-road trips,
-                       not the dispensed fuel from the desk. */
+                    /* Fortune counts the pump, not the paperwork: this reads the desk's DISPENSED ledger
+                       for the selected window, ignoring how long trucks have been on the road. */
                     columns={[
                       {
                         label: "Direct Cost:",
-                        value: formatMoney(stats.spend.cost),
+                        value: formatMoney(stats.spend.pouredCost),
                         tone: "purple",
                       },
                       {
                         label: "Diesel:",
-                        value: `${stats.spend.dieselLitres}L`,
-                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
+                        value: `${stats.spend.pouredDieselLitres}L`,
+                        sub: `(${formatMoney(stats.spend.pouredDieselCost)})`,
                         tone: "amber",
                       },
                       {
                         label: "Gas:",
-                        value: `${stats.spend.gasKg}KG`,
-                        sub: `(${formatMoney(stats.spend.gasCost)})`,
+                        value: `${stats.spend.pouredGasKg}KG`,
+                        sub: `(${formatMoney(stats.spend.pouredGasCost)})`,
                         tone: "amber",
                       },
                     ]}
