@@ -1,6 +1,7 @@
 import { inPeriod, type PeriodRange } from "./period";
 import { partnerOf } from "./tracking-ops";
 import { tripBucket, type TripBucket } from "./status-buckets";
+import { costTotal, sheetOf } from "./direct-costs";
 import { displayCapPlateFromTrip } from "./display-ids";
 import type { Trip } from "./types";
 import type { LubricantDisbursalRow, LubricantRestock, LubricantStock } from "./lubricant";
@@ -27,16 +28,7 @@ import type { LubricantDisbursalRow, LubricantRestock, LubricantStock } from "./
 
 /** The allowance keys the platform commits per dispatch (directCosts). */
 function directCostOf(trip: Trip): number {
-  const c = trip.directCosts;
-  if (!c) return 0;
-  return (
-    Number(c.tripAllowance ?? 0) +
-    Number(c.returnWaybill ?? 0) +
-    Number(c.motorBoy ?? 0) +
-    Number(c.ticket ?? 0) +
-    Number(c.extraAllowance ?? 0) +
-    Number(c.bonus ?? 0)
-  );
+  return costTotal(sheetOf(trip));
 }
 
 export type CompanyReport = {

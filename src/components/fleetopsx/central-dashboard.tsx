@@ -53,6 +53,7 @@ import {
   tripBucket,
   type PartnerUiStatus,
 } from "@/lib/fleetopsx/status-buckets";
+import { costTotal, sheetOf } from "@/lib/fleetopsx/direct-costs";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { displayCapPlateFromTrip } from "@/lib/fleetopsx/display-ids";
 import {
@@ -141,16 +142,7 @@ type FleetSegment = (typeof FLEET_SEGMENTS)[number]["id"];
 
 /** The direct costs configured on a request — the money side of a dispatch. */
 function directCostOf(trip: Trip) {
-  const c = trip.directCosts;
-  if (!c) return 0;
-  return (
-    Number(c.tripAllowance ?? 0) +
-    Number(c.returnWaybill ?? 0) +
-    Number(c.motorBoy ?? 0) +
-    Number(c.ticket ?? 0) +
-    Number(c.extraAllowance ?? 0) +
-    Number(c.bonus ?? 0)
-  );
+  return costTotal(sheetOf(trip));
 }
 
 /**
@@ -2401,7 +2393,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               const bucket = tripBucket(trip);
               const isBudgeted = bucket !== "pending" && bucket !== "declined";
               const c = trip.directCosts;
-              const total = directCostOf(trip) + Number(c?.lubricantCost ?? 0);
+              const rQty = c?.lubricantQuantity ?? 0;
+              const aQty = c?.lubricantApprovedLitres !== undefined ? Number(c.lubricantApprovedLitres) : rQty;
+              const rCost = c?.lubricantCost ?? 0;
+              const approvedLubricantCost = rQty > 0 ? (aQty / rQty) * rCost : 0;
+              const total = directCostOf(trip) + approvedLubricantCost;
               return (
                 <div
                   key={trip.id}
@@ -2450,15 +2446,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[11px] text-[#5C6470]">
                           Lubricant:{" "}
-                          {(() => {
-                            const rQty = c?.lubricantQuantity ?? 0;
-                            const aQty = c?.lubricantApprovedLitres !== undefined ? c.lubricantApprovedLitres : rQty;
-                            const rCost = c?.lubricantCost ?? 0;
-                            const cost = rQty > 0 ? (aQty / rQty) * rCost : 0;
-                            return aQty
-                              ? `${aQty}${c?.lubricantType === "Gas" ? "KG" : "L"} (${formatMoney(cost)})`
-                              : "—";
-                          })()}
+                          {aQty > 0
+                            ? `${aQty}${c?.lubricantType === "Gas" ? "KG" : "L"} (${formatMoney(approvedLubricantCost)})`
+                            : "—"}
                         </span>
                         <span className="text-[11px] font-semibold text-[#5C6470]">
                           Total:{" "}
