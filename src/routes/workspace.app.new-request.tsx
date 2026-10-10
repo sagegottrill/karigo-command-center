@@ -72,6 +72,7 @@ function TransportManagerNewRequest() {
   const [truckType, setTruckType] = useState("");
   const [destination, setDestination] = useState("");
   const [destinationAddress, setDestinationAddress] = useState("");
+  const [quantity, setQuantity] = useState("1");
   const [routingType, setRoutingType] = useState<"Single" | "Multiple">("Single");
   const [loadingSites, setLoadingSites] = useState<LoadingSite[]>([
     { id: "initial", type: "", customValue: "" },
@@ -135,11 +136,15 @@ function TransportManagerNewRequest() {
         pickup,
         dropoff: destination.trim(),
         dropoffAddress: destinationAddress.trim(),
+        quantity: Math.max(1, parseInt(quantity) || 1),
       });
+
+      const actualQuantity = Math.max(1, parseInt(quantity) || 1);
+      const title = actualQuantity > 1 ? `New Internal Request (${actualQuantity} trucks)` : "New Internal Request";
 
       void notificationService
         .create({
-          title: "New Internal Request",
+          title,
           body: `Petroline request for ${customerConsignee.trim()} — ${product.trim()} to ${destination.trim()}.`,
           category: "Approvals",
           // Internal means internal: with no audience this row went to EVERY user,
@@ -233,6 +238,18 @@ function TransportManagerNewRequest() {
                   value={destinationAddress}
                   onChange={(e) => setDestinationAddress(e.target.value)}
                   placeholder="example: 12 Kute Road, off Airport Road"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field label="Number of Trucks / Trips" required hint="How many identical trips to dispatch.">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
                   className={inputClass}
                 />
               </Field>
