@@ -28,6 +28,21 @@ export const PARTNER_TRUCK_TYPE_OPTIONS = [
 export const PARTNER_LOADING_LOCATION_GROUPS: { port: string; sites: string[] }[] = [
   { port: "Apapa", sites: ["ENL", "Eco Support", "Dangote"] },
   { port: "Tincan", sites: ["Port and Cargo", "Niger Dock", "Joseph Dam"] },
+  { 
+    port: "General / Other Sites", 
+    sites: [
+      "Comfortoboh",
+      "Happy Home",
+      "Ijesha.1",
+      "Babangida.1",
+      "Babangida.2",
+      "Ijesha.2",
+      "Babangida.3",
+      "Metalberg.K",
+      "Saba Factory",
+      "Others"
+    ] 
+  }
 ];
 
 /**
