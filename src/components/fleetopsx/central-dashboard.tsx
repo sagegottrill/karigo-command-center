@@ -745,22 +745,26 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     let dieselCost = 0;
     let gasKg = 0;
     let gasCost = 0;
-    for (const trip of liveOnRoad) {
+    for (const trip of trips) {
+      const bucket = tripBucket(trip);
+      const isBudgeted = bucket !== "pending" && bucket !== "declined" && trip.status !== "Cancelled";
+      if (!isBudgeted) continue;
+
       const dispatchedTime = trip.dispatchTracker?.dispatchTime ?? trip.createdAt;
       if (inPeriod(dispatchedTime, range)) {
         cost += directCostOf(trip);
-      }
-      const type = trip.directCosts?.lubricantType;
-      const requestedQty = Number(trip.directCosts?.lubricantQuantity ?? 0);
-      const qty = trip.directCosts?.lubricantApprovedLitres !== undefined ? Number(trip.directCosts.lubricantApprovedLitres) : requestedQty;
-      const requestedSpend = Number(trip.directCosts?.lubricantCost ?? 0);
-      const spend = requestedQty > 0 ? (qty / requestedQty) * requestedSpend : 0;
-      if (type === "Diesel") {
-        dieselLitres += qty;
-        dieselCost += spend;
-      } else if (type === "Gas") {
-        gasKg += qty;
-        gasCost += spend;
+        const type = trip.directCosts?.lubricantType;
+        const requestedQty = Number(trip.directCosts?.lubricantQuantity ?? 0);
+        const qty = trip.directCosts?.lubricantApprovedLitres !== undefined ? Number(trip.directCosts.lubricantApprovedLitres) : requestedQty;
+        const requestedSpend = Number(trip.directCosts?.lubricantCost ?? 0);
+        const spend = requestedQty > 0 ? (qty / requestedQty) * requestedSpend : 0;
+        if (type === "Diesel") {
+          dieselLitres += qty;
+          dieselCost += spend;
+        } else if (type === "Gas") {
+          gasKg += qty;
+          gasCost += spend;
+        }
       }
     }
 
