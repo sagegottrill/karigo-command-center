@@ -746,7 +746,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     let gasKg = 0;
     let gasCost = 0;
     for (const trip of liveOnRoad) {
-      cost += directCostOf(trip);
+      const dispatchedTime = trip.dispatchTracker?.dispatchTime ?? trip.createdAt;
+      if (inPeriod(dispatchedTime, range)) {
+        cost += directCostOf(trip);
+      }
       const type = trip.directCosts?.lubricantType;
       const requestedQty = Number(trip.directCosts?.lubricantQuantity ?? 0);
       const qty = trip.directCosts?.lubricantApprovedLitres !== undefined ? Number(trip.directCosts.lubricantApprovedLitres) : requestedQty;
