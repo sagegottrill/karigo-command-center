@@ -99,7 +99,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
     const cleanHeld = norm(heldByName);
     try {
       const drivers = await driverService.list();
-      const matchedDrivers = drivers.filter((d) => {
+      const matchedDrivers = drivers.filter((d: any) => {
         const dn = norm(d.name || "");
         if (cleanHeld && cleanHeld !== "unassigned") {
           if (dn === cleanHeld || (cleanHeld.length >= 4 && (dn.includes(cleanHeld) || cleanHeld.includes(dn)))) return true;

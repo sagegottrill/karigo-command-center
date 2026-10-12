@@ -739,10 +739,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     let gasCost = 0;
     for (const trip of trips) {
       const bucket = tripBucket(trip);
-      const isBudgeted = bucket !== "pending" && bucket !== "declined" && trip.status !== "Cancelled";
+      const isBudgeted = bucket !== "pending" && bucket !== "declined" && (trip.status as string) !== "Cancelled";
       if (!isBudgeted) continue;
 
-      const dispatchedTime = trip.dispatchTracker?.dispatchTime ?? trip.createdAt;
+      const dispatchedTime = (trip as any).dispatchTracker?.dispatchTime ?? trip.createdAt;
       if (inPeriod(dispatchedTime, range)) {
         cost += directCostOf(trip);
         const type = trip.directCosts?.lubricantType;
@@ -784,6 +784,17 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       } else if (pour.fuelType === "Gas") {
         pouredGasKg += Number(pour.quantity ?? 0);
         pouredGasCost += Number(pour.amount ?? 0);
+      }
+    }
+    for (const d of disbursals) {
+      if (!inPeriod(d.createdAt, range)) continue;
+      pouredCost += Number(d.amount ?? 0);
+      if (d.fuelType === "Diesel") {
+        pouredDieselLitres += Number(d.quantity ?? 0);
+        pouredDieselCost += Number(d.amount ?? 0);
+      } else if (d.fuelType === "Gas") {
+        pouredGasKg += Number(d.quantity ?? 0);
+        pouredGasCost += Number(d.amount ?? 0);
       }
     }
 
@@ -886,7 +897,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, range]);
+  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, disbursals, range]);
 
   /** The window's own activity — raised / approved / dispatched / declined. */
   const activity = useMemo(
@@ -1973,8 +1984,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     }))}
                   />
                   <TileCostColumns
-                    /* Fortune counts the pump, not the paperwork: this reads the desk's DISPENSED ledger
-                       for the selected window, ignoring how long trucks have been on the road. */
                     columns={[
                       {
                         label: "Direct Cost:",
@@ -1983,14 +1992,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                       },
                       {
                         label: "Diesel:",
-                        value: `${stats.spend.pouredDieselLitres}L`,
-                        sub: `(${formatMoney(stats.spend.pouredDieselCost)})`,
+                        value: `${(stats.spend.dieselLitres || stats.spend.pouredDieselLitres).toLocaleString()}L`,
+                        sub: `(${formatMoney(stats.spend.dieselCost || stats.spend.pouredDieselCost)})`,
                         tone: "amber",
                       },
                       {
                         label: "Gas:",
-                        value: `${stats.spend.pouredGasKg}KG`,
-                        sub: `(${formatMoney(stats.spend.pouredGasCost)})`,
+                        value: `${(stats.spend.gasKg || stats.spend.pouredGasKg).toLocaleString()}KG`,
+                        sub: `(${formatMoney(stats.spend.gasCost || stats.spend.pouredGasCost)})`,
                         tone: "amber",
                       },
                     ]}
@@ -2024,15 +2033,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Dispensed Diesel</span>
+                    <span>Diesel</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.pouredDieselLitres}L ({formatMoney(stats.spend.pouredDieselCost)})
+                      {(stats.spend.dieselLitres || stats.spend.pouredDieselLitres).toLocaleString()}L ({formatMoney(stats.spend.dieselCost || stats.spend.pouredDieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Dispensed Gas</span>
+                    <span>Gas</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.pouredGasKg}KG ({formatMoney(stats.spend.pouredGasCost)})
+                      {(stats.spend.gasKg || stats.spend.pouredGasKg).toLocaleString()}KG ({formatMoney(stats.spend.gasCost || stats.spend.pouredGasCost)})
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
@@ -2040,8 +2049,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     <span className="font-bold" style={{ color: TONE.green.line }}>
                       {formatMoney(
                         stats.spend.cost +
-                          stats.spend.pouredDieselCost +
-                          stats.spend.pouredGasCost,
+                          (stats.spend.dieselCost || stats.spend.pouredDieselCost) +
+                          (stats.spend.gasCost || stats.spend.pouredGasCost),
                       )}
                     </span>
                   </div>
