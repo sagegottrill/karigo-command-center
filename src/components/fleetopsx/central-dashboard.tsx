@@ -1992,14 +1992,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                       },
                       {
                         label: "Diesel:",
-                        value: `${(stats.spend.dieselLitres || stats.spend.pouredDieselLitres).toLocaleString()}L`,
-                        sub: `(${formatMoney(stats.spend.dieselCost || stats.spend.pouredDieselCost)})`,
+                        value: `${stats.spend.dieselLitres.toLocaleString()}L`,
+                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
                         tone: "amber",
                       },
                       {
                         label: "Gas:",
-                        value: `${(stats.spend.gasKg || stats.spend.pouredGasKg).toLocaleString()}KG`,
-                        sub: `(${formatMoney(stats.spend.gasCost || stats.spend.pouredGasCost)})`,
+                        value: `${stats.spend.gasKg.toLocaleString()}KG`,
+                        sub: `(${formatMoney(stats.spend.gasCost)})`,
                         tone: "amber",
                       },
                     ]}
@@ -2035,13 +2035,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   <div className="flex items-center justify-between py-0.5">
                     <span>Diesel</span>
                     <span className="font-semibold text-white">
-                      {(stats.spend.dieselLitres || stats.spend.pouredDieselLitres).toLocaleString()}L ({formatMoney(stats.spend.dieselCost || stats.spend.pouredDieselCost)})
+                      {stats.spend.dieselLitres.toLocaleString()}L ({formatMoney(stats.spend.dieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span>Gas</span>
                     <span className="font-semibold text-white">
-                      {(stats.spend.gasKg || stats.spend.pouredGasKg).toLocaleString()}KG ({formatMoney(stats.spend.gasCost || stats.spend.pouredGasCost)})
+                      {stats.spend.gasKg.toLocaleString()}KG ({formatMoney(stats.spend.gasCost)})
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
@@ -2049,8 +2049,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     <span className="font-bold" style={{ color: TONE.green.line }}>
                       {formatMoney(
                         stats.spend.cost +
-                          (stats.spend.dieselCost || stats.spend.pouredDieselCost) +
-                          (stats.spend.gasCost || stats.spend.pouredGasCost),
+                          stats.spend.dieselCost +
+                          stats.spend.gasCost,
                       )}
                     </span>
                   </div>
