@@ -92,19 +92,38 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         marked = true;
       }
     }
-    // The DRIVER comes off the trip with the truck. Assigning set him to "On
-    // Trip" from "Available" OR "Active" (the working-driver register word), so
-    // the release must accept both words — matching on "On Trip" alone left
-    // every driver assigned from "Active" out on the road forever, which is
-    // exactly the report the gate house brought back: the TRUCK reflects the
-    // return, the DRIVER does not.
-    const heldByName = String(trip.driverName || "").trim();
-    if (heldByName && !/^unassigned$/i.test(heldByName)) {
+    // The DRIVER comes off the trip with the truck. The working driver status in HR
+    // and dispatch is "Active". We match by name, staffId, or assigned truck registration/cabId.
+    const heldByName = String(trip.driverName || "").trim().toLowerCase();
+    const norm = (s: string) => s.replace(/[\s\-_]/g, "").toLowerCase();
+    const cleanHeld = norm(heldByName);
+    try {
       const drivers = await driverService.list();
-      const driver = drivers.find((d) => d.name.trim().toLowerCase() === heldByName.toLowerCase());
-      if (driver && ["On Trip", "Active"].includes(driver.status)) {
-        await driverService.update(driver.id, { status: "Available" });
+      const matchedDrivers = drivers.filter((d) => {
+        const dn = norm(d.name || "");
+        if (cleanHeld && cleanHeld !== "unassigned") {
+          if (dn === cleanHeld || (cleanHeld.length >= 4 && (dn.includes(cleanHeld) || cleanHeld.includes(dn)))) return true;
+          if (d.staffId && norm(d.staffId) === cleanHeld) return true;
+        }
+        if (plate) {
+          const np = norm(plate);
+          if (d.truckReg && norm(d.truckReg).includes(np)) return true;
+          if (d.truckReg2 && norm(d.truckReg2).includes(np)) return true;
+        }
+        if (cap && cap !== "—") {
+          const nc = norm(cap);
+          if (d.truckReg && norm(d.truckReg).includes(nc)) return true;
+          if (d.truckReg2 && norm(d.truckReg2).includes(nc)) return true;
+        }
+        return false;
+      });
+      for (const driver of matchedDrivers) {
+        if (driver.status !== "Active") {
+          await driverService.update(driver.id, { status: "Active" });
+        }
       }
+    } catch (driverErr) {
+      console.warn("Could not free driver on return:", driverErr);
     }
   } catch {
     /* the return itself must stand even if the asset row cannot be updated */
