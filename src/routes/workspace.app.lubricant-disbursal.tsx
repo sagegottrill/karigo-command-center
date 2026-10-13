@@ -41,13 +41,14 @@ import {
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { cn } from "@/lib/utils";
 
+// Fleet Operations has nothing to do with the Lubricant module — removed from
+// their portal entirely, so the gate no longer lets them in.
 const ALLOWED = [
   "Lubricant",
   "Lubricant Manager",
   "Lubricant Operations",
   "Inventory",
   "Fuel Manager",
-  "Fleet Operations",
   "Transport Manager",
   "Platform Admin",
 ];

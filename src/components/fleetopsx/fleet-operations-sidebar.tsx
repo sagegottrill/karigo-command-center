@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, ClipboardList, Droplets, History, LogOut, MapPinCheck, MessageSquare, MoreVertical, Navigation, Truck } from "lucide-react";
+import { Bell, ClipboardList, History, LogOut, MapPinCheck, MessageSquare, MoreVertical, Navigation, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -22,8 +22,6 @@ const FO_NAV: FoNavItem[] = [
   // Tracking Operations board: FO must see where every truck on the road is right now.
   { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
-  // What the Lubricant department dispensed for the fleet's trucks, and what it cost.
-  { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
   // Chat lives with the dispatch it is about — one thread per trip.
   { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },

@@ -32,13 +32,13 @@ import { cn } from "@/lib/utils";
 /**
  * Who may see the money.
  *
- * The department dispenses litres; only the Transport Manager, Fleet Operations,
- * Accounts and the platform see what those litres cost.
+ * The department dispenses litres; only the Transport Manager, Accounts and the
+ * platform see what those litres cost. Fleet Operations has nothing to do with
+ * the Lubricant module — it was removed from their portal entirely.
  */
 const ALLOWED = [
   "Transport Manager",
   "Platform Admin",
-  "Fleet Operations",
   "Accounts",
   "Accountant",
 ];
