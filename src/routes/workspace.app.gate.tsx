@@ -113,6 +113,15 @@ function stampCsv(value: string | null, fallback: string): string {
   return stamp ? `${stamp.date} ${stamp.time}` : value;
 }
 
+function formatGateLogger(name?: string | null): string {
+  if (!name) return "Petroline Security";
+  const s = String(name).trim();
+  if (!s || /auto-reconcil|superseded|departure predates/i.test(s)) {
+    return "Petroline Security";
+  }
+  return s;
+}
+
 function SecurityLogPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -653,18 +662,18 @@ departure silently never logs. */
                   ledger. Empty (italic) until a signed stamp exists. */}
               <span
                 className={
-                  trip.gateInBy && ret
+                  ret
                     ? "text-[13px] tracking-[0.4px] text-[#1F7A33]"
-                    : trip.gateOutBy && dep
+                    : dep
                       ? "text-[13px] tracking-[0.4px] text-[#8E3D2D]"
                       : "text-[13px] italic tracking-[0.4px] text-[#627084]"
                 }
               >
                 <span className="text-[#627084] md:hidden">Logged By: </span>
                 {ret
-                  ? trip.gateInBy || "Unsigned"
+                  ? formatGateLogger(trip.gateInBy)
                   : dep
-                    ? trip.gateOutBy || "Unsigned"
+                    ? formatGateLogger(trip.gateOutBy)
                     : "Unsigned"}
               </span>
               <div className="hidden justify-self-end md:block">

@@ -39,13 +39,14 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
   // onto the Guard Activity Ledger the Transport Manager audits.
   const gateInBy = (() => {
     try {
-      // Imported lazily: services imports this module for its trip surface, so a
-      // top-level authService import here would read as a cycle to some bundlers.
-      const { authService: auth } = require("./services") as typeof import("./services");
-      return auth.getCurrentUser()?.name || "Security";
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("fleetopsx_user_name");
+        if (stored && stored.trim()) return stored.trim();
+      }
     } catch {
-      return "Security";
+      // ignore
     }
+    return "Petroline Security";
   })();
   await tripService.update(trip.id, {
     status: "Completed",
@@ -104,6 +105,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         if (cleanHeld && cleanHeld !== "unassigned") {
           if (dn === cleanHeld || (cleanHeld.length >= 4 && (dn.includes(cleanHeld) || cleanHeld.includes(dn)))) return true;
           if (d.staffId && norm(d.staffId) === cleanHeld) return true;
+          if (d.employeeId && norm(d.employeeId) === cleanHeld) return true;
         }
         if (plate) {
           const np = norm(plate);

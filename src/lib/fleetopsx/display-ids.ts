@@ -157,16 +157,20 @@ export function displayHeadOption(head: TruckHead): string {
 /** Salary / staff code for a driver (never UUID). */
 export function displayDriverSalary(driver?: Driver | null, fallbackId?: string | null): string {
   if (!driver && !fallbackId) return "";
+  const rawStaffId = (driver as any)?.staffId;
   const roster = findRosterDriver({
     phone: driver?.phone ?? null,
     name: driver?.name ?? null,
-    salaryNumber: driver?.salaryNumber ?? driver?.employeeId ?? null,
+    salaryNumber: driver?.salaryNumber ?? driver?.employeeId ?? rawStaffId ?? null,
   });
-  return humanCode(driver?.salaryNumber, driver?.employeeId, roster?.salaryNumber, fallbackId);
+  return humanCode(driver?.salaryNumber, driver?.employeeId, rawStaffId, roster?.salaryNumber, fallbackId);
 }
 
 export function displayDriverOption(driver: Driver): string {
   const salary = displayDriverSalary(driver);
+  if (salary && driver.name && !salary.toLowerCase().includes(driver.name.toLowerCase())) {
+    return `${salary} - ${driver.name}`;
+  }
   return salary || driver.name || "Unknown driver";
 }
 
