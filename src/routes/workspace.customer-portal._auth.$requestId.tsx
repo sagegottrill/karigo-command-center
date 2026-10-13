@@ -27,6 +27,8 @@ import {
 } from "@/lib/fleetopsx/tracking-ops";
 import {
   loadingSiteChoiceGroups,
+  ADD_LOADING_SITE_LABEL,
+  isAddingLoadingSite,
   isOtherLoadingSite,
   loadingSiteDraftFor,
   PARTNER_TRUCK_TYPE_OPTIONS,
@@ -554,6 +556,11 @@ function PartnerRequestDetailsPage() {
       toast.error("Write the loading yard under Others — where the truck actually loads.");
       return;
     }
+    // An "Add your loading site" row must carry the yard it adds.
+    if (draftSites.some((s) => isAddingLoadingSite(s.type) && !s.customValue.trim())) {
+      toast.error("Write the name of the site you are adding.");
+      return;
+    }
     const unique = new Set(sites.map((s) => s.toLowerCase()));
     if (sites.length > 0 && unique.size !== sites.length) {
       toast.error("Each loading site can only be selected once");
@@ -588,6 +595,19 @@ function PartnerRequestDetailsPage() {
         sessionStorage.setItem(`fleetopsx_partner_trip_${updated.id}`, JSON.stringify(updated));
       } catch {
         /* ignore */
+      }
+      // Yards typed under "Add your loading site" join the company's own saved
+      // list, so the correction teaches the company's next request the yard too.
+      const addedNames = draftSites
+        .filter((s) => isAddingLoadingSite(s.type) && s.customValue.trim())
+        .map((s) => s.customValue.trim());
+      const novel = addedNames.filter((n) => !savedSites.some((k) => k.toLowerCase() === n.toLowerCase()));
+      if (novel.length) {
+        await Promise.all(
+          novel.map((n) =>
+            partnerSiteService.add(n, trip.customer).catch(() => null),
+          ),
+        );
       }
       closeModifyModal();
       toast.success("Request updated");
@@ -1238,7 +1258,7 @@ function PartnerRequestDetailsPage() {
                         </button>
                       ) : null}
                     </div>
-                    {isOtherLoadingSite(site.type) ? (
+                    {isOtherLoadingSite(site.type) || isAddingLoadingSite(site.type) ? (
                       <input
                         value={site.customValue}
                         onChange={(e) =>
@@ -1248,13 +1268,17 @@ function PartnerRequestDetailsPage() {
                             ),
                           )
                         }
-                        placeholder="Write the yard — example: Metalberg.K"
+                        placeholder={
+                          isOtherLoadingSite(site.type)
+                            ? "Write the yard — example: Metalberg.K"
+                            : "Write the site to add — example: PAS Quay, Ijesha"
+                        }
                         className={inputClass}
                       />
                     ) : null}
                     {siteDropdownIndex === index ? (
                       <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                        {loadingSiteChoiceGroups(savedSites).map((group) => (
+                        {[...loadingSiteChoiceGroups(savedSites), { heading: "Add a new site", options: [ADD_LOADING_SITE_LABEL] }].map((group) => (
                           <div key={group.heading ?? "named"}>
                             {group.heading ? (
                               <p className="sticky top-0 bg-[#F1F2F4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
@@ -1262,9 +1286,9 @@ function PartnerRequestDetailsPage() {
                               </p>
                             ) : null}
                             {group.options.map((opt) => {
-                              const takenElsewhere = draftSites.some(
-                                (s, i) => i !== index && s.type === opt,
-                              );
+                              const takenElsewhere =
+                                !isAddingLoadingSite(opt) &&
+                                draftSites.some((s, i) => i !== index && s.type === opt);
                               return (
                                 <button
                                   key={opt}

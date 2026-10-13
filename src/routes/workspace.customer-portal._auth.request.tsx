@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
+  ADD_LOADING_SITE_LABEL,
+  isAddingLoadingSite,
   isOtherLoadingSite,
   loadingSiteChoiceGroups,
   partnerLoadingSiteNames,
@@ -95,6 +97,13 @@ function PartnerNewRequest() {
       toast.error("Write the loading yard under Others — where the truck actually loads.");
       return;
     }
+    // An "Add your loading site" row must carry the yard it adds — the option
+    // is a promise, not a location.
+    const addsWithoutName = loadingSites.find((s) => isAddingLoadingSite(s.type) && !s.customValue.trim());
+    if (addsWithoutName) {
+      toast.error("Write the name of the site you are adding.");
+      return;
+    }
 
     if (
       finalSites.length === 0 ||
@@ -130,6 +139,16 @@ function PartnerNewRequest() {
         dropoff: destination.trim(),
         dropoffAddress: destinationAddress.trim(),
       });
+      // Yards typed under "Add your loading site" join the company's own saved
+      // list — offered by name on the NEXT request, like the internal form.
+      const addedNames = loadingSites
+        .filter((s) => isAddingLoadingSite(s.type) && s.customValue.trim())
+        .map((s) => s.customValue.trim());
+      const novel = addedNames.filter((n) => !savedSites.some((k) => k.toLowerCase() === n.toLowerCase()));
+      if (novel.length) {
+        const company = authService.getCurrentUser()?.partnerCompanyName;
+        await Promise.all(novel.map((n) => partnerSiteService.add(n, company).catch(() => null)));
+      }
       toast.success("Request submitted to Fleet Operations");
       navigate({ to: "/workspace/customer-portal/dashboard" });
     } catch (err) {
@@ -367,7 +386,7 @@ function PartnerNewRequest() {
                     </div>
                     {openDropdownIndex === index ? (
                       <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[260px] overflow-y-auto overscroll-contain rounded-[8px] border border-[#E2E5E9] bg-white py-1 shadow-[0px_12px_32px_rgba(12,12,13,0.18)]">
-                        {loadingSiteChoiceGroups(savedSites).map((group) => (
+                        {[...loadingSiteChoiceGroups(savedSites), { heading: "Add a new site", options: [ADD_LOADING_SITE_LABEL] }].map((group) => (
                           <div key={group.heading ?? "named"}>
                             {group.heading ? (
                               <p className="sticky top-0 bg-[#F1F2F4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
@@ -375,9 +394,11 @@ function PartnerNewRequest() {
                               </p>
                             ) : null}
                             {group.options.map((opt) => {
-                              const takenElsewhere = loadingSites.some(
-                                (s, i) => i !== index && s.type === opt,
-                              );
+                              const takenElsewhere =
+                                !isAddingLoadingSite(opt) &&
+                                loadingSites.some(
+                                  (s, i) => i !== index && s.type === opt,
+                                );
                               return (
                                 <button
                                   key={opt}
@@ -410,7 +431,7 @@ function PartnerNewRequest() {
                         ))}
                       </div>
                     ) : null}
-                    {isOtherLoadingSite(site.type) ? (
+                    {isOtherLoadingSite(site.type) || isAddingLoadingSite(site.type) ? (
                       <input
                         value={site.customValue}
                         onChange={(e) =>
@@ -420,7 +441,11 @@ function PartnerNewRequest() {
                             ),
                           )
                         }
-                        placeholder="Write the yard — example: Metalberg.K"
+                        placeholder={
+                          isOtherLoadingSite(site.type)
+                            ? "Write the yard — example: Metalberg.K"
+                            : "Write the site to add — example: PAS Quay, Ijesha"
+                        }
                         className={inputClass}
                       />
                     ) : null}
