@@ -27,6 +27,7 @@ import {
 } from "@/lib/fleetopsx/tracking-ops";
 import {
   loadingSiteChoiceGroups,
+  isOtherLoadingSite,
   loadingSiteDraftFor,
   PARTNER_TRUCK_TYPE_OPTIONS,
   resolvePartnerLoadingSite,
@@ -547,6 +548,12 @@ function PartnerRequestDetailsPage() {
   const saveModify = async () => {
     if (!trip) return;
     const sites = draftSites.map(resolvePartnerLoadingSite).filter(Boolean);
+    // "Others" is an escape hatch, never a location: a row picked as Others must
+    // carry the yard it stands for before the request can be re-sent.
+    if (draftSites.some((s) => isOtherLoadingSite(s.type) && !s.customValue.trim())) {
+      toast.error("Write the loading yard under Others — where the truck actually loads.");
+      return;
+    }
     const unique = new Set(sites.map((s) => s.toLowerCase()));
     if (sites.length > 0 && unique.size !== sites.length) {
       toast.error("Each loading site can only be selected once");
@@ -1231,6 +1238,20 @@ function PartnerRequestDetailsPage() {
                         </button>
                       ) : null}
                     </div>
+                    {isOtherLoadingSite(site.type) ? (
+                      <input
+                        value={site.customValue}
+                        onChange={(e) =>
+                          setDraftSites((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { id: s.id, type: s.type, customValue: e.target.value } : s,
+                            ),
+                          )
+                        }
+                        placeholder="Write the yard — example: Metalberg.K"
+                        className={inputClass}
+                      />
+                    ) : null}
                     {siteDropdownIndex === index ? (
                       <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
                         {loadingSiteChoiceGroups(savedSites).map((group) => (

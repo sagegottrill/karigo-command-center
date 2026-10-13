@@ -91,6 +91,18 @@ export type PartnerLoadingSiteDraft = {
 /** The one entry a partner with no sites yet is offered (internal form). */
 export const ADD_LOADING_SITE_LABEL = "Add your loading site";
 
+/**
+ * The named-list escape hatch: "Others" under General / Other Sites. Picking it
+ * must never store the WORD — a write-in box always follows the pick so the
+ * request carries the yard the truck actually loads at.
+ */
+export const OTHER_LOADING_SITE_LABEL = "Others";
+
+/** True when the row is the "Others" escape hatch waiting for a typed yard. */
+export function isOtherLoadingSite(type: string): boolean {
+  return type === OTHER_LOADING_SITE_LABEL;
+}
+
 /** The list the internal form offers: saved sites, then the "add" entry. */
 export function loadingSiteChoices(sites: string[]): string[] {
   return [...sites, ADD_LOADING_SITE_LABEL];
@@ -101,11 +113,14 @@ export function isAddingLoadingSite(type: string): boolean {
   return type === ADD_LOADING_SITE_LABEL;
 }
 
-/** The stored name for a draft row: the typed value for an added site, otherwise
- * the picked one.
+/** The stored name for a draft row: the typed value for an added site or for
+ * "Others", otherwise the picked one. An "Others" row with no typed yard yet
+ * falls back to the word itself so legacy requests (raised before the write-in
+ * box existed) still resolve to what they were raised with.
  */
 export function resolvePartnerLoadingSite(site: PartnerLoadingSiteDraft): string {
   if (isAddingLoadingSite(site.type)) return site.customValue.trim();
+  if (isOtherLoadingSite(site.type)) return site.customValue.trim() || site.type.trim();
   return site.type.trim();
 }
 

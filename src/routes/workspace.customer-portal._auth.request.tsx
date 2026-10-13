@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell";
 import {
+  isOtherLoadingSite,
   loadingSiteChoiceGroups,
   partnerLoadingSiteNames,
   PARTNER_TRUCK_TYPE_OPTIONS,
@@ -85,6 +86,15 @@ function PartnerNewRequest() {
     }
 
     const finalSites = loadingSites.map(resolvePartnerLoadingSite).filter(Boolean);
+
+    // "Others" is an escape hatch, never a location: a row picked as Others must
+    // carry the yard it stands for, or the request reaches the Transport Manager
+    // with nowhere for the truck to load.
+    const othersWithoutYard = loadingSites.find((s) => isOtherLoadingSite(s.type) && !s.customValue.trim());
+    if (othersWithoutYard) {
+      toast.error("Write the loading yard under Others — where the truck actually loads.");
+      return;
+    }
 
     if (
       finalSites.length === 0 ||
@@ -399,6 +409,20 @@ function PartnerNewRequest() {
                           </div>
                         ))}
                       </div>
+                    ) : null}
+                    {isOtherLoadingSite(site.type) ? (
+                      <input
+                        value={site.customValue}
+                        onChange={(e) =>
+                          setLoadingSites((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { id: s.id, type: s.type, customValue: e.target.value } : s,
+                            ),
+                          )
+                        }
+                        placeholder="Write the yard — example: Metalberg.K"
+                        className={inputClass}
+                      />
                     ) : null}
                   </div>
                 ))}
