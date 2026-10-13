@@ -333,10 +333,10 @@ function dispatchRef(tripId: any) {
 
 // Lifecycle status -> notification sent to the right roles (partner stays informed of ITS cargo).
 const TRIP_STATUS_NOTICES: Record<string, { category: string; title: string; body: (t: any) => string; audience: string; severity?: string }> = {
-  'Approved': { category: 'Approvals', title: 'Request Approved', body: (t) => `Dispatch ${dispatchRef(t.id)} was approved and is awaiting truck assignment.`, audience: 'Partner,Transport Manager,Fleet Operations', severity: 'success', module: 'Fleet Operations', action: ['Fleet Operations'] },
+  'Approved': { category: 'Approvals', title: 'Request Approved', body: (t) => `Dispatch ${dispatchRef(t.id)} was approved and is awaiting truck assignment.`, audience: 'Partner,Transport Manager,Fleet Operations', severity: 'success', module: 'Fleet Operations', actionRoles: ['Fleet Operations'] },
   'Scheduled': { category: 'Operations', title: 'Truck Assigned', body: (t) => `Dispatch ${dispatchRef(t.id)} is fully assigned (${t.truckReg} · ${t.driverName}) and scheduled for ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking,Loading', severity: 'success', module: 'Fleet Operations' },
   'En Route': { category: 'Operations', title: 'Truck Departed', body: (t) => `Dispatch ${dispatchRef(t.id)} departed — truck ${t.truckReg} is En Route to ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Security,Tracking', severity: 'info', module: 'Gate Security' },
-  'Delayed': { category: 'Operations', title: 'Dispatch Delayed', body: (t) => `Dispatch ${dispatchRef(t.id)} has been marked Delayed.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'warning', module: 'Tracking', action: ['Tracking'] },
+  'Delayed': { category: 'Operations', title: 'Dispatch Delayed', body: (t) => `Dispatch ${dispatchRef(t.id)} has been marked Delayed.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'warning', module: 'Tracking', actionRoles: ['Tracking'] },
     // returning-notice-removed
   'Completed': { category: 'Operations', title: 'Delivery Completed', body: (t) => `Dispatch ${dispatchRef(t.id)} completed delivery to ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'success', module: 'Fleet Operations' },
   'Stopped': { category: 'Approvals', title: 'Request Declined', body: (t) => `Dispatch ${dispatchRef(t.id)} was declined/stopped by Transport Manager.`, audience: 'Partner,Transport Manager', severity: 'error', module: 'Fleet Operations' },
@@ -671,7 +671,7 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
     data.password = await bcrypt.hash(data.password, 10);
     // Admin reset / temp password → force Set New Password on next login
     if (data.passwordResetRequired === undefined) data.passwordResetRequired = true;
-    void notify('Compliance', 'Password Reset', `A new temporary password was issued for ${existing?.name || 'your account'}. Please change it on next login.`, 'warning', existing?.role, { module: 'Accounts', eventKey: 'account.password_reset' });
+    void notify('Compliance', 'Password Reset', `A new temporary password was issued for ${existing?.name || 'your account'}. Please change it on next login.`, 'warning', 'Transport Manager,Platform Admin,HR', { module: 'Accounts', eventKey: 'account.password_reset' });
   }
   const user = await prisma.user.update({ where: { id: req.params.id }, data });
   if (data.status === 'Suspended') {
@@ -2798,19 +2798,31 @@ app.post('/api/fuel', authenticate, async (req, res) => {
   res.json(await prisma.fuelRequisition.create({ data: req.body }));
 });
 app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Accounts', 'Accountant'), async (req, res) => {
+  // Every approval is ONE expense: PATCH is also called to correct a field or
+  // re-send a status, so without this a second save of the same row (or any
+  // swim at the status other than Approved) double-billed the trip in the
+  // expense ledger forever.
+  const before = await prisma.fuelRequisition.findUnique({ where: { id: req.params.id } });
+  if (!before) return res.status(404).json({ error: 'Fuel record not found' });
   const fuel = await prisma.fuelRequisition.update({ where: { id: req.params.id }, data: req.body });
-  if (req.body.status === 'Approved') {
-    await prisma.expense.create({
-      data: {
-        requester: fuel.driverName,
-        department: 'Fleet Manager',
-        type: 'Fuel',
-        category: 'Fuel',
-        amount: fuel.cost,
-        description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}`,
-        status: 'Approved',
-      },
+  const approvedNow = req.body.status === 'Approved' && before.status !== 'Approved';
+  if (approvedNow) {
+    const dup = await prisma.expense.findFirst({
+      where: { requester: fuel.driverName, amount: fuel.cost, description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}` },
     });
+    if (!dup) {
+      await prisma.expense.create({
+        data: {
+          requester: fuel.driverName,
+          department: 'Fleet Manager',
+          type: 'Fuel',
+          category: 'Fuel',
+          amount: fuel.cost,
+          description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}`,
+          status: 'Approved',
+        },
+      });
+    }
   }
   res.json(fuel);
 });
@@ -4530,6 +4542,7 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
 /** Sidebar badge: how many messages are waiting for THIS user. */
 app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   try {
+    await ensureDispatchThreads();
     const all = await prisma.conversation.findMany();
     let visible = all;
     if (isPartnerRequest(req)) {

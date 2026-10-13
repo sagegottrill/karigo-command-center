@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type Options = {
   /** Milliseconds between polls (default 10s). */
@@ -17,17 +17,25 @@ type Options = {
 export function useAutoRefresh(fn: () => void, deps: unknown[] = [], options: Options = {}) {
   const { interval = 10_000, enabled = true, onlyWhenVisible = true } = options;
 
+  // The callback lives in a ref: callers pass inline closures (state setters,
+  // service reads), which would otherwise be captured on mount and gone stale
+  // after their first state change — every poll then answered an old question.
+  const fnRef = useRef(fn);
+  useEffect(() => {
+    fnRef.current = fn;
+  });
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
     const id = window.setInterval(() => {
       if (onlyWhenVisible && document.visibilityState === "hidden") return;
-      fn();
+      fnRef.current();
     }, interval);
 
     const onVisible = () => {
-      if (document.visibilityState === "visible") fn();
+      if (document.visibilityState === "visible") fnRef.current();
     };
-    const onFocus = () => fn();
+    const onFocus = () => fnRef.current();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onFocus);
     return () => {
@@ -36,5 +44,5 @@ export function useAutoRefresh(fn: () => void, deps: unknown[] = [], options: Op
       window.removeEventListener("focus", onFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [enabled, interval, onlyWhenVisible]);
 }
