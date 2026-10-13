@@ -1970,9 +1970,19 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
         await prisma.trip.update({ where: { id: tripId }, data });
         // lifecycle-coupling-v2: a checkpoint that advances the dispatch moves the
         // named trucks with it — first leg out of the yard, the arrival leg home.
+        // END-TO-END FLOW (head + tail + driver): the checkpoint's transition
+        // moves the head AND the tail it hauled, home or out — the tail can
+        // never be left behind because the move came from a checkpoint instead
+        // of the gate. The driver rides the same couple (coupleTruckRegistry
+        // 'home' frees him through the HR-protected routine).
         const movedTrip = { ...trip, ...data };
-        if (String(movedTrip.status) === 'Completed') void coupleTruckRegistry(movedTrip, 'home');
-        else void coupleTruckRegistry(movedTrip, 'out');
+        if (String(movedTrip.status) === 'Completed') {
+          void coupleTruckRegistry(movedTrip, 'home');
+          void coupleTailRegistry(movedTrip, 'home');
+        } else {
+          void coupleTruckRegistry(movedTrip, 'out');
+          void coupleTailRegistry(movedTrip, 'out');
+        }
       }
     }
   } catch (e: any) {
