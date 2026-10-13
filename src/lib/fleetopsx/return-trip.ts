@@ -41,7 +41,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
     try {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("fleetopsx_user_name");
-        if (stored && stored.trim()) return stored.trim();
+        if (stored && stored.trim() && !/transport manager|platform admin|admin/i.test(stored)) return stored.trim();
       }
     } catch {
       // ignore
@@ -94,7 +94,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
       }
     }
     // The DRIVER comes off the trip with the truck. The working driver status in HR
-    // and dispatch is "Active". We match by name, staffId, or assigned truck registration/cabId.
+    // and dispatch is "Active". We match by exact name or staffId.
     const heldByName = String(trip.driverName || "").trim().toLowerCase();
     const norm = (s: string) => s.replace(/[\s\-_]/g, "").toLowerCase();
     const cleanHeld = norm(heldByName);
@@ -103,24 +103,15 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
       const matchedDrivers = drivers.filter((d: any) => {
         const dn = norm(d.name || "");
         if (cleanHeld && cleanHeld !== "unassigned") {
-          if (dn === cleanHeld || (cleanHeld.length >= 4 && (dn.includes(cleanHeld) || cleanHeld.includes(dn)))) return true;
+          if (dn === cleanHeld) return true;
           if (d.staffId && norm(d.staffId) === cleanHeld) return true;
           if (d.employeeId && norm(d.employeeId) === cleanHeld) return true;
-        }
-        if (plate) {
-          const np = norm(plate);
-          if (d.truckReg && norm(d.truckReg).includes(np)) return true;
-          if (d.truckReg2 && norm(d.truckReg2).includes(np)) return true;
-        }
-        if (cap && cap !== "—") {
-          const nc = norm(cap);
-          if (d.truckReg && norm(d.truckReg).includes(nc)) return true;
-          if (d.truckReg2 && norm(d.truckReg2).includes(nc)) return true;
         }
         return false;
       });
       for (const driver of matchedDrivers) {
-        if (driver.status !== "Active") {
+        const openDisp = (driver as any).openDispatches;
+        if (driver.status !== "Active" && (!openDisp || Number(openDisp) <= 1)) {
           await driverService.update(driver.id, { status: "Active" });
         }
       }
