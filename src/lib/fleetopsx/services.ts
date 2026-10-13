@@ -509,7 +509,15 @@ export const authService = {
     // Prefer the full profile stored at login (partnerCompanyName, email, phone…)
     // — partner pages match trips against partnerCompanyName from here.
     const stored = getStoredUser<any>();
-    const roles = stored?.roles ?? JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]");
+    let roles: string[] = [];
+    if (stored?.roles) roles = stored.roles;
+    else {
+      try {
+        roles = JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]") as string[];
+      } catch {
+        /* corrupt cache — read as empty rather than breaking the session */
+      }
+    }
     return {
       ...stored,
       id: stored?.id || userId,
@@ -520,7 +528,12 @@ export const authService = {
   },
   getRoles: () => {
     if (typeof window === "undefined") return [];
-    return JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]");
+    try {
+      return JSON.parse(localStorage.getItem("fleetopsx_roles") || "[]") as string[];
+    } catch {
+      /* corrupt cache — read as empty rather than popping the screen */
+      return [];
+    }
   },
   getAllRoles: () => [
     { key: "Platform Admin", name: "Platform Admin", modules: [] },

@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -38,8 +39,11 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+// TanStack delivers boundary errors as `unknown` (ErrorComponentProps): they
+// can be anything thrown. Normalize for logging without weakening the type.
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  console.error(err);
   const router = useRouter();
 
   return (
@@ -73,7 +77,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string; tenantLogo?: string }>()({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tenantSlug: string; tenantName: string; tenantLogo: string | null }>()({
   head: (args: any) => {
     const ctx = args.routeContext || args.context;
     const title = ctx?.tenantName ? `${ctx.tenantName} | Workspace` : "Workspace";
@@ -152,7 +156,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient; tena
     }
     
     const tenantName = platformTenant ? platformTenant.name : (tenantSlug ? fallbackName : "FleetOpsX");
-    const tenantLogo = platformTenant?.logo;
+    // SSR serializes this context — `undefined` object values are not
+    // JSON-serializable, so the logo travels as an explicit null.
+    const tenantLogo = platformTenant?.logo ?? null;
 
     return { tenantSlug, tenantName, tenantLogo };
   },

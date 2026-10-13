@@ -1146,7 +1146,7 @@ app.get('/api/work-orders', authenticate, async (_req, res) => {
 app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   res.json(await prisma.workOrder.create({ data: req.body }));
 });
-app.patch('/api/work-orders/:id', authenticate, async (req, res) => {
+app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data: req.body }));
 });
 
@@ -2097,7 +2097,7 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
     })),
   );
 });
-app.post('/api/drivers', authenticate, async (req, res) => {
+app.post('/api/drivers', authenticate, authorize('Platform Admin', 'Transport Manager', 'HR', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
     const b = req.body || {};
     const name = String(b.name ?? '').trim();
@@ -2121,7 +2121,7 @@ app.post('/api/drivers', authenticate, async (req, res) => {
     res.status(500).json({ error: e?.message || 'Could not save the driver. Please try again.' });
   }
 });
-app.patch('/api/drivers/:id', authenticate, async (req, res) => {
+app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'HR', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
     const b = req.body || {};
     const data: any = {};
@@ -2187,7 +2187,7 @@ app.patch('/api/drivers/:id', authenticate, async (req, res) => {
  * and is capped at the 10 MB the form promises, with a route-scoped body limit
  * so the rest of the API keeps its 4 MB ceiling.
  */
-app.post('/api/drivers/:id/licence', authenticate, express.json({ limit: '16mb' }), async (req, res) => {
+app.post('/api/drivers/:id/licence', authenticate, authorize('Platform Admin', 'Transport Manager', 'HR', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), express.json({ limit: '16mb' }), async (req, res) => {
   const fileName = String(req.body?.fileName || '').trim();
   const dataUrl = String(req.body?.dataUrl || '');
   if (!fileName) return res.status(400).json({ error: 'A file name is required.' });
@@ -2240,7 +2240,7 @@ app.get('/api/drivers/:id/licence', authenticate, async (req, res) => {
   }
 });
 
-app.delete('/api/drivers/:id/licence', authenticate, async (req, res) => {
+app.delete('/api/drivers/:id/licence', authenticate, authorize('Platform Admin', 'Transport Manager', 'HR', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
     await prisma.driver.update({
       where: { id: req.params.id },
@@ -2255,7 +2255,7 @@ app.delete('/api/drivers/:id/licence', authenticate, async (req, res) => {
 });
 
 
-app.delete('/api/drivers/:id', authenticate, async (req, res) => {
+app.delete('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'HR', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
     await prisma.driver.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -2300,13 +2300,13 @@ const actingUser = (req: any) =>
 app.get('/api/inventory', authenticate, async (_req, res) => {
   res.json(await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' } }));
 });
-app.post('/api/inventory', authenticate, async (req, res) => {
+app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const stock = Number(req.body.stock ?? 0);
   const reorderLevel = Number(req.body.reorderLevel ?? 5);
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
   res.json(await prisma.inventoryItem.create({ data: { ...req.body, stock, reorderLevel, status } }));
 });
-app.patch('/api/inventory/:id', authenticate, async (req, res) => {
+app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const existing = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const stock = req.body.stock != null ? Number(req.body.stock) : existing.stock;
@@ -2332,7 +2332,7 @@ app.patch('/api/inventory/:id', authenticate, async (req, res) => {
   }
   res.json(updated);
 });
-app.delete('/api/inventory/:id', authenticate, async (req, res) => {
+app.delete('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   await prisma.inventoryItem.delete({ where: { id: req.params.id } });
   res.status(204).end();
 });
@@ -2354,7 +2354,7 @@ app.get('/api/inventory-movements', authenticate, async (req, res) => {
  * valued at the most recent thing actually paid for it — the same rule the
  * diesel tank is valued by.
  */
-app.post('/api/inventory/:id/purchase', authenticate, async (req, res) => {
+app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const qty = Math.floor(Number(req.body.qty ?? 0));
@@ -2429,7 +2429,7 @@ app.post('/api/inventory/:id/purchase', authenticate, async (req, res) => {
 });
 
 /** A correction that is neither a purchase nor an issue. */
-app.post('/api/inventory/:id/adjust', authenticate, async (req, res) => {
+app.post('/api/inventory/:id/adjust', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const delta = Math.trunc(Number(req.body.delta ?? 0));
@@ -2459,7 +2459,7 @@ app.post('/api/inventory/:id/adjust', authenticate, async (req, res) => {
  * The shelf, in bulk: upserted by SKU. Onboarding a store one part at a time is
  * why an empty shelf stays empty.
  */
-app.post('/api/inventory/import', authenticate, async (req, res) => {
+app.post('/api/inventory/import', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const rows = Array.isArray(req.body?.items) ? req.body.items : [];
   if (!rows.length) return res.status(400).json({ error: 'No rows to import.' });
   let created = 0;
@@ -2504,7 +2504,17 @@ app.post('/api/inventory-requisitions', authenticate, async (req, res) => {
   res.json(await prisma.inventoryRequisition.create({ data: req.body }));
 });
 app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
-  res.json(await prisma.inventoryRequisition.update({ where: { id: req.params.id }, data: req.body }));
+  // REQUISITION-EDIT-WHITELIST: the screens edit the ticket's own words — the
+  // decision (status / decisionNote) or the request's own lines. Identity and
+  // audit columns are never client-writable, so a stray client cannot rewrite
+  // the queue's bookkeeping.
+  const EDITABLE_REQUEST_FIELDS = ['status', 'decisionNote', 'quantity', 'reason', 'part', 'mechanic', 'truckReg', 'workOrder'];
+  const body = req.body || {};
+  const data: any = {};
+  for (const key of EDITABLE_REQUEST_FIELDS) {
+    if (body[key] !== undefined) data[key] = body[key];
+  }
+  res.json(await prisma.inventoryRequisition.update({ where: { id: req.params.id }, data }));
 });
 
 /**
@@ -2647,7 +2657,7 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
  * The store counting: a physical count that disagrees with the book. Filed to
  * the ledger as a variance and flagged to the Head of Inventory and the TM.
  */
-app.post('/api/inventory/:id/reconcile', authenticate, async (req, res) => {
+app.post('/api/inventory/:id/reconcile', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const observed = Math.trunc(Number(req.body.observed ?? 0));
@@ -2671,7 +2681,7 @@ app.post('/api/inventory/:id/reconcile', authenticate, async (req, res) => {
   res.json(updated);
 });
 
-app.post('/api/inventory/:id/release', authenticate, async (req, res) => {
+app.post('/api/inventory/:id/release', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const qty = Number(req.body.qty ?? 0);
   const reqId = req.body.reqId as string | undefined;
   if (!reqId) return res.status(400).json({ error: 'Release requires a valid requisition ID.' });
@@ -2737,10 +2747,10 @@ app.post('/api/fuel-restock-orders', authenticate, authorize('Transport Manager'
 app.get('/api/procurement', authenticate, async (_req, res) => {
   res.json(await prisma.procurementRequest.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/procurement', authenticate, async (req, res) => {
+app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
   res.json(await prisma.procurementRequest.create({ data: req.body }));
 });
-app.patch('/api/procurement/:id', authenticate, async (req, res) => {
+app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
   const before = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
   if (!before) return res.status(404).json({ error: 'Procurement request not found' });
   const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: req.body });
@@ -2787,7 +2797,7 @@ app.get('/api/fuel', authenticate, async (_req, res) => {
 app.post('/api/fuel', authenticate, async (req, res) => {
   res.json(await prisma.fuelRequisition.create({ data: req.body }));
 });
-app.patch('/api/fuel/:id', authenticate, async (req, res) => {
+app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Accounts', 'Accountant'), async (req, res) => {
   const fuel = await prisma.fuelRequisition.update({ where: { id: req.params.id }, data: req.body });
   if (req.body.status === 'Approved') {
     await prisma.expense.create({

@@ -33,6 +33,9 @@ const EMPTY: LiveBadges = {
 let current: LiveBadges = { ...EMPTY };
 let inFlight = false;
 let pollTimer: number | null = null;
+// The poller's own listeners — kept in one place so signing out can remove
+// every one of them instead of leaving named/anonymous strays behind.
+let listeners: { onFocus: () => void; onVisible: () => void } | null = null;
 let lastPathname = "";
 const subscribers = new Set<(b: LiveBadges) => void>();
 
@@ -108,6 +111,12 @@ function startPolling(pathname: string) {
     if (pollTimer !== null) {
       window.clearInterval(pollTimer);
       pollTimer = null;
+      if (listeners) {
+        window.removeEventListener("focus", listeners.onFocus);
+        document.removeEventListener("visibilitychange", listeners.onVisible);
+        window.removeEventListener("fleetopsx:badges-refresh", listeners.onFocus);
+        listeners = null;
+      }
     }
     current = { ...EMPTY };
     emit();
@@ -121,11 +130,13 @@ function startPolling(pathname: string) {
   if (pollTimer === null) {
     pollTimer = window.setInterval(() => void refresh(), POLL_MS);
     const onFocus = () => void refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    listeners = { onFocus, onVisible };
     window.addEventListener("focus", onFocus);
     // Tab becoming visible again (mobile background) refreshes instantly.
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") void refresh();
-    });
+    document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("fleetopsx:badges-refresh", onFocus);
   }
 }
