@@ -854,7 +854,10 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
     tailNumber: req.body.tailNumber || null,
     // A request raised FOR a partner enters the lifecycle pending, exactly as
     // if the partner had raised it — it is a request, not a private draft.
-    status: req.body.status || (raisedForPartner ? 'Requested' : 'Draft'),
+    // PARTNER-LOCK (B6): a partner can never start its own dispatch lifecycle
+    // however the client sends the payload — its request always enters as
+    // 'Requested' and waits for the Transport Manager.
+    status: isPartner ? 'Requested' : (req.body.status || (raisedForPartner ? 'Requested' : 'Draft')),
   };
   // Who raised it travels on the row's own cost sheet (the same JSON the
   // approvals live on), so the audit trail survives without a new column.
@@ -1287,16 +1290,43 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
   });
   try {
     const key = TRUCK_KEY(raw);
+    const SAFE_MIN_KEY = 4;
+    // GATERETURN:V3 (B4): a combined stamp "GGE95YK / B055" is split into its
+    // whole tokens, and a fragment shorter than four characters is REFUSED — a
+    // 2-3 char text is a substring of half the fleet's plates and tails, and
+    // matching on it closed whole families of dispatches in one request. One
+    // return closes one truck's trips, exactly.
+    const tokens = raw.split(/[\s/]+/).map((v) => TRUCK_KEY(v)).filter((k) => k.length >= 3);
+    if (key.length < 3) {
+      return res.status(400).json({ error: 'That input is too short to match a truck safely — type the full cap number or plate.' });
+    }
     const trucks = await prisma.truck.findMany();
-    const truck = trucks.find((t) => truckMatches(t, [key])) || null;
+    const ownKeys = (t: any) => [TRUCK_KEY(t.registration), TRUCK_KEY(t.cabId)].filter((k: string) => k.length >= 3);
+    const truck = trucks.find((t) => [...tokens, key].some((m) => ownKeys(t).includes(m))) || null;
 
     // Any dispatch still naming this truck is over — the truck is at the gate.
+    // Matching is on whole tokens; substring containment is kept ONLY for
+    // tokens of SAFE_MIN_KEY characters or more, so one bad key can never
+    // sweep every tail in a family (B0xx/B1xxx all share prefixes again).
     const open = await prisma.trip.findMany({
       where: {
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
       },
     });
-    const stillOpen = open.filter((t) => truckMatches(truck || { registration: raw, cabId: raw }, truckKeysOf(t)) || truckKeysOf(t).includes(key));
+    const matchKeys = [...tokens, key];
+    const stillOpen = open.filter((t) => {
+      const keys = truckKeysOf(t);
+      return keys.some((k) =>
+        matchKeys.some((m) =>
+          m === k ||
+          (m.length >= SAFE_MIN_KEY && k.includes(m)) ||
+          (k.length >= SAFE_MIN_KEY && m.includes(k))));
+    });
+    if (stillOpen.length > 3) {
+      // FLEET-GUARD (B4): several open dispatches on the SAME truck are
+      // expected (re-baked siblings), but matching most of the fleet is a bug.
+      return res.status(409).json({ error: stillOpen.length + ' dispatches matched "' + raw + '" — too many to close on one return. Type the exact cap number or plate.' });
+    }
 
     let closed = 0;
     const freed: string[] = [];
@@ -1426,8 +1456,13 @@ async function autoReconcileGateDepartures(): Promise<number> {
   }
 }
 
-void autoReconcileGateDepartures();
-setInterval(() => void autoReconcileGateDepartures(), 3 * 60 * 1000);
+// DISABLED (B5): the self-heal invented departures — and their author — for
+// the gate without the gate logging anything. A departure now exists only when
+// the gate window, "Return a truck" or the department screens write it with
+// their own account stamped on it. POST /api/gate/backfill still covers
+// pre-go-live history by hand.
+// void autoReconcileGateDepartures();
+// setInterval(() => void autoReconcileGateDepartures(), 3 * 60 * 1000);
 
 
 // --- GATECYCLE:V1:HELPERS ------------------------------------------------------
@@ -1475,7 +1510,7 @@ async function gateCycleDriverOnTrip(driverName) {
 app.get('/api/gate', authenticate, async (_req, res) => {
   res.json(await prisma.gateEntry.findMany({ orderBy: { timestamp: 'desc' } }));
 });
-app.post('/api/gate', authenticate, async (req, res) => {
+app.post('/api/gate', authenticate, authorize('Security', 'Gate Security', 'Gate', 'Platform Admin', 'Transport Manager'), async (req, res) => {
   const entry = await prisma.gateEntry.create({ data: req.body });
   /*
    * CYCLE END. The gate's Return stamp is the one moment a trip is provably
@@ -1500,7 +1535,7 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
     const trip = candidates.find((t) => {
       const tr = String(t.truckReg || '').toUpperCase();
       const tail = String(t.tailNumber || '').toUpperCase();
-      return (plateKey && (tr.includes(plateKey) || tail.includes(plateKey))) ||
+      return (plateKey && plateKey.length >= 4 && (tr.includes(plateKey) || tail.includes(plateKey))) ||
         Boolean(entry.driver) && String(t.driverName || '').trim().toUpperCase() === String(entry.driver).trim().toUpperCase();
     });
     if (trip) {
