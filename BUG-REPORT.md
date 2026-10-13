@@ -112,6 +112,23 @@ The audit log around the two batch moments shows the *human* actions nearby:
 
 ---
 
+## F. DRIVER-DUTY FIX (2026-10-13, evening) — "truck back, driver still On Trip"
+
+**Cause reported by ops:** drivers whose trucks had returned stayed "On Trip" so Fleet Operations could not assign them, and had to ask the TM (or someone logged in as him) to flip them by hand — with ad-hoc backend edits "reconciling" things worse.
+
+**Root causes found in code:**
+1. The gate's Return path closed only the FIRST open dispatch naming the truck — other sibling dispatches stayed open forever, and the driver's Safeguard ("still on live dispatches") therefore never freed him.
+2. Freeing matched by exact roster name only — fragment dispatch names ("UMAR", "ali", "NDA", "Tijani") could never resolve, and the same fragments collided across different men (the earlier false-release bug).
+3. With the harmful auto-sweeps disabled (section E), the pre-existing backlog of stale `Returning` dispatches dated 17–29 Sept had no cleanup path, so their drivers sat On Trip indefinitely.
+
+**Fixed and deployed to the live server** (backend restarted, health 200 after): gate Return now closes ALL sibling dispatches with honest stamps; drivers are freed by exact name OR registered truck identity; a killed-safeguard list (Suspended / Off Duty / Deleted) is never auto-flipped; freeing never frees a man whose dispatch is still open under his name or truck.
+
+**Evidence-based one-time reconciliation** ([scripts/reconcile-stale-returning.cjs](karigo-command-center/scripts/reconcile-stale-returning.cjs), dry-run first, then `--apply`): closed the 15 stale `Returning` dispatches dated 17–29 Sept (trucks physically home), stamped honestly as "Reconciled … — stale returning dispatch", and freed 10 drivers. Nobody else was touched.
+
+**Verified after:** stuck "On Trip"-with-no-open-trip count 75 → 0; trucks-in-yard-with-open-trip 2 → 0; stale >14-day open dispatches 16 → 1; roster Active 41 → 51; driver↔trip consistency 100%. Repo synced where anchors exist (both patch scripts checked into scripts/).
+
+---
+
 ## E. FIXES APPLIED AND VERIFIED (2026-10-13)
 
 All fixes were written by [scripts/bugfix-fleet-return-20261013.mjs](karigo-command-center/scripts/bugfix-fleet-return-20261013.mjs) with exact anchors (a drifted file is refused, never half-patched). The live server was backed up first: `backups/index.ts.pre-fix-20261013.ts` on the API box.

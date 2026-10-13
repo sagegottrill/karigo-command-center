@@ -1465,6 +1465,56 @@ async function autoReconcileGateDepartures(): Promise<number> {
 // setInterval(() => void autoReconcileGateDepartures(), 3 * 60 * 1000);
 
 
+/*
+ * DRIVER-DUTY SYNC (safety net) — the roster follows the live dispatch list
+ * unconditionally, so no missed code path can ever strand a man "On Trip"
+ * after his truck is home. This is deliberately NOT the old auto-sweep: it
+ * never closes a dispatch and never moves a truck or tail — it only corrects
+ * a driver's status word when the dispatch list proves he is out of work.
+ */
+async function syncDriverDuty(): Promise<number> {
+  try {
+    const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
+    const openTrips = await prisma.trip.findMany({
+      where: { status: { in: OPEN_TRIP_STATUSES } },
+      select: { driverName: true, truckReg: true, tailNumber: true },
+    });
+    const headKeyOf = (v: any) => {
+      const k = TRUCK_KEY(String(v || '').split(/[/\s]+/)[0]);
+      return k && k.length >= 3 ? k : null;
+    };
+    const onTrip = await prisma.driver.findMany({
+      where: { status: 'On Trip' },
+      select: { id: true, name: true, truckReg: true, truckReg2: true },
+    });
+    let flipped = 0;
+    for (const d of onTrip) {
+      if (['Suspended', 'Off Duty', 'Deleted'].includes(String(d.status))) continue;
+      const nameKey = String(d.name || '').trim().toLowerCase();
+      const own = [d.truckReg, d.truckReg2].map((v) => headKeyOf(v)).filter(Boolean);
+      const stillOn = openTrips.some((t: any) => {
+        if (String(t.driverName || '').trim().toLowerCase() === nameKey) return true;
+        const headKey = headKeyOf(String(t.truckReg || '').trim());
+        const tailKey = headKeyOf(String(t.tailNumber || '').trim());
+        return own.includes(headKey) || own.includes(tailKey);
+      });
+      if (!stillOn) {
+        await prisma.driver.update({ where: { id: d.id }, data: { status: 'Active' } });
+        flipped++;
+      }
+    }
+    if (flipped) {
+      console.log('[driver-duty] freed ' + flipped + ' driver(s) the dispatch list no longer holds.');
+    }
+    return flipped;
+  } catch (e: any) {
+    console.error('[driver-duty] sync failed:', e?.message || e);
+    return 0;
+  }
+}
+void syncDriverDuty();
+setInterval(() => void syncDriverDuty(), 10 * 60 * 1000);
+
 // --- GATECYCLE:V1:HELPERS ------------------------------------------------------
 // The gate's stamps name the truck; the register holds the rest. One matcher
 // for both directions: a GateEntry's plate/tail text vs a Trip's truckReg/tail,
@@ -1570,7 +1620,11 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
       const plateKey = plate.split(/[\s/]+/)[0] || '';
       const driverName = String(entry.driver || '').trim().toUpperCase();
       const openTrips = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
-      const trip = openTrips.find((t: any) => {
+      // RETURN-CLOSES-SIBLINGS (driver-duty fix): every open dispatch naming this
+      // truck or the guard-read driver ends together. Leaving the other siblings
+      // open is exactly how a returned truck kept its driver "On Trip" and Fleet
+      // Operations could never hand him another load.
+      const matches = openTrips.filter((t: any) => {
         const tr = String(t.truckReg || '').toUpperCase();
         const trKey = tr.split(/[\s/]+/)[0] || '';
         const tail = String(t.tailNumber || '').toUpperCase();
@@ -1579,22 +1633,57 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         }
         return Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName;
       });
+      const trip = matches[0] || null;
       if (trip) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Security';
-        const closed = await prisma.trip.update({
-          where: { id: trip.id },
-          // return-stamp-on-gate-return: the return stamp the gate log shows is
-          // `eta` — leaving it empty made the board print the bare word
-          // "Returned" where every other row shows a real date+time.
-          data: { status: 'Completed', eta: trip.eta || autoStamp(entry.timestamp), gateInBy: trip.gateInBy || actor },
-        });
-        // The driver's cycle ends with the truck's. Only 'On Trip' is moved, so
-        // a Suspended or Off Duty record is never quietly overwritten.
-        if (closed.driverName) {
-          await prisma.driver.updateMany({
-            where: { name: closed.driverName, status: { in: ['On Trip', 'Active'] } },
-            data: { status: 'Active' },
+        let lastClosed: any = null;
+        for (const mt of matches) {
+          lastClosed = await prisma.trip.update({
+            where: { id: mt.id },
+            // return-stamp-on-gate-return: the return stamp the gate log shows is
+            // `eta` — leaving it empty made the board print the bare word
+            // "Returned" where every other row shows a real date+time.
+            data: { status: 'Completed', eta: mt.eta || autoStamp(entry.timestamp), gateInBy: mt.gateInBy || actor },
           });
+        }
+        const closed = lastClosed || trip;
+        /* THE DRIVERS' CYCLE ENDS WITH THE TRUCK'S. Whoever the closed dispatches
+         * named — by exact roster name or by the truck he is registered on (the
+         * "UMAR"/"ali"-style fragment names cannot be resolved to one man, his
+         * truck can) — goes Active again, unless a sibling dispatch still holds
+         * him or HR already decided otherwise: Suspended / Off Duty / Deleted
+         * are never quietly overwritten.
+         */
+        const plateKeyOf = (v: any) => {
+          const k = String(v || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+          return k.length >= 3 ? k : null;
+        };
+        const closedNames = new Set(
+          matches.map((mt: any) => String(mt.driverName || '').trim().toUpperCase()).filter(Boolean),
+        );
+        const closedPlates = new Set(
+          matches.flatMap((mt: any) => [plateKeyOf(String(mt.truckReg || '').split(/[\s/]+/)[0]), plateKeyOf(mt.tailNumber)]).filter(Boolean),
+        );
+        const remaining = openTrips.filter((t: any) => !matches.some((m: any) => m.id === t.id));
+        const remainingNames = new Set(remaining.map((t: any) => String(t.driverName || '').trim().toUpperCase()).filter(Boolean));
+        const remainingPlates = new Set(
+          remaining.flatMap((t: any) => [plateKeyOf(String(t.truckReg || '').split(/[\s/]+/)[0]), plateKeyOf(t.tailNumber)]).filter(Boolean),
+        );
+        const roster = await prisma.driver.findMany({
+          select: { id: true, name: true, status: true, truckReg: true, truckReg2: true },
+        });
+        for (const d of roster) {
+          const status = String(d.status || '');
+          if (status !== 'On Trip') continue;
+          if (['Suspended', 'Off Duty', 'Deleted'].includes(status)) continue;
+          const nameKey = String(d.name || '').trim().toUpperCase();
+          const dPlates = [plateKeyOf(d.truckReg), plateKeyOf(d.truckReg2)].filter(Boolean);
+          const onThisReturn = closedNames.has(nameKey) || dPlates.some((k) => closedPlates.has(k));
+          if (!onThisReturn) continue;
+          const stillOut = remainingNames.has(nameKey) || dPlates.some((k) => remainingPlates.has(k));
+          if (!stillOut) {
+            await prisma.driver.update({ where: { id: d.id }, data: { status: 'Active' } });
+          }
         }
         // The TRUCK came back with the stamp — take the asset rows off the road
         // too (the availability boards read them): head and tail to Check Up,
@@ -2047,10 +2136,17 @@ app.patch('/api/drivers/:id', authenticate, async (req, res) => {
           where: { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
         });
         for (const trip of stuck) {
-          await prisma.trip.update({
+          const closedTrip = await prisma.trip.update({
             where: { id: trip.id },
             data: { status: 'Completed', gateInBy: trip.gateInBy || actor },
           });
+          // THE RELEASE FOLLOWS THE FLOW (self-return fix): a release-closed
+          // dispatch runs the same home cycle Security's gate runs — head to
+          // Check Up, tail to Check Up — instead of completing the trip bare
+          // and scattering the yard. coupleTruckRegistry 'home' also frees the
+          // driver; HR's own word for him is applied after this block.
+          await coupleTruckRegistry(closedTrip, 'home');
+          await coupleTailRegistry(closedTrip, 'home');
         }
         if (stuck.length) {
           void notify('HR & Personnel', 'Driver Released', driver.name + ' was released and ' + stuck.length + ' open dispatch' + (stuck.length === 1 ? '' : 'es') + ' closed with him.', 'warning', 'TransportManager,HR & Personnel,Fleet Operations,Tracking', { module: 'HR & Personnel', eventKey: 'driver.released', refId: driver.id, refLabel: driver.staffId || driver.name });
