@@ -48,14 +48,32 @@ const RETURNED_STATUSES = GATE_RETURNED_STATUSES;
 export function gateDepartureStamp(trip: Trip): string | null {
   if (!DEPARTED_STATUSES.includes(String(trip.status))) return null;
   const stamp = String(trip.startTime ?? "").trim();
-  return stamp && stamp !== "—" && stamp !== "-" ? stamp : "Departed";
+  if (stamp && stamp !== "—" && stamp !== "-" && stamp !== "null" && stamp !== "Departed") {
+    return stamp;
+  }
+  if (trip.dispatchedAt) {
+    const d = new Date(trip.dispatchedAt);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  if (trip.createdAt) {
+    const d = new Date(trip.createdAt);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return null;
 }
 
 /** The gate's real return stamp, or null while the truck is still out. */
 export function gateReturnStamp(trip: Trip): string | null {
   if (!RETURNED_STATUSES.includes(String(trip.status))) return null;
   const stamp = String(trip.eta ?? "").trim();
-  return stamp && stamp !== "—" && stamp !== "-" ? stamp : "Returned";
+  if (stamp && stamp !== "—" && stamp !== "-" && stamp !== "null" && stamp !== "Returned") {
+    return stamp;
+  }
+  if (trip.updatedAt) {
+    const d = new Date(trip.updatedAt);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return null;
 }
 
 /** Has the truck left the yard and not come back? */

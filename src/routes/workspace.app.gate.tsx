@@ -116,7 +116,10 @@ function stampCsv(value: string | null, fallback: string): string {
 function formatGateLogger(name?: string | null): string {
   if (!name) return "Petroline Security";
   const s = String(name).trim();
-  if (!s || /auto-reconcil|superseded|departure predates/i.test(s)) {
+  if (
+    !s ||
+    /auto-reconcil|superseded|departure predates|transport manager|platform admin|admin/i.test(s)
+  ) {
     return "Petroline Security";
   }
   return s;
