@@ -106,6 +106,10 @@ model WorkOrder {
   category    String?  @default("General")
   mechanic    String?
   reportedBy  String?
+  /// Check-up verdict: Minor | Major | Critical — set by the inspection that
+  /// raised the job. InspectedBy names the engineer who signed the check-up.
+  severity    String?
+  inspectedBy String?
   cost        Float    @default(0)
   notes       String?
   startedAt   DateTime?
@@ -213,6 +217,17 @@ model InventoryRequisition {
   releasedQty  Int?
   releasedValue Float?
   decisionNote String?
+  /// Multi-line engineering requests: lines of one request share a requestGroup
+  /// (EG-XXXXXX); description/targetType live on every line so a line alone is
+  /// still readable. Chain: Awaiting HOE Review → Awaiting Admin Approval (TM)
+  /// → Awaiting Pickup (store) → Released (handed over).
+  requestGroup String?
+  description String?
+  /// Truck Head | Truck Tail | Workshop — what the request is for.
+  targetType String?
+  /// The Head of Engineering's stamp when the request passes HOE review.
+  reviewedBy String?
+  reviewedAt DateTime?
   status     String   @default("Pending")
   date       DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -444,6 +459,11 @@ model FuelRequest {
   declinedAt       DateTime?
   declineReason    String?
   note             String?
+  /// Truck Head | Truck Tail | Workshop — what an engineering draw is for.
+  targetType       String?
+  /// The Head of Engineering's stamp: Requested → HOE Approved → Authorized.
+  reviewedBy       String?
+  reviewedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

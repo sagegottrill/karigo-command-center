@@ -991,6 +991,33 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     const first = raw.split(',')[0]?.trim();
     return first ? first.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Security';
   })();
+  // RETURN-AUDIT (meeting: "can the back end show which user triggered
+  // returns?") — EVERY transition to Completed is stamped by the server with
+  // the authenticated account, on any path (the gate window, Tracking's
+  // return action, a partner-visible closure). A client-supplied gateInBy no
+  // longer decides who the record blames: the token does.
+  const completingNow = data.status === 'Completed' && before && before.status !== 'Completed';
+  if (completingNow) {
+    data.gateInBy = gateActor;
+    const dcAudit =
+      data.directCosts && typeof data.directCosts === 'object'
+        ? { ...(data.directCosts as any) }
+        : before.directCosts && typeof before.directCosts === 'object'
+          ? { ...(before.directCosts as any) }
+          : {};
+    dcAudit.returnedBy = {
+      by: gateActor,
+      role: req.user?.role || '',
+      at: new Date().toISOString(),
+      via: 'trip-status-change',
+    };
+    data.directCosts = dcAudit;
+    void notify('Security', 'Return logged outside the gate',
+      dispatchRef(before.id) + ' was completed (' + gateActor + ', ' + String(req.user?.role || '') +
+      '). If the truck is not physically back, restore it from this dispatch.',
+      'warning', 'Transport Manager,Platform Admin,Security',
+      { module: 'Gate Security', eventKey: 'gate.remote_return', refId: before.id, refLabel: dispatchRef(before.id), actionRoles: ['Transport Manager'] });
+  }
   const isGateAccount = ['Security', 'Gate Security', 'Gate'].includes(String(req.user?.role || ''))
     || /(^|,)(security|gate)(,|$)/i.test(String(req.user?.roles || ''));
   if (isGateAccount && before && before.status !== data.status) {
@@ -1149,6 +1176,91 @@ app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Ad
 app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data: req.body }));
 });
+// Incorrect records (e.g. sent back) can be removed entirely — Engineering /
+// TM only, so the workshop board keeps its audit trail by default.
+app.delete('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager'), async (req, res) => {
+  await prisma.workOrder.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+/**
+ * The check-up verdict, exactly as the approved design inspects it.
+ *
+ * No issues  → the truck returns to Available (and any open job closes).
+ * Issues     → the truck goes Under Maintenance, a work order carries the
+ *               defect + severity + inspector, and any listed spare parts land
+ *               on the Head of Engineering's desk as one grouped request.
+ */
+app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+  const headId = String(req.body?.headId || '').trim() || null;
+  const tailId = String(req.body?.tailId || '').trim() || null;
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const result = String(req.body?.result || '').trim();
+  const defect = String(req.body?.defect || '').trim();
+  const severity = String(req.body?.severity || '').trim();
+  const inspectedBy = String(req.body?.inspectedBy || req.user?.name || '').trim();
+  const parts = Array.isArray(req.body?.parts) ? req.body.parts : [];
+  if (!headId && !tailId) return res.status(400).json({ error: 'Choose the truck that was inspected.' });
+  if (!['no-issues', 'issues'].includes(result)) return res.status(400).json({ error: 'result must be no-issues or issues.' });
+  if (result === 'issues' && !defect) return res.status(400).json({ error: 'Log the defect that was found.' });
+  try {
+    const by = actingUser(req);
+    if (result === 'no-issues') {
+      if (headId) await prisma.truck.updateMany({ where: { id: headId }, data: { status: 'Available' } });
+      if (tailId) await prisma.tail.updateMany({ where: { id: tailId }, data: { status: 'Available' } });
+      const open = await prisma.workOrder.findMany({ where: { truckReg, status: { notIn: ['Completed', 'Cancelled'] } }, orderBy: { createdAt: 'desc' }, take: 1 });
+      if (open.length) {
+        await prisma.workOrder.update({ where: { id: open[0].id }, data: { status: 'Completed', completedAt: new Date(), inspectedBy: inspectedBy || by } });
+      }
+      await notify('Engineering', 'Check-up passed — truck available', `${truckReg} passed inspection by ${inspectedBy || by} and is back to Available.`, 'success', 'Engineering,Fleet Operations,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.checkup_passed', refLabel: truckReg });
+      return res.json({ ok: true, result, truckReg });
+    }
+    if (headId) await prisma.truck.updateMany({ where: { id: headId }, data: { status: 'Maintenance' } });
+    if (tailId) await prisma.tail.updateMany({ where: { id: tailId }, data: { status: 'Maintenance' } });
+    const job = await prisma.workOrder.create({
+      data: {
+        truckReg,
+        defect,
+        category: 'General',
+        priority: severity === 'Critical (Grounded)' ? 'Critical' : severity.startsWith('Major') ? 'High' : 'Medium',
+        mechanic: '',
+        reportedBy: inspectedBy || by,
+        cost: 0,
+        notes: `Check-up: ${defect}`,
+        status: 'Reported',
+        severity: severity || null,
+        inspectedBy: inspectedBy || by,
+      },
+    });
+    let group: string | null = null;
+    const validParts = parts.filter((p: any) => String(p?.part || '').trim() && Math.trunc(Number(p?.quantity)) > 0);
+    if (validParts.length) {
+      group = 'EG-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      for (const p of validParts) {
+        await prisma.inventoryRequisition.create({
+          data: {
+            workOrder: job.id,
+            truckReg,
+            mechanic: inspectedBy || by,
+            part: String(p.part).trim(),
+            itemId: String(p.itemId || '') || null,
+            quantity: Math.trunc(Number(p.quantity)),
+            reason: defect,
+            unitCost: Number(p.unitCost) || 0,
+            status: 'Awaiting HOE Review',
+            requestGroup: group,
+            description: defect,
+            targetType: tailId && !headId ? 'Truck Tail' : 'Truck Head',
+          },
+        });
+      }
+    }
+    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
+    res.status(201).json({ ok: true, result, job, group });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // --- GATE ---
 // ---- Gate backfill: record trucks that left BEFORE the app went live ------
@@ -1280,7 +1392,17 @@ async function coupleTailRegistry(trip: any, movement: 'out' | 'home'): Promise<
 app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
   const raw = String(req.body?.truck || req.body?.plate || '').trim();
   if (!raw) return res.status(400).json({ error: 'truck (cap number or plate) is required' });
-  const actor = (req as any).user?.name || (req as any).user?.email || 'Security';
+  // CONFIRM-RETURN: the meeting's "someone triggers return while the truck is
+  // still outside" — a server flag forces the client to have put the operator
+  // through an explicit confirmation step. One careless click can no longer
+  // close dispatches, strand a driver in transit and send wrong assets to Check Up.
+  if (!req.body?.confirmed) {
+    return res.status(428).json({ error: 'Confirm the truck is physically back in the yard before logging the return (send confirmed: true).' });
+  }
+  // RETURN-ACTOR-V2: the stamp IS the authenticated account — not a name the
+  // client typed. "Which user triggered this return?" is answered from the
+  // row's own gateInBy / directCosts.returnedBy, readable on every dispatch it closed.
+  const actor = req.user?.name || req.user?.email || 'Security';
   const stamp = new Date().toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -1332,9 +1454,20 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     const freed: string[] = [];
     let tailsReleased = 0;
     for (const trip of stillOpen) {
+      const dc = trip.directCosts && typeof trip.directCosts === 'object' ? { ...(trip.directCosts as any) } : {};
+      // RETURN-AUDIT-TRAIL: who closed it, from where, and whether the truck was
+      // still shown out of the yard at that moment — the record the Transport
+      // Manager needs when he asks why a driver is standing "in transit".
+      dc.returnedBy = {
+        by: actor,
+        role: req.user?.role || '',
+        at: new Date().toISOString(),
+        confirmed: true,
+        note: closed === 0 && stillOpen.length === 1 ? 'Gate return logged' : `Part of ${stillOpen.length} dispatch(es) closed by this return`,
+      };
       await prisma.trip.update({
         where: { id: trip.id },
-        data: { status: 'Completed', eta: trip.eta || stamp, gateInBy: actor },
+        data: { status: 'Completed', eta: trip.eta || stamp, gateInBy: trip.gateInBy || actor, directCosts: dc },
       });
       closed += 1;
       // RETURN-COUPLES-TAIL — the TAIL rode in with the truck; it cannot stay
@@ -2508,13 +2641,116 @@ app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
   // decision (status / decisionNote) or the request's own lines. Identity and
   // audit columns are never client-writable, so a stray client cannot rewrite
   // the queue's bookkeeping.
-  const EDITABLE_REQUEST_FIELDS = ['status', 'decisionNote', 'quantity', 'reason', 'part', 'mechanic', 'truckReg', 'workOrder'];
+  const EDITABLE_REQUEST_FIELDS = ['status', 'decisionNote', 'quantity', 'reason', 'part', 'mechanic', 'truckReg', 'workOrder', 'description', 'targetType', 'requestGroup', 'reviewedBy', 'reviewedAt'];
   const body = req.body || {};
   const data: any = {};
   for (const key of EDITABLE_REQUEST_FIELDS) {
     if (body[key] !== undefined) data[key] = body[key];
   }
+  // A ticket becomes Released (parts issued) through the store's sign-off, or
+  // when the Transport Manager approves a line the store does not stock.
+  // Anything else must travel the chain, so a stray write cannot skip it.
+  if (data.status === 'Released') {
+    const current = await prisma.inventoryRequisition.findUnique({ where: { id: req.params.id } });
+    if (!current || !['Pending', 'Awaiting Admin Approval'].includes(current.status)) {
+      return res.status(400).json({ error: 'This ticket has already moved down the line.' });
+    }
+  }
   res.json(await prisma.inventoryRequisition.update({ where: { id: req.params.id }, data }));
+});
+
+/**
+ * A grouped engineering request: ONE header (target + description) with MANY
+ * store lines, the way the approved design raises it.
+ *
+ * Every line is its own row (the store picks, signs and prices lines
+ * independently) sharing a requestGroup, and every line lands on the Head of
+ * Engineering's desk as Awaiting HOE Review — never directly with the store.
+ */
+app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+  const targetType = String(req.body?.targetType || '').trim();
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const description = String(req.body?.description || '').trim();
+  const requestedBy = String(req.body?.requestedBy || req.user?.name || '').trim();
+  const workOrder = String(req.body?.workOrder || '').trim();
+  const lines = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  if (!['Truck Head', 'Truck Tail', 'Workshop'].includes(targetType)) return res.status(400).json({ error: 'targetType must be Truck Head, Truck Tail or Workshop.' });
+  if (targetType !== 'Workshop' && !truckReg) return res.status(400).json({ error: 'Choose the truck this request is for.' });
+  if (!description) return res.status(400).json({ error: 'Describe what the parts are needed for.' });
+  if (!lines.length) return res.status(400).json({ error: 'Add at least one part line.' });
+  const group = 'EG-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  try {
+    const created = [];
+    for (const line of lines) {
+      const part = String(line?.part || '').trim();
+      const quantity = Math.trunc(Number(line?.quantity));
+      if (!part || !Number.isFinite(quantity) || quantity <= 0) continue;
+      created.push(await prisma.inventoryRequisition.create({
+        data: {
+          workOrder,
+          truckReg: targetType === 'Workshop' ? 'WORKSHOP' : truckReg,
+          mechanic: requestedBy,
+          part,
+          itemId: String(line?.itemId || '') || null,
+          quantity,
+          reason: String(line?.reason || '').trim(),
+          unitCost: Number(line?.unitCost) || 0,
+          status: 'Awaiting HOE Review',
+          requestGroup: group,
+          description,
+          targetType,
+        },
+      }));
+    }
+    if (!created.length) return res.status(400).json({ error: 'No valid part line was supplied.' });
+    await notify('Engineering', 'Parts request needs HOE review', `${group} • ${created.length} line(s) for ${targetType === 'Workshop' ? 'the workshop' : truckReg}: ${description} — raised by ${requestedBy}.`, 'warning', 'Engineering,Engineering & Maintenance,Engineering and Maintenance,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.parts_submitted', refId: group, refLabel: truckReg || 'Workshop', actionRoles: ['Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance'] });
+    res.status(201).json({ group, lines: created });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * The Head of Engineering's verdict on a grouped request: validate (optionally
+ * correcting quantities / names first) and pass it to the Transfer Manager, or
+ * decline it with a reason. Only Awaiting HOE Review groups can be decided —
+ * the status machine, not the role list, enforces the order.
+ */
+app.post('/api/inventory-requisitions/group/:group/review', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
+  const group = String(req.params.group);
+  const approve = req.body?.approve !== false;
+  const note = String(req.body?.note || '').trim();
+  const mods = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  try {
+    const rows = await prisma.inventoryRequisition.findMany({ where: { requestGroup: group } });
+    if (!rows.length) return res.status(404).json({ error: 'Request group not found.' });
+    if (rows.some((r) => r.status !== 'Awaiting HOE Review')) {
+      return res.status(400).json({ error: 'This request has already been reviewed.' });
+    }
+    if (!approve && !note) return res.status(400).json({ error: 'A reason is required to decline the request.' });
+    const by = actingUser(req);
+    const now = new Date();
+    for (const row of rows) {
+      const mod = mods.find((m: any) => String(m?.id) === row.id);
+      const data: any = {
+        status: approve ? 'Awaiting Admin Approval' : 'Rejected',
+        reviewedBy: by,
+        reviewedAt: now,
+        decisionNote: note || null,
+      };
+      if (approve && mod) {
+        if (String(mod.part || '').trim()) data.part = String(mod.part).trim();
+        const q = Math.trunc(Number(mod.quantity));
+        if (Number.isFinite(q) && q > 0) data.quantity = q;
+      }
+      await prisma.inventoryRequisition.update({ where: { id: row.id }, data });
+    }
+    const head = rows[0];
+    await notify('Engineering', approve ? 'Parts request validated — TM approval needed' : 'Parts request declined by HOE', `${group} for ${head.truckReg}: ${head.description || head.reason} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + note}`, approve ? 'info' : 'warning', 'Transport Manager,Engineering,Platform Admin,Parts & Store', { module: 'Engineering', eventKey: approve ? 'engineering.hoe_approved' : 'engineering.hoe_declined', refId: group, refLabel: head.truckReg, actionRoles: approve ? ['Transport Manager'] : ['Engineering'] });
+    res.json({ ok: true, group, approved: approve, count: rows.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /**
@@ -2686,7 +2922,10 @@ app.post('/api/inventory/:id/release', authenticate, authorize('Platform Admin',
   const reqId = req.body.reqId as string | undefined;
   if (!reqId) return res.status(400).json({ error: 'Release requires a valid requisition ID.' });
   const requisition = await prisma.inventoryRequisition.findUnique({ where: { id: reqId } });
-  if (!requisition || requisition.status !== 'Pending') return res.status(400).json({ error: 'Requisition not found or already processed.' });
+  // The Transport Manager approves what the Head of Engineering validated —
+  // legacy one-liners still arrive as Pending, grouped engineering requests as
+  // Awaiting Admin Approval. Anything else has already moved down the line.
+  if (!requisition || !['Pending', 'Awaiting Admin Approval'].includes(requisition.status)) return res.status(400).json({ error: 'Requisition not found or already processed.' });
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   // Approval used to deduct stock immediately — but nothing physical had
@@ -3700,6 +3939,7 @@ app.post('/api/fuel-requests', authenticate, async (req: any, res) => {
       plateNumber: String(req.body?.plateNumber || '').trim() || null,
       note: String(req.body?.note || '').trim() || null,
       status: 'Requested',
+      targetType: String(req.body?.targetType || '').trim() || null,
     });
     try {
       const unit = lubricantUnit(row.fuelType);
@@ -3834,8 +4074,17 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
     return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager decide on a tank draw.' });
   }
   const wanted = String(req.body?.status || '').trim();
-  if (!['Requested', 'Authorized', 'Declined'].includes(wanted)) {
-    return res.status(400).json({ error: 'status must be Requested, Authorized or Declined' });
+  if (!['Requested', 'HOE Approved', 'Authorized', 'Declined'].includes(wanted)) {
+    return res.status(400).json({ error: 'status must be Requested, HOE Approved, Authorized or Declined' });
+  }
+  // The chain runs Requested → HOE Approved → Authorized: the desk's
+  // authorisation only lands on what the Head of Engineering validated (or a
+  // walk-in sale, which never needs HOE review).
+  if (wanted === 'Authorized') {
+    const current = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
+    if (current && current.source === 'Internal Use' && (current as any).targetType && !['HOE Approved', 'Authorized'].includes(current.status)) {
+      return res.status(400).json({ error: 'This engineering draw needs HOE review before the Transport Manager authorises it.' });
+    }
   }
   try {
     const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
@@ -3904,6 +4153,33 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
  * and dispenses in one breath, so dispensing a Requested row authorizes it on
  * the way through — stamped, not skipped.
  */
+/**
+ * The Head of Engineering's verdict on an engineering lubricant draw:
+ * validate it toward the Transfer Manager, or decline it with a reason.
+ * Walk-in sales skip this desk — only engineering draws (targetType set) pass
+ * through HOE review.
+ */
+app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
+  const approve = req.body?.approve !== false;
+  const reason = String(req.body?.reason || '').trim();
+  try {
+    const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: 'Fuel request not found' });
+    if (row.status !== 'Requested') return res.status(400).json({ error: 'This request has already been reviewed.' });
+    if (!approve && !reason) return res.status(400).json({ error: 'A reason is required to decline the request.' });
+    const by = actingUser(req);
+    const updated = await prisma.fuelRequest.update({
+      where: { id: row.id },
+      data: approve
+        ? { status: 'HOE Approved', reviewedBy: by, reviewedAt: new Date() }
+        : { status: 'Declined', declinedBy: by, declinedAt: new Date(), declineReason: reason },
+    });
+    await notify('Lubricant', approve ? 'Lubricant draw validated — TM authorisation needed' : 'Lubricant draw declined by HOE', `${row.reference} • ${row.quantity.toLocaleString()} L of ${row.fuelType} for ${(row as any).targetType || 'engineering use'} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + reason}`, approve ? 'info' : 'warning', 'Transport Manager,Lubricant,Engineering,Platform Admin', { module: 'Fuel & Lubricant', eventKey: approve ? 'fuel.hoe_approved' : 'fuel.hoe_declined', refId: row.id, refLabel: row.reference, actionRoles: approve ? ['Transport Manager'] : ['Engineering'] });
+    res.json(updated);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.post('/api/fuel-requests/:id/dispense', authenticate, async (req: any, res) => {
   if (!mayWorkFuelDesk(req)) {
     return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager dispense from the tank.' });
