@@ -129,7 +129,7 @@ const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
   "Returned",
   "Pending",
   "Seen",
-  "Approved",
+  "Scheduled",
   "In transit",
   "Completed",
   "Declined",
@@ -148,7 +148,7 @@ function statusPillClass(status: PartnerUiStatus) {
     case "Seen":
       // Same orange the partner portals use for an acknowledged request.
       return "bg-[#F99E1F] text-white";
-    case "Approved":
+    case "Scheduled":
       return "bg-[#34C759] text-white";
     case "Declined":
       return "bg-[#ED351D] text-white";
@@ -193,7 +193,7 @@ function ReadOnlyField({ label, value }: { label: string; value?: string }) {
  *
  *  - Mark as Seen  → only while the request is Pending. It is the FIRST
  *    approval; on a request already dispatched it would pull the trip back to
- *    Approved and quietly un-dispatch a truck that may be on the road.
+ *    Seen and quietly un-dispatch a truck that may be on the road.
  *  - Return to Customer → the request goes back to the partner to correct, for as
  *    long as it has not ended. When a truck was already assigned the return
  *    RELEASES that dispatch first (head, tail, driver, costs) and then hands the
@@ -217,7 +217,7 @@ function requestActions(status: PartnerUiStatus) {
  * customer has a dispatch to undo first.
  */
 function hasDispatch(status: PartnerUiStatus) {
-  return status === "Approved" || status === "In transit";
+  return status === "Scheduled" || status === "In transit";
 }
 
 function loadingSitesFor(trip: Trip): string[] {
@@ -273,8 +273,9 @@ function AdminPartnerRequests() {
 
   // Queue order, act-on-me first: untouchable Pending rows lead — a request the
   // partner raised and nobody has opened yet is the only one stopped dead on the
-  // TM — then Seen (opened, still no approval date on it). Approved and in transit
-  // run below, and finished/rejected rows sit at the bottom. Every state runs
+  // TM — then Seen (opened, still no approval date on it). Scheduled and in
+  // transit run below, and finished/rejected rows sit at the bottom. Every state
+  // runs
   // newest first, and the CSV exports `filtered`, so the file matches the screen
   // row for row.
   const listing = useMemo(() => trips.filter(isPartnerRequest).sort(partnerQueueOrder), [trips]);
@@ -399,7 +400,7 @@ function AdminPartnerRequests() {
 
   /**
    * The FIRST approval — the TM acknowledging a request. This is NOT the final
-   * approval: the partner reads it as "Seen" (orange) and "Approved" (green)
+   * approval: the partner reads it as "Seen" (orange) and "Scheduled" (green)
    * only arrives once Fleet Ops has a truck and the dispatch is scheduled. The
    * button is labelled for what it produces so the two steps can't be confused.
    */
@@ -407,7 +408,7 @@ function AdminPartnerRequests() {
     if (approvingId) return;
     // Guard the ENDPOINT, not just the button: "Mark as Seen" is the first
     // approval and must never be applied to a request that has already moved on
-    // (it would set the trip back to Approved and un-dispatch a live truck).
+    // (it would set the trip back to Seen and un-dispatch a live truck).
     if (toPartnerUiStatus(trip) !== "Pending") {
       setMenuFor(null);
       toast.error("This request has already been actioned — it can no longer be marked as Seen.");

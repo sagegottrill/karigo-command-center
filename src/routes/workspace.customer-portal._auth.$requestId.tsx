@@ -68,7 +68,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
 });
 
 type PartnerUiStatus =
-  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
+  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
 
 /**
  * Split joined site strings so each site is its own field (Figma 356:9825).
@@ -90,7 +90,7 @@ function toPartnerStatus(trip: {
 }): PartnerUiStatus {
   // Partner semantics — mirrors status-buckets.toPartnerUiStatus, EXCEPT that
   // the TM's FIRST approval is only "Seen" (orange): the partner sees
-  // "Approved" (green) only after the second/final approval (Scheduled).
+  // "Scheduled" (green) only after the second/final approval.
   switch (trip.status) {
     case "Requested":
     case "Draft":
@@ -102,7 +102,7 @@ function toPartnerStatus(trip: {
     case "Approved for Dispatch":
       return "Seen";
     case "Scheduled":
-      return "Approved";
+      return "Scheduled";
     case "Stopped":
       return "Declined";
     case "Completed":
@@ -126,7 +126,7 @@ function partnerStatusClass(status: PartnerUiStatus) {
       return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
-    case "Approved":
+    case "Scheduled":
       return "bg-[#0ACF83] text-white";
     case "Declined":
       return "bg-[#ED351D] text-white";
@@ -199,8 +199,8 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
     Boolean(trip.driverName && trip.driverName !== "Unassigned" && trip.driverName.trim() !== "");
 
   // Two-step approval: the TM's first approval only marks the request "Seen"
-  // (orange). "Approved" (green) happens after final approval, when the trip
-  // becomes Scheduled and the truck is on the road.
+  // (orange). "Scheduled" (green) happens after final approval, when the trip
+  // is on the dispatch board.
   const dispatched = [
     "Scheduled",
     "Loaded",
@@ -232,7 +232,7 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
   const steps: PartnerTimelineStep[] = [
     { label: "Request Submitted", state: "done", at: submittedAt },
     dispatched
-      ? { label: "Request Approved", state: "done", at: approvedAt ?? seenAt }
+      ? { label: "Request Scheduled", state: "done", at: approvedAt ?? seenAt }
       : { label: "Request Seen", state: seenAt ? "seen" : "current", at: seenAt },
     {
       label: "Dispatch Created",
@@ -912,7 +912,7 @@ function PartnerRequestDetailsPage() {
                     ? "With Fleet Operations for correction — a new truck and driver will be assigned."
                     : trip.status === "Requested"
                       ? "Awaiting Transport Manager approval and assignment."
-                      : "Approved — awaiting fleet assignment of driver and truck."}
+                      : "Scheduled — awaiting fleet assignment of driver and truck."}
                 </div>
               ) : (
                 <div className="flex flex-col gap-5">

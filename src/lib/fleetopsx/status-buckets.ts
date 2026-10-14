@@ -206,7 +206,7 @@ export function queueOrderFifo(
  * under rows he has already opened. Seen (opened, first approval given, no truck
  * on it yet) follows, then the rest of the work in the same action group.
  *
- * Approved and In transit are simply running and belong below; Completed and
+ * Scheduled and In transit are simply running and belong below; Completed and
  * Declined are over and sit at the bottom. Every state runs newest first, so the
  * request that has just arrived is the first row of its group.
  */
@@ -216,7 +216,7 @@ export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
   Returned: 0,
   Pending: 1,
   Seen: 3,
-  Approved: 4,
+  Scheduled: 4,
   "In transit": 5,
   Completed: 6,
   Declined: 7,
@@ -239,14 +239,13 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
  * and the partner portal.
  *
  * `Seen` is the TM's FIRST approval: the request has been acknowledged, the
- * partner can see it was read, but no truck has been dispatched yet. `Approved`
- * is the FINAL approval, when the dispatch is scheduled and on the road. Both
- * portals use these same words now — the partner side already said "Seen", the
- * staff side used to say "Approved" for both, which read as two different facts
- * about the same request.
+ * partner can see it was read, but no truck has been dispatched yet.
+ * `Scheduled` is the FINAL approval, when the dispatch is on the board.
+ * There is no "Approved" state in the pipeline — Pending, Seen, Scheduled,
+ * In transit, Completed, Declined.
  */
 export type PartnerUiStatus =
-  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
+  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
 
 export function toPartnerUiStatus(
   trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
@@ -264,7 +263,7 @@ export function toPartnerUiStatus(
     case "awaiting":
       return "Seen";
     case "scheduled":
-      return "Approved";
+      return "Scheduled";
     case "inTransit":
       return "In transit";
     case "completed":

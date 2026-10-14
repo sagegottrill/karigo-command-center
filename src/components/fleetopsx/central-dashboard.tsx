@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  BarChart3,
   CalendarDays,
   CircleAlert,
   CircleCheck,
@@ -17,6 +18,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import {
@@ -83,6 +85,18 @@ import {
   partnerOf,
   TRACKING_DELAY_COLOR,
 } from "@/lib/fleetopsx/tracking-ops";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   formatMoney,
   formatQuantity,
@@ -647,6 +661,38 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     [periodKind, dayKey, customFrom, customTo],
   );
 
+  /**
+   * DAILY AND MONTHLY DIESEL, always visible (the meeting called this critical):
+   * the Live Operations band needs both figures whatever window the board is
+   * switched to, so each is computed from the pump's own ledgers against a fixed
+   * window instead of reusing the picker's range.
+   */
+  const dieselWindows = useMemo(() => {
+    const now = clock ?? new Date();
+    const dayFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const monthFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    let dayLitres = 0;
+    let dayCost = 0;
+    let monthLitres = 0;
+    let monthCost = 0;
+    const consider = (at: string | Date | null | undefined, fuelType: string, quantity: number, amount: number) => {
+      if (fuelType !== "Diesel") return;
+      const stamp = new Date(String(at ?? "")).getTime();
+      if (!Number.isFinite(stamp)) return;
+      if (stamp >= monthFrom.getTime()) {
+        monthLitres += quantity;
+        monthCost += amount;
+        if (stamp >= dayFrom.getTime()) {
+          dayLitres += quantity;
+          dayCost += amount;
+        }
+      }
+    };
+    for (const pour of deskPours) consider(pour.dispensedAt ?? pour.createdAt, pour.fuelType, Number(pour.quantity ?? 0), Number(pour.amount ?? 0));
+    for (const d of disbursals) consider(d.createdAt, d.fuelType, Number(d.quantity ?? 0), Number(d.amount ?? 0));
+    return { dayLitres, dayCost, monthLitres, monthCost };
+  }, [deskPours, disbursals, clock]);
+
   /** From/To are local date strings (YYYY-MM-DD) from the picker's inputs. */
   const selectPeriod = (next: PeriodKind) => {
     if (next === "custom") {
@@ -725,6 +771,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       .filter((s) => s.count > 0);
 
     const pending = requests.filter((t) => tripBucket(t) === "pending");
+    const seen = requests.filter((t) => {
+      const b = tripBucket(t);
+      return b === "approved" || b === "awaiting";
+    });
+    const scheduled = requests.filter((t) => tripBucket(t) === "scheduled");
+    const inTransitWindow = requests.filter((t) => tripBucket(t) === "inTransit");
     const declined = requests.filter((t) => tripBucket(t) === "declined");
     const completed = requests.filter((t) => tripBucket(t) === "completed");
 
@@ -732,11 +784,32 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
 
     // Money committed on the loads that are out right now. These are the direct
     // costs configured against each request — nothing here is invented.
+    // Road expense = the six allowances + extras, counted ONLY once Accounts has
+    // actually disbursed the sheet (status Disbursed/Reconciled). Undisbursed
+    // sheets contribute zero, per the meeting rule.
     let cost = 0;
+    let roadCommitted = 0;
+    let roadDisbursed = 0;
     let dieselLitres = 0;
     let dieselCost = 0;
     let gasKg = 0;
     let gasCost = 0;
+    const isDisbursedSheet = (trip: Trip) => {
+      const s = String(sheetOf(trip)?.disbursement?.status ?? "");
+      return /disbursed|reconciled/i.test(s);
+    };
+    const roadOf = (trip: Trip) => {
+      const sheet = sheetOf(trip);
+      const extras = Array.isArray(sheet.extras) ? sheet.extras : [];
+      const six =
+        Number(sheet.tripAllowance ?? 0) +
+        Number(sheet.returnWaybill ?? 0) +
+        Number(sheet.motorBoy ?? 0) +
+        Number(sheet.ticket ?? 0) +
+        Number(sheet.extraAllowance ?? 0) +
+        Number(sheet.bonus ?? 0);
+      return six + extras.reduce((t, l) => t + Number((l as any)?.amount ?? 0), 0);
+    };
     for (const trip of trips) {
       const bucket = tripBucket(trip);
       const isBudgeted = bucket !== "pending" && bucket !== "declined" && (trip.status as string) !== "Cancelled";
@@ -745,6 +818,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       const dispatchedTime = (trip as any).dispatchTracker?.dispatchTime ?? trip.createdAt;
       if (inPeriod(dispatchedTime, range)) {
         cost += directCostOf(trip);
+        const road = roadOf(trip);
+        roadCommitted += road;
+        if (isDisbursedSheet(trip)) roadDisbursed += road;
         const type = trip.directCosts?.lubricantType;
         const requestedQty = Number(trip.directCosts?.lubricantQuantity ?? 0);
         const qty = trip.directCosts?.lubricantApprovedLitres !== undefined ? Number(trip.directCosts.lubricantApprovedLitres) : requestedQty;
@@ -786,6 +862,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         pouredGasCost += Number(pour.amount ?? 0);
       }
     }
+    let lubricantOilCost = 0;
+    let lubricantOilQty = 0;
     for (const d of disbursals) {
       if (!inPeriod(d.createdAt, range)) continue;
       pouredCost += Number(d.amount ?? 0);
@@ -795,8 +873,35 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       } else if (d.fuelType === "Gas") {
         pouredGasKg += Number(d.quantity ?? 0);
         pouredGasCost += Number(d.amount ?? 0);
+      } else {
+        lubricantOilQty += Number((d as any).quantity ?? 0);
+        lubricantOilCost += Number((d as any).amount ?? 0);
       }
     }
+    // Indirect cost for the window: workshop labour (work-order cost, never
+    // Cancelled) + store issues at recorded value. Purchases are capital into
+    // stock, not spend, so they stay out of the indirect total.
+    let indirectLabour = 0;
+    for (const o of workOrders) {
+      if (o.status === "Cancelled") continue;
+      const moment = (o as any).completedAt || (o as any).reportedAt;
+      if (!inPeriod(moment, range)) continue;
+      indirectLabour += Number((o as any).cost ?? 0);
+    }
+    let indirectParts = 0;
+    let indirectPartsUnits = 0;
+    for (const m of movements) {
+      if ((m as any).kind !== "Issue") continue;
+      if (!inPeriod((m as any).actedAt, range)) continue;
+      indirectParts += Math.abs(Number((m as any).value ?? 0));
+      indirectPartsUnits += Math.abs(Number((m as any).quantity ?? 0));
+    }
+    const indirectCost = indirectLabour + indirectParts;
+    // Direct cost, meeting formula: disbursed road expense + dispensed diesel +
+    // dispensed gas + lubricant oil dispensed. Zero when nothing was paid or
+    // poured — no committed-but-unpaid figure leaks in.
+    const directCost = roadDisbursed + pouredDieselCost + pouredGasCost + lubricantOilCost;
+    const totalCost = directCost + indirectCost;
 
     const headStat = (status: string) => heads.filter((h) => h.status === status).length;
     const tailStat = (status: string) => (tails ?? []).filter((t) => t.status === status).length;
@@ -814,9 +919,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         total: requests.length,
         /**
          * The window's own breakdown, in the request queue's words — the Total
-         * card must capture EVERYTHING it holds (pending, seen, approved, on the
-         * road, completed, declined), so each state gets its own row and the rows
-         * always add back up to the total.
+         * card must capture EVERYTHING it holds (pending, seen, scheduled, on
+         * the road, completed, declined), so each state gets its own row and
+         * the rows always add back up to the total.
          */
         pending: counts.pending,
         seen: counts.approved + counts.awaiting,
@@ -828,10 +933,21 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         dispatched: liveOnRoad.length,
         /** The card's own breakdown: the total is the sum of these rows. */
         inTransitByStatus,
-        lists: { pending, declined, completed, all: requests, live: liveOnRoad },
+        lists: {
+          pending,
+          seen,
+          scheduled,
+          inTransitWindow,
+          declined,
+          completed,
+          all: requests,
+          live: liveOnRoad,
+        },
       },
       spend: {
         cost,
+        roadCommitted,
+        roadDisbursed,
         dieselLitres,
         dieselCost,
         gasKg,
@@ -842,6 +958,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         pouredDieselCost,
         pouredGasKg,
         pouredGasCost,
+        lubricantOilCost,
+        lubricantOilQty,
+        indirectLabour,
+        indirectParts,
+        indirectPartsUnits,
+        indirectCost,
+        directCost,
+        totalCost,
       },
       dispatch: {
         total: active.length,
@@ -897,7 +1021,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, disbursals, range]);
+  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, disbursals, workOrders, movements, range]);
 
   /** The window's own activity — raised / approved / dispatched / declined. */
   const activity = useMemo(
@@ -1112,7 +1236,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
   /**
    * The request queue's own words and tones, so a popover row on the dashboard
    * reads exactly like the row in Partner Requests: Pending (amber), Seen (the
-   * TM's first approval), Approved (on the dispatch board), In transit,
+   * TM's first approval), Scheduled (on the dispatch board), In transit,
    * Completed and Declined.
    */
   const REQUEST_PILL_TONE: Record<PartnerUiStatus, TileTone> = {
@@ -1121,7 +1245,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     Returned: "red",
     Pending: "amber",
     Seen: "teal",
-    Approved: "green",
+    Scheduled: "green",
     "In transit": "purple",
     Completed: "blue",
     Declined: "red",
@@ -1229,6 +1353,16 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
    * a truck is still standing.
    */
   const decidePartRequest = async (request: EngPartRequest, approve: boolean) => {
+    // The chain runs HOE → TM → store: only Pending (legacy) and HOE-validated
+    // tickets are the TM's to decide. The server enforces the same rule.
+    if (request.stage !== "Pending" && request.stage !== "Awaiting Admin Approval") {
+      toast.error(
+        request.stage === "Awaiting HOE Review"
+          ? "This request is still with the Head of Engineering for review."
+          : "This request has already moved past the approval desk.",
+      );
+      return;
+    }
     let note = "";
     if (!approve) {
       note = (
@@ -1842,6 +1976,16 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   {activity.declined} declined
                 </span>
               ) : null}
+              {/*
+                DAILY + MONTHLY DIESEL (meeting: critical, must always be
+                visible) — what the pump actually poured, straight from the
+                desk ledgers, whatever window the board is switched to.
+              */}
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-white">
+                <Fuel className="size-[15px] text-white" strokeWidth={1.9} />
+                Diesel today: {dieselWindows.dayLitres.toLocaleString("en-NG")} L ({formatMoney(dieselWindows.dayCost)}) · this month:{" "}
+                {dieselWindows.monthLitres.toLocaleString("en-NG")} L ({formatMoney(dieselWindows.monthCost)})
+              </span>
             </div>
           </div>
 
@@ -1901,14 +2045,14 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 /*
                  * EVERY state the window holds, always drawn — zeros included —
                  * so the six rows visibly add back up to the Total above them and
-                 * nothing (Seen, Approved, Completed) can go missing from a number
+                 * nothing (Seen, Scheduled, Completed) can go missing from a number
                  * that is supposed to capture all of it.
                  */
                 <TileDetailRows
                   rows={[
                     { label: "Pending:", value: stats.requests.pending, tone: "amber" },
                     { label: "Seen:", value: stats.requests.seen, tone: "teal" },
-                    { label: "Approved:", value: stats.requests.onBoard, tone: "green" },
+                    { label: "Scheduled:", value: stats.requests.onBoard, tone: "green" },
                     { label: "In transit:", value: stats.requests.inTransit, tone: "purple" },
                     { label: "Completed:", value: stats.requests.completed, tone: "blue" },
                     { label: "Declined:", value: stats.requests.declined, tone: "red" },
@@ -1923,7 +2067,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               footer={
                 <span>
                   {stats.requests.pending} Pending • {stats.requests.seen} Seen •{" "}
-                  {stats.requests.onBoard} Approved • {stats.requests.inTransit} In transit •{" "}
+                  {stats.requests.onBoard} Scheduled • {stats.requests.inTransit} In transit •{" "}
                   {stats.requests.completed} Completed • {stats.requests.declined} Declined
                 </span>
               }
@@ -1941,7 +2085,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <LiveMetricTile
               label="Pending"
               value={stats.requests.pending}
-              hint="Requests not Approved"
+              hint="Awaiting TM decision"
               tone="amber"
               icon={History}
               hasDrill
@@ -1986,21 +2130,20 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   <TileCostColumns
                     columns={[
                       {
-                        label: "Direct Cost:",
-                        value: formatMoney(stats.spend.cost),
+                        label: "Road exp:",
+                        value: formatMoney(stats.spend.roadDisbursed),
                         tone: "purple",
                       },
                       {
                         label: "Diesel:",
-                        value: `${stats.spend.dieselLitres.toLocaleString()}L`,
-                        sub: `(${formatMoney(stats.spend.dieselCost)})`,
+                        value: `${stats.spend.pouredDieselLitres.toLocaleString()}L`,
+                        sub: `(${formatMoney(stats.spend.pouredDieselCost)})`,
                         tone: "amber",
                       },
                       {
-                        label: "Gas:",
-                        value: `${stats.spend.gasKg.toLocaleString()}KG`,
-                        sub: `(${formatMoney(stats.spend.gasCost)})`,
-                        tone: "amber",
+                        label: "Direct:",
+                        value: formatMoney(stats.spend.directCost),
+                        tone: "purple",
                       },
                     ]}
                   />
@@ -2027,31 +2170,45 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Direct Cost</span>
+                    <span>Road expense (disbursed)</span>
                     <span className="font-semibold text-white">
-                      {formatMoney(stats.spend.cost)}
+                      {formatMoney(stats.spend.roadDisbursed)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Diesel</span>
+                    <span>Diesel (dispensed)</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.dieselLitres.toLocaleString()}L ({formatMoney(stats.spend.dieselCost)})
+                      {stats.spend.pouredDieselLitres.toLocaleString()}L ({formatMoney(stats.spend.pouredDieselCost)})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Gas</span>
+                    <span>Gas (dispensed)</span>
                     <span className="font-semibold text-white">
-                      {stats.spend.gasKg.toLocaleString()}KG ({formatMoney(stats.spend.gasCost)})
+                      {stats.spend.pouredGasKg.toLocaleString()}KG ({formatMoney(stats.spend.pouredGasCost)})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-0.5">
+                    <span>Lubricant</span>
+                    <span className="font-semibold text-white">
+                      {formatMoney(stats.spend.lubricantOilCost)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-0.5">
+                    <span>Direct cost</span>
+                    <span className="font-semibold text-white">
+                      {formatMoney(stats.spend.directCost)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-0.5">
+                    <span>Indirect cost</span>
+                    <span className="font-semibold text-white">
+                      {formatMoney(stats.spend.indirectCost)}
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between border-t border-white/15 pt-1.5">
-                    <span>Total Cost:</span>
+                    <span>Total cost:</span>
                     <span className="font-bold" style={{ color: TONE.green.line }}>
-                      {formatMoney(
-                        stats.spend.cost +
-                          stats.spend.dieselCost +
-                          stats.spend.gasCost,
-                      )}
+                      {formatMoney(stats.spend.totalCost)}
                     </span>
                   </div>
                 </div>
@@ -2067,6 +2224,78 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   </p>
                   {stats.requests.lists.live.map(dispatchedRow)}
                 </>
+              )}
+            </DrillPopover>
+          </div>
+
+          <div className="relative">
+            <LiveMetricTile
+              label="Seen"
+              value={stats.requests.seen}
+              hint="TM first approval"
+              tone="teal"
+              icon={CircleCheck}
+              hasDrill
+              onClick={() => drill.toggle("req-seen")}
+            />
+            <DrillPopover
+              open={drill.isOpen("req-seen")}
+              onClose={drill.close}
+              title={`Seen Requests (${stats.requests.seen})`}
+              width={340}
+            >
+              {stats.requests.lists.seen.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">No seen request in this window.</p>
+              ) : (
+                stats.requests.lists.seen.map((trip) => requestRow(trip, true))
+              )}
+            </DrillPopover>
+          </div>
+
+          <div className="relative">
+            <LiveMetricTile
+              label="Scheduled"
+              value={stats.requests.onBoard}
+              hint="On the dispatch board"
+              tone="green"
+              icon={CalendarDays}
+              hasDrill
+              onClick={() => drill.toggle("req-scheduled")}
+            />
+            <DrillPopover
+              open={drill.isOpen("req-scheduled")}
+              onClose={drill.close}
+              title={`Scheduled Dispatches (${stats.requests.onBoard})`}
+              width={340}
+            >
+              {stats.requests.lists.scheduled.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">Nothing scheduled in this window.</p>
+              ) : (
+                stats.requests.lists.scheduled.map((trip) => requestRow(trip, true))
+              )}
+            </DrillPopover>
+          </div>
+
+          <div className="relative">
+            <LiveMetricTile
+              label="Completed"
+              value={stats.requests.completed}
+              hint="Dispatches finished"
+              tone="blue"
+              icon={CircleCheck}
+              hasDrill
+              onClick={() => drill.toggle("req-completed")}
+            />
+            <DrillPopover
+              open={drill.isOpen("req-completed")}
+              onClose={drill.close}
+              title={`Completed Dispatches (${stats.requests.completed})`}
+              width={340}
+            >
+              {stats.requests.lists.completed.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">Nothing completed in this window.</p>
+              ) : (
+                stats.requests.lists.completed.map((trip) => requestRow(trip, false))
               )}
             </DrillPopover>
           </div>
@@ -2093,6 +2322,189 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 stats.requests.lists.declined.map((trip) => requestRow(trip, false))
               )}
             </DrillPopover>
+          </div>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------- Cost overview (direct / indirect / total) */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          icon={Wallet}
+          title="Cost Overview"
+          subtitle="Direct = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
+        >
+          <PeriodNote>{range.note}</PeriodNote>
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative">
+            <LiveMetricTile
+              label="Road Expense"
+              value={formatMoney(stats.spend.roadDisbursed)}
+              hint="Disbursed by Accounts"
+              tone="grey"
+              icon={Wallet}
+              hasDrill
+              onClick={() => drill.toggle("cost-road")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    { label: "Committed:", value: formatMoney(stats.spend.roadCommitted), tone: "grey" },
+                    { label: "Disbursed:", value: formatMoney(stats.spend.roadDisbursed), tone: "green" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("cost-road")}
+              onClose={drill.close}
+              title="Road expense"
+              width={340}
+              footer={<span>Undisbursed sheets count zero until Accounts pays them.</span>}
+            >
+              <p className="py-2 text-[12px] leading-5 text-white/70">
+                Committed {formatMoney(stats.spend.roadCommitted)} · Disbursed{" "}
+                {formatMoney(stats.spend.roadDisbursed)}. Transport allowance, return-way
+                bill, motor-boy, tickets, extra allowance, bonus and added lines.
+              </p>
+            </DrillPopover>
+          </div>
+
+          <div className="relative">
+            <LiveMetricTile
+              label="Direct Cost"
+              value={formatMoney(stats.spend.directCost)}
+              hint="Road + diesel + gas + lubricant"
+              tone="purple"
+              icon={Fuel}
+              hasDrill
+              onClick={() => drill.toggle("cost-direct")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    { label: "Road:", value: formatMoney(stats.spend.roadDisbursed), tone: "purple" },
+                    { label: "Diesel:", value: formatMoney(stats.spend.pouredDieselCost), tone: "amber" },
+                    { label: "Gas:", value: formatMoney(stats.spend.pouredGasCost), tone: "amber" },
+                    { label: "Lubricant:", value: formatMoney(stats.spend.lubricantOilCost), tone: "teal" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("cost-direct")}
+              onClose={drill.close}
+              title={`Direct cost (${formatMoney(stats.spend.directCost)})`}
+              width={360}
+              footer={<span>Diesel {stats.spend.pouredDieselLitres.toLocaleString()}L · Gas {stats.spend.pouredGasKg.toLocaleString()}KG · Lubricant {formatMoney(stats.spend.lubricantOilCost)}</span>}
+            >
+              <div className="flex flex-col gap-1.5 py-1 text-[12px] text-white/75">
+                <div className="flex justify-between"><span>Road expense (disbursed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.roadDisbursed)}</span></div>
+                <div className="flex justify-between"><span>Diesel (dispensed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.pouredDieselCost)}</span></div>
+                <div className="flex justify-between"><span>Gas (dispensed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.pouredGasCost)}</span></div>
+                <div className="flex justify-between"><span>Lubricant</span><span className="font-semibold text-white">{formatMoney(stats.spend.lubricantOilCost)}</span></div>
+              </div>
+            </DrillPopover>
+          </div>
+
+          <div className="relative">
+            <LiveMetricTile
+              label="Indirect Cost"
+              value={formatMoney(stats.spend.indirectCost)}
+              hint="Workshop + store issues"
+              tone="amber"
+              icon={Wrench}
+              hasDrill
+              onClick={() => drill.toggle("cost-indirect")}
+              detail={
+                <TileDetailRows
+                  rows={[
+                    { label: "Repairs:", value: formatMoney(stats.spend.indirectLabour), tone: "amber" },
+                    { label: "Parts:", value: formatMoney(stats.spend.indirectParts), tone: "amber" },
+                  ]}
+                />
+              }
+            />
+            <DrillPopover
+              open={drill.isOpen("cost-indirect")}
+              onClose={drill.close}
+              title={`Indirect cost (${formatMoney(stats.spend.indirectCost)})`}
+              width={360}
+              footer={<span>{stats.spend.indirectPartsUnits.toLocaleString()} units issued · spare parts, repairs, tyres & rims, other claims</span>}
+            >
+              <div className="flex flex-col gap-1.5 py-1 text-[12px] text-white/75">
+                <div className="flex justify-between"><span>Repairs & maintenance (work orders)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectLabour)}</span></div>
+                <div className="flex justify-between"><span>Spare parts / store issues</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectParts)}</span></div>
+              </div>
+            </DrillPopover>
+          </div>
+
+          <LiveMetricTile
+            label="Total Cost"
+            value={formatMoney(stats.spend.totalCost)}
+            hint="Direct + indirect"
+            tone="green"
+            icon={BarChart3}
+          />
+        </div>
+
+        <div className={cn("grid grid-cols-1 gap-5 lg:grid-cols-5")}>
+          <div className={cn("rounded-[10px] bg-white p-4 md:p-5 lg:col-span-3", CARD_SHADOW)}>
+            <h3 className="text-[15px] font-semibold text-[#1B2432]">Spend in this window</h3>
+            <p className="text-[11px] text-[#8E95A1]">Direct vs indirect — {range.label}</p>
+            <div className="mt-3 h-[240px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: "Road", value: stats.spend.roadDisbursed },
+                    { name: "Diesel", value: stats.spend.pouredDieselCost },
+                    { name: "Gas", value: stats.spend.pouredGasCost },
+                    { name: "Lube", value: stats.spend.lubricantOilCost },
+                    { name: "Repairs", value: stats.spend.indirectLabour },
+                    { name: "Parts", value: stats.spend.indirectParts },
+                  ]}
+                  margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E7EAF0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#5C6470" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "#5C6470" }} tickFormatter={(v: number) => (v >= 1000000 ? `${Math.round(v / 1000000)}M` : v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
+                  <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                    {["#8E95A1", "#F59E0B", "#F59E0B", "#14B8A6", "#A855F7", "#ED351D"].map((c, i) => (
+                      <Cell key={i} fill={c} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className={cn("rounded-[10px] bg-white p-4 md:p-5 lg:col-span-2", CARD_SHADOW)}>
+            <h3 className="text-[15px] font-semibold text-[#1B2432]">Direct vs indirect</h3>
+            <p className="text-[11px] text-[#8E95A1]">Share of {formatMoney(stats.spend.totalCost)}</p>
+            <div className="mt-3 h-[240px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Direct", value: stats.spend.directCost },
+                      { name: "Indirect", value: stats.spend.indirectCost },
+                    ]}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={52}
+                    outerRadius={88}
+                    paddingAngle={3}
+                  >
+                    <Cell fill="#7C3AED" />
+                    <Cell fill="#F59E0B" />
+                  </Pie>
+                  <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-1 flex items-center justify-center gap-4 text-[12px] font-medium text-[#3C4653]">
+              <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#7C3AED]" />Direct {formatMoney(stats.spend.directCost)}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#F59E0B]" />Indirect {formatMoney(stats.spend.indirectCost)}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -2873,9 +3285,9 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                         >
                           <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.item}</td>
                           <td className="py-1.5 pr-3">{row.sku}</td>
-                          <td className="py-1.5 pr-3">{row.stock}</td>
-                          <td className="py-1.5 pr-3">{row.reorderLevel}</td>
-                          <td className="py-1.5 pr-3">{row.toBuy}</td>
+                          <td className="py-1.5 pr-3">{row.stock.toLocaleString("en-NG")}</td>
+                          <td className="py-1.5 pr-3">{row.reorderLevel.toLocaleString("en-NG")}</td>
+                          <td className="py-1.5 pr-3">{row.toBuy.toLocaleString("en-NG")}</td>
                           <td className="py-1.5 pr-3">{formatMoney(row.estimatedCost)}</td>
                           <td className="py-1.5 pr-3">{row.supplier || "no supplier on file"}</td>
                         </tr>
@@ -2982,7 +3394,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                         >
                           <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{line.name}</td>
                           <td className="py-1.5 pr-3">{line.sku}</td>
-                          <td className="py-1.5 pr-3">{line.stock}</td>
+                          <td className="py-1.5 pr-3">{line.stock.toLocaleString("en-NG")}</td>
                           <td className="py-1.5 pr-3">{formatMoney(line.unitCost)}</td>
                           <td className="py-1.5 pr-3">{formatMoney(line.value)}</td>
                         </tr>

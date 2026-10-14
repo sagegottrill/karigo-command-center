@@ -17,7 +17,7 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard
 });
 
 type PartnerUiStatus =
-  "Pending" | "Seen" | "Approved" | "Declined" | "In transit" | "Completed" | "Returned";
+  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
 
 function toPartnerStatus(trip: {
   status: TripStatus;
@@ -33,11 +33,11 @@ function toPartnerStatus(trip: {
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
-      // TM's FIRST approval = acknowledged only. "Approved" comes after the
-      // second (final) approval, when the trip is Scheduled and on the road.
+      // TM's FIRST approval = acknowledged only (Seen). "Scheduled" comes after
+      // the second (final) approval, when the trip is on the dispatch board.
       return "Seen";
     case "Scheduled":
-      return "Approved";
+      return "Scheduled";
     case "Stopped":
       return "Declined";
     case "Completed":
@@ -67,7 +67,7 @@ function partnerStatusClass(status: PartnerUiStatus) {
       return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
-    case "Approved":
+    case "Scheduled":
       return "bg-[#34C759] text-white";
     case "Declined":
       return "bg-[#ED351D] text-white";
@@ -198,9 +198,9 @@ function PartnerPortalDashboard() {
   const inTransit = partnerCounts.inTransit;
   const pending = partnerCounts.pending;
   // First approval (acknowledged, awaiting final approval) is "Seen";
-  // "Approved" counts only the TM's second approval (Scheduled/on the road).
+  // "Scheduled" counts only the TM's second approval (on the dispatch board).
   const seen = partnerCounts.approved + partnerCounts.awaiting;
-  const approved = partnerCounts.scheduled;
+  const scheduled = partnerCounts.scheduled;
   const declined = partnerCounts.declined;
   const completed = partnerCounts.completed;
 
@@ -347,7 +347,7 @@ function PartnerPortalDashboard() {
     },
     { label: "Pending", value: pending },
     { label: "Seen", value: seen },
-    { label: "Approved", value: approved },
+    { label: "Scheduled", value: scheduled },
     { label: "Declined", value: declined },
     { label: "Completed", value: completed },
   ] as const;
