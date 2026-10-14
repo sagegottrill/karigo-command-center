@@ -637,7 +637,7 @@ export const tripService = {
       dispatchClosed: number;
       driversFreed: string[];
       stamp: string;
-    }>("/gate/return", { method: "POST", body: JSON.stringify({ truck }) }),
+    }>("/gate/return", { method: "POST", body: JSON.stringify({ truck, confirmed: true }) }),
   update: (
     id: string,
     updates: Omit<Partial<Trip>, keyof ClearableTripFields> & ClearableTripFields,
@@ -935,6 +935,10 @@ export const engineeringService = {
       ...(reason ? { notes: reason } : {}),
     }),
 
+  /** Permanently remove an incorrect work order (sent back / raised in error). */
+  remove: (id: string) =>
+    fetchApi(`/work-orders/${id}`, { method: "DELETE" }).then(() => ({ ok: true })),
+
   logRepair: (truckReg: string, defect: string, category: string, amount: number) =>
     // Repairs are recorded as an expense row (server model has no repair ledger).
     fetchApi("/expenses", {
@@ -1061,6 +1065,24 @@ export const inventoryService = {
       body: JSON.stringify({ status: "Released" }),
     });
   },
+  /**
+   * The check-up verdict: no-issues returns the truck to Available; issues send
+   * it to Maintenance with a defect job and (optionally) a grouped parts request.
+   */
+  logInspection: (input: {
+    headId?: string;
+    tailId?: string;
+    truckReg: string;
+    result: "no-issues" | "issues";
+    defect?: string;
+    severity?: string;
+    inspectedBy?: string;
+    parts?: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number }>;
+  }) =>
+    fetchApi<{ ok: boolean; group?: string | null }>("/engineering/inspections", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   /** The store floor's queue: approved tickets waiting for a physical handover. */
   handoffs: () =>
     fetchApi<unknown[]>("/inventory-handoffs").then((res) =>
@@ -1091,6 +1113,34 @@ export const inventoryService = {
     fetchApi(`/inventory-requisitions/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "Rejected", decisionNote }),
+    }),
+  /**
+   * A grouped engineering request: one header (target + description) with many
+   * store lines. Lines land on the Head of Engineering's desk, never the store's.
+   */
+  createRequisitionGroup: (input: {
+    targetType: string;
+    truckReg: string;
+    description: string;
+    requestedBy: string;
+    workOrder?: string;
+    lines: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number; reason?: string }>;
+  }) =>
+    fetchApi<{ group: string; lines: unknown[] }>("/inventory-requisitions/group", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  /** The Head of Engineering's verdict on a group: validate (with line edits) or decline. */
+  reviewRequisitionGroup: (group: string, approve: boolean, note?: string, lines?: Array<{ id: string; part?: string; quantity?: number }>) =>
+    fetchApi<{ ok: boolean }>(`/inventory-requisitions/group/${group}/review`, {
+      method: "POST",
+      body: JSON.stringify({ approve, note, lines }),
+    }),
+  /** HOE verdict on an engineering lubricant draw. */
+  hoeReviewFuelRequest: (id: string, approve: boolean, reason?: string) =>
+    fetchApi(`/fuel-requests/${id}/hoe-review`, {
+      method: "POST",
+      body: JSON.stringify({ approve, reason }),
     }),
   release: (itemId: string, qty: number, reqId?: string) =>
     fetchApi(`/inventory/${itemId}/release`, {

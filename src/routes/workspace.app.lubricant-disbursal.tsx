@@ -9,6 +9,7 @@ import {
   type FuelDesk,
 } from "@/lib/fleetopsx/live-api";
 import type { FuelRequest } from "@/lib/fleetopsx/types";
+import { fuelBadge, tmAuthorizableFuel } from "@/lib/fleetopsx/request-status";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
@@ -337,7 +338,11 @@ function LogDisbursalPage() {
         ) : (
           <div className="flex flex-col">
             {deskRows.map((r) => {
-              const waiting = r.status === "Requested";
+              // Engineering draws travel HOE → TM → desk: only HOE-approved (or
+              // non-engineering) rows are authorisable here. A Requested
+              // engineering draw waits on the Head of Engineering, not the pump.
+              const waiting = tmAuthorizableFuel(r);
+              const badge = r.targetType ? fuelBadge(r).label : r.status;
               return (
                 <div
                   key={r.id}
@@ -372,7 +377,7 @@ function LogDisbursalPage() {
                           : "bg-[#FFF3D6] text-[#8A5A00]",
                     )}
                   >
-                    {r.status}
+                    {badge}
                   </span>
 
                   {waiting ? (
@@ -395,7 +400,7 @@ function LogDisbursalPage() {
                         Decline
                       </button>
                     </span>
-                  ) : r.status === "Authorized" ? (
+                  ) : r.status === "Authorized" || r.status === "HOE Approved" ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -406,6 +411,10 @@ function LogDisbursalPage() {
                     >
                       Dispense
                     </button>
+                  ) : r.status === "Requested" && r.targetType ? (
+                    <span className="shrink-0 text-[12.5px] tracking-[0.4px] text-[#8A5A00]">
+                      Awaiting HOE review
+                    </span>
                   ) : (
                     <span className="shrink-0 text-[12.5px] tracking-[0.4px] text-[#137A3D]">
                       Poured — {deskStamp(r.dispensedAt ?? r.createdAt)}

@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
+  LayoutGrid,
   LogOut,
   MessageSquare,
   MoreVertical,
@@ -89,6 +90,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     title: "Engineering & Maintenance Portal",
     subtitle: "Workshop work orders, check-up verdicts and repair spend",
     items: [
+      { label: "Maintenance Hub", to: "/workspace/app/engineering-hub", icon: LayoutGrid },
       { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
       /*

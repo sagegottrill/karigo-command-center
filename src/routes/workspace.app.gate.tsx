@@ -204,6 +204,10 @@ function SecurityLogPage() {
    * work out for itself.
    */
   const [returnTruckOpen, setReturnTruckOpen] = useState(false);
+  // CONFIRM-BEFORE-CLOSE state: which yard row is picked for return, and the
+  // explicit "the truck is physically here" tick that unlocks the action.
+  const [returnPicked, setReturnPicked] = useState<string | null>(null);
+  const [returnConfirmTick, setReturnConfirmTick] = useState(false);
   const [returnTruckQuery, setReturnTruckQuery] = useState("");
   const [returnTruckBusy, setReturnTruckBusy] = useState<string | null>(null);
   const [yardTrucks, setYardTrucks] = useState<
@@ -242,6 +246,8 @@ function SecurityLogPage() {
           : `${named} is back and sent to Check Up.`,
       );
       setReturnTruckOpen(false);
+      setReturnPicked(null);
+      setReturnConfirmTick(false);
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not log the truck back in");
@@ -847,21 +853,54 @@ departure silently never logs. */
                       </p>
                     );
                   }
+                  {/*
+                   * CONFIRM-BEFORE-CLOSE (meeting: someone trigged return while
+                   * the truck was still outside) — the click opens the confirm
+                   * step instead of closing anything. The operator must tick that
+                   * the truck is physically at the gate before the destructive
+                   * action fires, so one stray click can no longer strand a
+                   * driver or send the wrong assets to Check Up.
+                   */}
                   return list.slice(0, 60).map((t) => (
-                    <button
+                    <div
                       key={t.id}
-                      type="button"
-                      disabled={returnTruckBusy !== null}
-                      onClick={() => void handleReturnTruck(t)}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-[#F7F8F9] disabled:opacity-60"
+                      className="flex items-center justify-between gap-3 px-4 py-2.5"
                     >
-                      <span className="text-[13.5px] text-[#344256]">
-                        {t.capId} {t.registration ? `(${t.registration})` : ""}
-                      </span>
-                      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
-                        {returnTruckBusy === t.id ? "Returning…" : t.status}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        disabled={returnTruckBusy !== null}
+                        onClick={() => setReturnPicked(returnPicked === t.id ? null : t.id)}
+                        className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left disabled:opacity-60"
+                      >
+                        <span className="truncate text-[13.5px] text-[#344256]">
+                          {t.capId} {t.registration ? `(${t.registration})` : ""}
+                        </span>
+                        <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+                          {t.status}
+                        </span>
+                      </button>
+                      {returnPicked === t.id ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <label className="flex items-center gap-1.5 text-[11px] font-medium text-[#5C6470]">
+                            <input
+                              type="checkbox"
+                              checked={returnConfirmTick}
+                              onChange={(e) => setReturnConfirmTick(e.target.checked)}
+                              className="size-3.5 accent-[#ED351D]"
+                            />
+                            Truck is at the gate
+                          </label>
+                          <button
+                            type="button"
+                            disabled={returnTruckBusy !== null || !returnConfirmTick}
+                            onClick={() => void handleReturnTruck(t)}
+                            className="h-7 rounded bg-[#ED351D] px-2.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                          >
+                            {returnTruckBusy === t.id ? "Returning…" : "Confirm & log return"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   ));
                 })()
               )}
@@ -869,7 +908,11 @@ departure silently never logs. */
             <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => setReturnTruckOpen(false)}
+                onClick={() => {
+                  setReturnTruckOpen(false);
+                  setReturnPicked(null);
+                  setReturnConfirmTick(false);
+                }}
                 className="text-[14px] font-bold text-[#ED351D]"
               >
                 Close

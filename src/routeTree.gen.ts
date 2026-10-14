@@ -31,6 +31,7 @@ import { Route as WorkspaceAppDisbursalVoucherRouteImport } from './routes/works
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
 import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
+import { Route as WorkspaceAppEngineeringHubRouteImport } from './routes/workspace.app.engineering-hub'
 import { Route as WorkspaceAppFieldReportsRouteImport } from './routes/workspace.app.field-reports'
 import { Route as WorkspaceAppFieldReturningRouteImport } from './routes/workspace.app.field-returning'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
@@ -181,6 +182,12 @@ const WorkspaceAppEngineeringRoute = WorkspaceAppEngineeringRouteImport.update({
   path: '/engineering',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
+const WorkspaceAppEngineeringHubRoute =
+  WorkspaceAppEngineeringHubRouteImport.update({
+    id: '/engineering-hub',
+    path: '/engineering-hub',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppFieldReportsRoute =
   WorkspaceAppFieldReportsRouteImport.update({
     id: '/field-reports',
@@ -408,6 +415,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -464,6 +472,7 @@ export interface FileRoutesByTo {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -524,6 +533,7 @@ export interface FileRoutesById {
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
+  '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -586,6 +596,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/engineering-hub'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -642,6 +653,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/engineering-hub'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -701,6 +713,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch'
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
+    | '/workspace/app/engineering-hub'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -903,6 +916,13 @@ declare module '@tanstack/react-router' {
       path: '/engineering'
       fullPath: '/workspace/app/engineering'
       preLoaderRoute: typeof WorkspaceAppEngineeringRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/engineering-hub': {
+      id: '/workspace/app/engineering-hub'
+      path: '/engineering-hub'
+      fullPath: '/workspace/app/engineering-hub'
+      preLoaderRoute: typeof WorkspaceAppEngineeringHubRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/field-reports': {
@@ -1188,6 +1208,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
   WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
+  WorkspaceAppEngineeringHubRoute: typeof WorkspaceAppEngineeringHubRoute
   WorkspaceAppFieldReportsRoute: typeof WorkspaceAppFieldReportsRoute
   WorkspaceAppFieldReturningRoute: typeof WorkspaceAppFieldReturningRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
@@ -1229,6 +1250,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,
   WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
+  WorkspaceAppEngineeringHubRoute: WorkspaceAppEngineeringHubRoute,
   WorkspaceAppFieldReportsRoute: WorkspaceAppFieldReportsRoute,
   WorkspaceAppFieldReturningRoute: WorkspaceAppFieldReturningRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,

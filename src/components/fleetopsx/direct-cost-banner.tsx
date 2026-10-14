@@ -1,8 +1,9 @@
-import { DIRECT_COST_CATEGORIES, money, type CostSheet } from "@/lib/fleetopsx/direct-costs";
+import { DIRECT_COST_CATEGORIES, lubricantCostOf, money, type CostSheet } from "@/lib/fleetopsx/direct-costs";
 
 /**
- * The navy banner both sides of the money open with: what the six commitments
- * add up to, by category, over whichever dispatches the screen is looking at.
+ * The navy banner both sides of the money open with: what the day's dispatches
+ * cost — the six commitments AND each trip's own diesel (the meeting's finding:
+ * the board printed the allowances alone while diesel carried the real money).
  *
  * One component because it is one sum. The Transport Manager reads it for the
  * day he is authorising; the Accounts desk reads it for everything it has to
@@ -17,10 +18,26 @@ export function DirectCostBanner({
   subtitle: string;
   sheets: CostSheet[];
 }) {
-  const byCategory = DIRECT_COST_CATEGORIES.map((category) => ({
-    ...category,
-    total: sheets.reduce((sum, sheet) => sum + Number(sheet[category.key] ?? 0), 0),
-  }));
+  const byCategory = [
+    // Diesel first — it is usually the biggest line and the reason the old
+    // total read hundreds of thousands when the trip cost millions.
+    ...(sheets.some((sheet) => lubricantCostOf(sheet) > 0)
+      ? [
+          {
+            label:
+              sheets.some((s) => s.lubricantType === "Gas")
+                ? "Diesel & Gas"
+                : "Diesel", // keeps the itemised card heads readable
+            key: "lubricantCost" as const,
+            total: sheets.reduce((sum, sheet) => sum + lubricantCostOf(sheet), 0),
+          },
+        ]
+      : []),
+    ...DIRECT_COST_CATEGORIES.map((category) => ({
+      ...category,
+      total: sheets.reduce((sum, sheet) => sum + Number(sheet[category.key] ?? 0), 0),
+    })),
+  ];
   const total = byCategory.reduce((sum, category) => sum + category.total, 0);
 
   return (
@@ -41,7 +58,7 @@ export function DirectCostBanner({
           </span>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         {byCategory.map((category, index) => (
           <div key={category.key} className="rounded-[6px] border border-white/10 bg-white/[0.04] p-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">

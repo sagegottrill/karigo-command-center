@@ -63,6 +63,8 @@ const STOCK_FILTERS = ["All", "In Stock", "Low Stock", "Out of Stock"] as const;
 const REQUEST_FILTERS = [
   "All",
   "Pending",
+  "Awaiting HOE Review",
+  "Awaiting Admin Approval",
   "Awaiting Pickup",
   "Awaiting Procurement",
   "Released",
@@ -77,6 +79,10 @@ const statusPill = (status: string) => {
       return "bg-[#F99E1F] text-white";
     case "Pending":
       return "bg-[#F99E1F] text-white";
+    case "Awaiting HOE Review":
+      return "bg-[#F99E1F] text-white";
+    case "Awaiting Admin Approval":
+      return "bg-[#2F6BD8] text-white";
     case "Awaiting Pickup":
       return "bg-[#2F6BD8] text-white";
     case "Awaiting Procurement":
@@ -186,6 +192,17 @@ function PartsAndStore() {
   const canDecide = authService.getRoles().includes("Transport Manager");
 
   const decide = async (request: InventoryRequisition, approve: boolean) => {
+    // The chain runs HOE → TM → store: the Transfer Manager only decides what
+    // the Head of Engineering validated (or a legacy Pending ticket). Anything
+    // still with HOE, or already past this desk, is refused with its reason.
+    if (request.status === "Awaiting HOE Review") {
+      toast.error("This request is still with the Head of Engineering for review.");
+      return;
+    }
+    if (request.status !== "Pending" && request.status !== "Awaiting Admin Approval") {
+      toast.error("This request has already moved past the approval desk.");
+      return;
+    }
     let note = "";
     if (!approve) {
       note = (
@@ -257,7 +274,10 @@ function PartsAndStore() {
    * auditable at a glance.
    */
   const pendingQueue = useMemo(
-    () => requests.filter((r) => r.status === "Pending").sort((a, b) => (a.date < b.date ? -1 : 1)),
+    () =>
+      requests
+        .filter((r) => r.status === "Pending" || r.status === "Awaiting Admin Approval")
+        .sort((a, b) => (a.date < b.date ? -1 : 1)),
     [requests],
   );
 
@@ -278,7 +298,11 @@ function PartsAndStore() {
         ? "Approved · collected"
         : status === "Awaiting Procurement"
           ? "Approved · to buy"
-          : "Approved · awaiting pickup";
+          : status === "Awaiting Admin Approval"
+            ? "HOE validated · awaiting TM"
+            : status === "Awaiting HOE Review"
+              ? "Awaiting HOE review"
+              : "Approved · awaiting pickup";
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -761,7 +785,7 @@ function PartsAndStore() {
                           <span className="text-[11px] text-[#5C6470]">{request.reason}</span>
                         ) : null}
                       </span>
-                      <span className={cell}>{request.quantity}</span>
+                      <span className={cell}>{request.quantity.toLocaleString("en-NG")}</span>
                       <span className={quiet}>
                         {request.unitCost ? formatNairaFull(request.unitCost) : "—"}
                       </span>
@@ -887,10 +911,9 @@ function PartsAndStore() {
                     <span className={quiet}>{item.sku}</span>
                     <span className={quiet}>{item.category}</span>
                     <span className={cell}>{formatNairaFull(item.unitCost)}</span>
-                    <span className={cn(cell, item.stock <= item.reorderLevel && "text-[#B26A00]")}>
-                      {item.stock}
-                    </span>
-                    <span className={quiet}>{item.reorderLevel}</span>
+                    <span className={cn(cell, item.stock <= item.reorderLevel && "text-[#B26A00]")}>{item.stock.toLocaleString("en-NG")}
+                      </span>
+                    <span className={quiet}>{item.reorderLevel.toLocaleString("en-NG")}</span>
                     <span
                       className={cn(
                         "inline-flex h-[22px] w-fit items-center rounded px-2.5 text-[10px] font-medium",
@@ -1091,7 +1114,7 @@ function PartsAndStore() {
 
             <div className="flex items-center justify-between rounded bg-[#F1F2F4] px-3 py-2 text-[13px] text-[#5C6470]">
               <span>
-                On shelf now: <strong className="text-[#1B2432]">{purchasing.stock}</strong>
+                On shelf now: <strong className="text-[#1B2432]">{purchasing.stock.toLocaleString("en-NG")}</strong>
               </span>
               <span>
                 Reorder at: <strong className="text-[#1B2432]">{purchasing.reorderLevel}</strong>

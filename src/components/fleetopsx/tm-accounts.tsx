@@ -651,13 +651,11 @@ const percentOf = (share: number, total: number) => {
   return percent > 0 && percent < 1 ? "<1%" : `${Math.round(percent)}%`;
 };
 
-/** Naira, short — the chart axis, not the ledger: 3.6M, 900K. */
+/** Naira, full — every figure carries its thousand separators: ₦1,000,000. */
 function shortNaira(value: number) {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${sign}₦${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (abs >= 1_000) return `${sign}₦${Math.round(abs / 1_000)}K`;
-  return `${sign}₦${Math.round(abs)}`;
+  return `${sign}₦${Math.round(abs).toLocaleString("en-NG")}`;
 }
 
 const monthKeyOfDate = (value: string | Date | null | undefined) => {
@@ -1149,7 +1147,7 @@ function ProfitLossCard({
             tick={{ fontSize: 11, fill: "#5C6470" }}
             axisLine={false}
             tickLine={false}
-            width={58}
+            width={78}
           />
           <Tooltip
             formatter={(value) => money(Number(value))}
@@ -1413,7 +1411,7 @@ function CashFlowCard({
             tick={{ fontSize: 11, fill: "#5C6470" }}
             axisLine={false}
             tickLine={false}
-            width={58}
+            width={78}
           />
           <Tooltip formatter={(value) => money(Number(value))} contentStyle={TOOLTIP_STYLE} />
           <Bar

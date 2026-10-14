@@ -338,7 +338,13 @@ export interface FuelRequest {
   purpose: string | null;
   plateNumber: string | null;
   note: string | null;
-  status: "Requested" | "Authorized" | "Dispensed" | "Declined";
+  /** Requested → HOE Approved (engineering draws) → Authorized (TM) → Dispensed. */
+  status: "Requested" | "HOE Approved" | "Authorized" | "Dispensed" | "Declined";
+  /** Truck Head | Truck Tail | Workshop — what an engineering draw is for. */
+  targetType: string | null;
+  /** The Head of Engineering's stamp on an engineering draw. */
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   /** Litres — the desk never reports a bare number. */
   unit: string;
   unitPrice: number;
@@ -390,6 +396,10 @@ export interface WorkOrder {
   reportedAt: string;
   cost: number;
   notes: string;
+  /** Check-up verdict severity (Minor / Major / Critical…) — empty when unset. */
+  severity: string;
+  /** The engineer who signed the check-up — empty when unset. */
+  inspectedBy: string;
   /** When the job left the desk and actual work began. */
   startedAt: string;
   /** When the job was closed out — the truck's check-up date. */
@@ -473,7 +483,30 @@ export interface InventoryRequisition {
    * Released (the mechanic signed and the stock moved). Rejected is the fourth
    * exit.
    */
-  status: "Pending" | "Awaiting Pickup" | "Awaiting Procurement" | "Released" | "Rejected";
+  /**
+   * The ticket's life: Pending (legacy TM queue) or Awaiting HOE Review (new
+   * engineering requests) → Awaiting Admin Approval (HOE validated, TM decides)
+   * → Awaiting Pickup (approved, store floor to hand over) or Awaiting
+   * Procurement (approved, shelf empty) → Released (handed over / parts issued).
+   * Rejected is the exit at any review step.
+   */
+  status:
+    | "Pending"
+    | "Awaiting HOE Review"
+    | "Awaiting Admin Approval"
+    | "Awaiting Pickup"
+    | "Awaiting Procurement"
+    | "Released"
+    | "Rejected";
+  /** Lines of one multi-line request share a group (EG-XXXXXX); empty on legacy rows. */
+  requestGroup: string;
+  /** What the parts are needed for — the request header's description. */
+  description: string;
+  /** Truck Head | Truck Tail | Workshop — what the request is for. */
+  targetType: string;
+  /** The Head of Engineering's stamp when the request passes HOE review. */
+  reviewedBy: string;
+  reviewedAt: string | null;
   date: string;
   /** When the ticket was handed to the store floor / paused for procurement. */
   handoffAt: string | null;

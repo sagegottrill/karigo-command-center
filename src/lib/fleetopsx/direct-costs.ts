@@ -89,6 +89,13 @@ export type VoucherDecision = {
  * voucher decision, so nothing here can drift from the dispatch it describes.
  */
 export type CostSheet = Partial<Record<DirectCostKey, number>> & {
+  /** The fuel the dispatch draws from the tank (Diesel/Gas), priced with it —
+   * part of what the haul actually costs. */
+  lubricantType?: string | null;
+  lubricantQuantity?: number | null;
+  lubricantCost?: number | null;
+  /** Server-stamped record of who closed the dispatch (RETURN-AUDIT). */
+  returnedBy?: { by?: string; role?: string; at?: string; note?: string; via?: string } | null;
   extras?: ExtraCost[];
   voucher?: VoucherDecision;
   disbursement?: Disbursement;
@@ -107,13 +114,17 @@ export const DISBURSEMENT_STATUSES = [
 export const PENDING_DISBURSAL = "Pending Disbursal";
 
 /**
- * The banner's one-liner on the Accounts side: what its six figures add up.
+ * The banner's one-liner on the Accounts side: what its figures add up.
  *
  * The manager's banner totals the day he is authorising; the desk's totals every
- * dispatch carrying a sheet, which is the money it still owes.
+ * dispatch carrying a sheet, which is the money it still owed. DIESEL ON BOARD:
+ * the sheet carries the trip's own diesel (and gas) beside the six allowances,
+ * and the meeting's finding was that "Direct Cost" printed ₦183,000 while
+ * diesel alone was ₦3.9M — the diesel IS a direct cost of the haul and is
+ * counted here, so the figure on the board matches the money the trip costs.
  */
 export const COST_SUBTITLE_ALL =
-  "Aggregate across all dispatch: Trip Allowance, Return Waybill, motor boy, transit tickets, extra allowance and bonus.";
+  "Aggregate across all dispatch: diesel, Trip Allowance, Return Waybill, motor boy, transit tickets, extra allowance and bonus.";
 
 export const sheetOf = (trip: Trip): CostSheet => (trip.directCosts ?? {}) as CostSheet;
 
@@ -122,9 +133,20 @@ export const money = (value?: number) => formatMoney(Number(value ?? 0));
 export const extrasOf = (sheet: CostSheet): ExtraCost[] =>
   Array.isArray(sheet.extras) ? sheet.extras : [];
 
-/** Everything the dispatch is owed: the six commitments plus any added line. */
+/**
+ * The lubricant committed on the sheet — the diesel (or gas) the dispatch asked
+ * for, priced at the rate configured with it. Sheets that carry no lubricant
+ * line (legacy or a load with no drum) add nothing, so no figure is invented.
+ */
+export function lubricantCostOf(sheet: CostSheet): number {
+  const cost = Number((sheet as any).lubricantCost ?? 0);
+  return Number.isFinite(cost) && cost > 0 ? cost : 0;
+}
+
+/** Everything the dispatch is owed: the six commitments, its diesel, any added line. */
 export const costTotal = (sheet: CostSheet) =>
   DIRECT_COST_CATEGORIES.reduce((total, c) => total + Number(sheet[c.key] ?? 0), 0) +
+  lubricantCostOf(sheet) +
   extrasOf(sheet).reduce((total, line) => total + Number(line.amount ?? 0), 0);
 
 /** `VD-99E3B8` — the voucher a dispatch is known by once it carries a cost sheet. */

@@ -226,7 +226,7 @@ function InventoryDesk() {
         observed,
         reconReason.trim() || "Physical count",
       );
-      toast.success(`${updated.name}: book corrected to ${updated.stock}. Variance filed.`);
+      toast.success(`${updated.name}: book corrected to ${updated.stock.toLocaleString("en-NG")}. Variance filed.`);
       setReconFor(null);
       setReconCount("");
       setReconReason("");
@@ -478,9 +478,9 @@ function InventoryDesk() {
                             : "text-[#344256]",
                       )}
                     >
-                      {item.stock}
+                      {item.stock.toLocaleString("en-NG")}
                     </span>
-                    <span className="text-[13px] text-[#5C6470]">{item.reorderLevel}</span>
+                    <span className="text-[13px] text-[#5C6470]">{item.reorderLevel.toLocaleString("en-NG")}</span>
                     <span className="truncate text-[13px] text-[#5C6470]">
                       {item.vehicleCompatibility || "—"}
                     </span>
@@ -584,7 +584,7 @@ function InventoryDesk() {
               >
                 {items.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({item.sku}) — on shelf {item.stock}
+                    {item.name} ({item.sku}) — on shelf {item.stock.toLocaleString("en-NG")}
                   </option>
                 ))}
               </select>
@@ -677,7 +677,7 @@ function InventoryDesk() {
                 Count — {reconFor.name}
               </h3>
               <p className="mt-1 text-[12px] text-[#5C6470]">
-                Book says {reconFor.stock}. A disagreement is filed as a variance flag to you and
+                Book says {reconFor.stock.toLocaleString("en-NG")}. A disagreement is filed as a variance flag to you and
                 the Transport Manager — it cannot be quietly absorbed.
               </p>
             </div>

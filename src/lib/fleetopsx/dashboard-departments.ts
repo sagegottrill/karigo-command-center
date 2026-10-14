@@ -83,6 +83,8 @@ export type EngPartRequest = {
   reason: string;
   requestedAt: string;
   itemId: string;
+  /** The ticket's stage — the TM only decides Pending / Awaiting Admin Approval. */
+  stage: string;
   /** Stock behind the line in the store, or null when no item was named. */
   stock: number | null;
   /** The store cannot cover the request — approving it cannot be fulfilled. */
@@ -577,6 +579,7 @@ export function buildEngineeringOversight(
       reason: request.reason || "",
       requestedAt: String(request.date || ""),
       itemId: String(request.itemId || ""),
+      stage: String(request.status || "Pending"),
       stock: item ? Number(item.stock) : null,
       short: item ? Number(item.stock) < quantity : false,
     };
@@ -584,7 +587,7 @@ export function buildEngineeringOversight(
 
   /** Oldest first: a request queue is worked in the order it was raised. */
   const pendingReqs = requisitions
-    .filter((request) => request.status === "Pending")
+    .filter((request) => request.status === "Pending" || request.status === "Awaiting Admin Approval")
     .map(readRequest)
     .sort((a, b) => (a.requestedAt < b.requestedAt ? -1 : a.requestedAt > b.requestedAt ? 1 : 0));
 

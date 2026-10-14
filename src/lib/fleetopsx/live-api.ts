@@ -414,6 +414,8 @@ export function mapWorkOrder(w: Record<string, unknown>): WorkOrder {
     reportedAt: String(w.reportedAt ?? w.createdAt ?? ""),
     cost: Number(w.cost ?? 0),
     notes: String(w.notes ?? ""),
+    severity: String(w.severity ?? ""),
+    inspectedBy: String(w.inspectedBy ?? ""),
     startedAt: String(w.startedAt ?? ""),
     completedAt: String(w.completedAt ?? ""),
     // Preserved verbatim (an ISO stamp or a YYYY-MM-DD date) — the oversight
@@ -768,6 +770,11 @@ export function mapInventoryRequisition(r: Record<string, unknown>): InventoryRe
     unitCost: Number(r.unitCost ?? 0),
     reason: String(r.reason ?? ""),
     decisionNote: String(r.decisionNote ?? ""),
+    requestGroup: String(r.requestGroup ?? ""),
+    description: String(r.description ?? ""),
+    targetType: String(r.targetType ?? ""),
+    reviewedBy: String(r.reviewedBy ?? ""),
+    reviewedAt: r.reviewedAt ? String(r.reviewedAt) : null,
     status: (r.status as InventoryRequisition["status"]) || "Pending",
     date: String(r.date ?? r.createdAt ?? ""),
     handoffAt: r.handoffAt ? String(r.handoffAt) : null,
@@ -927,8 +934,14 @@ export function mapFuelRequest(f: Record<string, unknown>): FuelRequest {
     purpose: f.purpose == null ? null : String(f.purpose),
     plateNumber: f.plateNumber == null ? null : String(f.plateNumber),
     note: f.note == null ? null : String(f.note),
+    targetType: f.targetType == null ? null : String(f.targetType),
+    reviewedBy: (f as any).reviewedBy == null ? null : String((f as any).reviewedBy),
+    reviewedAt: (f as any).reviewedAt == null ? null : String((f as any).reviewedAt),
     status:
-      status === "Authorized" || status === "Dispensed" || status === "Declined"
+      status === "HOE Approved" ||
+      status === "Authorized" ||
+      status === "Dispensed" ||
+      status === "Declined"
         ? status
         : "Requested",
     unit: String(f.unit ?? "litres"),

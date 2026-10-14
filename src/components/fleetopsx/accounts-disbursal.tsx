@@ -607,8 +607,17 @@ function CaptureDisbursementModal({
   const bankRef = sheet.disbursement?.bankRef ?? "";
   const [busy, setBusy] = useState(false);
 
+  // The dispatch's own diesel is a direct cost of the haul (the board used to
+  // print the allowances alone — ₦183k while diesel was ₦3.9M) — it counts in
+  // the total and, when present, gets its own itemised row below.
+  const diesel = Number(sheet.lubricantCost ?? 0);
+  const dieselLabel =
+    sheet.lubricantType === "Gas"
+      ? `Gas (${Number(sheet.lubricantQuantity ?? 0).toLocaleString("en-NG")} KG)`
+      : `Diesel (${Number(sheet.lubricantQuantity ?? 0).toLocaleString("en-NG")} L)`;
   const total =
     DIRECT_COST_CATEGORIES.reduce((sum, category) => sum + Number(amounts[category.key] || 0), 0) +
+    (diesel > 0 ? diesel : 0) +
     (sheet.extras ?? []).reduce((sum, line) => sum + Number(line.amount ?? 0), 0);
 
   const save = async () => {
@@ -702,6 +711,15 @@ function CaptureDisbursementModal({
           </label>
         ))}
       </div>
+
+      {diesel > 0 ? (
+        <div className="mt-3 flex flex-col gap-1 rounded-[4px] bg-[#F1F2F4] p-3 text-[12px] text-[#344256]">
+          <span className="flex items-center justify-between gap-3">
+            <span>{dieselLabel}</span>
+            <span className="tabular-nums">{money(diesel)}</span>
+          </span>
+        </div>
+      ) : null}
 
       {(sheet.extras ?? []).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 rounded-[4px] bg-[#F1F2F4] p-3 text-[12px] text-[#344256]">

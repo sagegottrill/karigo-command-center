@@ -507,6 +507,26 @@ function EngineeringWorkOrders() {
           );
         },
       },
+      {
+        label: "Delete work order…",
+        danger: true,
+        hidden: order.status !== "Cancelled" && order.status !== "Reported",
+        onSelect: () => {
+          const ok = window.confirm(
+            `Delete the work order for ${order.truckReg || "this truck"} (${order.defect || "no defect recorded"})? This removes the record entirely.`,
+          );
+          if (!ok) return;
+          void engineeringService
+            .remove(order.id)
+            .then(() => {
+              setOrders((prev) => prev.filter((o) => o.id !== order.id));
+              toast.success("Work order deleted.");
+            })
+            .catch((err) =>
+              toast.error(err instanceof Error ? err.message : "Could not delete the work order"),
+            );
+        },
+      },
     ];
   };
 
