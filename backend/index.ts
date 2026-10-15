@@ -4073,14 +4073,18 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
   if (!mayWorkFuelDesk(req)) {
     return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager decide on a tank draw.' });
   }
+  // Status is optional now: the same endpoint also carries the raiser's
+  // correction (quantity, fuel, who it is for, purpose, plate, note) so a TM
+  // who mistyped the litres can fix the draw instead of deleting it.
+  const hasStatus = req.body?.status !== undefined && String(req.body?.status || '').trim() !== '';
   const wanted = String(req.body?.status || '').trim();
-  if (!['Requested', 'HOE Approved', 'Authorized', 'Declined'].includes(wanted)) {
+  if (hasStatus && !['Requested', 'HOE Approved', 'Authorized', 'Declined'].includes(wanted)) {
     return res.status(400).json({ error: 'status must be Requested, HOE Approved, Authorized or Declined' });
   }
   // The chain runs Requested → HOE Approved → Authorized: the desk's
   // authorisation only lands on what the Head of Engineering validated (or a
   // walk-in sale, which never needs HOE review).
-  if (wanted === 'Authorized') {
+  if (hasStatus && wanted === 'Authorized') {
     const current = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
     if (current && current.source === 'Internal Use' && (current as any).targetType && !['HOE Approved', 'Authorized'].includes(current.status)) {
       return res.status(400).json({ error: 'This engineering draw needs HOE review before the Transport Manager authorises it.' });
@@ -4089,7 +4093,17 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
   try {
     const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: 'Fuel request not found' });
-    if (row.status === 'Dispensed' && wanted !== 'Requested') {
+    const wantsFields =
+      req.body?.quantity !== undefined ||
+      req.body?.fuelType !== undefined ||
+      req.body?.requestedFor !== undefined ||
+      req.body?.purpose !== undefined ||
+      req.body?.plateNumber !== undefined ||
+      req.body?.note !== undefined;
+    // A dispensed draw is history — its litres already left the tank, so the
+    // quantity, fuel and decision on it can no longer change. Recording the
+    // walk-in payment afterwards is the only write still allowed on it.
+    if (row.status === 'Dispensed' && (hasStatus || wantsFields)) {
       return res.status(409).json({
         error: row.reference + ' was already dispensed (' + row.quantity.toLocaleString() +
           ' ' + lubricantUnit(row.fuelType) + ' by ' + (row.dispensedBy || 'the desk') + ') — one draw per request.',
@@ -4097,20 +4111,43 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
     }
     const by = req.user?.name || req.user?.email || 'Fuel desk';
     const reason = String(req.body?.reason || '').trim();
-    const data: any = { status: wanted };
-    if (wanted === 'Authorized') {
+    const data: any = {};
+    if (hasStatus) data.status = wanted;
+    if (hasStatus && wanted === 'Authorized') {
       data.authorizedBy = by;
       data.authorizedAt = new Date();
       data.declinedBy = null;
       data.declinedAt = null;
       data.declineReason = null;
-    } else if (wanted === 'Declined') {
+    } else if (hasStatus && wanted === 'Declined') {
       data.declinedBy = by;
       data.declinedAt = new Date();
       data.declineReason = reason || null;
-    } else {
+    } else if (hasStatus) {
       data.authorizedBy = null;
       data.authorizedAt = null;
+    }
+    // The raiser correcting his own draw before the pump pours it. A smaller
+    // quantity never breaks the tank; a larger one is checked against stock
+    // at dispense time, so the correction is always safe to accept here.
+    if (req.body?.quantity !== undefined) {
+      const litres = Number(req.body.quantity);
+      if (!Number.isFinite(litres) || litres <= 0) {
+        return res.status(400).json({ error: 'quantity must be a positive number of litres' });
+      }
+      data.quantity = litres;
+    }
+    if (req.body?.fuelType !== undefined) {
+      const t = String(req.body.fuelType || '').trim();
+      if (!['Diesel', 'Gas'].includes(t)) return res.status(400).json({ error: 'fuelType must be Diesel or Gas' });
+      data.fuelType = t;
+    }
+    if (req.body?.requestedFor !== undefined) data.requestedFor = String(req.body.requestedFor || '').trim() || null;
+    if (req.body?.purpose !== undefined) data.purpose = String(req.body.purpose || '').trim() || null;
+    if (req.body?.plateNumber !== undefined) data.plateNumber = String(req.body.plateNumber || '').trim() || null;
+    if (req.body?.note !== undefined) data.note = String(req.body.note || '').trim() || null;
+    if (!hasStatus && !wantsFields && !req.body?.paymentStatus && req.body?.paymentRef === undefined) {
+      return res.status(400).json({ error: 'Nothing to update.' });
     }
     // Payment can be recorded without dispensing again (the buyer came back).
     const paymentStatus = String(req.body?.paymentStatus || '').trim();
@@ -4120,7 +4157,13 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
     try {
       const unit = lubricantUnit(row.fuelType);
       const what = row.reference + ' • ' + row.quantity.toLocaleString() + ' ' + unit + ' of ' + row.fuelType;
-      if (wanted === 'Authorized') {
+      if ((data.quantity !== undefined || data.fuelType !== undefined) && (!hasStatus || wanted === 'Requested')) {
+        const nowFuel = String(data.fuelType ?? row.fuelType);
+        await notify('Lubricant', 'Tank draw corrected — ' + row.reference,
+          row.reference + ' was corrected by ' + by + ': now ' + Number(data.quantity ?? row.quantity).toLocaleString() + ' ' + lubricantUnit(nowFuel) + ' of ' + nowFuel + ' for ' + ((data.requestedFor ?? row.requestedFor) || row.requestedBy) + '.',
+          'info', 'Lubricant,Lubricant Manager,Fuel Manager,Fleet Operations,Transport Manager',
+          { module: 'Fuel & Lubricant', eventKey: 'fuel.request_corrected', refId: row.id, refLabel: row.reference });
+      } else if (hasStatus && wanted === 'Authorized') {
         await notify('Lubricant', 'Diesel request cleared — dispense ' + row.quantity.toLocaleString() + ' ' + unit,
           what + ' for ' + (row.requestedFor || row.requestedBy) + ' was authorized by ' + by + '. Take it to the pump.',
           'info', 'Lubricant,Lubricant Manager,Fuel Manager,Fleet Operations,Transport Manager',

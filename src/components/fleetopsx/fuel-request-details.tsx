@@ -46,9 +46,12 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export function FuelRequestDetails({
   row,
   onClose,
+  onEdit,
 }: {
   row: FuelRequest | null;
   onClose: () => void;
+  /** Offered by the raiser's own queue — never on a dispensed draw. */
+  onEdit?: () => void;
 }) {
   if (!row) return null;
 
@@ -156,7 +159,16 @@ export function FuelRequestDetails({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-[#E2E5E9] px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-[#E2E5E9] px-6 py-4">
+          {onEdit && row.status !== "Dispensed" && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="h-10 rounded bg-[#ED351D] px-5 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#D52F18]"
+            >
+              Edit request
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

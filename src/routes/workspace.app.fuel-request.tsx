@@ -7,6 +7,7 @@ import {
   liveDeleteFuelRequest,
   liveListFuelRequests,
   liveListPartnerCompanies,
+  liveUpdateFuelRequest,
 } from "@/lib/fleetopsx/live-api";
 import { authService } from "@/lib/fleetopsx/services";
 import { FuelRequestDetails } from "@/components/fleetopsx/fuel-request-details";
@@ -97,6 +98,19 @@ function FuelRequestPage() {
   /*   * The row pending removal — a real dialog asks before the DELETE goes out. */
   const [removing, setRemoving] = useState<FuelRequest | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  /**
+   * The row being corrected — the TM mistyped the litres (or the purpose,
+   * plate, note) and fixes the draw instead of deleting and re-raising it.
+   * Never offered once dispensed: poured litres are history.
+   */
+  const [editing, setEditing] = useState<FuelRequest | null>(null);
+  const [editFuelType, setEditFuelType] = useState("Diesel");
+  const [editQty, setEditQty] = useState("");
+  const [editFor, setEditFor] = useState("");
+  const [editPurpose, setEditPurpose] = useState("");
+  const [editPlate, setEditPlate] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
   /** The row whose 3-dots is open, and the row currently read in full. */
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -167,6 +181,56 @@ function FuelRequestPage() {
       toast.error(err instanceof Error ? err.message : "The request could not be removed.");
     } finally {
       setDeleteBusy(false);
+    }
+  };
+
+  /** Prefill the correction form from the row as filed. */
+  const openEdit = (r: FuelRequest) => {
+    setEditing(r);
+    setEditFuelType(r.fuelType);
+    setEditQty(String(r.quantity));
+    setEditFor(r.requestedFor ?? "");
+    setEditPurpose(r.purpose ?? "");
+    setEditPlate(r.plateNumber ?? "");
+    setEditNote(r.note ?? "");
+  };
+
+  /**
+   * Save the correction. A declined draw goes back to the desk queue with
+   * the fix (status Requested); anything else keeps its place in the queue
+   * with the new litres. The server refuses a dispensed row.
+   */
+  const handleEditSave = async () => {
+    if (!editing || editBusy) return;
+    const litres = Number(editQty);
+    if (!Number.isFinite(litres) || litres <= 0) {
+      toast.error("Quantity is what is asked for — it must be a positive number of litres.");
+      return;
+    }
+    setEditBusy(true);
+    try {
+      const wasDeclined = editing.status === "Declined";
+      const row = await liveUpdateFuelRequest(editing.id, {
+        ...(wasDeclined ? { status: "Requested" as const } : {}),
+        fuelType: editFuelType,
+        quantity: litres,
+        requestedFor: editFor.trim() || null,
+        purpose: editPurpose.trim() || null,
+        plateNumber: editPlate.trim() || null,
+        note: editNote.trim() || null,
+      });
+      toast.success(
+        wasDeclined
+          ? `${row.reference} corrected and sent back to the desk queue — ${row.quantity.toLocaleString()} ${row.unit} of ${row.fuelType}.`
+          : `${row.reference} corrected — now ${row.quantity.toLocaleString()} ${row.unit} of ${row.fuelType}.`,
+      );
+      setEditing(null);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      await refreshMine();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The correction did not save.");
+    } finally {
+      setEditBusy(false);
     }
   };
 
@@ -426,6 +490,14 @@ function FuelRequestPage() {
                             },
                           },
                           {
+                            label: "Edit request",
+                            hidden: r.status === "Dispensed",
+                            onSelect: () => {
+                              setMenuFor(null);
+                              openEdit(r);
+                            },
+                          },
+                          {
                             label: "Remove request",
                             danger: true,
                             hidden: r.status === "Dispensed",
@@ -452,7 +524,127 @@ function FuelRequestPage() {
         )}
       </section>
 
-      <FuelRequestDetails row={viewed} onClose={() => setViewingId(null)} />
+      {editing && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#141A1F]/60 p-4"
+          onClick={() => setEditing(null)}
+        >
+          <div
+            role="dialog"
+            aria-label={`Correct ${editing.reference}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[86vh] w-[560px] max-w-full flex-col overflow-hidden rounded-[10px] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.2)]"
+          >
+            <div className="border-b border-[#E2E5E9] px-6 py-4">
+              <p className="text-[11.4px] uppercase tracking-[0.4px] text-[#8A93A0]">
+                Correct tank draw
+              </p>
+              <p className="text-[20px] font-semibold tabular-nums tracking-[0.4px] text-[#1B2432]">
+                {editing.reference}
+              </p>
+              <p className="mt-1 text-[13px] text-[#5C6470]">
+                {editing.status === "Declined"
+                  ? "Fix it and it goes back to the desk queue — no need to raise it again."
+                  : "Increase it, reduce it — the desk pours the corrected litres."}
+              </p>
+            </div>
+            <div className="sleek-scrollbar grid grid-cols-1 gap-4 overflow-y-auto px-6 py-4 md:grid-cols-2">
+              <Field label="Fuel type" required>
+                <div className="flex gap-2">
+                  {["Diesel", "Gas"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditFuelType(t)}
+                      className={`flex h-10 flex-1 items-center justify-center gap-2 rounded border text-[14px] font-medium tracking-[0.4px] transition-colors ${
+                        editFuelType === t
+                          ? "border-[#1B2432] bg-[#1B2432] text-white"
+                          : "border-[#E2E5E9] bg-white text-[#5C6470] hover:border-[#1B2432]"
+                      }`}
+                    >
+                      <Fuel className="size-4" strokeWidth={1.5} />
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Quantity (litres)" required>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={editQty}
+                  onChange={(e) => setEditQty(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Fuel is for">
+                <input
+                  value={editFor}
+                  onChange={(e) => setEditFor(e.target.value)}
+                  placeholder="Petroline — our own draw"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Purpose">
+                <input
+                  value={editPurpose}
+                  onChange={(e) => setEditPurpose(e.target.value)}
+                  placeholder="why the fuel is needed"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Plate number">
+                <input
+                  value={editPlate}
+                  onChange={(e) => setEditPlate(e.target.value)}
+                  placeholder="example: APP857YL"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Note">
+                <input
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  placeholder="optional"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-[#E2E5E9] px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="h-10 rounded border border-[#E2E5E9] px-5 text-[14px] font-medium tracking-[0.4px] text-[#5C6470] hover:border-[#1B2432] hover:text-[#1B2432]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={editBusy}
+                onClick={() => void handleEditSave()}
+                className="h-10 rounded bg-[#ED351D] px-5 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#D52F18] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {editBusy ? "Saving…" : "Save correction"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <FuelRequestDetails
+        row={viewed}
+        onClose={() => setViewingId(null)}
+        onEdit={
+          viewed && viewed.status !== "Dispensed"
+            ? () => {
+                const r = viewed;
+                setViewingId(null);
+                openEdit(r);
+              }
+            : undefined
+        }
+      />
       <ConfirmDialog
         open={Boolean(removing)}
         busy={deleteBusy}

@@ -1090,6 +1090,27 @@ export async function liveDispenseFuelRequest(
   return mapFuelRequest(await api.post(`/fuel-requests/${id}/dispense`, payload));
 }
 
+/**
+ * The raiser correcting his own draw before the pump pours it: quantity,
+ * fuel, who it is for, purpose, plate, note. The server refuses once the
+ * draw is dispensed. Passing status "Requested" with the fields sends a
+ * declined draw back to the desk queue corrected.
+ */
+export async function liveUpdateFuelRequest(
+  id: string,
+  body: {
+    status?: "Requested";
+    fuelType?: string;
+    quantity?: number;
+    requestedFor?: string | null;
+    purpose?: string | null;
+    plateNumber?: string | null;
+    note?: string | null;
+  },
+): Promise<FuelRequest> {
+  return mapFuelRequest(await api.patch(`/fuel-requests/${id}`, body));
+}
+
 /** The desk's word on a draw: Authorize it, push it back, or Decline it. */
 export async function liveSetFuelRequestStatus(
   id: string,
