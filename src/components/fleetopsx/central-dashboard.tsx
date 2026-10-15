@@ -2330,7 +2330,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       <section className="flex flex-col gap-3">
         <SectionHeader
           icon={Wallet}
-          title="Cost Overview"              subtitle="Cost = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
+          title="Cost Overview"
+          subtitle="Cost = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
         >
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
