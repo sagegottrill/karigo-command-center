@@ -9,6 +9,7 @@ import {
   truckTailSpec,
 } from "@/lib/fleetopsx/display-ids";
 import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
+import { parseMoneyInput, sanitizeMoneyInput } from "@/lib/fleetopsx/money-input";
 import {
   daysToReturnDate,
   estimateAnchor,
@@ -35,8 +36,7 @@ function truckTailRest(tail: TruckTail): string {
 }
 
 function parseAmount(value: string): number {
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? n : NaN;
+  return parseMoneyInput(value);
 }
 
 /**
@@ -143,14 +143,20 @@ export function TmEditAssignmentModal({
 
   const [saving, setSaving] = useState(false);
 
+  // ┆ Money fields take commas ("20,000") — parseMoneyInput, not Number().
   const totalExpense =
-    (Number(tripAllowance) || 0) +
-    (Number(returnWaybill) || 0) +
-    (Number(motorBoy) || 0) +
-    (Number(ticketCost) || 0) +
-    (Number(extraAllowance) || 0) +
-    (Number(bonus) || 0) +
+    (parseAmount(tripAllowance) || 0) +
+    (parseAmount(returnWaybill) || 0) +
+    (parseAmount(motorBoy) || 0) +
+    (parseAmount(ticketCost) || 0) +
+    (parseAmount(extraAllowance) || 0) +
+    (parseAmount(bonus) || 0) +
     (Number(lubricantCost) || 0);
+
+  /** Field setter that goes through the money-input rules on every keystroke. */
+  function setMoneyInput(setter: (v: string) => void) {
+    return (raw: string) => setter(sanitizeMoneyInput(raw));
+  }
 
   const validate = (): string | null => {
     if (!head) return "Select a Truck Head (Cap Number).";
@@ -464,11 +470,11 @@ export function TmEditAssignmentModal({
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {(
               [
-                ["Trip Allowance", tripAllowance, setTripAllowance],
-                ["Return Waybill", returnWaybill, setReturnWaybill],
-                ["Motor Boy", motorBoy, setMotorBoy],
-                ["Ticket", ticketCost, setTicketCost],
-                ["Extra Allowance", extraAllowance, setExtraAllowance],
+                ["Trip Allowance", tripAllowance, setMoneyInput(setTripAllowance)],
+                ["Return Waybill", returnWaybill, setMoneyInput(setReturnWaybill)],
+                ["Motor Boy", motorBoy, setMoneyInput(setMotorBoy)],
+                ["Ticket", ticketCost, setMoneyInput(setTicketCost)],
+                ["Extra Allowance", extraAllowance, setMoneyInput(setExtraAllowance)],
               ] as const
             ).map(([label, value, setter]) => (
               <label key={label} className="flex flex-col gap-1.5">
@@ -476,9 +482,9 @@ export function TmEditAssignmentModal({
                   {label} <span className="text-[#ED351D]">*</span>
                 </span>
                 <input
-                  type="number"
-                  min="0"
-                  className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] outline-none focus:border-[#1B2432]"
+                  type="text"
+                  inputMode="numeric"
+                  className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] tabular-nums outline-none focus:border-[#1B2432]"
                   value={value}
                   onChange={(e) => setter(e.target.value)}
                 />
@@ -489,12 +495,12 @@ export function TmEditAssignmentModal({
                 Bonus <span className="text-[#627084]">(optional)</span>
               </span>
               <input
-                type="number"
-                min="0"
-                className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] outline-none focus:border-[#1B2432]"
-                placeholder="e.g. 5000"
+                type="text"
+                inputMode="numeric"
+                className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] tabular-nums outline-none focus:border-[#1B2432]"
+                placeholder="e.g. 5,000"
                 value={bonus}
-                onChange={(e) => setBonus(e.target.value)}
+                onChange={(e) => setMoneyInput(setBonus)(e.target.value)}
               />
             </label>
             <label className="flex flex-col gap-1.5">

@@ -17,6 +17,7 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
 import { assignableDrivers } from "@/lib/fleetopsx/driver-duty";
+import { parseMoneyInput, sanitizeMoneyInput } from "@/lib/fleetopsx/money-input";
 import {
   assignmentReleaseService,
   authService,
@@ -194,6 +195,14 @@ function DispatchPage() {
   const [lubricant, setLubricant] = useState("Diesel");
   const [lubricantQty, setLubricantQty] = useState("");
 
+  // Every naira field goes through the money-input rules: no leading zeros
+  // ("02000" is a typo, not 20,000) and typed commas are thousands
+  // separators ("20,000" saves 20000).
+  const setMoney =
+    (setter: (v: string) => void) =>
+    (raw: string) =>
+      setter(sanitizeMoneyInput(raw));
+
   // Fuel pricing: the TM owns the price per litre (HR → Fuel Pricing). FO only
   // types a quantity — the cost is always qty × TM price, never typed by hand.
   const { price: fuelPricePerLitre } = useFuelPrices();
@@ -206,13 +215,15 @@ function DispatchPage() {
   const driver = useMemo(() => drivers.find(d => d.id === driverId), [drivers, driverId]);
 
   // Derived Values
+  // ┆ Money fields take commas ("20,000") — read them with parseMoneyInput,
+  // ┆ never Number(), which chokes on thousands separators.
   const totalExpense =
-    (Number(tripAllowance) || 0) +
-    (Number(returnWaybill) || 0) +
-    (Number(motorBoy) || 0) +
-    (Number(ticketCost) || 0) +
-    (Number(extraAllowance) || 0) +
-    (Number(bonus) || 0) +
+    (parseMoneyInput(tripAllowance) || 0) +
+    (parseMoneyInput(returnWaybill) || 0) +
+    (parseMoneyInput(motorBoy) || 0) +
+    (parseMoneyInput(ticketCost) || 0) +
+    (parseMoneyInput(extraAllowance) || 0) +
+    (parseMoneyInput(bonus) || 0) +
     (Number(lubricantCost) || 0);
 
   // Fleet Ops never sees the TM's fuel-rate card: no lubricant cost line, and the
@@ -256,7 +267,7 @@ function DispatchPage() {
       ["Ticket", ticketCost],
       ["Extra Allowance", extraAllowance],
     ] as const) {
-      if (!String(v).trim() || Number.isNaN(Number(v))) {
+      if (!String(v).trim() || Number.isNaN(parseMoneyInput(v))) {
         return `${label} is a mandatory direct cost.`;
       }
     }
@@ -315,12 +326,12 @@ function DispatchPage() {
       ...(driver ? { driverId: driver.id } : {}),
       driverName: driverName.trim(),
       directCosts: {
-        tripAllowance: Number(tripAllowance) || 0,
-        returnWaybill: Number(returnWaybill) || 0,
-        motorBoy: Number(motorBoy) || 0,
-        ticket: Number(ticketCost) || 0,
-        extraAllowance: Number(extraAllowance) || 0,
-        bonus: Number(bonus) || 0,
+        tripAllowance: parseMoneyInput(tripAllowance) || 0,
+        returnWaybill: parseMoneyInput(returnWaybill) || 0,
+        motorBoy: parseMoneyInput(motorBoy) || 0,
+        ticket: parseMoneyInput(ticketCost) || 0,
+        extraAllowance: parseMoneyInput(extraAllowance) || 0,
+        bonus: parseMoneyInput(bonus) || 0,
         lubricantType: lubricant === "Gas" ? "Gas" : "Diesel",
         ...(lubricantQty.trim() ? { lubricantQuantity: Number(lubricantQty) || 0 } : {}),
         ...(lubricantCost > 0 ? { lubricantCost } : {}),
@@ -717,11 +728,11 @@ function DispatchPage() {
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
             {(
               [
-                ["Trip Allowance", tripAllowance, setTripAllowance],
-                ["Return Waybill", returnWaybill, setReturnWaybill],
-                ["Motor Boy", motorBoy, setMotorBoy],
-                ["Ticket Cost", ticketCost, setTicketCost],
-                ["Extra Allowance", extraAllowance, setExtraAllowance],
+                ["Trip Allowance", tripAllowance, setMoney(setTripAllowance)],
+                ["Return Waybill", returnWaybill, setMoney(setReturnWaybill)],
+                ["Motor Boy", motorBoy, setMoney(setMotorBoy)],
+                ["Ticket Cost", ticketCost, setMoney(setTicketCost)],
+                ["Extra Allowance", extraAllowance, setMoney(setExtraAllowance)],
               ] as const
             ).map(([label, value, setter]) => (
               <div key={label}>
@@ -729,9 +740,10 @@ function DispatchPage() {
                   {label} <span className="text-[#ED351D]">*</span>
                 </label>
                 <input
-                  type="number"
-                  className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm"
-                  placeholder="Auto-populated or manual"
+                  type="text"
+                  inputMode="numeric"
+                  className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm tabular-nums"
+                  placeholder="e.g. 9,000"
                   value={value}
                   onChange={(e) => setter(e.target.value)}
                 />
@@ -745,12 +757,12 @@ function DispatchPage() {
                 Bonus <span className="text-[#627084]">(optional)</span>
               </label>
               <input
-                type="number"
-                min="0"
-                className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm"
-                placeholder="e.g. 5000"
+                type="text"
+                inputMode="numeric"
+                className="h-10 w-full rounded border border-[#E2E5E9] bg-white px-3 text-sm tabular-nums"
+                placeholder="e.g. 5,000"
                 value={bonus}
-                onChange={(e) => setBonus(e.target.value)}
+                onChange={(e) => setMoney(setBonus)(e.target.value)}
               />
             </div>
             <div className="md:col-span-3">
@@ -890,27 +902,27 @@ function DispatchPage() {
           <div className="space-y-3">
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Trip Allowance:</span>
-              <span className="font-semibold text-[#141a1f]">{tripAllowance ? formatN(Number(tripAllowance)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{tripAllowance ? formatN(parseMoneyInput(tripAllowance) || 0) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Return Waybill:</span>
-              <span className="font-semibold text-[#141a1f]">{returnWaybill ? formatN(Number(returnWaybill)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{returnWaybill ? formatN(parseMoneyInput(returnWaybill) || 0) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Motor Boy Allowance:</span>
-              <span className="font-semibold text-[#141a1f]">{motorBoy ? formatN(Number(motorBoy)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{motorBoy ? formatN(parseMoneyInput(motorBoy) || 0) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Transit Road Tickets:</span>
-              <span className="font-semibold text-[#141a1f]">{ticketCost ? formatN(Number(ticketCost)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{ticketCost ? formatN(parseMoneyInput(ticketCost) || 0) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Extra Allowance:</span>
-              <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(Number(extraAllowance)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{extraAllowance ? formatN(parseMoneyInput(extraAllowance) || 0) : "-"}</span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-[#5c6470]">Bonus:</span>
-              <span className="font-semibold text-[#141a1f]">{bonus ? formatN(Number(bonus)) : "-"}</span>
+              <span className="font-semibold text-[#141a1f]">{bonus ? formatN(parseMoneyInput(bonus) || 0) : "-"}</span>
             </div>
             <div className="border-t border-[#e2e5e9] my-2"></div>
             <div className="flex justify-between items-center">
