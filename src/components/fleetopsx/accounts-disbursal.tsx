@@ -26,12 +26,12 @@ import { VoucherPreviewModal } from "@/components/fleetopsx/accounts-vouchers";
 import {
   COST_COLUMNS,
   COST_PAIRS,
-  COST_SUBTITLE_ALL,
+  COST_SUBTITLE_ACCOUNTS,
   DIRECT_COST_CATEGORIES,
   DISBURSEMENT_STATUSES,
   PENDING_DISBURSAL,
   PAYMENT_METHODS,
-  costTotal,
+  costTotalExcludingLubricant as costTotal,
   disbursalState,
   driverOf,
   longDay,
@@ -207,7 +207,9 @@ export function AccountsDisbursal() {
         </p>
       </div>
 
-      <DirectCostBanner subtitle={COST_SUBTITLE_ALL} sheets={payable.map(sheetOf)} />
+      {/* Accounts must not see the diesel cost: no Diesel & Gas card here,
+          and every total below works from the fuel-excluded sum. */}
+      <DirectCostBanner subtitle={COST_SUBTITLE_ACCOUNTS} sheets={payable.map(sheetOf)} hideLubricant />
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -607,17 +609,12 @@ function CaptureDisbursementModal({
   const bankRef = sheet.disbursement?.bankRef ?? "";
   const [busy, setBusy] = useState(false);
 
-  // The dispatch's own diesel is a direct cost of the haul (the board used to
-  // print the allowances alone — ₦183k while diesel was ₦3.9M) — it counts in
-  // the total and, when present, gets its own itemised row below.
-  const diesel = Number(sheet.lubricantCost ?? 0);
-  const dieselLabel =
-    sheet.lubricantType === "Gas"
-      ? `Gas (${Number(sheet.lubricantQuantity ?? 0).toLocaleString("en-NG")} KG)`
-      : `Diesel (${Number(sheet.lubricantQuantity ?? 0).toLocaleString("en-NG")} L)`;
+  // Accounts does not see the diesel cost (Accounts instruction, 15/10/2026):
+  // fuel is priced and released by the fuel desk, not cash this desk hands a
+  // driver, so it is out of the capture's total and the diesel line below is
+  // not shown. The release detail still lives on the sheet for the fuel desk.
   const total =
     DIRECT_COST_CATEGORIES.reduce((sum, category) => sum + Number(amounts[category.key] || 0), 0) +
-    (diesel > 0 ? diesel : 0) +
     (sheet.extras ?? []).reduce((sum, line) => sum + Number(line.amount ?? 0), 0);
 
   const save = async () => {
@@ -711,15 +708,6 @@ function CaptureDisbursementModal({
           </label>
         ))}
       </div>
-
-      {diesel > 0 ? (
-        <div className="mt-3 flex flex-col gap-1 rounded-[4px] bg-[#F1F2F4] p-3 text-[12px] text-[#344256]">
-          <span className="flex items-center justify-between gap-3">
-            <span>{dieselLabel}</span>
-            <span className="tabular-nums">{money(diesel)}</span>
-          </span>
-        </div>
-      ) : null}
 
       {(sheet.extras ?? []).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 rounded-[4px] bg-[#F1F2F4] p-3 text-[12px] text-[#344256]">

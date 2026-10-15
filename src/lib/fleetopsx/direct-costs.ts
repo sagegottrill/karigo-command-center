@@ -149,6 +149,23 @@ export const costTotal = (sheet: CostSheet) =>
   lubricantCostOf(sheet) +
   extrasOf(sheet).reduce((total, line) => total + Number(line.amount ?? 0), 0);
 
+/**
+ * What Accounts pays without the fuel line.
+ *
+ * Accounts instruction, 15/10/2026: the Accounts department should not see the
+ * diesel cost. The fuel (diesel/gas) the Transport Manager prices and releases
+ * through the fuel desk is not cash the desk hands a driver, so its totals,
+ * breakdown columns and certificates exclude it — while the Transport
+ * Manager's and Fleet Ops' own boards keep counting it.
+ */
+export const costTotalExcludingLubricant = (sheet: CostSheet) =>
+  DIRECT_COST_CATEGORIES.reduce((total, c) => total + Number(sheet[c.key] ?? 0), 0) +
+  extrasOf(sheet).reduce((total, line) => total + Number(line.amount ?? 0), 0);
+
+/** The Accounts banner's one-liner: what its figures add up (no diesel). */
+export const COST_SUBTITLE_ACCOUNTS =
+  "Aggregate across all dispatch: Trip Allowance, Return Waybill, motor boy, transit tickets, extra allowance and bonus. Diesel is priced and released by the fuel desk and is not disbursed.";
+
 /** `VD-99E3B8` — the voucher a dispatch is known by once it carries a cost sheet. */
 export const voucherRef = (trip: Trip) =>
   `VD-${String(trip.id).replace(/-/g, "").slice(0, 6).toUpperCase()}`;

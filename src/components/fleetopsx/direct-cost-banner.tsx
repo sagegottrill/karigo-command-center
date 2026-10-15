@@ -9,20 +9,29 @@ import { DIRECT_COST_CATEGORIES, lubricantCostOf, money, type CostSheet } from "
  * day he is authorising; the Accounts desk reads it for everything it has to
  * pay. Same figures, same arithmetic — a second copy of this block is how the
  * two desks would end up disagreeing about the same truck.
+ *
+ * EXCEPT the Accounts desk's instruction (15/10/2026): it should not see the
+ * diesel cost at all — fuel is priced and released by the fuel desk, not cash
+ * the desk hands a driver. `hideLubricant` drops the Diesel & Gas card and
+ * leaves it out of the banner total.
  */
 export function DirectCostBanner({
   subtitle,
   sheets,
+  hideLubricant = false,
 }: {
   /** One line saying which dispatches are being totalled. */
   subtitle: string;
   sheets: CostSheet[];
+  /** Accounts view: no diesel card, diesel excluded from the total. */
+  hideLubricant?: boolean;
 }) {
   const byCategory = [
     // Diesel first — it is usually the biggest line and the reason the old
     // total read hundreds of thousands when the trip cost millions.
-    ...(sheets.some((sheet) => lubricantCostOf(sheet) > 0)
-      ? [
+    ...(hideLubricant || !sheets.some((sheet) => lubricantCostOf(sheet) > 0)
+      ? []
+      : [
           {
             label:
               sheets.some((s) => s.lubricantType === "Gas")
@@ -31,8 +40,7 @@ export function DirectCostBanner({
             key: "lubricantCost" as const,
             total: sheets.reduce((sum, sheet) => sum + lubricantCostOf(sheet), 0),
           },
-        ]
-      : []),
+        ]),
     ...DIRECT_COST_CATEGORIES.map((category) => ({
       ...category,
       total: sheets.reduce((sum, sheet) => sum + Number(sheet[category.key] ?? 0), 0),

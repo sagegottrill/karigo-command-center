@@ -8,8 +8,8 @@ import { CostBreakdownCell, DirectCostBanner } from "@/components/fleetopsx/dire
 import {
   COST_COLUMNS,
   COST_PAIRS,
-  COST_SUBTITLE_ALL,
-  costTotal,
+  COST_SUBTITLE_ACCOUNTS,
+  costTotalExcludingLubricant as costTotal,
   dayLabel,
   driverOf,
   isDisbursed,
@@ -110,7 +110,9 @@ export function AccountsVouchers() {
         </p>
       </div>
 
-      <DirectCostBanner subtitle={COST_SUBTITLE_ALL} sheets={issued.map(sheetOf)} />
+      {/* Accounts must not see the diesel cost: no Diesel & Gas card here,
+          and every total below works from the fuel-excluded sum. */}
+      <DirectCostBanner subtitle={COST_SUBTITLE_ACCOUNTS} sheets={issued.map(sheetOf)} hideLubricant />
 
       <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -390,6 +392,8 @@ export function VoucherPreviewModal({ trip, onClose }: { trip: Trip; onClose: ()
           ))}
         </div>
 
+        {/* Accounts does not see the diesel cost — the certificate totals the
+            six allowances plus any added line, fuel excluded. */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[6px] bg-[#1B2432] px-4 py-3">
           <span className="text-[10px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">
             Total Direct Disbursement
