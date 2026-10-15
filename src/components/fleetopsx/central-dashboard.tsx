@@ -2330,8 +2330,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       <section className="flex flex-col gap-3">
         <SectionHeader
           icon={Wallet}
-          title="Cost Overview"
-          subtitle="Direct = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
+          title="Cost Overview"              subtitle="Cost = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
         >
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
@@ -2346,14 +2345,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               icon={Wallet}
               hasDrill
               onClick={() => drill.toggle("cost-road")}
-              detail={
-                <TileDetailRows
-                  rows={[
-                    { label: "Committed:", value: formatMoney(stats.spend.roadCommitted), tone: "grey" },
-                    { label: "Disbursed:", value: formatMoney(stats.spend.roadDisbursed), tone: "green" },
-                  ]}
-                />
-              }
             />
             <DrillPopover
               open={drill.isOpen("cost-road")}
