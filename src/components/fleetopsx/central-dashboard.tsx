@@ -2141,9 +2141,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                         tone: "amber",
                       },
                       {
-                        label: "Direct:",
-                        value: formatMoney(stats.spend.directCost),
-                        tone: "purple",
+                        label: "Gas:",
+                        value: `${stats.spend.pouredGasKg.toLocaleString()}KG`,
+                        sub: `(${formatMoney(stats.spend.pouredGasCost)})`,
+                        tone: "amber",
                       },
                     ]}
                   />
