@@ -2330,32 +2330,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="relative">
-            <LiveMetricTile
-              label="Road Expense"
-              value={formatMoney(stats.spend.roadDisbursed)}
-              hint="Disbursed by Accounts"
-              tone="grey"
-              icon={Wallet}
-              hasDrill
-              onClick={() => drill.toggle("cost-road")}
-            />
-            <DrillPopover
-              open={drill.isOpen("cost-road")}
-              onClose={drill.close}
-              title="Road expense"
-              width={340}
-              footer={<span>Undisbursed sheets count zero until Accounts pays them.</span>}
-            >
-              <p className="py-2 text-[12px] leading-5 text-white/70">
-                Committed {formatMoney(stats.spend.roadCommitted)} · Disbursed{" "}
-                {formatMoney(stats.spend.roadDisbursed)}. Transport allowance, return-way
-                bill, motor-boy, tickets, extra allowance, bonus and added lines.
-              </p>
-            </DrillPopover>
-          </div>
-
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           <div className="relative">
             <LiveMetricTile
               label="Direct Cost"
