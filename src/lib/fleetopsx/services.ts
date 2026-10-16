@@ -1167,6 +1167,12 @@ export const inventoryService = {
 export const procurementService = {
   list: () => fetchApi("/procurement"),
   /**
+   * A status (and note) change on a PO — the Transport Manager's review:
+   * approve moves the buy to Sourcing; reject records why it was refused.
+   */
+  update: (id: string, data: { status?: string; vendor?: string; unitPrice?: number }) =>
+    fetchApi(`/procurement/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  /**
    * The Transport Manager's buy, raised from the low-tank drill: litres, the
    * vendor, the agreed price and his authorisation. Posts a PO into the
    * procurement ledger — the tank is only written when the delivery is

@@ -15,6 +15,7 @@ import {
   MoreVertical,
   Navigation,
   Package,
+  PackageSearch,
   ShieldCheck,
   Truck,
   Users,
@@ -35,7 +36,7 @@ type AdminNavItem = {
   to: string;
   icon: typeof LayoutDashboard;
   /** Which live badge count drives the orange dot (only rendered when > 0). */
-  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread" | "messages";
+  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread" | "messages" | "partInventory" | "engineeringRequests";
   /** Rendered indented beneath the item above — e.g. Internal Request under New Request. */
   sub?: boolean;
 };
@@ -106,13 +107,14 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // but the stamps themselves stay with Security.
       { label: "Gate Security", to: "/workspace/app/gate", icon: ShieldCheck },
       { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
-      // The workshop: work orders, repair spend, and the verdict that decides
-      // whether a truck that came back through the gate is fit to dispatch.
-      { label: "Engineering", to: "/workspace/app/engineering", icon: Wrench },
-      // Parts & Inventory is ITS OWN department — never folded into Engineering.
-      // The TM reads its valuation, shrinkage and requisition queues from the
-      // dashboard; this is the department's own working page.
-      { label: "Parts & Inventory", to: "/workspace/app/parts", icon: Package },
+      // THE ONE ENGINEERING PLACE — the merged board: the authorization desk,
+      // the maintenance queues, log and report are sections of one page, so the
+      // sidebar names the department once (the live dot reads its queue).
+      { label: "Engineering", to: "/workspace/app/engineering-requests", icon: Wrench, liveDot: "engineeringRequests" },
+      // The TM's own Part Inventory desk per the approved design: procurement
+      // authorisation queue + the shelf as card tiles. The store's own working
+      // page stays at /parts for the department logins only.
+      { label: "Part Inventory", to: "/workspace/app/part-inventory", icon: PackageSearch, liveDot: "partInventory" },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into.
@@ -173,7 +175,7 @@ export function TransportAdminSidebar({
             ? badges.unreadNotifications
             : dot === "messages"
               ? badges.unreadMessages
-              : 0;
+              : 0; // partInventory / engineeringRequests read live on their own pages
 
   useEffect(() => {
     setMounted(true);

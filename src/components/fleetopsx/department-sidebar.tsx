@@ -6,6 +6,7 @@ import {
   MessageSquare,
   MoreVertical,
   Package,
+  PackageSearch,
   PackageCheck,
   Receipt,
   Truck,
@@ -88,19 +89,10 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
   engineering: {
     heading: "ENGINEERING",
     title: "Engineering & Maintenance Portal",
-    subtitle: "Workshop work orders, check-up verdicts and repair spend",
+    subtitle: "Requests, maintenance queues and the fleet report — one page",
     items: [
-      { label: "Maintenance Hub", to: "/workspace/app/engineering-hub", icon: LayoutGrid },
-      { label: "Work Orders", to: "/workspace/app/engineering", icon: Wrench },
+      { label: "Engineering", to: "/workspace/app/engineering-requests", icon: LayoutGrid },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
-      /*
-       * Repair Spend only. Parts & Store used to ride along here, which is why
-       * the STOREHOUSE's own page printed Engineering's modules across the top:
-       * the store is its own department now, and its modules belong to it.
-       * Engineering's window onto the parts it raised is the request it opens on
-       * a work order, not the store's catalogue.
-       */
-      { label: "Repair Spend", to: "/workspace/app/repair-spend", icon: Receipt },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
@@ -130,7 +122,7 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     title: "Parts & Inventory Portal",
     subtitle: "The store's catalog, purchases and requisitions",
     items: [
-      { label: "Parts & Store", to: "/workspace/app/parts", icon: Package },
+      { label: "Part Inventory", to: "/workspace/app/part-inventory", icon: PackageSearch },
       { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },

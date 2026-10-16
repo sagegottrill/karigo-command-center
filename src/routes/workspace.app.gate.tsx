@@ -116,9 +116,14 @@ function stampCsv(value: string | null, fallback: string): string {
 function formatGateLogger(name?: string | null): string {
   if (!name) return "Petroline Security";
   const s = String(name).trim();
+  // GATE-LOGGER-WORDING: the "Logged By" column names a PERSON, or the one
+  // department the meeting agreed owns the gate — Security. System stamps from
+  // reconciles/self-heals ("Reconciled 2026-10-13 — stale returning dispatch",
+  // "Auto-reconciled (departure predates the gate log)") are bookkeeping, not
+  // signatures, and never appear: the movement still belongs to the gate house.
   if (
     !s ||
-    /auto-reconcil|superseded|departure predates|transport manager|platform admin|admin/i.test(s)
+    /reconcil|superseded|self-heal|auto-reconcil|departure predates|stale|transport manager|platform admin|admin\b/i.test(s)
   ) {
     return "Petroline Security";
   }
@@ -490,6 +495,17 @@ departure silently never logs. */
   // The CSV string for the shared Export menu — same order as the table, the
   // dispatch ID closing the row. The menu's Image and PDF options snapshot the
   // rendered table, so they honour the same search and filters.
+  /** The one "Logged By" reader — person first, department fallback. Raw
+        system stamps ("Reconciled … — stale returning dispatch", "Auto-reconciled
+        (departure predates the gate log)") are reconciliation bookkeeping, not
+        signatures: the gate house owns those movements, so the column must show
+        the department that works the gate, never narrate system history. */
+  const loggerCsv = (t: Trip) =>
+    returnStamp(t)
+      ? formatGateLogger(t.gateInBy)
+      : departureStamp(t)
+        ? formatGateLogger(t.gateOutBy)
+        : "Unsigned";
   const exportCsv = () => {
     const header = "Driver,Truck Head,Plate No,Tail No,Departure,Return,Logged By,Dispatch ID";
     const body = filtered
@@ -501,11 +517,7 @@ departure silently never logs. */
           tailOf(t),
           stampCsv(departureStamp(t), "Not Departed"),
           stampCsv(returnStamp(t), "Not Returned"),
-          returnStamp(t)
-            ? t.gateInBy || t.gateOutBy || "Unsigned"
-            : departureStamp(t)
-              ? t.gateOutBy || "Unsigned"
-              : "",
+          loggerCsv(t),
           dispatchId(t),
         ]),
       )

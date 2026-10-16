@@ -158,11 +158,14 @@ export function TileCostColumns({
   columns: { label: string; value: string; sub?: string; tone: TileTone }[];
 }) {
   return (
-    <div className="grid grid-cols-[1.05fr_1fr_1fr]">
+    /* A gap, not a shared wall: each figure stands apart with whitespace on
+       both sides of its separating hairline, and its own underline — one
+       column's number must never be read as part of its neighbour's. */
+    <div className="grid grid-cols-3 gap-x-4">
       {columns.map((col, i) => (
         <div
           key={col.label}
-          className={cn("flex min-w-0 flex-col gap-0.5", i > 0 && "border-l border-[#EFF0F2] pl-2")}
+          className={cn("flex min-w-0 flex-col gap-0.5", i > 0 && "border-l border-[#EFF0F2] pl-3")}
         >
           <span className="truncate whitespace-nowrap text-[9px] font-normal leading-3 text-[#5C6470]">
             {col.label}

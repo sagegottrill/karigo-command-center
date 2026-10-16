@@ -873,6 +873,22 @@ export function buildSecurityOversight(
  * as "Unsigned (pre-ledger)" so the ledger never pretends accountability it
  * does not have.
  */
+/**
+ * The ledger names a PERSON, or the one department the meeting agreed owns the
+ * gate — Security. Raw system stamps ("Reconciled … — stale returning
+ * dispatch", "Auto-reconciled (departure predates the gate log)", "Petroline
+ * Security (self-heal)") are reconciliation bookkeeping, not signatures: they
+ * never appear as the actor, so the Transport Manager auditing the board sees
+ * the department that works the gate, not system narration.
+ */
+const GUARD_SYSTEM_STAMP = /reconcil|superseded|self-heal|departure predates|stale|transport manager|platform admin|admin\b/i;
+function guardDisplayName(raw: string | null | undefined): { name: string; signed: boolean } {
+  const s = String(raw ?? "").trim();
+  if (!s) return { name: "Petroline Security (pre-ledger)", signed: false };
+  if (GUARD_SYSTEM_STAMP.test(s)) return { name: "Petroline Security", signed: true };
+  return { name: s, signed: true };
+}
+
 function buildGuardLedger(movements: SecTrip[]): SecurityOversight["guardLedger"] {
   const rows: SecurityOversight["guardLedger"]["list"] = [];
   let departures = 0;
@@ -881,28 +897,28 @@ function buildGuardLedger(movements: SecTrip[]): SecurityOversight["guardLedger"
   for (const t of movements) {
     if (t.departedAt) {
       departures++;
-      const guard = (t.gateOutBy ?? "").trim();
-      if (!guard) unsigned++;
+      const { name, signed } = guardDisplayName(t.gateOutBy);
+      if (!signed) unsigned++;
       rows.push({
         id: `${t.id}-out`,
         label: t.label,
         truck: t.truck,
         driver: t.driver,
-        guard: guard || "Unsigned (pre-ledger)",
+        guard: name,
         action: "Logged Out",
         at: t.departedAt,
       });
     }
     if (t.returnedAt) {
       returns++;
-      const guard = (t.gateInBy ?? "").trim();
-      if (!guard) unsigned++;
+      const { name, signed } = guardDisplayName(t.gateInBy);
+      if (!signed) unsigned++;
       rows.push({
         id: `${t.id}-in`,
         label: t.label,
         truck: t.truck,
         driver: t.driver,
-        guard: guard || "Unsigned (pre-ledger)",
+        guard: name,
         action: "Logged In",
         at: t.returnedAt,
       });

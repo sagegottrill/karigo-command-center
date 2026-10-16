@@ -1425,6 +1425,13 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     const trucks = await prisma.truck.findMany();
     const ownKeys = (t: any) => [TRUCK_KEY(t.registration), TRUCK_KEY(t.cabId)].filter((k: string) => k.length >= 3);
     const truck = trucks.find((t) => [...tokens, key].some((m) => ownKeys(t).includes(m))) || null;
+    // GATERETURN:V4 — match on the RESOLVED truck, not only the typed text. A
+    // guard who logs "071" names the cap number; the dispatch's truckReg may
+    // carry the plate ("GGE95YK / B055") or vice versa, and the typed-token
+    // match above then finds nothing and the returned truck stayed "in transit"
+    // with its driver held. Once the register row is known, its own two keys
+    // (registration + cabId) describe the truck completely — match those too.
+    const matchKeys = truck ? [...tokens, key, ...ownKeys(truck)] : [...tokens, key];
 
     // Any dispatch still naming this truck is over — the truck is at the gate.
     // Matching is on whole tokens; substring containment is kept ONLY for
@@ -1435,7 +1442,6 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
       },
     });
-    const matchKeys = [...tokens, key];
     const stillOpen = open.filter((t) => {
       const keys = truckKeysOf(t);
       return keys.some((k) =>
@@ -1647,6 +1653,99 @@ async function syncDriverDuty(): Promise<number> {
 }
 void syncDriverDuty();
 setInterval(() => void syncDriverDuty(), 10 * 60 * 1000);
+
+// --- GATERETURN:V4 — RETURNED-TRUCK SWEEP: the rule made PERMANENT ----------
+// ONE TRUTH, re-checked every 5 minutes: a truck the gate has sent home (its
+// register row is on Check Up) can have NO open dispatch left. Whatever path
+// logged the return — the gate log, "Return a truck", a dispatch page, even a
+// half-failed write from an older run — anything still open that names that
+// truck is closed here with the self-heal stamp on the record, its drivers
+// freed and its tail brought home. This is the difference between fixing a
+// screen and fixing the system: no missed edge case can ever again leave a
+// returned truck showing "in transit" (the P109/071 case, 15 Oct 2026).
+async function sweepReturnedTrucks(): Promise<number> {
+  try {
+    const trucks = await prisma.truck.findMany();
+    const homeKeys = new Set<string>();
+    for (const t of trucks) {
+      if (String(t.status || '') !== 'Check Up') continue;
+      for (const v of [t.registration, t.cabId]) {
+        const k = TRUCK_KEY(v);
+        if (k.length >= 4) homeKeys.add(k);
+      }
+    }
+    if (homeKeys.size === 0) return 0;
+    const open = await prisma.trip.findMany({
+      where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+    });
+    const doomed = open.filter((t: any) =>
+      truckKeysOf(t).some((k) =>
+        Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k))));
+    let closed = 0;
+    for (const trip of doomed) {
+      try {
+        const dc = trip.directCosts && typeof trip.directCosts === 'object' ? { ...(trip.directCosts as any) } : {};
+        dc.returnedBy = {
+          by: 'Return self-heal',
+          role: 'System',
+          at: new Date().toISOString(),
+          confirmed: true,
+          note: 'Gate already logged this truck home — the open dispatch was closed automatically.',
+        };
+        await prisma.trip.update({
+          where: { id: trip.id },
+          data: {
+            status: 'Completed',
+            eta: trip.eta || autoStamp(new Date()),
+            gateInBy: trip.gateInBy || 'Petroline Security (self-heal)',
+            directCosts: dc,
+          },
+        });
+        closed += 1;
+        // The tail rode in with the truck — home to Check Up beside the head.
+        const tailCode = String(trip.tailNumber || (String(trip.truckReg || '').split('/')[1] || '')).trim();
+        if (tailCode) {
+          const tk = TRUCK_KEY(tailCode);
+          const tails = await prisma.tail.findMany();
+          const tailRow = tails.find((t) => TRUCK_KEY(t.number) === tk);
+          if (tailRow && ['Out of Yard', 'Assigned', 'Available'].includes(String(tailRow.status))) {
+            await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
+          }
+        }
+      } catch (e: any) {
+        console.error('[return-sweep] could not close a stale dispatch:', e?.message || e);
+      }
+    }
+    if (closed) {
+      // Free the drivers the sweep just unburdened — but only those the LIVE
+      // dispatch list no longer holds anywhere (the same guard every path uses).
+      try {
+        const remaining = await prisma.trip.findMany({
+          where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'] } },
+          select: { driverName: true },
+        });
+        const held = new Set(remaining.map((t: any) => String(t.driverName || '').trim().toLowerCase()).filter(Boolean));
+        const names = Array.from(new Set(doomed.map((t: any) => String(t.driverName || '').trim()).filter((n: string) => n && !/^unassigned$/i.test(n))));
+        for (const name of names) {
+          if (held.has(name.toLowerCase())) continue;
+          await prisma.driver.updateMany({
+            where: { name, status: { in: ['On Trip', 'Active'] } },
+            data: { status: 'Active' },
+          });
+        }
+      } catch (e: any) {
+        console.error('[return-sweep] driver release failed:', e?.message || e);
+      }
+      console.log('[return-sweep] closed ' + closed + ' stale dispatch(es) naming a truck already sent home.');
+    }
+    return closed;
+  } catch (e: any) {
+    console.error('[return-sweep] failed:', e?.message || e);
+    return 0;
+  }
+}
+void sweepReturnedTrucks();
+setInterval(() => void sweepReturnedTrucks(), 5 * 60 * 1000);
 
 // --- GATECYCLE:V1:HELPERS ------------------------------------------------------
 // The gate's stamps name the truck; the register holds the rest. One matcher

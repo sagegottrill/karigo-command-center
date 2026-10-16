@@ -136,7 +136,7 @@ export function AccountsDisbursal() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return payable.filter((trip) => {
+    const matched = payable.filter((trip) => {
       const state = disbursalState(sheetOf(trip));
       if (tab !== "All" && state !== tab) return false;
       if (!inWindow(trip.createdAt, range)) return false;
@@ -154,6 +154,21 @@ export function AccountsDisbursal() {
           .includes(q),
       );
     });
+    // ACCOUNTS ORDER — the desk works its way down: what is APPROVED and
+    // payable comes first (Disbursed), then what still waits on payment
+    // (Pending Disbursal), then what is closed (Reconciled). Newest first
+    // within each band, so the desk never scrolls past paid rows to hunt the
+    // vouchers it must act on next.
+    const rank = (trip: Trip) => {
+      const state = disbursalState(sheetOf(trip));
+      return state === "Disbursed" ? 0 : state === PENDING_DISBURSAL ? 1 : 2;
+    };
+    const stamp = (t: Trip) =>
+      new Date(String(sheetOf(t).disbursement?.at ?? t.createdAt)).getTime() ||
+      new Date(String(t.createdAt)).getTime();
+    return matched.sort(
+      (a, b) => rank(a) - rank(b) || stamp(b) - stamp(a),
+    );
   }, [payable, query, tab, range]);
 
   /** The ledger's footer: vouchers and the money in each state. */

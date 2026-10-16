@@ -54,7 +54,7 @@ export const NOTIFICATION_MODULES: Record<NotificationModuleName, ModuleShape> =
     blurb: "Location checkpoints and delays",
   },
   Engineering: {
-    board: "/workspace/app/engineering",
+    board: "/workspace/app/engineering-requests",
     boardLabel: "Engineering",
     short: "Engineering",
     blurb: "Work orders, repairs and parts",

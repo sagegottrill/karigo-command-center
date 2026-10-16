@@ -77,7 +77,7 @@ export function AccountsVouchers() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return issued.filter((trip) => {
+    const matched = issued.filter((trip) => {
       const sheet = sheetOf(trip);
       if (!rowMatchesMethod(sheet, filter)) return false;
       if (!q) return true;
@@ -91,6 +91,15 @@ export function AccountsVouchers() {
         sheet.disbursement?.status,
       ].some((value) => String(value ?? "").toLowerCase().includes(q));
     });
+    // The register reads approved money first: Reconciled certificates head
+    // the page (they are fully closed), open-but-paid vouchers follow, both
+    // newest first — the certificates Accounts issued last sit on top.
+    const rank = (trip: Trip) =>
+      /reconcil/i.test(String(sheetOf(trip).disbursement?.status ?? "")) ? 0 : 1;
+    const stamp = (t: Trip) =>
+      new Date(String(sheetOf(t).disbursement?.at ?? t.createdAt)).getTime() ||
+      new Date(String(t.createdAt)).getTime();
+    return matched.sort((a, b) => rank(a) - rank(b) || stamp(b) - stamp(a));
   }, [issued, query, filter]);
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));

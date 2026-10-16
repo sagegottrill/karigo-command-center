@@ -24,9 +24,10 @@ const ROLE_HOME: Record<string, string> = {
   "Loading Operations": "/workspace/app/active-dispatch",
   HR: "/workspace/app/hr",
   "HR & Personnel": "/workspace/app/hr",
-  // The workshop signs in straight onto its own board of work orders.
-  Engineering: "/workspace/app/engineering",
-  "Engineering and Maintenance": "/workspace/app/engineering",
+  // The workshop signs in straight onto its merged board: requests and the
+  // maintenance cycle in one Engineering page.
+  Engineering: "/workspace/app/engineering-requests",
+  "Engineering and Maintenance": "/workspace/app/engineering-requests",
   // The Lubricant (fuel) department dispenses diesel and gas — its own portal,
   // opening on what is in the tank.
   Lubricant: "/workspace/app/lubricant-inventory",

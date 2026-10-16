@@ -244,7 +244,7 @@ function IndirectBoard({ rows, loading }: { rows: IndirectRow[]; loading: boolea
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows
+    const matched = rows
       .filter((row) => {
         if (categoryFilter !== "All categories" && row.category !== categoryFilter) return false;
         if (!inWindow(row.date, range)) return false;
@@ -255,8 +255,19 @@ function IndirectBoard({ rows, loading }: { rows: IndirectRow[]; loading: boolea
               .toLowerCase()
               .includes(q),
         );
-      })
-      .sort((a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0));
+      });
+    // ACCOUNTS ORDER — money already approved and moving heads the board:
+    // Disbursed rows first (the company's own spend, decided), then Pending
+    // rows awaiting the decision, then anything Rejected (kept only for the
+    // record, never mixed into the working queue). Newest first within each
+    // band, so the desk's next action is always at the top of the page.
+    const rank = (status: string) =>
+      status === "Disbursed" ? 0 : status === "Rejected" ? 2 : 1;
+    return matched.sort(
+      (a, b) =>
+        rank(String(a.status)) - rank(String(b.status)) ||
+        (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0),
+    );
   }, [rows, query, categoryFilter, range]);
 
   const total = filtered.reduce((sum, row) => sum + row.amount, 0);

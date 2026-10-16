@@ -32,6 +32,7 @@ import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app
 import { Route as WorkspaceAppDispatchHistoryRouteImport } from './routes/workspace.app.dispatch-history'
 import { Route as WorkspaceAppEngineeringRouteImport } from './routes/workspace.app.engineering'
 import { Route as WorkspaceAppEngineeringHubRouteImport } from './routes/workspace.app.engineering-hub'
+import { Route as WorkspaceAppEngineeringRequestsRouteImport } from './routes/workspace.app.engineering-requests'
 import { Route as WorkspaceAppFieldReportsRouteImport } from './routes/workspace.app.field-reports'
 import { Route as WorkspaceAppFieldReturningRouteImport } from './routes/workspace.app.field-returning'
 import { Route as WorkspaceAppFleetRouteImport } from './routes/workspace.app.fleet'
@@ -53,6 +54,7 @@ import { Route as WorkspaceAppManagePartnerRouteImport } from './routes/workspac
 import { Route as WorkspaceAppMessagesRouteImport } from './routes/workspace.app.messages'
 import { Route as WorkspaceAppNewRequestRouteImport } from './routes/workspace.app.new-request'
 import { Route as WorkspaceAppNotificationsRouteImport } from './routes/workspace.app.notifications'
+import { Route as WorkspaceAppPartInventoryRouteImport } from './routes/workspace.app.part-inventory'
 import { Route as WorkspaceAppPartnerRequestsRouteImport } from './routes/workspace.app.partner-requests'
 import { Route as WorkspaceAppPartsRouteImport } from './routes/workspace.app.parts'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
@@ -188,6 +190,12 @@ const WorkspaceAppEngineeringHubRoute =
     path: '/engineering-hub',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppEngineeringRequestsRoute =
+  WorkspaceAppEngineeringRequestsRouteImport.update({
+    id: '/engineering-requests',
+    path: '/engineering-requests',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppFieldReportsRoute =
   WorkspaceAppFieldReportsRouteImport.update({
     id: '/field-reports',
@@ -305,6 +313,12 @@ const WorkspaceAppNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppPartInventoryRoute =
+  WorkspaceAppPartInventoryRouteImport.update({
+    id: '/part-inventory',
+    path: '/part-inventory',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceAppPartnerRequestsRoute =
   WorkspaceAppPartnerRequestsRouteImport.update({
     id: '/partner-requests',
@@ -416,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
+  '/workspace/app/engineering-requests': typeof WorkspaceAppEngineeringRequestsRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -437,6 +452,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/part-inventory': typeof WorkspaceAppPartInventoryRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
+  '/workspace/app/engineering-requests': typeof WorkspaceAppEngineeringRequestsRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -494,6 +511,7 @@ export interface FileRoutesByTo {
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/part-inventory': typeof WorkspaceAppPartInventoryRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -534,6 +552,7 @@ export interface FileRoutesById {
   '/workspace/app/dispatch-history': typeof WorkspaceAppDispatchHistoryRoute
   '/workspace/app/engineering': typeof WorkspaceAppEngineeringRoute
   '/workspace/app/engineering-hub': typeof WorkspaceAppEngineeringHubRoute
+  '/workspace/app/engineering-requests': typeof WorkspaceAppEngineeringRequestsRoute
   '/workspace/app/field-reports': typeof WorkspaceAppFieldReportsRoute
   '/workspace/app/field-returning': typeof WorkspaceAppFieldReturningRoute
   '/workspace/app/fleet': typeof WorkspaceAppFleetRoute
@@ -555,6 +574,7 @@ export interface FileRoutesById {
   '/workspace/app/messages': typeof WorkspaceAppMessagesRoute
   '/workspace/app/new-request': typeof WorkspaceAppNewRequestRoute
   '/workspace/app/notifications': typeof WorkspaceAppNotificationsRoute
+  '/workspace/app/part-inventory': typeof WorkspaceAppPartInventoryRoute
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
@@ -597,6 +617,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/engineering-hub'
+    | '/workspace/app/engineering-requests'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -618,6 +639,7 @@ export interface FileRouteTypes {
     | '/workspace/app/messages'
     | '/workspace/app/new-request'
     | '/workspace/app/notifications'
+    | '/workspace/app/part-inventory'
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
@@ -654,6 +676,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/engineering-hub'
+    | '/workspace/app/engineering-requests'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -675,6 +698,7 @@ export interface FileRouteTypes {
     | '/workspace/app/messages'
     | '/workspace/app/new-request'
     | '/workspace/app/notifications'
+    | '/workspace/app/part-inventory'
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
@@ -714,6 +738,7 @@ export interface FileRouteTypes {
     | '/workspace/app/dispatch-history'
     | '/workspace/app/engineering'
     | '/workspace/app/engineering-hub'
+    | '/workspace/app/engineering-requests'
     | '/workspace/app/field-reports'
     | '/workspace/app/field-returning'
     | '/workspace/app/fleet'
@@ -735,6 +760,7 @@ export interface FileRouteTypes {
     | '/workspace/app/messages'
     | '/workspace/app/new-request'
     | '/workspace/app/notifications'
+    | '/workspace/app/part-inventory'
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
@@ -925,6 +951,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppEngineeringHubRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/engineering-requests': {
+      id: '/workspace/app/engineering-requests'
+      path: '/engineering-requests'
+      fullPath: '/workspace/app/engineering-requests'
+      preLoaderRoute: typeof WorkspaceAppEngineeringRequestsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/field-reports': {
       id: '/workspace/app/field-reports'
       path: '/field-reports'
@@ -1072,6 +1105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppNotificationsRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/part-inventory': {
+      id: '/workspace/app/part-inventory'
+      path: '/part-inventory'
+      fullPath: '/workspace/app/part-inventory'
+      preLoaderRoute: typeof WorkspaceAppPartInventoryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/partner-requests': {
       id: '/workspace/app/partner-requests'
       path: '/partner-requests'
@@ -1209,6 +1249,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppDispatchHistoryRoute: typeof WorkspaceAppDispatchHistoryRoute
   WorkspaceAppEngineeringRoute: typeof WorkspaceAppEngineeringRoute
   WorkspaceAppEngineeringHubRoute: typeof WorkspaceAppEngineeringHubRoute
+  WorkspaceAppEngineeringRequestsRoute: typeof WorkspaceAppEngineeringRequestsRoute
   WorkspaceAppFieldReportsRoute: typeof WorkspaceAppFieldReportsRoute
   WorkspaceAppFieldReturningRoute: typeof WorkspaceAppFieldReturningRoute
   WorkspaceAppFleetRoute: typeof WorkspaceAppFleetRoute
@@ -1230,6 +1271,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppMessagesRoute: typeof WorkspaceAppMessagesRoute
   WorkspaceAppNewRequestRoute: typeof WorkspaceAppNewRequestRoute
   WorkspaceAppNotificationsRoute: typeof WorkspaceAppNotificationsRoute
+  WorkspaceAppPartInventoryRoute: typeof WorkspaceAppPartInventoryRoute
   WorkspaceAppPartnerRequestsRoute: typeof WorkspaceAppPartnerRequestsRoute
   WorkspaceAppPartsRoute: typeof WorkspaceAppPartsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
@@ -1251,6 +1293,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppDispatchHistoryRoute: WorkspaceAppDispatchHistoryRoute,
   WorkspaceAppEngineeringRoute: WorkspaceAppEngineeringRoute,
   WorkspaceAppEngineeringHubRoute: WorkspaceAppEngineeringHubRoute,
+  WorkspaceAppEngineeringRequestsRoute: WorkspaceAppEngineeringRequestsRoute,
   WorkspaceAppFieldReportsRoute: WorkspaceAppFieldReportsRoute,
   WorkspaceAppFieldReturningRoute: WorkspaceAppFieldReturningRoute,
   WorkspaceAppFleetRoute: WorkspaceAppFleetRoute,
@@ -1273,6 +1316,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppMessagesRoute: WorkspaceAppMessagesRoute,
   WorkspaceAppNewRequestRoute: WorkspaceAppNewRequestRoute,
   WorkspaceAppNotificationsRoute: WorkspaceAppNotificationsRoute,
+  WorkspaceAppPartInventoryRoute: WorkspaceAppPartInventoryRoute,
   WorkspaceAppPartnerRequestsRoute: WorkspaceAppPartnerRequestsRoute,
   WorkspaceAppPartsRoute: WorkspaceAppPartsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
