@@ -649,6 +649,15 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
       if (req.body?.[key] !== undefined) data[key] = req.body[key];
     }
     if (Array.isArray(data.roles)) data.roles = data.roles.join(',');
+    // GUARD-SELF-ROLES: nobody edits their own access. An HR account (or any
+    // manager here) could otherwise grant themself Transport Manager, or
+    // quietly demote a colleague — the privilege change would leave behind
+    // nothing but the mutation notice, because every admin holds this route.
+    const changingAccess =
+      data.role !== undefined || data.roles !== undefined || data.status !== undefined;
+    if (changingAccess && req.params.id === String(req.user?.id || '')) {
+      return res.status(403).json({ error: "You cannot change your own role, roles or status on this account — ask another admin." });
+    }
     let generatedTempPassword: string | undefined;
     if (req.body?.resetPassword === true) {
       const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
@@ -1160,10 +1169,28 @@ app.get('/api/expenses', authenticate, async (_req, res) => {
   res.json(await prisma.expense.findMany({ orderBy: { createdAt: 'desc' } }));
 });
 app.post('/api/expenses', authenticate, authorize('Transport Manager', 'Platform Admin', 'Accounts', 'Fleet Operations', 'HR'), async (req, res) => {
-  res.json(await prisma.expense.create({ data: req.body }));
+  // Whitelist the Expense columns the board actually edits. Straying client
+  // fields used to 500 the write, and `amount` arrived as text half the time.
+  const ALLOWED_EXPENSE_FIELDS = ['requester', 'department', 'type', 'category', 'amount', 'description', 'status'];
+  const data: any = {};
+  for (const key of ALLOWED_EXPENSE_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  const amount = Number(data.amount);
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+  data.amount = amount;
+  res.json(await prisma.expense.create({ data }));
 });
 app.patch('/api/expenses/:id', authenticate, authorize('Transport Manager', 'Platform Admin', 'Accounts', 'Fleet Operations', 'HR'), async (req, res) => {
-  res.json(await prisma.expense.update({ where: { id: req.params.id }, data: req.body }));
+  const existing = await prisma.expense.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'Expense not found' });
+  const ALLOWED_EXPENSE_FIELDS = ['requester', 'department', 'type', 'category', 'amount', 'description', 'status'];
+  const data: any = {};
+  for (const key of ALLOWED_EXPENSE_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  if (data.amount !== undefined) {
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+    data.amount = amount;
+  }
+  res.json(await prisma.expense.update({ where: { id: req.params.id }, data }));
 });
 
 // --- WORK ORDERS ---
@@ -1171,10 +1198,32 @@ app.get('/api/work-orders', authenticate, async (_req, res) => {
   res.json(await prisma.workOrder.findMany({ orderBy: { createdAt: 'desc' } }));
 });
 app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
-  res.json(await prisma.workOrder.create({ data: req.body }));
+  // Validate before writing: `truckReg` is the record's identity (the fleet
+  // audit matches it against the registry) and an empty defect produced a job
+  // no workshop could act on.
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const defect = String(req.body?.defect || '').trim();
+  if (!truckReg) return res.status(400).json({ error: 'Name the truck this job is for.' });
+  if (!defect) return res.status(400).json({ error: 'Log the defect the workshop must fix.' });
+  const ALLOWED_WO_FIELDS = ['truckReg', 'defect', 'category', 'priority', 'mechanic', 'reportedBy', 'cost', 'notes', 'status', 'severity', 'inspectedBy', 'startedAt', 'estimatedReadyAt', 'completedAt'];
+  const data: any = {};
+  for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  res.json(await prisma.workOrder.create({ data }));
 });
 app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
-  res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data: req.body }));
+  // Same whitelist as create — an unknown field in an update payload must
+  // correct the job, not kill the save with a Prisma 500.
+  const ALLOWED_WO_FIELDS = ['truckReg', 'defect', 'category', 'priority', 'mechanic', 'reportedBy', 'cost', 'notes', 'status', 'severity', 'inspectedBy', 'startedAt', 'estimatedReadyAt', 'completedAt'];
+  if (req.body?.cost !== undefined && (!Number.isFinite(Number(req.body.cost)) || Number(req.body.cost) < 0)) {
+    return res.status(400).json({ error: 'cost must be a non-negative number' });
+  }
+  if (req.body?.status !== undefined && !["Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed", "Cancelled"].includes(String(req.body.status))) {
+    return res.status(400).json({ error: 'Unknown work-order status: ' + String(req.body.status) });
+  }
+  const data: any = {};
+  if (req.body?.status === 'Completed' && !req.body?.completedAt) data.completedAt = new Date();
+  for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data }));
 });
 // Incorrect records (e.g. sent back) can be removed entirely — Engineering /
 // TM only, so the workshop board keeps its audit trail by default.
@@ -2541,10 +2590,26 @@ app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport 
 app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const existing = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Not found' });
-  const stock = req.body.stock != null ? Number(req.body.stock) : existing.stock;
-  const reorderLevel = req.body.reorderLevel != null ? Number(req.body.reorderLevel) : existing.reorderLevel;
+  // Whitelist exactly the columns the store board edits. Spreading req.body
+  // straight through meant an unknown UI field (or a hand-crafted payload with
+  // `id`/`createdAt`) crashed the write with a Prisma 500 — the stock number
+  // never saved and the ledger never recorded the edit.
+  const ALLOWED_ITEM_FIELDS = ['name', 'sku', 'category', 'stock', 'reorderLevel', 'unitCost', 'vehicleCompatibility', 'supplier', 'location'];
+  const body: any = {};
+  for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
+  if (body.stock != null && (!Number.isFinite(Number(body.stock)) || Number(body.stock) < 0)) {
+    return res.status(400).json({ error: 'stock must be a non-negative number' });
+  }
+  if (body.reorderLevel != null && (!Number.isFinite(Number(body.reorderLevel)) || Number(body.reorderLevel) < 0)) {
+    return res.status(400).json({ error: 'reorderLevel must be a non-negative number' });
+  }
+  if (body.unitCost != null && (!Number.isFinite(Number(body.unitCost)) || Number(body.unitCost) < 0)) {
+    return res.status(400).json({ error: 'unitCost must be a non-negative number' });
+  }
+  const stock = body.stock != null ? Number(body.stock) : existing.stock;
+  const reorderLevel = body.reorderLevel != null ? Number(body.reorderLevel) : existing.reorderLevel;
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
-  const updated = await prisma.inventoryItem.update({ where: { id: req.params.id }, data: { ...req.body, stock, reorderLevel, status } });
+  const updated = await prisma.inventoryItem.update({ where: { id: req.params.id }, data: { ...body, stock, reorderLevel, status } });
   // Editing a stock number is a movement like any other: it goes on the ledger,
   // with who did it, so a shelf that changes with no purchase behind it is
   // visible instead of silent.
