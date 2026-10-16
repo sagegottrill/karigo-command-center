@@ -2188,12 +2188,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
-                    <span>Lubricant</span>
-                    <span className="font-semibold text-white">
-                      {formatMoney(stats.spend.lubricantOilCost)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-0.5">
                     <span>Direct cost</span>
                     <span className="font-semibold text-white">
                       {formatMoney(stats.spend.directCost)}
@@ -2331,7 +2325,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Wallet}
           title="Cost Overview"
-          subtitle="Cost = disbursed road expense + dispensed diesel + gas + lubricant · Indirect = workshop labour + store issues · today and this window"
+          subtitle="Cost = disbursed road expense + dispensed diesel + gas · Indirect = workshop labour + store issues · today and this window"
         >
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
@@ -2366,7 +2360,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <LiveMetricTile
               label="Direct Cost"
               value={formatMoney(stats.spend.directCost)}
-              hint="Road + diesel + gas + lubricant"
+              hint="Road + diesel + gas"
               tone="purple"
               icon={Fuel}
               hasDrill
@@ -2377,7 +2371,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     { label: "Road:", value: formatMoney(stats.spend.roadDisbursed), tone: "purple" },
                     { label: "Diesel:", value: formatMoney(stats.spend.pouredDieselCost), tone: "amber" },
                     { label: "Gas:", value: formatMoney(stats.spend.pouredGasCost), tone: "amber" },
-                    { label: "Lubricant:", value: formatMoney(stats.spend.lubricantOilCost), tone: "teal" },
                   ]}
                 />
               }
@@ -2387,13 +2380,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               onClose={drill.close}
               title={`Direct cost (${formatMoney(stats.spend.directCost)})`}
               width={360}
-              footer={<span>Diesel {stats.spend.pouredDieselLitres.toLocaleString()}L · Gas {stats.spend.pouredGasKg.toLocaleString()}KG · Lubricant {formatMoney(stats.spend.lubricantOilCost)}</span>}
+              footer={<span>Diesel {stats.spend.pouredDieselLitres.toLocaleString()}L · Gas {stats.spend.pouredGasKg.toLocaleString()}KG</span>}
             >
               <div className="flex flex-col gap-1.5 py-1 text-[12px] text-white/75">
                 <div className="flex justify-between"><span>Road expense (disbursed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.roadDisbursed)}</span></div>
                 <div className="flex justify-between"><span>Diesel (dispensed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.pouredDieselCost)}</span></div>
                 <div className="flex justify-between"><span>Gas (dispensed)</span><span className="font-semibold text-white">{formatMoney(stats.spend.pouredGasCost)}</span></div>
-                <div className="flex justify-between"><span>Lubricant</span><span className="font-semibold text-white">{formatMoney(stats.spend.lubricantOilCost)}</span></div>
               </div>
             </DrillPopover>
           </div>
@@ -2450,7 +2442,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     { name: "Road", value: stats.spend.roadDisbursed },
                     { name: "Diesel", value: stats.spend.pouredDieselCost },
                     { name: "Gas", value: stats.spend.pouredGasCost },
-                    { name: "Lube", value: stats.spend.lubricantOilCost },
                     { name: "Repairs", value: stats.spend.indirectLabour },
                     { name: "Parts", value: stats.spend.indirectParts },
                   ]}
@@ -2461,7 +2452,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                   <YAxis tick={{ fontSize: 11, fill: "#5C6470" }} tickFormatter={(v: number) => (v >= 1000000 ? `${Math.round(v / 1000000)}M` : v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
                   <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {["#8E95A1", "#F59E0B", "#F59E0B", "#14B8A6", "#A855F7", "#ED351D"].map((c, i) => (
+                    {["#8E95A1", "#F59E0B", "#F59E0B", "#A855F7", "#ED351D"].map((c, i) => (
                       <Cell key={i} fill={c} />
                     ))}
                   </Bar>
