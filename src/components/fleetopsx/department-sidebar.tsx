@@ -137,7 +137,9 @@ export function departmentPortal(key: DepartmentKey) {
 /** The roles that ARE this department. Spellings are the ones the API issues. */
 const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   hr: /^(hr|hr & personnel|hr and personnel|personnel)$/i,
-  engineering: /^(engineering|engineering and maintenance|engineering & maintenance)$/i,
+  // The ENGINEERING MANAGER rides the same department shell — his one seat on
+  // the board is the HOE review desk, but the chrome around it is this too.
+  engineering: /^(engineering( manager)?|head of engineering|engineering and maintenance|engineering & maintenance)$/i,
   // The STOREHOUSE desk: Inventory, its head, and the floor attendants.
   inventory:
     /^(inventory|head of inventory|store floor attendant|inventory & store|inventory manager)$/i,

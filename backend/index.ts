@@ -2886,7 +2886,9 @@ app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineeri
       }));
     }
     if (!created.length) return res.status(400).json({ error: 'No valid part line was supplied.' });
-    await notify('Engineering', 'Parts request needs HOE review', `${group} • ${created.length} line(s) for ${targetType === 'Workshop' ? 'the workshop' : truckReg}: ${description} — raised by ${requestedBy}.`, 'warning', 'Engineering,Engineering & Maintenance,Engineering and Maintenance,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.parts_submitted', refId: group, refLabel: truckReg || 'Workshop', actionRoles: ['Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance'] });
+    // The decision now belongs to the Engineering Manager's account, so his
+    // roles carry the actionable badge — not the workshop that raised it.
+    await notify('Engineering', 'Parts request needs HOE review', `${group} • ${created.length} line(s) for ${targetType === 'Workshop' ? 'the workshop' : truckReg}: ${description} — raised by ${requestedBy}.`, 'warning', 'Head of Engineering,Engineering Manager,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.parts_submitted', refId: group, refLabel: truckReg || 'Workshop', actionRoles: ['Head of Engineering', 'Engineering Manager'] });
     res.status(201).json({ group, lines: created });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -2902,10 +2904,23 @@ app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineeri
 // HOE-APPROVE-ONLY: the review verdict belongs to the Engineering Manager's
 // account — the workshop role raises requests but does not decide them.
 function isEngineeringReviewer(user: any): boolean {
-  const roles: string[] = [user?.role, ...(String(user?.roles || '').split(','))].filter(Boolean).map((r: string) => r.trim());
-  return ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(roles.find((r) => ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(r)) || '');
+  const roles: string[] = Array.isArray(user?.roles) ? user.roles : [user?.role, ...String(user?.roles || '').split(',')].filter(Boolean).map((r: string) => String(r).trim());
+  return roles.some((r) => ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(r));
 }
-app.post('/api/inventory-requisitions/group/:group/review', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
+// The review routes admit the department roles through the shared `authorize`
+// wrapper and then decide, inside, whether THIS account may actually rule:
+// the workshop (Engineering) may pass the door but never the verdict — that is
+// the Engineering Manager's alone (plus the TM/admin supervisors).
+const HOE_REVIEW_ROLES = [
+  'Engineering',
+  'Engineering & Maintenance',
+  'Engineering and Maintenance',
+  'Head of Engineering',
+  'Engineering Manager',
+  'Platform Admin',
+  'Transport Manager',
+];
+app.post('/api/inventory-requisitions/group/:group/review', authenticate, authorize(...HOE_REVIEW_ROLES), async (req: any, res) => {
   const group = String(req.params.group);
   const approve = req.body?.approve !== false;
   const note = String(req.body?.note || '').trim();
@@ -2936,7 +2951,7 @@ app.post('/api/inventory-requisitions/group/:group/review', authenticate, author
       await prisma.inventoryRequisition.update({ where: { id: row.id }, data });
     }
     const head = rows[0];
-    await notify('Engineering', approve ? 'Parts request validated — TM approval needed' : 'Parts request declined by HOE', `${group} for ${head.truckReg}: ${head.description || head.reason} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + note}`, approve ? 'info' : 'warning', 'Transport Manager,Engineering,Platform Admin,Parts & Store', { module: 'Engineering', eventKey: approve ? 'engineering.hoe_approved' : 'engineering.hoe_declined', refId: group, refLabel: head.truckReg, actionRoles: approve ? ['Transport Manager'] : ['Engineering'] });
+    await notify('Engineering', approve ? 'Parts request validated — TM approval needed' : 'Parts request declined by HOE', `${group} for ${head.truckReg}: ${head.description || head.reason} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + note}`, approve ? 'info' : 'warning', 'Transport Manager,Engineering,Platform Admin,Parts & Store', { module: 'Engineering', eventKey: approve ? 'engineering.hoe_approved' : 'engineering.hoe_declined', refId: group, refLabel: head.truckReg, actionRoles: approve ? ['Transport Manager'] : ['Engineering', 'Head of Engineering', 'Engineering Manager'] });
     res.json({ ok: true, group, approved: approve, count: rows.length });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -4392,7 +4407,7 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
  * Walk-in sales skip this desk — only engineering draws (targetType set) pass
  * through HOE review.
  */
-app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
+app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize(...HOE_REVIEW_ROLES), async (req: any, res) => {
   const approve = req.body?.approve !== false;
   const reason = String(req.body?.reason || '').trim();
   try {
@@ -4408,7 +4423,7 @@ app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize('Engineeri
         ? { status: 'HOE Approved', reviewedBy: by, reviewedAt: new Date() }
         : { status: 'Declined', declinedBy: by, declinedAt: new Date(), declineReason: reason },
     });
-    await notify('Lubricant', approve ? 'Lubricant draw validated — TM authorisation needed' : 'Lubricant draw declined by HOE', `${row.reference} • ${row.quantity.toLocaleString()} L of ${row.fuelType} for ${(row as any).targetType || 'engineering use'} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + reason}`, approve ? 'info' : 'warning', 'Transport Manager,Lubricant,Engineering,Platform Admin', { module: 'Fuel & Lubricant', eventKey: approve ? 'fuel.hoe_approved' : 'fuel.hoe_declined', refId: row.id, refLabel: row.reference, actionRoles: approve ? ['Transport Manager'] : ['Engineering'] });
+    await notify('Lubricant', approve ? 'Lubricant draw validated — TM authorisation needed' : 'Lubricant draw declined by HOE', `${row.reference} • ${row.quantity.toLocaleString()} L of ${row.fuelType} for ${(row as any).targetType || 'engineering use'} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + reason}`, approve ? 'info' : 'warning', 'Transport Manager,Lubricant,Head of Engineering,Engineering Manager,Engineering,Platform Admin', { module: 'Fuel & Lubricant', eventKey: approve ? 'fuel.hoe_approved' : 'fuel.hoe_declined', refId: row.id, refLabel: row.reference, actionRoles: approve ? ['Transport Manager'] : ['Engineering', 'Head of Engineering', 'Engineering Manager'] });
     res.json(updated);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
