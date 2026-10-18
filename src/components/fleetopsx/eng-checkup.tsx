@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Minus, Plus, Trash2, X } from "lucide-react";
 import { inventoryService } from "@/lib/fleetopsx/services";
@@ -156,6 +156,24 @@ export function InspectionDialog({
   const [wantParts, setWantParts] = useState(false);
   const [lines, setLines] = useState<PartLine[]>([]);
   const [saving, setSaving] = useState(false);
+  // Assign Engineer — the engineer who will handle the repair. Fed from the
+  // live staff register (Active accounts holding an Engineering role); free
+  // text is still allowed for a hands-on name not on any roster.
+  const [assignedTo, setAssignedTo] = useState("");
+  const [technicians, setTechnicians] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    inventoryService
+      .technicians()
+      .then((names) => {
+        if (!cancelled && Array.isArray(names)) setTechnicians(names.map(String));
+      })
+      .catch(() => {}); // empty list just renders a plain text field
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = async () => {
     if (result === "issues" && !defect.trim()) {
@@ -175,6 +193,7 @@ export function InspectionDialog({
         defect: defect.trim(),
         severity,
         inspectedBy: by.trim(),
+        assignedTo: assignedTo.trim() || undefined,
         parts: result === "issues" && wantParts ? lines : [],
       });
       toast.success(
@@ -324,6 +343,24 @@ export function InspectionDialog({
               className={inputClass}
             />
           </label>
+
+          {result === "issues" ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[14px] font-medium text-[#141A1F]">Assign Engineer</span>
+              <input
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                list="engineer-roster"
+                placeholder="Who repairs this — pick from the roster or type a name"
+                className={`${inputClass} bg-white`}
+              />
+              <datalist id="engineer-roster">
+                {technicians.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </label>
+          ) : null}
 
           <div className="flex items-center justify-end gap-2 pt-1">
             <button

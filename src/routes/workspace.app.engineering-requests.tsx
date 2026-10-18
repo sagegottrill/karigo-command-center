@@ -493,6 +493,14 @@ function EngineeringRequestsPage() {
                   </p>
                   <span className="rounded-full bg-[#ED351D]/10 px-2.5 py-1 text-[11px] font-semibold text-[#ED351D]">Under Maintenance</span>
                 </div>
+                {(() => {
+                  const job = openFor(a);
+                  return job?.mechanic ? (
+                    <p className="mt-1.5 text-[12px] text-[#5C6470]">
+                      Assigned engineer: <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
+                    </p>
+                  ) : null;
+                })()}
                 {awaiting.length > 0 ? (
                   <p className="mt-1.5 text-[12px] text-[#5C6470]">
                     Parts: {awaiting.map((p) => p.part).slice(0, 3).join(" + ")} ({awaiting.length} awaiting approval)

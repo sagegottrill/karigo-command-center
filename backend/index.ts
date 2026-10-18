@@ -1240,6 +1240,22 @@ app.delete('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platf
  *               defect + severity + inspector, and any listed spare parts land
  *               on the Head of Engineering's desk as one grouped request.
  */
+app.get('/api/engineering/technicians', authenticate, async (req: any, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        status: 'Active',
+        OR: [{ role: { contains: 'Engin' } }, { roles: { contains: 'Engin' } }],
+      },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json(users.map((u: any) => u.name).filter(Boolean));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
   const headId = String(req.body?.headId || '').trim() || null;
   const tailId = String(req.body?.tailId || '').trim() || null;
@@ -1248,6 +1264,9 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
   const defect = String(req.body?.defect || '').trim();
   const severity = String(req.body?.severity || '').trim();
   const inspectedBy = String(req.body?.inspectedBy || req.user?.name || '').trim();
+  // ASSIGN-ENGINEER: the hands-on engineer the defect is given to — travels on
+  // the work order as `mechanic`, the field every surface already shows.
+  const assignedTo = String(req.body?.assignedTo || '').trim();
   const parts = Array.isArray(req.body?.parts) ? req.body.parts : [];
   if (!headId && !tailId) return res.status(400).json({ error: 'Choose the truck that was inspected.' });
   if (!['no-issues', 'issues'].includes(result)) return res.status(400).json({ error: 'result must be no-issues or issues.' });
@@ -1272,7 +1291,7 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
         defect,
         category: 'General',
         priority: severity === 'Critical (Grounded)' ? 'Critical' : severity.startsWith('Major') ? 'High' : 'Medium',
-        mechanic: '',
+        mechanic: assignedTo || '',
         reportedBy: inspectedBy || by,
         cost: 0,
         notes: `Check-up: ${defect}`,

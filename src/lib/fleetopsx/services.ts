@@ -1077,12 +1077,24 @@ export const inventoryService = {
     defect?: string;
     severity?: string;
     inspectedBy?: string;
+    assignedTo?: string;
     parts?: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number }>;
   }) =>
     fetchApi<{ ok: boolean; group?: string | null }>("/engineering/inspections", {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  /**
+   * The Assign Engineer roster: every Active account holding an Engineering
+   * role (basic + per-user roles), names only — the inspection dialog offers
+   * them as it assigns a defect to an engineer.
+   */
+  technicians: () =>
+    fetchApi<unknown[]>("/engineering/technicians").then((res) =>
+      asList(res as any)
+        .map((row: any) => String(row?.name ?? row ?? "").trim())
+        .filter(Boolean),
+    ),
   /** The store floor's queue: approved tickets waiting for a physical handover. */
   handoffs: () =>
     fetchApi<unknown[]>("/inventory-handoffs").then((res) =>
