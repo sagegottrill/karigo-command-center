@@ -8,6 +8,7 @@ export const ADMIN_DEPARTMENTS = [
   "Lubricant",
   "Fuel Management",
   "Engineering and Maintenance",
+  "Head of Engineering",
   "Parts and Store",
   "Accounts",
   "HR and Personnel",
@@ -37,6 +38,10 @@ export function departmentToRoleKey(department: string): string {
       return "Lubricant";
     case "Engineering and Maintenance":
       return "Engineering";
+    // The ENGINEERING MANAGER is its own seat: he approves what the workshop
+    // raises and does not need a workshop login to do it.
+    case "Head of Engineering":
+      return "Head of Engineering";
     case "Parts and Store":
       return "Parts & Store";
     case "Accounts":
@@ -73,6 +78,7 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   Lubricant: ["Lubricant", "Lubricant Manager", "Lubricant Operations", "Fuel Manager"],
   "Fuel Management": ["Fleet Operations", "Fuel Manager", "Lubricant"],
   "Engineering and Maintenance": ["Engineering"],
+  "Head of Engineering": ["Head of Engineering", "Engineering Manager"],
   "Parts and Store": ["Parts & Store", "Parts and Store"],
   Accounts: ["Accounts", "Accountant"],
   "HR and Personnel": ["HR", "HR & Personnel", "HR and Personnel"],

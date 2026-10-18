@@ -20,6 +20,10 @@ export const ENGINEERING_OWNER_ROLES = [
   "Engineering & Maintenance",
   "Engineering and Maintenance",
   "Platform Admin",
+  // The ENGINEERING MANAGER audits the same boards as oversight — he does not
+  // raise requests or file inspections himself; those stay with the workshop.
+  "Head of Engineering",
+  "Engineering Manager",
   // FLEET FIELD OPS files the maintenance report on a truck it inspects at the
   // yard (the physical check the return stamps demand) — it raises the report;
   // the workshop verdict stays Engineering's.
@@ -29,6 +33,20 @@ export const ENGINEERING_OWNER_ROLES = [
 
 /** Who may open the boards at all: the department itself plus its supervisor. */
 export const ENGINEERING_ACCESS_ROLES = [...ENGINEERING_OWNER_ROLES, "Transport Manager", "Fleet Operations"];
+
+/**
+ * The ENGINEERING MANAGER's own seats — a separate account from the workshop.
+ *
+ * He approves what Engineering raises (spare-part groups, lubricant draws).
+ * The workshop role does NOT hold these, so raising and approving are two
+ * different accounts, as the approval chain intends.
+ */
+export const ENGINEERING_MANAGER_ROLES = ["Head of Engineering", "Engineering Manager"];
+
+export function isEngineeringManager() {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => ENGINEERING_MANAGER_ROLES.includes(r));
+}
 
 export function rolesCanWorkOnTrucks() {
   if (typeof window === "undefined") return false;

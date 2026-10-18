@@ -30,6 +30,7 @@ import {
 import {
   ENGINEERING_ACCESS_ROLES,
   indexWorkOrdersByTruck,
+  isEngineeringManager,
   rolesCanWorkOnTrucks,
   truckLabel,
 } from "@/lib/fleetopsx/engineering-helpers";
@@ -57,7 +58,7 @@ export const Route = createFileRoute("/workspace/app/engineering-requests")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const roles = authService.getRoles();
-    if (!roles.some((r: string) => ["Transport Manager", "Platform Admin", "Engineering", "Engineering & Maintenance", "Engineering and Maintenance"].includes(r))) {
+    if (!roles.some((r: string) => ["Transport Manager", "Platform Admin", "Engineering", "Engineering & Maintenance", "Engineering and Maintenance", "Head of Engineering", "Engineering Manager"].includes(r))) {
       window.location.assign("/workspace/app/unauthorized");
     }
   },
@@ -124,6 +125,10 @@ function EngineeringRequestsPage() {
   const me = authService.getCurrentUser()?.name || "Transport Manager";
   const canTM = authService.getRoles().some((r: string) => ["Transport Manager", "Platform Admin"].includes(r));
   const canWork = authService.getRoles().some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r));
+  // The HOE approval desk belongs to the Engineering Manager's account. The
+  // workshop role keeps its raise/inspect work; the Platform Admin reads the
+  // whole department as supervisor, so it decides everywhere.
+  const canHoe = isEngineeringManager() || canTM;
 
   const refresh = useCallback(async () => {
     const [headsRows, tailsRows, store, reqs, wos] = await Promise.all([
@@ -363,6 +368,7 @@ function EngineeringRequestsPage() {
       lube={hoeLube}
       stockOf={stockOf}
       busy={busyId}
+      canHoe={canHoe}
       onReviewGroup={(g) => setHoeReviewing(g)}
       onDecideFuel={decideFuel}
     />
@@ -886,6 +892,7 @@ function HoeReviewDesk({
   lube,
   stockOf,
   busy,
+  canHoe,
   onReviewGroup,
   onDecideFuel,
 }: {
@@ -895,6 +902,8 @@ function HoeReviewDesk({
   lube: FuelRequest[];
   stockOf: (part: string) => number | null;
   busy: string | null;
+  /** Only the Engineering Manager (and the supervisor) may decide here. */
+  canHoe: boolean;
   onReviewGroup: (g: RequestGroup) => void;
   onDecideFuel: (r: FuelRequest, approve: boolean, hoe: boolean) => void;
 }) {
@@ -914,6 +923,11 @@ function HoeReviewDesk({
         <FigmaEmptyState
           title="Nothing awaits HOE review"
           body="Requests the workshop raises appear here first — validate or decline them before they reach the TM."
+        />
+      ) : !canHoe ? (
+        <FigmaEmptyState
+          title="This desk belongs to the Engineering Manager"
+          body="Sign in with the Head of Engineering account to validate or decline what the workshop raised."
         />
       ) : (
         <div className="flex flex-col gap-6">
@@ -939,7 +953,7 @@ function HoeReviewDesk({
                     </div>
                     <button
                       type="button"
-                      disabled={busy === g.key}
+                      disabled={busy === g.key || !canHoe}
                       onClick={() => onReviewGroup(g)}
                       className="h-9 rounded bg-[#1B2432] px-3.5 text-[13px] font-medium text-white hover:bg-[#2a3547] disabled:opacity-60"
                     >
@@ -996,7 +1010,7 @@ function HoeReviewDesk({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled={busy === r.id}
+                        disabled={busy === r.id || !canHoe}
                         onClick={() => onDecideFuel(r, false, true)}
                         className="h-9 rounded border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA] disabled:opacity-60"
                       >
@@ -1004,7 +1018,7 @@ function HoeReviewDesk({
                       </button>
                       <button
                         type="button"
-                        disabled={busy === r.id}
+                        disabled={busy === r.id || !canHoe}
                         onClick={() => onDecideFuel(r, true, true)}
                         className="h-9 rounded bg-[#34C759] px-3.5 text-[13px] font-medium text-white hover:bg-[#2cab4e] disabled:opacity-60"
                       >

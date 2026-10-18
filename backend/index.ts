@@ -2899,11 +2899,18 @@ app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineeri
  * decline it with a reason. Only Awaiting HOE Review groups can be decided —
  * the status machine, not the role list, enforces the order.
  */
+// HOE-APPROVE-ONLY: the review verdict belongs to the Engineering Manager's
+// account — the workshop role raises requests but does not decide them.
+function isEngineeringReviewer(user: any): boolean {
+  const roles: string[] = [user?.role, ...(String(user?.roles || '').split(','))].filter(Boolean).map((r: string) => r.trim());
+  return ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(roles.find((r) => ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(r)) || '');
+}
 app.post('/api/inventory-requisitions/group/:group/review', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
   const group = String(req.params.group);
   const approve = req.body?.approve !== false;
   const note = String(req.body?.note || '').trim();
   const mods = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  if (!isEngineeringReviewer(req.user)) return res.status(403).json({ error: 'Only the Engineering Manager may review requests here.' });
   try {
     const rows = await prisma.inventoryRequisition.findMany({ where: { requestGroup: group } });
     if (!rows.length) return res.status(404).json({ error: 'Request group not found.' });
@@ -4391,7 +4398,8 @@ app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize('Engineeri
   try {
     const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: 'Fuel request not found' });
-    if (row.status !== 'Requested') return res.status(400).json({ error: 'This request has already been reviewed.' });
+    if (!isEngineeringReviewer(req.user)) return res.status(403).json({ error: 'Only the Engineering Manager may review requests here.' });
+  if (row.status !== 'Requested') return res.status(400).json({ error: 'This request has already been reviewed.' });
     if (!approve && !reason) return res.status(400).json({ error: 'A reason is required to decline the request.' });
     const by = actingUser(req);
     const updated = await prisma.fuelRequest.update({

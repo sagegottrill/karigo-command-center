@@ -28,6 +28,10 @@ const ROLE_HOME: Record<string, string> = {
   // maintenance cycle in one Engineering page.
   Engineering: "/workspace/app/engineering-requests",
   "Engineering and Maintenance": "/workspace/app/engineering-requests",
+  // The ENGINEERING MANAGER signs in straight onto that same page — his HOE
+  // Review tab is where his decisions live. The workshop keeps its own board.
+  "Head of Engineering": "/workspace/app/engineering-requests",
+  "Engineering Manager": "/workspace/app/engineering-requests",
   // The Lubricant (fuel) department dispenses diesel and gas — its own portal,
   // opening on what is in the tank.
   Lubricant: "/workspace/app/lubricant-inventory",
