@@ -6,7 +6,7 @@ import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell"
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { countBuckets } from "@/lib/fleetopsx/status-buckets";
+import { countBuckets, partnerPortalOrder } from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
@@ -156,6 +156,19 @@ function PartnerPortalDashboard() {
           (r.id && r.id.toLowerCase().includes(q)) ||
           (r.dropoff && r.dropoff.toLowerCase().includes(q)) ||
           (r.cargo && r.cargo.toLowerCase().includes(q)),
+      );
+    }
+    // The partner's own default: what is happening NOW leads. In transit on
+    // top, then scheduled, then what still waits on someone, then closed work —
+    // so a partner with a full day of orders never scrolls past pages of
+    // Seen/Completed rows to find the truck on the road. A picked sort key from
+    // the filter modal overrides it; plain Date Desc keeps the priority order.
+    if (sortKey === "date" && sortOrder === "Descending") {
+      return [...result].sort((a, b) =>
+        partnerPortalOrder(
+          { status: toPartnerStatus(a), at: a.createdAt },
+          { status: toPartnerStatus(b), at: b.createdAt },
+        ),
       );
     }
     const dir = sortOrder === "Descending" ? -1 : 1;

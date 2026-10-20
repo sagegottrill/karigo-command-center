@@ -235,6 +235,37 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
 }
 
 /**
+ * The PARTNER's own default order for their dashboard list.
+ *
+ * A big partner (Saba runs dozens of orders a day) used to scroll through pages
+ * of Seen/Completed rows to find the truck that is on the road right now.
+ * Their priorities are the mirror of the TM's: a request SENT BACK for
+ * correction is the loudest thing (they must fix and resend it), then the
+ * trucks moving now (In transit), then scheduled work, then what is still
+ * waiting on Petroline, and only then what is over.
+ */
+export const PARTNER_PORTAL_RANK: Record<PartnerUiStatus, number> = {
+  Returned: 0,
+  "In transit": 1,
+  Scheduled: 2,
+  Seen: 3,
+  Pending: 4,
+  Completed: 5,
+  Declined: 6,
+};
+
+/** Partner-portal priority order: act-on-me rank first, newest first inside it. */
+export function partnerPortalOrder(
+  a: { status: PartnerUiStatus; at?: string | null },
+  b: { status: PartnerUiStatus; at?: string | null },
+): number {
+  return queueOrder(
+    { rank: PARTNER_PORTAL_RANK[a.status], at: a.at },
+    { rank: PARTNER_PORTAL_RANK[b.status], at: b.at },
+  );
+}
+
+/**
  * Human-facing request label, shared by the Transport Manager's request table
  * and the partner portal.
  *
