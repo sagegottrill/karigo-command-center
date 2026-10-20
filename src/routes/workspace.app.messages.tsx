@@ -30,6 +30,7 @@ import {
   threadTruckLabel,
   withTyping,
   type ChatDirectoryEntry,
+  type ChatTarget,
   type ChatThread,
 } from "@/lib/fleetopsx/chat";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
@@ -100,9 +101,11 @@ function MessagesPage() {
   const [filter, setFilter] = useState<"all" | "dms" | "unread">("all");
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [directory, setDirectory] = useState<ChatDirectoryEntry[]>([]);
-  // The New Chat flow: colleague picker → optional name → open the thread.
+  // The New Chat flow: a real picker — colleagues / partners / dispatches.
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatTab, setNewChatTab] = useState<"colleagues" | "partners" | "dispatches">("colleagues");
   const [newChatQuery, setNewChatQuery] = useState("");
+  const [newChatTargets, setNewChatTargets] = useState<ChatTarget | null>(null);
   const [newChatPicked, setNewChatPicked] = useState<ChatDirectoryEntry[]>([]);
   const [newChatName, setNewChatName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -268,6 +271,24 @@ function MessagesPage() {
    * unsorted wall of names. A partner liaison finds the drivers; the TM finds
    * Saba's people without scrolling the whole company.
    */
+  /** Load the categorized targets the moment the picker opens. */
+  useEffect(() => {
+    if (!newChatOpen || newChatTargets) return;
+    let cancelled = false;
+    chatService
+      .targets()
+      .then((t) => {
+        if (!cancelled) setNewChatTargets(t);
+      })
+      .catch(() => {
+        // older API without /chat/targets — fall back to the directory only
+        if (!cancelled) setNewChatTargets({ colleagues: directory, partners: [], dispatches: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [newChatOpen, newChatTargets, directory]);
+
   const directoryGroups = useMemo(() => {
     const q = newChatQuery.trim().toLowerCase();
     const meId = authService.getCurrentUser()?.id;
@@ -337,15 +358,51 @@ function MessagesPage() {
       setThreads((prev) => (prev.some((t) => t.id === thread.id) ? prev : [thread, ...prev]));
       setSelectedId(thread.id);
       setMobileThreadOpen(true);
-      setNewChatOpen(false);
-      setNewChatPicked([]);
-      setNewChatName("");
-      setNewChatQuery("");
+      closeNewChat();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start chat");
     } finally {
       setCreating(false);
     }
+  };
+
+  const startChatWithPartner = async (partnerName: string) => {
+    setCreating(true);
+    try {
+      const thread = await chatService.startPartner(partnerName);
+      setThreads((prev) => (prev.some((t) => t.id === thread.id) ? prev : [thread, ...prev]));
+      setSelectedId(thread.id);
+      setMobileThreadOpen(true);
+      closeNewChat();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start chat");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const startChatWithDispatch = async (tripId: string) => {
+    setCreating(true);
+    try {
+      const thread = await chatService.openDispatch(tripId);
+      setThreads((prev) => (prev.some((t) => t.id === thread.id) ? prev : [thread, ...prev]));
+      setSelectedId(thread.id);
+      setMobileThreadOpen(true);
+      closeNewChat();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open that dispatch chat");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const closeNewChat = () => {
+    setNewChatOpen(false);
+    setNewChatPicked([]);
+    setNewChatName("");
+    setNewChatQuery("");
+    setNewChatTab("colleagues");
+    setNewChatTargets(null);
   };
 
   const contextRows = selected ? chatContextRows(selected, drivers) : [];
@@ -669,12 +726,12 @@ function MessagesPage() {
               <div>
                 <h3 className="text-[16px] font-semibold leading-6 text-[#1B2432]">New Chat</h3>
                 <p className="text-[12px] tracking-[0.4px] text-[#5C6470]">
-                  Pick one colleague for a direct message, or several for a group.
+                  Start a conversation with a person, a partner, or a dispatch.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setNewChatOpen(false)}
+                onClick={closeNewChat}
                 className="grid size-8 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
                 aria-label="Close"
               >
@@ -682,6 +739,29 @@ function MessagesPage() {
               </button>
             </div>
 
+            {/* CATEGORY TABS — colleagues / partners / dispatches */}
+            <div className="mb-3 flex items-center gap-1 rounded bg-[#F1F2F4] p-1">
+              {([
+                ["colleagues", "Colleagues"],
+                ["partners", "Partners"],
+                ["dispatches", "Dispatches"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setNewChatTab(key)}
+                  className={cn(
+                    "h-8 flex-1 rounded text-[13px] font-medium tracking-[0.4px]",
+                    newChatTab === key ? "bg-white text-[#1B2432] shadow-sm" : "text-[#5C6470] hover:text-[#1B2432]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {newChatTab === "colleagues" ? (
+              <>
             <div className="mb-3 flex flex-wrap gap-1.5">
               {newChatPicked.map((p) => (
                 <button
@@ -764,18 +844,96 @@ function MessagesPage() {
               )}
             </div>
 
-            <button
-              type="button"
-              disabled={!newChatPicked.length || creating}
-              onClick={() => void createNewChat()}
-              className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white transition-colors hover:bg-[#d62e19] disabled:opacity-40"
-            >
-              {creating
-                ? "Starting…"
-                : newChatPicked.length > 1
-                  ? `Start group (${newChatPicked.length})`
-                  : "Start direct message"}
-            </button>
+                </>
+            ) : null}
+
+            {newChatTab === "partners" ? (
+              <div className="max-h-[380px] min-h-[160px] overflow-y-auto rounded border border-[#E2E5E9]">
+                {!newChatTargets?.partners.length ? (
+                  <FigmaEmptyState
+                    title="No partner portals yet"
+                    body="Partner companies appear here once their portal accounts exist."
+                  />
+                ) : (
+                  newChatTargets.partners
+                    .filter((p) => !newChatQuery.trim() || p.name.toLowerCase().includes(newChatQuery.trim().toLowerCase()))
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        disabled={creating}
+                        onClick={() => void startChatWithPartner(p.name)}
+                        className="flex w-full items-center justify-between gap-2.5 border-b border-[#E2E5E9] px-3 py-2.5 text-left last:border-b-0 hover:bg-[#F7F8FA] disabled:opacity-40"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-[14px] font-medium text-[#1B2432]">
+                            {p.name}
+                          </span>
+                          <span className="block truncate text-[12px] text-[#5C6470]">
+                            {p.memberIds.length
+                              ? `Partner portal · ${p.memberIds.length} contact${p.memberIds.length === 1 ? "" : "s"}`
+                              : "Partner · no live portal contact yet"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.4px] text-[#1D4ED8]">
+                          Partner
+                        </span>
+                      </button>
+                    ))
+                )}
+              </div>
+            ) : null}
+
+            {newChatTab === "dispatches" ? (
+              <div className="max-h-[380px] min-h-[160px] overflow-y-auto rounded border border-[#E2E5E9]">
+                {!newChatTargets?.dispatches.length ? (
+                  <FigmaEmptyState
+                    title="No open dispatches"
+                    body="Dispatches on the road can be started straight from here."
+                  />
+                ) : (
+                  newChatTargets.dispatches
+                    .filter((t) => {
+                      const q = newChatQuery.trim().toLowerCase();
+                      return !q || t.label.toLowerCase().includes(q) || t.truck.toLowerCase().includes(q);
+                    })
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={creating}
+                        onClick={() => void startChatWithDispatch(t.id)}
+                        className="flex w-full items-center justify-between gap-2.5 border-b border-[#E2E5E9] px-3 py-2.5 text-left last:border-b-0 hover:bg-[#F7F8FA] disabled:opacity-40"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-[14px] font-medium text-[#1B2432]">
+                            {t.label}
+                          </span>
+                          <span className="block truncate text-[12px] text-[#5C6470]">
+                            {[t.truck, t.driver].filter(Boolean).join(" · ") || "—"}
+                          </span>
+                        </span>
+                        <MessageSquare className="size-4 shrink-0 text-[#5C6470]" strokeWidth={1.75} />
+                      </button>
+                    ))
+                )}
+              </div>
+            ) : null}
+
+            {newChatTab === "colleagues" ? (
+              <button
+                type="button"
+                disabled={!newChatPicked.length || creating}
+                onClick={() => void createNewChat()}
+                className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded bg-[#ED351D] text-[14px] font-medium tracking-[0.4px] text-white transition-colors hover:bg-[#d62e19] disabled:opacity-40"
+              >
+                {creating
+                  ? "Starting…"
+                  : newChatPicked.length > 1
+                    ? `Start group (${newChatPicked.length})`
+                    : "Start direct message"}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

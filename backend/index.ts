@@ -4964,14 +4964,13 @@ function firstName(name: string): string {
   return n.split(/\s+/)[0] || n;
 }
 /**
- * EMPTY CLOSED THREADS are noise, not history: 400+ completed dispatches
- * nobody ever wrote in burying the actual work. A trip thread with zero
- * messages whose trip is over (Completed/Stopped) is filtered out of the
- * list everywhere — it reappears the moment anybody writes in it.
+ * EMPTY THREADS are noise, not future: a conversation does not exist until
+ * somebody writes in it. Trip threads, DMs and groups alike stay out of the
+ * sidebar while they have zero messages — the moment a first message lands
+ * (and only then) the thread becomes a chat. Nothing is ever deleted.
  */
-function isDeadEmptyThread(c: any, closedTrips: Set<string>): boolean {
-  if (!c?.tripId || !closedTrips.has(c.tripId)) return false;
-  const raw = Array.isArray(c.messages) ? c.messages : [];
+function isEmptyThread(c: any): boolean {
+  const raw = Array.isArray(c?.messages) ? c.messages : [];
   return raw.length === 0;
 }
 
@@ -5132,18 +5131,15 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
   try {
     await ensureDispatchThreads();
     const all = await prisma.conversation.findMany({ orderBy: { updatedAt: 'desc' } });
-    // Closed dispatches with nobody having ever written in them are noise —
-    // hide them from EVERY reader.
-    const closed = await prisma.trip.findMany({
-      where: { status: { in: ['Completed', 'Stopped'] } },
-      select: { id: true },
-    });
-    const closedTrips = new Set(closed.map((t: any) => t.id));
-    const audible = all.filter((c: any) => !isDeadEmptyThread(c, closedTrips));
+    // A chat exists from its first message on — empty threads are invisible
+    // to every reader (they reappear the instant somebody writes in them).
+    const audible = all.filter((c: any) => !isEmptyThread(c));
     let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = audible.map((c: any) => c.tripId).filter(Boolean);
+      const companyKey = company.toLowerCase();
+      const uid = String(req.user.id);
+      const tripIds = audible.filter((c: any) => c.tripId).map((c: any) => c.tripId);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5153,7 +5149,16 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = audible.filter((c: any) => c.tripId && mine.has(c.tripId));
+      // Partners see: their company's dispatch threads, plus the partner chat
+      // staff opened with THEIR company (member of it, message present).
+      visible = audible.filter(
+        (c: any) =>
+          (c.tripId && mine.has(c.tripId)) ||
+          (c.kind === 'partner' &&
+            Array.isArray(c.memberIds) &&
+            c.memberIds.map(String).includes(uid)),
+      );
+      void companyKey;
     } else {
       // Staff see trip threads (minus dead empty closed ones), plus the DMs
       // and groups they belong to.
@@ -5176,16 +5181,12 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   try {
     await ensureDispatchThreads();
     const all = await prisma.conversation.findMany();
-    const closed = await prisma.trip.findMany({
-      where: { status: { in: ['Completed', 'Stopped'] } },
-      select: { id: true },
-    });
-    const closedTrips = new Set(closed.map((t: any) => t.id));
-    const audible = all.filter((c: any) => !isDeadEmptyThread(c, closedTrips));
+    const audible = all.filter((c: any) => !isEmptyThread(c));
     let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = audible.map((c: any) => c.tripId).filter(Boolean);
+      const uid = String(req.user.id);
+      const tripIds = audible.filter((c: any) => c.tripId).map((c: any) => c.tripId);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5195,7 +5196,14 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = audible.filter((c: any) => c.tripId && mine.has(c.tripId));
+      // Same rule as the list: own dispatch threads plus their company's chat.
+      visible = audible.filter(
+        (c: any) =>
+          (c.tripId && mine.has(c.tripId)) ||
+          (c.kind === 'partner' &&
+            Array.isArray(c.memberIds) &&
+            c.memberIds.map(String).includes(uid)),
+      );
     } else {
       const uid = String(req.user.id);
       visible = audible.filter(
@@ -5233,7 +5241,64 @@ app.post('/api/conversations', authenticate, async (req: any, res) => {
     if (isPartnerRequest(req)) {
       return res.status(403).json({ error: 'Partners chat on their dispatch threads only' });
     }
-    const kind = ['direct', 'group'].includes(String(req.body?.kind)) ? String(req.body.kind) : 'direct';
+    const kind = ['direct', 'group', 'partner'].includes(String(req.body?.kind))
+      ? String(req.body.kind)
+      : 'direct';
+    // PARTNER CHAT — pick a partner company; a thread opens with every staff
+    // contact behind that partner's portal as members (the partner accounts
+    // see it on their own sidebar once the first message lands).
+    if (kind === 'partner') {
+      const companyKey = String(req.body?.partnerName || req.body?.partnerId || '').trim().toLowerCase();
+      if (!companyKey) return res.status(400).json({ error: 'Name the partner company' });
+      const partnerUsers = await prisma.user.findMany({
+        where: { status: 'Active', role: 'Customer Portals (External)' },
+        select: { id: true, partnerCompanyName: true, email: true, role: true },
+      });
+      const memberIds = partnerUsers
+        .filter((u) => {
+          const company = String(u.partnerCompanyName || partnerCompanyFromEmailFallback(u.email, u.role) || '').trim().toLowerCase();
+          return company === companyKey;
+        })
+        .map((u) => u.id);
+      if (!memberIds.length) {
+        return res.status(400).json({ error: 'That partner has no active portal account to chat with yet' });
+      }
+      // Reuse the existing partner-company thread (one thread per partner).
+      const allPartnerThreads = await prisma.conversation.findMany({ where: { kind: 'partner', tripId: null } });
+      for (const c of allPartnerThreads) {
+        const ids = Array.isArray(c.memberIds) ? c.memberIds.map(String) : [];
+        if (memberIds.every((m) => ids.includes(m))) {
+          const read = await readMapFor(req.user.id, [c.id]);
+          return res.json(serializeConversation(c, req.user.id, read.get(c.id) || 0));
+        }
+      }
+      const companyDisplay = String(req.body?.partnerName || req.body?.partnerId || '').trim();
+      const created = await prisma.conversation.create({
+        data: {
+          kind: 'partner',
+          name: companyDisplay,
+          subtitle: 'Partner chat',
+          tripId: null,
+          participants: ['Partner', req.user?.role || 'Ops'],
+          memberIds: Array.from(new Set([String(req.user.id), ...memberIds])),
+          messages: [],
+          unread: 0,
+          lastAt: '',
+        },
+      });
+      return res.json(serializeConversation(created, req.user.id, 0));
+    }
+    // DISPATCH CHAT — open the dispatch thread directly (it already exists);
+    // reusing means there is never a second thread for one dispatch.
+    if (String(req.body?.tripId || '').trim()) {
+      const tripId = String(req.body.tripId).trim();
+      const existingConvo = await prisma.conversation.findFirst({ where: { tripId } });
+      if (existingConvo) {
+        const read = await readMapFor(req.user.id, [existingConvo.id]);
+        return res.json(serializeConversation(existingConvo, req.user.id, read.get(existingConvo.id) || 0));
+      }
+      return res.status(404).json({ error: 'That dispatch has no chat thread yet' });
+    }
     const members = await chatMemberIds(req.body?.memberIds);
     const me = String(req.user.id);
     const allMembers = Array.from(new Set([me, ...members]));
@@ -5603,6 +5668,83 @@ app.post('/api/chat/presence', authenticate, async (req: any, res) => {
     res.json({ ok: true });
   } catch {
     res.json({ ok: false });
+  }
+});
+
+/**
+ * CHAT TARGETS — what the New Chat picker offers, in one read:
+ *   colleagues  — staff directory (departments for the grouped menu)
+ *   partners    — partner companies and the staff users behind their portals
+ *   dispatches  — open (not finished) dispatches, so a chat can be started
+ *                 straight onto the dispatch someone is calling about
+ * Starters POST /api/conversations with the same shapes as before — a partner
+ * target reseolves to everyone in that company's portal as members.
+ */
+app.get('/api/chat/targets', authenticate, async (req: any, res) => {
+  try {
+    const [everyone, companies, trips] = await Promise.all([
+      chatDirectory(),
+      partnerCompanies(),
+      prisma.trip.findMany({
+        where: { status: { notIn: ['Completed', 'Stopped', 'Requested', 'Draft', 'Approved', 'Awaiting Approval'] } },
+        select: { id: true, customer: true, dropoff: true, truckReg: true, driverName: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 40,
+      }),
+    ]);
+    const now = Date.now();
+    const seen = await prisma.user.findMany({
+      where: { id: { in: everyone.map((u: any) => u.id) } },
+      select: { id: true, lastSeen: true, typingIn: true, typingAt: true, partnerCompanyName: true },
+    });
+    const meta = new Map(seen.map((s: any) => [s.id, s]));
+    const ONLINE_MS = 90_000;
+    const live = everyone.map((u: any) => {
+      const m = meta.get(u.id);
+      const last = m?.lastSeen ? new Date(m.lastSeen as any).getTime() : 0;
+      const typingAt = m?.typingAt ? new Date(m.typingAt as any).getTime() : 0;
+      return {
+        ...u,
+        online: now - last < ONLINE_MS,
+        lastSeenAt: m?.lastSeen ? new Date(m.lastSeen as any).toISOString() : null,
+        typingIn: now - typingAt < 8_000 ? String(m?.typingIn || '') : '',
+        partnerCompanyName: m?.partnerCompanyName || null,
+      };
+    });
+    // Partner portals as companies (grouped), with their member ids.
+    const partnerUsers = live.filter((u: any) => u.roles.includes('Customer Portals (External)'));
+    void partnerUsers;
+    const byCompany = new Map<string, { id: string; name: string; memberIds: string[] }>();
+    const partnerUserRows = await prisma.user.findMany({
+      where: { status: 'Active', role: 'Customer Portals (External)' },
+      select: { id: true, name: true, partnerCompanyName: true, email: true, role: true },
+    });
+    for (const u of partnerUserRows) {
+      const company = String(u.partnerCompanyName || partnerCompanyFromEmailFallback(u.email, u.role) || '').trim();
+      if (!company) continue;
+      const key = company.toLowerCase();
+      const row = byCompany.get(key) || { id: key, name: company, memberIds: [] };
+      row.memberIds.push(u.id);
+      byCompany.set(key, row);
+    }
+    // Fill in the known companies (from dispatch history) even when no portal account is live yet.
+    for (const c of companies) {
+      const key = c.company.toLowerCase();
+      if (!byCompany.has(key)) byCompany.set(key, { id: key, name: c.company, memberIds: [] });
+    }
+    res.json({
+      colleagues: live.filter((u: any) => !u.roles.includes('Customer Portals (External)')),
+      partners: Array.from(byCompany.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      dispatches: trips.map((t: any) => ({
+        id: t.id,
+        tripId: t.id,
+        label: `${t.customer || 'Petroline'} · ${t.dropoff || ''}`.trim(),
+        truck: t.truckReg || '',
+        driver: t.driverName || '',
+      })),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 

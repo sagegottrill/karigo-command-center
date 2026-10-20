@@ -72,6 +72,14 @@ export function mapThread(raw: Record<string, unknown>): ChatThread {
   };
 }
 
+/** What the New Chat picker offers: colleagues, partner companies, dispatches. */
+export type ChatTarget = {
+  colleagues: ChatDirectoryEntry[];
+  partners: { id: string; name: string; memberIds: string[] }[];
+  dispatches: { id: string; label: string; truck: string; driver: string }[];
+};
+
+/** A colleague (or partner contact) the directory offers to chat with. */
 export type ChatDirectoryEntry = {
   id: string;
   name: string;
@@ -123,6 +131,15 @@ export const chatService = {
   /** Who I can start a chat with — staff directory with live presence. */
   directory: async (): Promise<ChatDirectoryEntry[]> =>
     asList(await fetchApi("/chat/directory")) as ChatDirectoryEntry[],
+  /** Everything the New Chat picker can start: colleagues / partners / dispatches. */
+  targets: async (): Promise<ChatTarget> => {
+    const res = await fetchApi<Partial<ChatTarget>>("/chat/targets");
+    return {
+      colleagues: Array.isArray(res?.colleagues) ? (res.colleagues as ChatDirectoryEntry[]) : [],
+      partners: Array.isArray(res?.partners) ? res.partners : [],
+      dispatches: Array.isArray(res?.dispatches) ? res.dispatches : [],
+    };
+  },
   /** Start (or reopen) a direct message thread with one colleague. */
   startDirect: async (userId: string): Promise<ChatThread> =>
     mapThread(
@@ -137,6 +154,22 @@ export const chatService = {
       await fetchApi("/conversations", {
         method: "POST",
         body: JSON.stringify({ kind: "group", name, memberIds: userIds }),
+      }),
+    ),
+  /** Start (or reopen) the chat with a partner company's portal. */
+  startPartner: async (partnerName: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi("/conversations", {
+        method: "POST",
+        body: JSON.stringify({ kind: "partner", partnerName }),
+      }),
+    ),
+  /** Open the thread of a specific dispatch. */
+  openDispatch: async (tripId: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi("/conversations", {
+        method: "POST",
+        body: JSON.stringify({ tripId }),
       }),
     ),
   /** Edit my own message (or recall it when body is empty). */
