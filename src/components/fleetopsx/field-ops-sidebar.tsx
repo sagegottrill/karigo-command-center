@@ -3,6 +3,7 @@ import {
   Bell,
   ClipboardList,
   LogOut,
+  MessageSquare,
   MoreVertical,
   Truck,
   Wrench,
@@ -31,6 +32,7 @@ export const FIELD_OPS_NAV: FieldOpsNavItem[] = [
   { label: "Returning Fleet", to: "/workspace/app/field-returning", icon: Wrench },
   { label: "Report History", to: "/workspace/app/field-reports", icon: ClipboardList },
   { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
 ];
 
 export function fieldOpsPathActive(pathname: string, to: string) {

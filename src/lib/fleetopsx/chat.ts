@@ -27,7 +27,7 @@ import type { Conversation, Driver, Message, Trip } from "./types";
 export type { Conversation, Message };
 
 /** A conversation with the trip it belongs to resolved (when we have it). */
-export type ChatThread = Conversation & { trip?: Trip | null };
+export type ChatThread = Conversation & { trip?: Trip | null; typingUsers?: ChatDirectoryEntry[] };
 
 /** Near-real-time: chat is useless if you must reload to see a reply. */
 export const CHAT_POLL_MS = 7_000;
@@ -43,6 +43,15 @@ function mapMessage(raw: Record<string, unknown>): Message {
     at,
     time: at,
     self: Boolean(raw.self),
+    reactions: Array.isArray(raw.reactions)
+      ? (raw.reactions as Record<string, unknown>[]).map((r) => ({
+          emoji: String(r.emoji ?? ""),
+          userId: String(r.userId ?? ""),
+          name: String(r.name ?? ""),
+        }))
+      : [],
+    editedAt: raw.editedAt ? String(raw.editedAt) : null,
+    recalled: Boolean(raw.recalled),
   };
 }
 
@@ -56,10 +65,38 @@ export function mapThread(raw: Record<string, unknown>): ChatThread {
     lastAt: String(raw.lastAt ?? ""),
     tripId: raw.tripId ? String(raw.tripId) : undefined,
     participants: Array.isArray(raw.participants) ? raw.participants.map(String) : [],
+    memberIds: Array.isArray(raw.memberIds) ? raw.memberIds.map(String) : [],
     messages: Array.isArray(raw.messages)
       ? (raw.messages as Record<string, unknown>[]).map(mapMessage)
       : [],
   };
+}
+
+export type ChatDirectoryEntry = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  roles: string[];
+  phone: string;
+  initials: string;
+  online: boolean;
+  lastSeenAt: string | null;
+  typingIn: string;
+};
+
+/**
+ * Attach live presence to threads: who of a thread's concrete members is typing
+ * right now (the server keeps the signal only a few seconds old).
+ */
+export function withTyping(threads: ChatThread[], directory: ChatDirectoryEntry[]): ChatThread[] {
+  const byId = new Map(directory.map((d) => [d.id, d]));
+  return threads.map((thread) => ({
+    ...thread,
+    typingUsers: (thread.memberIds ?? [])
+      .map((id) => byId.get(id))
+      .filter((d): d is ChatDirectoryEntry => Boolean(d && d.typingIn === thread.id)),
+  }));
 }
 
 export const chatService = {
@@ -83,6 +120,48 @@ export const chatService = {
     }));
     return Number(res?.count ?? 0) || 0;
   },
+  /** Who I can start a chat with — staff directory with live presence. */
+  directory: async (): Promise<ChatDirectoryEntry[]> =>
+    asList(await fetchApi("/chat/directory")) as ChatDirectoryEntry[],
+  /** Start (or reopen) a direct message thread with one colleague. */
+  startDirect: async (userId: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi("/conversations", {
+        method: "POST",
+        body: JSON.stringify({ kind: "direct", memberIds: [userId] }),
+      }),
+    ),
+  /** Start a named group thread with one or more colleagues. */
+  startGroup: async (name: string, userIds: string[]): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi("/conversations", {
+        method: "POST",
+        body: JSON.stringify({ kind: "group", name, memberIds: userIds }),
+      }),
+    ),
+  /** Edit my own message (or recall it when body is empty). */
+  editMessage: async (conversationId: string, messageId: string, body: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi(`/conversations/${conversationId}/messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body ? { body } : { recall: true }),
+      }),
+    ),
+  /** Toggle my one emoji reaction on a message. */
+  react: async (conversationId: string, messageId: string, emoji: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi(`/conversations/${conversationId}/messages/${messageId}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      }),
+    ),
+  /** Heartbeat: this desk is here (and optionally typing into a thread). */
+  presence: (conversationId?: string) =>
+    fetchApi(`/chat/${conversationId ? "typing" : "presence"}`, {
+      method: "POST",
+      softAuth: true,
+      body: JSON.stringify(conversationId ? { conversationId } : {}),
+    }).catch(() => null),
 };
 
 /** Join threads to the trips we already loaded, so the panel can show context. */

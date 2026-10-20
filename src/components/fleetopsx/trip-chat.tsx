@@ -5,9 +5,13 @@
  *
  * Every message prints the AUTHOR and the exact stamp UNDER the bubble, so a
  * thread is evidence of who said what and when, not just a wall of text.
+ *
+ * Enterprise layer: reactions (one emoji per person, toggleable), edit and
+ * recall on your own messages, and a live presence strip that shows who of the
+ * thread's members is online or typing right now.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Check, Pencil, RefreshCcw, Send, Smile, X } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
@@ -15,6 +19,7 @@ import {
   chatService,
   chatStampLabel,
   chatTimeLabel,
+  type ChatDirectoryEntry,
   type ChatThread,
 } from "@/lib/fleetopsx/chat";
 import { cn } from "@/lib/utils";
@@ -37,21 +42,30 @@ const ROLE_TONE: Record<string, string> = {
   Security: "bg-[#FFF4E5] text-[#B45309]",
 };
 
+/** The four reactions an operations thread actually uses. */
+const REACTIONS = ["👍", "✅", "❗", "🙏"];
+
 export function TripChatPanel({
   thread,
   onThreadChange,
+  onPresence,
   loading = false,
   placeholder = "Write a message about this dispatch…",
   heightClass = "h-[calc(100vh-260px)] min-h-[380px]",
 }: {
   thread: ChatThread | null;
   onThreadChange?: (thread: ChatThread) => void;
+  /** Called on open/typing so the page can heartbeat presence for this thread. */
+  onPresence?: (conversationId?: string) => void;
   loading?: boolean;
   placeholder?: string;
   heightClass?: string;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [editingBody, setEditingBody] = useState("");
+  const [reactingId, setReactingId] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messages = thread?.messages ?? [];
   const lastId = messages.length ? (messages[messages.length - 1]?.id ?? "") : "";
@@ -61,6 +75,11 @@ export function TripChatPanel({
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [thread?.id, lastId]);
+
+  // Presence: announce the open thread once, then every keystroke.
+  useEffect(() => {
+    if (thread && onPresence) onPresence(thread.id);
+  }, [thread?.id, onPresence]);
 
   const grouped = useMemo(() => {
     const out: Array<{ day: string; items: typeof messages }> = [];
@@ -88,6 +107,55 @@ export function TripChatPanel({
       setSending(false);
     }
   };
+
+  const startEdit = (id: string, body: string) => {
+    setEditingId(id);
+    setEditingBody(body);
+    setReactingId("");
+  };
+
+  const commitEdit = async () => {
+    if (!thread || !editingId) return;
+    const next = editingBody.trim();
+    const original = messages.find((m) => m.id === editingId)?.body ?? "";
+    if (!next || next === original) {
+      setEditingId("");
+      return;
+    }
+    try {
+      const updated = await chatService.editMessage(thread.id, editingId, next);
+      setEditingId("");
+      setEditingBody("");
+      onThreadChange?.(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not edit");
+    }
+  };
+
+  const recall = async (messageId: string) => {
+    if (!thread) return;
+    try {
+      const updated = await chatService.editMessage(thread.id, messageId, "");
+      setEditingId("");
+      onThreadChange?.(updated);
+      toast.success("Message recalled");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not recall");
+    }
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!thread) return;
+    setReactingId("");
+    try {
+      const updated = await chatService.react(thread.id, messageId, emoji);
+      onThreadChange?.(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not react");
+    }
+  };
+
+  const typingInThread: ChatDirectoryEntry[] = (thread?.typingUsers ?? []).filter(Boolean);
 
   if (!thread) {
     return (
@@ -161,66 +229,196 @@ export function TripChatPanel({
                 </span>
                 <span className="h-px flex-1 bg-[#E2E5E9]" />
               </div>
-              {group.items.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn("flex items-end gap-2", m.self ? "flex-row-reverse" : "flex-row")}
-                >
-                  <span
-                    className={cn(
-                      "grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold",
-                      m.self ? "bg-[#1B2432] text-white" : "bg-[#E2E5E9] text-[#5C6470]",
-                    )}
-                  >
-                    {initialsOf(m.author)}
-                  </span>
+              {group.items.map((m) => {
+                const isEditing = editingId === m.id;
+                const reacting = reactingId === m.id;
+                const counts = new Map<string, { emoji: string; names: string[] }>();
+                for (const r of m.reactions ?? []) {
+                  const bucket = counts.get(r.emoji);
+                  if (bucket) bucket.names.push(r.name);
+                  else counts.set(r.emoji, { emoji: r.emoji, names: [r.name] });
+                }
+                const groupedReactions = [...counts.values()];
+                return (
                   <div
-                    className={cn(
-                      "flex max-w-[78%] flex-col gap-1",
-                      m.self ? "items-end" : "items-start",
-                    )}
+                    key={m.id}
+                    className={cn("flex items-end gap-2", m.self ? "flex-row-reverse" : "flex-row")}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                        {m.self ? "You" : m.author}
-                      </span>
-                      {!m.self ? (
-                        <span
-                          className={cn(
-                            "rounded px-1.5 py-[1px] text-[10px] font-medium uppercase tracking-[0.4px]",
-                            ROLE_TONE[m.role] || "bg-[#F1F2F4] text-[#5C6470]",
-                          )}
-                        >
-                          {m.role}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div
+                    <span
                       className={cn(
-                        "whitespace-pre-wrap break-words rounded-[10px] px-3 py-2 text-[14px] leading-5 tracking-[0.4px] shadow-[0px_1px_2px_rgba(12,12,13,0.05)]",
-                        m.self
-                          ? "bg-[#ED351D] text-white"
-                          : "border border-[#E2E5E9] bg-white text-[#1B2432]",
+                        "grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold",
+                        m.self ? "bg-[#1B2432] text-white" : "bg-[#E2E5E9] text-[#5C6470]",
                       )}
                     >
-                      {m.body}
-                    </div>
-                    {/* The stamp sits UNDER every message — never hidden in a tooltip. */}
-                    <span className="text-[11px] tracking-[0.4px] text-[#8A9099]">
-                      {chatStampLabel(m.at || m.time) || chatTimeLabel(m.at || m.time)}
+                      {initialsOf(m.author)}
                     </span>
+                    <div
+                      className={cn(
+                        "flex max-w-[78%] flex-col gap-1",
+                        m.self ? "items-end" : "items-start",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                          {m.self ? "You" : m.author}
+                        </span>
+                        {!m.self ? (
+                          <span
+                            className={cn(
+                              "rounded px-1.5 py-[1px] text-[10px] font-medium uppercase tracking-[0.4px]",
+                              ROLE_TONE[m.role] || "bg-[#F1F2F4] text-[#5C6470]",
+                            )}
+                          >
+                            {m.role}
+                          </span>
+                        ) : null}
+                      </div>
+                      {isEditing ? (
+                        <div className="flex w-full max-w-[320px] items-center gap-1 rounded border border-[#ED351D] bg-white px-2 py-1">
+                          <input
+                            autoFocus
+                            value={editingBody}
+                            onChange={(e) => setEditingBody(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void commitEdit();
+                              if (e.key === "Escape") setEditingId("");
+                            }}
+                            className="h-8 w-full bg-transparent text-[14px] tracking-[0.4px] text-[#1B2432] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void commitEdit()}
+                            className="grid size-7 place-items-center rounded text-[#0A7F58] hover:bg-[#EAF7F1]"
+                            aria-label="Save edit"
+                          >
+                            <Check className="size-4" strokeWidth={1.75} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId("")}
+                            className="grid size-7 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
+                            aria-label="Cancel edit"
+                          >
+                            <X className="size-4" strokeWidth={1.75} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "whitespace-pre-wrap break-words rounded-[10px] px-3 py-2 text-[14px] leading-5 tracking-[0.4px] shadow-[0px_1px_2px_rgba(12,12,13,0.05)]",
+                            m.recalled
+                              ? "border border-dashed border-[#E2E5E9] bg-[#F7F8FA] italic text-[#8A9099]"
+                              : m.self
+                                ? "bg-[#ED351D] text-white"
+                                : "border border-[#E2E5E9] bg-white text-[#1B2432]",
+                          )}
+                        >
+                          {m.recalled ? "Message recalled" : m.body}
+                        </div>
+                      )}
+                      {m.editedAt && !m.recalled ? (
+                        <span className="text-[10px] uppercase tracking-[0.4px] text-[#8A9099]">
+                          edited
+                        </span>
+                      ) : null}
+                      {(groupedReactions.length || m.self) && !isEditing ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {groupedReactions.map((r) => (
+                            <button
+                              key={r.emoji}
+                              type="button"
+                              title={r.names.join(", ")}
+                              onClick={() => void toggleReaction(m.id, r.emoji)}
+                              className="flex items-center gap-1 rounded-full border border-[#E2E5E9] bg-white px-1.5 py-[1px] text-[11px] hover:border-[#ED351D]"
+                            >
+                              {r.emoji}
+                              {r.names.length > 1 ? (
+                                <span className="text-[10px] text-[#5C6470]">{r.names.length}</span>
+                              ) : null}
+                            </button>
+                          ))}
+                          {m.self && !m.recalled ? (
+                            <span className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReactingId(reacting ? "" : m.id);
+                                  setEditingId("");
+                                }}
+                                className="grid size-6 place-items-center rounded-full text-[#8A9099] hover:bg-[#F1F2F4]"
+                                aria-label="React"
+                              >
+                                <Smile className="size-3.5" strokeWidth={1.75} />
+                              </button>
+                              {reacting
+                                ? REACTIONS.map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => void toggleReaction(m.id, emoji)}
+                                      className="rounded-full px-1 text-[14px] hover:bg-[#F1F2F4]"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))
+                                : null}
+                              <button
+                                type="button"
+                                onClick={() => startEdit(m.id, m.body)}
+                                className="grid size-6 place-items-center rounded-full text-[#8A9099] hover:bg-[#F1F2F4]"
+                                aria-label="Edit message"
+                              >
+                                <Pencil className="size-3" strokeWidth={1.75} />
+                              </button>
+                              {!m.recalled ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void recall(m.id)}
+                                  className="grid size-6 place-items-center rounded-full text-[#8A9099] hover:bg-[#FDECEA]"
+                                  aria-label="Recall message"
+                                >
+                                  <RefreshCcw className="size-3" strokeWidth={1.75} />
+                                </button>
+                              ) : null}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {/* The stamp sits UNDER every message — never hidden in a tooltip. */}
+                      <span className="text-[11px] tracking-[0.4px] text-[#8A9099]">
+                        {chatStampLabel(m.at || m.time) || chatTimeLabel(m.at || m.time)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))
         )}
+        {typingInThread.length ? (
+          <div className="flex items-center gap-2 text-[12px] italic tracking-[0.4px] text-[#5C6470]">
+            <span className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="size-1.5 animate-bounce rounded-full bg-[#8A9099]"
+                  style={{ animationDelay: `${i * 120}ms` }}
+                />
+              ))}
+            </span>
+            {typingInThread.map((t) => t.name.split(" ")[0]).join(", ")}{" "}
+            {typingInThread.length === 1 ? "is" : "are"} typing…
+          </div>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-end gap-2 border-t border-[#E2E5E9] bg-white px-4 py-3">
         <textarea
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (thread && onPresence) onPresence(thread.id);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

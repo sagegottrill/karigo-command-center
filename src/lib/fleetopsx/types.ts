@@ -625,6 +625,12 @@ export interface Message {
   at?: string;
   time: string;
   self?: boolean;
+  /** One emoji per person, stamped with the name of whoever felt it. */
+  reactions?: { emoji: string; userId: string; name: string }[];
+  /** Set when the author revised the message after sending. */
+  editedAt?: string | null;
+  /** The author unsent it — the slot stays, the words are gone. */
+  recalled?: boolean;
 }
 
 export interface Conversation {
@@ -636,6 +642,8 @@ export interface Conversation {
   lastAt: string;
   tripId?: ID;
   participants: string[];
+  /** Concrete staff user IDs who belong to a DM/group thread. */
+  memberIds?: ID[];
   messages: Message[];
 }
 

@@ -4899,9 +4899,12 @@ app.post('/api/notifications/mark-all-read', authenticate, async (req: any, res)
   res.json({ ok: true, marked: pending.length });
 });
 
-// --- MESSAGES / CONVERSATIONS ---
-// One thread per dispatch (see ensureDispatchThreads): the contextual
-// communication the spec calls for, not a generic inbox.
+// --- MESSAGES / CONVERSATIONS (enterprise chat) ---
+// The contextual communication layer: one thread per dispatch (created lazily
+// and idempotently), PLUS direct messages and department groups between staff.
+// Per-user read receipts, message reactions, recall/edit, presence and typing
+// signals live here too, so every department's Messages nav points at the same
+// truth.
 const CHAT_THREAD_STATUSES = [
   'Scheduled',
   'Loaded',
@@ -4966,6 +4969,7 @@ async function ensureDispatchThreads() {
           .join(' · '),
         tripId: t.id,
         participants: ['Transport Manager', 'Fleet Operations', 'Tracking', 'Security', 'Partner'],
+        memberIds: [],
         messages: [],
         unread: 0,
         lastAt: '',
@@ -4991,9 +4995,51 @@ function messageTime(m: any): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** May this viewer READ this conversation? */
+async function canAccessConversation(req: any, convo: any): Promise<boolean> {
+  if (!isPartnerRequest(req)) {
+    // Staff may always read trip threads and their own DMs/groups.
+    return true;
+  }
+  if (!convo?.tripId) return false;
+  const trip = await prisma.trip.findUnique({
+    where: { id: convo.tripId },
+    select: { customer: true },
+  });
+  if (!trip) return false;
+  return samePartnerCompany(trip.customer, await partnerCompanyOf(req));
+}
+
+/** Self-visible chat participants of the STAFF directory (partners excluded). */
+async function chatDirectory() {
+  const rows = await prisma.user.findMany({
+    where: { status: 'Active', role: { not: 'Customer Portals (External)' } },
+    select: { id: true, name: true, email: true, role: true, roles: true, phone: true },
+    orderBy: { name: 'asc' },
+  });
+  return rows.map((u: any) => {
+    const extra = String(u.roles || '').split(',').map((r: string) => r.trim()).filter(Boolean);
+    const roles = Array.from(new Set([u.role, ...extra])).filter(Boolean);
+    const initials = String(u.name || '?').split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase();
+    return { id: u.id, name: u.name, email: u.email, role: u.role, roles, phone: u.phone || '', initials };
+  });
+}
+
+/** Staff user IDs allowed into a DM/group thread (the caller plus the picked members). */
+async function chatMemberIds(memberIds: any[]): Promise<string[]> {
+  const wanted = (Array.isArray(memberIds) ? memberIds : []).map((v: any) => String(v)).filter(Boolean);
+  if (!wanted.length) return [];
+  const rows = await prisma.user.findMany({
+    where: { id: { in: wanted }, role: { not: 'Customer Portals (External)' } },
+    select: { id: true },
+  });
+  return rows.map((r: any) => r.id);
+}
+
 /**
- * One conversation, as THIS reader should see it: self-flagged bubbles and an
- * unread count derived from their own read position.
+ * One conversation, as THIS reader should see it: self-flagged bubbles, unread
+ * derived from their own read position, reactions and recall/edit carried on
+ * each message.
  */
 function serializeConversation(c: any, viewerId: string, readAt: number) {
   const raw = Array.isArray(c.messages) ? c.messages : [];
@@ -5011,6 +5057,9 @@ function serializeConversation(c: any, viewerId: string, readAt: number) {
       at,
       time: at,
       self: mine,
+      reactions: Array.isArray(m.reactions) ? m.reactions : [],
+      editedAt: m.editedAt || null,
+      recalled: Boolean(m.recalled),
     };
   });
   return {
@@ -5020,22 +5069,20 @@ function serializeConversation(c: any, viewerId: string, readAt: number) {
     subtitle: c.subtitle,
     tripId: c.tripId || null,
     participants: Array.isArray(c.participants) ? c.participants : [],
+    memberIds: Array.isArray(c.memberIds) ? c.memberIds : [],
     lastAt: c.lastAt || (messages.length ? messages[messages.length - 1].at : ''),
     unread,
     messages,
   };
 }
 
-/** May this viewer read/write this conversation? Staff: yes. Partner: own company only. */
-async function canAccessConversation(req: any, convo: any): Promise<boolean> {
-  if (!isPartnerRequest(req)) return true;
-  if (!convo?.tripId) return false;
-  const trip = await prisma.trip.findUnique({
-    where: { id: convo.tripId },
-    select: { customer: true },
+/** Shared helper: the sender of a message becomes its first reader. */
+async function markSelfRead(userId: string, conversationId: string, at: Date) {
+  await prisma.conversationRead.upsert({
+    where: { userId_conversationId: { userId, conversationId } },
+    update: { lastReadAt: at },
+    create: { userId, conversationId, lastReadAt: at },
   });
-  if (!trip) return false;
-  return samePartnerCompany(trip.customer, await partnerCompanyOf(req));
 }
 
 app.get('/api/conversations', authenticate, async (req: any, res) => {
@@ -5056,6 +5103,14 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
       visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
+    } else {
+      // Staff see trip threads, plus the DMs and groups they belong to.
+      const uid = String(req.user.id);
+      visible = all.filter(
+        (c: any) =>
+          c.tripId ||
+          (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
+      );
     }
     const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
     res.json(visible.map((c: any) => serializeConversation(c, req.user.id, read.get(c.id) || 0)));
@@ -5083,6 +5138,13 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
       visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
+    } else {
+      const uid = String(req.user.id);
+      visible = all.filter(
+        (c: any) =>
+          c.tripId ||
+          (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
+      );
     }
     const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
     let count = 0;
@@ -5091,6 +5153,7 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
       const readAt = read.get(c.id) || 0;
       for (const m of raw) {
         if (m.authorId === req.user.id) continue;
+        if (m.recalled) continue;
         if (messageTime(m) > readAt) count += 1;
       }
     }
@@ -5100,57 +5163,195 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   }
 });
 
+/**
+ * START A NEW CONVERSATION — direct message or department group.
+ *
+ * The Transport Manager picks colleagues from the staff directory; a DM to one
+ * person reuses the thread that already exists between the two (never a second
+ * inbox for the same pair). Groups carry every picked member. Only staff can
+ * create these; partners stay on their dispatch threads.
+ */
 app.post('/api/conversations', authenticate, async (req: any, res) => {
   try {
-    const created = await prisma.conversation.create({
+    if (isPartnerRequest(req)) {
+      return res.status(403).json({ error: 'Partners chat on their dispatch threads only' });
+    }
+    const kind = ['direct', 'group'].includes(String(req.body?.kind)) ? String(req.body.kind) : 'direct';
+    const members = await chatMemberIds(req.body?.memberIds);
+    const me = String(req.user.id);
+    const allMembers = Array.from(new Set([me, ...members]));
+
+    if (kind === 'direct') {
+      const other = allMembers.filter((id) => id !== me);
+      if (other.length !== 1) {
+        return res.status(400).json({ error: 'A direct message needs exactly one colleague' });
+      }
+      // Reuse the DM thread that already exists between this exact pair.
+      const existing = await prisma.conversation.findFirst({
+        where: { kind: 'direct', tripId: null },
+      });
+      for (const c of (await prisma.conversation.findMany({ where: { kind: 'direct', tripId: null } }))) {
+        const ids = Array.isArray(c.memberIds) ? c.memberIds.map(String) : [];
+        if (ids.length === 2 && ids.includes(me) && ids.includes(other[0]!)) {
+          const read = await readMapFor(me, [c.id]);
+          return res.json(serializeConversation(c, me, read.get(c.id) || 0));
+        }
+      }
+    }
+
+    const name = String(req.body?.name || '').trim();
+    if (kind === 'group' && !name) {
+      return res.status(400).json({ error: 'A group needs a name' });
+    }
+
+    const convo = await prisma.conversation.create({
       data: {
-        kind: req.body.kind || 'direct',
-        name: req.body.name,
-        subtitle: req.body.subtitle || '',
-        tripId: req.body.tripId || null,
-        participants: req.body.participants || [],
-        messages: req.body.messages || [],
+        kind,
+        name: name || 'Direct message',
+        subtitle: kind === 'group' ? `${allMembers.length} members` : '',
+        tripId: null,
+        participants: [req.user?.role || 'Ops'],
+        memberIds: allMembers,
+        messages: [],
         unread: 0,
         lastAt: '',
       },
     });
-    res.json(serializeConversation(created, req.user.id, 0));
+    res.json(serializeConversation(convo, me, 0));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
+/**
+ * SEND — into any thread the caller may write to. Trip threads are open to all
+ * staff (that is the dispatch's room); DMs and groups only to their members.
+ */
 app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) => {
-  const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
-  if (!convo) return res.status(404).json({ error: 'Not found' });
-  if (!(await canAccessConversation(req, convo))) {
-    return res.status(403).json({ error: 'This conversation belongs to another company' });
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const isStaff = !isPartnerRequest(req);
+    if (isStaff && !convo.tripId) {
+      const uid = String(req.user.id);
+      const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+      if (!memberIds.includes(uid)) {
+        return res.status(403).json({ error: 'You are not part of this conversation' });
+      }
+    }
+    const body = String(req.body?.body || '').trim();
+    if (!body) return res.status(400).json({ error: 'Message body is required' });
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const at = new Date().toISOString();
+    messages.push({
+      id: 'm' + (messages.length + 1) + '-' + Date.now().toString(36),
+      author: req.user?.name || req.user?.email || 'Unknown',
+      authorId: req.user?.id || null,
+      role: isPartnerRequest(req) ? 'Partner' : req.user?.role || 'Ops',
+      body,
+      at,
+      reactions: [],
+    });
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages, lastAt: at },
+    });
+    // The sender has by definition read their own thread up to this message.
+    await markSelfRead(req.user.id, convo.id, new Date(at));
+    res.json(serializeConversation(updated, req.user.id, new Date(at).getTime()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
-  const body = String(req.body?.body || '').trim();
-  if (!body) return res.status(400).json({ error: 'Message body is required' });
-  const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
-  const at = new Date().toISOString();
-  messages.push({
-    id: 'm' + (messages.length + 1) + '-' + Date.now().toString(36),
-    author: req.user?.name || req.user?.email || 'Unknown',
-    authorId: req.user?.id || null,
-    role: isPartnerRequest(req) ? 'Partner' : req.user?.role || 'Ops',
-    body,
-    at,
-  });
-  const updated = await prisma.conversation.update({
-    where: { id: convo.id },
-    data: { messages, lastAt: at },
-  });
-  // The sender has by definition read their own thread up to this message.
-  await prisma.conversationRead.upsert({
-    where: { userId_conversationId: { userId: req.user.id, conversationId: convo.id } },
-    update: { lastReadAt: new Date(at) },
-    create: { userId: req.user.id, conversationId: convo.id, lastReadAt: new Date(at) },
-  });
-  res.json(serializeConversation(updated, req.user.id, new Date(at).getTime()));
 });
 
+/**
+ * EDIT or RECALL a message — the author's own words, their own correction.
+ * A recalled message keeps its slot in the thread (so replies still make sense)
+ * but its body is replaced by a recall marker and stops counting as unread.
+ */
+app.patch('/api/conversations/:id/messages/:messageId', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const idx = messages.findIndex((m: any) => m.id === req.params.messageId);
+    if (idx === -1) return res.status(404).json({ error: 'Message not found' });
+    const m = messages[idx]!;
+    if (String(m.authorId || '') !== String(req.user.id)) {
+      return res.status(403).json({ error: 'You can only change your own messages' });
+    }
+    if (req.body?.recall) {
+      m.recalled = true;
+      m.body = '';
+      delete m.editedAt;
+    } else {
+      const next = String(req.body?.body || '').trim();
+      if (!next) return res.status(400).json({ error: 'Message body is required' });
+      m.body = next;
+      m.editedAt = new Date().toISOString();
+    }
+    messages[idx] = m;
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages },
+    });
+    res.json(serializeConversation(updated, req.user.id, Date.now()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * REACT to a message — one emoji per person, toggled by re-sending it. Any
+ * reader of the thread may react; the reaction is stamped with their name so
+ * the bubble can say who felt what.
+ */
+app.post('/api/conversations/:id/messages/:messageId/reactions', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const emoji = String(req.body?.emoji || '').trim();
+    if (!emoji) return res.status(400).json({ error: 'Emoji is required' });
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const idx = messages.findIndex((m: any) => m.id === req.params.messageId);
+    if (idx === -1) return res.status(404).json({ error: 'Message not found' });
+    if (messages[idx]!.recalled) return res.status(400).json({ error: 'Message was recalled' });
+    const m = messages[idx]!;
+    const reactions: any[] = Array.isArray(m.reactions) ? [...m.reactions] : [];
+    const me = String(req.user.id);
+    const existingIdx = reactions.findIndex(
+      (r: any) => String(r.userId) === me && r.emoji === emoji,
+    );
+    if (existingIdx !== -1) {
+      reactions.splice(existingIdx, 1); // toggle off
+    } else {
+      // One emoji per person: replace any other reaction they had on this message.
+      const mineIdx = reactions.findIndex((r: any) => String(r.userId) === me);
+      if (mineIdx !== -1) reactions.splice(mineIdx, 1);
+      reactions.push({ emoji, userId: me, name: req.user?.name || 'Unknown' });
+    }
+    m.reactions = reactions;
+    messages[idx] = m;
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages },
+    });
+    res.json(serializeConversation(updated, req.user.id, Date.now()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Mark read up to now (opening the thread). */
 app.patch('/api/conversations/:id', authenticate, async (req: any, res) => {
   const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
   if (!convo) return res.status(404).json({ error: 'Not found' });
@@ -5166,6 +5367,72 @@ app.patch('/api/conversations/:id', authenticate, async (req: any, res) => {
     create: { userId: req.user.id, conversationId: convo.id, lastReadAt: readAt },
   });
   res.json({ ok: true });
+});
+
+/**
+ * PRESENCE — a lightweight heartbeat from every signed-in desk. Stays last-seen
+ * in the User row (no new table), so the directory can show who is online now
+ * versus hours ago, without any extra infrastructure.
+ */
+app.post('/api/chat/presence', authenticate, async (req: any, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { lastSeen: new Date() },
+    });
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
+/**
+ * TYPING — a short-lived signal, also carried on the User row. It is read with
+ * presence, and its timestamp is the only truth: anything older than a few
+ * seconds is simply nobody typing anymore.
+ */
+app.post('/api/chat/typing', authenticate, async (req: any, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        lastSeen: new Date(),
+        typingIn: String(req.body?.conversationId || ''),
+        typingAt: new Date(),
+      },
+    });
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
+app.get('/api/chat/directory', authenticate, async (req: any, res) => {
+  try {
+    const everyone = await chatDirectory();
+    const now = Date.now();
+    const seen = await prisma.user.findMany({
+      where: { id: { in: everyone.map((u: any) => u.id) } },
+      select: { id: true, lastSeen: true, typingIn: true, typingAt: true },
+    });
+    const meta = new Map(seen.map((s: any) => [s.id, s]));
+    res.json(
+      everyone.map((u: any) => {
+        const m = meta.get(u.id);
+        const last = m?.lastSeen ? new Date(m.lastSeen as any).getTime() : 0;
+        const typingAt = m?.typingAt ? new Date(m.typingAt as any).getTime() : 0;
+        const ONLINE_MS = 90_000; // heartbeat every 45s ⇒ online within 90
+        return {
+          ...u,
+          online: now - last < ONLINE_MS,
+          lastSeenAt: m?.lastSeen ? new Date(m.lastSeen as any).toISOString() : null,
+          typingIn: now - typingAt < 8_000 ? String(m?.typingIn || '') : '',
+        };
+      }),
+    );
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // --- AUDIT / LOGIN REPORTS ---

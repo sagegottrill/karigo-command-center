@@ -24,6 +24,11 @@ model User {
   updatedAt DateTime @updatedAt
   /// This partner company's own loading sites ('|'-separated).
   loadingSites String?
+  /// Chat presence: the desk's last heartbeat (POST /chat/presence).
+  lastSeen DateTime?
+  /// Which thread this user is typing into right now (short-lived signal).
+  typingIn String?
+  typingAt DateTime?
 }
 
 model Tenant {
@@ -312,6 +317,8 @@ model Conversation {
   lastAt       String   @default("now")
   tripId       String?
   participants Json
+  /// Concrete staff users who belong to a DM/group thread (user IDs).
+  memberIds    Json?
   messages     Json
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

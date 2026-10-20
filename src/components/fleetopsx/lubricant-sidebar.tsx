@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Droplets, History, LogOut, MoreVertical, NotebookPen, FilePlus } from "lucide-react";
+import { Bell, Droplets, History, LogOut, MessageSquare, MoreVertical, NotebookPen, FilePlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { authService, lubricantService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
@@ -24,6 +24,7 @@ export const LUBRICANT_NAV: LubricantNavItem[] = [
   { label: "New Request", to: "/workspace/app/fuel-request", icon: FilePlus },
   { label: "Disbursal History", to: "/workspace/app/lubricant-history", icon: History },
   { label: "Notifications", to: "/workspace/app/lubricant-notifications", icon: Bell },
+  { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
 ];
 
 export function lubricantPathActive(pathname: string, to: string) {
