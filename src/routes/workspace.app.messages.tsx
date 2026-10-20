@@ -36,6 +36,14 @@ import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import type { Driver, Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
+/** First name from a full name or email — used in interface copy. */
+function firstName(name: string): string {
+  const n = String(name || "").trim();
+  if (!n) return "member";
+  if (n.includes("@")) return n.split("@")[0] || "member";
+  return n.split(/\s+/)[0] || n;
+}
+
 const STAFF_ROLES = [
   "Transport Manager",
   "Fleet Operations",
@@ -98,6 +106,11 @@ function MessagesPage() {
   const [newChatPicked, setNewChatPicked] = useState<ChatDirectoryEntry[]>([]);
   const [newChatName, setNewChatName] = useState("");
   const [creating, setCreating] = useState(false);
+  // Thread details (DMs and groups): roster view + member add/remove.
+  const [infoThread, setInfoThread] = useState<ChatThread | null>(null);
+  const [infoMembers, setInfoMembers] = useState<ChatDirectoryEntry[]>([]);
+  const [addMemberQuery, setAddMemberQuery] = useState("");
+  const [infoBusy, setInfoBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -200,6 +213,54 @@ function MessagesPage() {
     },
     [],
   );
+
+  const openThreadInfo = useCallback(async (thread: ChatThread) => {
+    setInfoThread(thread);
+    setAddMemberQuery("");
+    try {
+      setInfoMembers(await chatService.members(thread.id));
+    } catch {
+      setInfoMembers([]);
+    }
+  }, []);
+
+  const addMemberTo = async (entry: ChatDirectoryEntry) => {
+    if (!infoThread || infoBusy) return;
+    setInfoBusy(true);
+    try {
+      const updated = await chatService.addMembers(infoThread.id, [entry.id]);
+      setThreads((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+      setInfoMembers(await chatService.members(infoThread.id));
+      toast.success(`${firstName(entry.name)} added.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add member");
+    } finally {
+      setInfoBusy(false);
+    }
+  };
+
+  const removeMemberFrom = async (entry: ChatDirectoryEntry) => {
+    if (!infoThread || infoBusy) return;
+    setInfoBusy(true);
+    try {
+      const updated = await chatService.removeMember(infoThread.id, entry.id);
+      setThreads((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+      setInfoMembers(await chatService.members(infoThread.id));
+      toast.success(`${firstName(entry.name)} removed — their messages stay.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove member");
+    } finally {
+      setInfoBusy(false);
+    }
+  };
+
+  const infoAddable = useMemo(() => {
+    const q = addMemberQuery.trim().toLowerCase();
+    return directory
+      .filter((d) => !infoMembers.some((m) => m.id === d.id))
+      .filter((d) => !q || d.name.toLowerCase().includes(q) || d.role.toLowerCase().includes(q))
+      .slice(0, 12);
+  }, [directory, infoMembers, addMemberQuery]);
 
   /**
    * The directory organised the way the company actually thinks: departments
@@ -438,6 +499,7 @@ function MessagesPage() {
               thread={selected}
               onThreadChange={applyThread}
               onPresence={onPresence}
+              onOpenInfo={(t) => void openThreadInfo(t)}
               placeholder={
                 selected?.tripId ? "Write a message about this dispatch…" : "Write a message…"
               }
@@ -491,6 +553,106 @@ function MessagesPage() {
           </aside>
         </div>
       )}
+
+      {/* THREAD DETAILS — the roster of a DM or group: who is in it, their
+          live presence, add colleagues, remove members (history stays). */}
+      {infoThread ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#141A1F]/60 p-4"
+          onClick={() => setInfoThread(null)}
+        >
+          <div
+            className="mt-16 w-full max-w-[440px] rounded-[10px] bg-white p-5 shadow-[0px_8px_24px_rgba(12,12,13,0.2)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[16px] font-semibold leading-6 text-[#1B2432]">
+                  {infoThread.kind === "group" ? infoThread.name : "Direct message"}
+                </h3>
+                <p className="text-[12px] tracking-[0.4px] text-[#5C6470]">
+                  {infoMembers.length} {infoMembers.length === 1 ? "person" : "people"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInfoThread(null)}
+                className="grid size-8 place-items-center rounded text-[#5C6470] hover:bg-[#F1F2F4]"
+                aria-label="Close"
+              >
+                <X className="size-4" strokeWidth={1.75} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {infoMembers.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2.5 rounded border border-[#E2E5E9] px-3 py-2"
+                >
+                  <span className="relative shrink-0">
+                    <span className="grid size-8 place-items-center rounded-full bg-[#E2E5E9] text-[11px] font-semibold text-[#5C6470]">
+                      {m.initials}
+                    </span>
+                    {m.online ? (
+                      <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white bg-[#0A7F58]" />
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-medium text-[#1B2432]">
+                      {m.name}
+                      {m.id === authService.getCurrentUser()?.id ? " (you)" : ""}
+                    </span>
+                    <span className="block truncate text-[12px] text-[#5C6470]">
+                      {m.role}
+                    </span>
+                  </span>
+                  {m.id !== authService.getCurrentUser()?.id ? (
+                    <button
+                      type="button"
+                      disabled={infoBusy}
+                      onClick={() => void removeMemberFrom(m)}
+                      className="shrink-0 rounded px-2 py-1 text-[12px] font-medium text-[#ED351D] hover:bg-[#FDECEA] disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-2 rounded border border-[#E2E5E9] px-2.5">
+                <Search className="size-4 shrink-0 text-[#8A9099]" />
+                <input
+                  value={addMemberQuery}
+                  onChange={(e) => setAddMemberQuery(e.target.value)}
+                  placeholder="Add colleagues…"
+                  className="h-9 w-full bg-transparent text-[14px] text-[#1B2432] outline-none placeholder:text-[#8A9099]"
+                />
+              </div>
+              {infoAddable.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => void addMemberTo(d)}
+                  className="flex w-full items-center justify-between gap-2 rounded px-3 py-2 text-left hover:bg-[#F7F8FA]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-medium text-[#1B2432]">
+                      {d.name}
+                    </span>
+                    <span className="block truncate text-[12px] text-[#5C6470]">
+                      {d.role}
+                    </span>
+                  </span>
+                  <Plus className="size-4 shrink-0 text-[#0A7F58]" strokeWidth={1.75} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* NEW CHAT — pick a colleague (or a few) from the staff directory. One
           person opens a direct message; several open a named group. */}
@@ -590,10 +752,10 @@ function MessagesPage() {
                           <span className="block truncate text-[14px] font-medium text-[#1B2432]">
                             {d.name}
                           </span>
-                          <span className="block truncate text-[12px] text-[#5C6470]">
-                            {d.role}
-                            {d.typingIn ? " · typing…" : d.online ? " · online" : ""}
-                          </span>
+                      <span className="block truncate text-[12px] text-[#5C6470]">
+                        {d.role}
+                        {d.typingIn ? " · typing…" : d.online ? " · online" : ""}
+                      </span>
                         </span>
                       </button>
                     ))}

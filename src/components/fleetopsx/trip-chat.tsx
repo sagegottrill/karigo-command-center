@@ -11,7 +11,7 @@
  * thread's members is online or typing right now.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Pencil, RefreshCcw, Send, Smile, X } from "lucide-react";
+import { Check, CheckCheck, Pencil, RefreshCcw, Send, Smile, X } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
@@ -52,6 +52,7 @@ export function TripChatPanel({
   loading = false,
   placeholder = "Write a message about this dispatch…",
   heightClass = "h-[calc(100vh-260px)] min-h-[380px]",
+  onOpenInfo,
 }: {
   thread: ChatThread | null;
   onThreadChange?: (thread: ChatThread) => void;
@@ -60,6 +61,8 @@ export function TripChatPanel({
   loading?: boolean;
   placeholder?: string;
   heightClass?: string;
+  /** DM/group threads surface a "details" affordance (roster, members). */
+  onOpenInfo?: (thread: ChatThread) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -69,6 +72,24 @@ export function TripChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messages = thread?.messages ?? [];
   const lastId = messages.length ? (messages[messages.length - 1]?.id ?? "") : "";
+  // Seen-by receipts: fetched per thread, refreshed on each new message.
+  const [receipts, setReceipts] = useState<{ userId: string; name: string; lastReadAt: string | null }[]>([]);
+  useEffect(() => {
+    if (!thread || thread.tripId || !thread.memberIds?.length) {
+      setReceipts([]);
+      return;
+    }
+    let cancelled = false;
+    chatService
+      .receipts(thread.id)
+      .then((rows) => {
+        if (!cancelled) setReceipts(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [thread?.id, thread?.memberIds?.length, lastId]);
 
   // Stick to the newest message whenever the thread (or its contents) change.
   useEffect(() => {
@@ -155,6 +176,16 @@ export function TripChatPanel({
     }
   };
 
+  /**
+   * A message is SEEN when every other member has read past its stamp.
+   * DMs: one receipt. Groups: the minimum of the others' read positions.
+   */
+  const seenThrough = useMemo(() => {
+    const valid = receipts.filter((r) => r.lastReadAt);
+    if (!valid.length) return 0;
+    return Math.min(...valid.map((r) => new Date(r.lastReadAt!).getTime()));
+  }, [receipts]);
+
   const typingInThread: ChatDirectoryEntry[] = (thread?.typingUsers ?? []).filter(Boolean);
 
   if (!thread) {
@@ -186,7 +217,14 @@ export function TripChatPanel({
             {thread.name || "Operations Thread"}
           </h3>
           {thread.subtitle ? (
-            <p className="truncate text-[12px] tracking-[0.4px] text-[#5C6470]">
+            <p
+              className={cn(
+                "truncate text-[12px] tracking-[0.4px] text-[#5C6470]",
+                !thread.tripId && onOpenInfo && "cursor-pointer hover:text-[#1B2432] hover:underline",
+              )}
+              onClick={() => !thread.tripId && onOpenInfo?.(thread)}
+              role={!thread.tripId && onOpenInfo ? "button" : undefined}
+            >
               {thread.subtitle}
             </p>
           ) : null}
@@ -385,7 +423,10 @@ export function TripChatPanel({
                         </div>
                       ) : null}
                       {/* The stamp sits UNDER every message — never hidden in a tooltip. */}
-                      <span className="text-[11px] tracking-[0.4px] text-[#8A9099]">
+                      <span className="flex items-center gap-1 text-[11px] tracking-[0.4px] text-[#8A9099]">
+                        {m.self && !m.recalled && seenThrough && (new Date(m.at || m.time).getTime() || 0) <= seenThrough ? (
+                          <CheckCheck className="size-3.5 text-[#0A7F58]" strokeWidth={1.75} aria-label="Seen by everyone" />
+                        ) : null}
                         {chatStampLabel(m.at || m.time) || chatTimeLabel(m.at || m.time)}
                       </span>
                     </div>

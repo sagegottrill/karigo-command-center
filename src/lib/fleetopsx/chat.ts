@@ -162,6 +162,31 @@ export const chatService = {
       softAuth: true,
       body: JSON.stringify(conversationId ? { conversationId } : {}),
     }).catch(() => null),
+  /** The people in a DM/group thread (with live online state). */
+  members: async (conversationId: string): Promise<ChatDirectoryEntry[]> =>
+    asList(await fetchApi(`/conversations/${conversationId}/members`)) as ChatDirectoryEntry[],
+  /** Add colleagues to a group thread. */
+  addMembers: async (conversationId: string, memberIds: string[]): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi(`/conversations/${conversationId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ memberIds }),
+      }),
+    ),
+  /** Remove a member from a group thread (history stays, they stop receiving). */
+  removeMember: async (conversationId: string, memberId: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi(`/conversations/${conversationId}/members/${memberId}`, {
+        method: "DELETE",
+      }),
+    ),
+  /** Who has read through which point of this thread (seen-by). */
+  receipts: async (conversationId: string): Promise<{ userId: string; name: string; lastReadAt: string | null }[]> =>
+    asList(await fetchApi(`/conversations/${conversationId}/receipts`)).map((r) => ({
+      userId: String(r.userId ?? ""),
+      name: String(r.name ?? "Member"),
+      lastReadAt: r.lastReadAt ? String(r.lastReadAt) : null,
+    })),
 };
 
 /** Join threads to the trips we already loaded, so the panel can show context. */

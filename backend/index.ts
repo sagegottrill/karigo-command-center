@@ -309,12 +309,19 @@ async function notificationScope(req: any) {
       return { OR: [{ audience: null }, { audience: { contains: companyTag } }, { audience: { equals: 'Partner' } }] };
     }
     return { OR: [{ audience: null }, { audience: { contains: 'Partner' } }] };
-  }
-  const held = (Array.isArray(req.user?.roles) ? req.user.roles : [role]).filter(Boolean);
+  }  const held = (Array.isArray(req.user?.roles) ? req.user.roles : [role]).filter(Boolean);
   // One OR per held role: joining them into 'A|B' asked the database for a
   // literal 'A|B' substring, which no audience contains — multi-role staff
   // silently missed every notification.
-  return { OR: [{ audience: null }, ...held.map((r) => ({ audience: { contains: r } }))] };
+  // Chat notifications target USERS by id in the audience list, so the reader
+  // also matches on their own id — one comma-delimited list per row.
+  return {
+    OR: [
+      { audience: null },
+      ...held.map((r) => ({ audience: { contains: r } })),
+      { audience: { contains: String(req.user.id) } },
+    ],
+  };
 }
 
 /**
@@ -4948,6 +4955,14 @@ function messageRejectedByPolicy(body: string): string | null {
     ? 'Blocked by the language policy — this thread is on the record. Keep it professional.'
     : null;
 }
+
+/** First name from a full name or email — used in notification copy. */
+function firstName(name: string): string {
+  const n = String(name || '').trim();
+  if (!n) return 'A colleague';
+  if (n.includes('@')) return n.split('@')[0] || 'A colleague';
+  return n.split(/\s+/)[0] || n;
+}
 /**
  * EMPTY CLOSED THREADS are noise, not history: 400+ completed dispatches
  * nobody ever wrote in burying the actual work. A trip thread with zero
@@ -5306,6 +5321,43 @@ app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) 
     });
     // The sender has by definition read their own thread up to this message.
     await markSelfRead(req.user.id, convo.id, new Date(at));
+    // NOTIFY — everyone else in the thread learns work came in. Trip threads
+    // reach staff through the role audience (that is how every dispatch alert
+    // already travels); DMs and groups file a member-targeted row:
+    // `dismissedBy` carries user ids, so the feed is scoped per person.
+    // Best-effort: the message has already delivered either way.
+    void (async () => {
+      try {
+        if (convo.tripId) {
+          await notify(
+            'Messages',
+            'New Message in Dispatch Thread',
+            `${req.user?.name || 'A colleague'} wrote in ${convo.name || 'the dispatch thread'}: "${body.slice(0, 90)}"`,
+            'info',
+            'Transport Manager,Fleet Operations,Tracking,Security,Lubricant,Engineering,Parts & Store,Accounts,HR,Driver,Fleet Field Ops,Head of Engineering',
+            { module: 'Fleet Operations', eventKey: `chat.msg.${convo.id}`, refId: convo.tripId, refLabel: convo.name },
+          );
+        } else {
+          const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+          const others = memberIds.filter((id: string) => id !== String(req.user.id));
+          if (!others.length) return;
+          // `audience` accepts real user ids too (the reader filter matches
+          // against the whole comma list), so each member gets one row and
+          // nobody outside the thread does.
+          const sender = firstName(String(req.user?.name || req.user?.email || 'A colleague'));
+          await notify(
+            'Messages',
+            convo.kind === 'group' ? `${sender} in ${convo.name}` : `New message from ${sender}`,
+            body.slice(0, 90),
+            'info',
+            others.join(','),
+            { module: 'Fleet Operations', eventKey: `chat.msg.${convo.id}`, refId: convo.id, refLabel: convo.name },
+          );
+        }
+      } catch {
+        /* notification is best-effort; the message itself already delivered */
+      }
+    })();
     res.json(serializeConversation(updated, req.user.id, new Date(at).getTime()));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -5412,6 +5464,129 @@ app.patch('/api/conversations/:id', authenticate, async (req: any, res) => {
     create: { userId: req.user.id, conversationId: convo.id, lastReadAt: readAt },
   });
   res.json({ ok: true });
+});
+
+/**
+ * GROUP MEMBERSHIP — view, add and remove the people in a DM/group thread.
+ * Only existing members may change the roster. Removing someone never deletes
+ * history: their past messages stay, they just stop receiving new ones (and
+ * the thread leaves their list).
+ */
+app.get('/api/conversations/:id/members', authenticate, async (req: any, res) => {
+  const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+  if (!convo) return res.status(404).json({ error: 'Not found' });
+  if (!(await canAccessConversation(req, convo))) {
+    return res.status(403).json({ error: 'This conversation belongs to another company' });
+  }
+  const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+  const rows = ids.length
+    ? await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, email: true, role: true, roles: true, lastSeen: true },
+      })
+    : [];
+  res.json(rows.map((u: any) => {
+    const extra = String(u.roles || '').split(',').map((r: string) => r.trim()).filter(Boolean);
+    return {
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      initials: String(u.name || '?').split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase(),
+      online: u.lastSeen ? Date.now() - new Date(u.lastSeen as any).getTime() < 90_000 : false,
+    };
+  }));
+});
+
+app.post('/api/conversations/:id/members', authenticate, async (req: any, res) => {
+  try {
+    if (isPartnerRequest(req)) return res.status(403).json({ error: 'Partners do not manage group rosters' });
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (convo.tripId) return res.status(400).json({ error: 'A dispatch thread carries its own participants' });
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    if (!ids.includes(String(req.user.id))) {
+      return res.status(403).json({ error: 'Only members of this conversation can add people' });
+    }
+    const additions = await chatMemberIds(Array.isArray(req.body?.memberIds) ? req.body.memberIds : [req.body?.memberId].filter(Boolean));
+    if (!additions.length) return res.status(400).json({ error: 'Name the colleagues to add' });
+    const next = Array.from(new Set([...ids, ...additions]));
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { memberIds: next, subtitle: `${next.length} members` },
+    });
+    const read = await readMapFor(req.user.id, [convo.id]);
+    res.json(serializeConversation(updated, req.user.id, read.get(convo.id) || 0));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/conversations/:id/members/:memberId', authenticate, async (req: any, res) => {
+  try {
+    if (isPartnerRequest(req)) return res.status(403).json({ error: 'Partners do not manage group rosters' });
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (convo.tripId) return res.status(400).json({ error: 'A dispatch thread carries its own participants' });
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    if (!ids.includes(String(req.user.id))) {
+      return res.status(403).json({ error: 'Only members of this conversation can remove people' });
+    }
+    if (req.params.memberId === String(req.user.id)) {
+      return res.status(400).json({ error: 'Leaving a group is not available yet — ask another member to remove you' });
+    }
+    const next = ids.filter((id: string) => id !== req.params.memberId);
+    if (next.length === ids.length) return res.status(404).json({ error: 'That person is not in this group' });
+    if (convo.kind === 'direct' && next.length < 2) {
+      return res.status(400).json({ error: 'A direct message keeps its two people' });
+    }
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { memberIds: next, subtitle: convo.kind === 'group' ? `${next.length} members` : convo.subtitle },
+    });
+    const read = await readMapFor(req.user.id, [convo.id]);
+    res.json(serializeConversation(updated, req.user.id, read.get(convo.id) || 0));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * READ RECEIPTS — who has SEEN this thread up to when. Returns one entry per
+ * member with the time they last read through; the client stamps the check
+ * marks under my messages accordingly (seen when the LAST other member's
+ * read position passes the message's time).
+ */
+app.get('/api/conversations/:id/receipts', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    const participants: string[] = convo.tripId || !ids.length
+      ? [] // trip threads keep the read positions private to the sender
+      : ids;
+    if (!participants.length) return res.json([]);
+    const rows = await prisma.conversationRead.findMany({
+      where: { conversationId: convo.id, userId: { in: participants } },
+    });
+    const users = await prisma.user.findMany({
+      where: { id: { in: participants } },
+      select: { id: true, name: true },
+    });
+    const names = new Map(users.map((u: any) => [u.id, u.name]));
+    const seen = new Map(rows.map((r: any) => [r.userId, new Date(r.lastReadAt as any).toISOString()]));
+    res.json(participants
+      .filter((id) => id !== String(req.user.id))
+      .map((id) => ({
+        userId: id,
+        name: names.get(id) || 'Member',
+        lastReadAt: seen.get(id) || null,
+      })));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /**

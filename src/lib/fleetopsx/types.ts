@@ -635,7 +635,7 @@ export interface Message {
 
 export interface Conversation {
   id: ID;
-  kind: "direct" | "channel" | "trip";
+  kind: "direct" | "group" | "channel" | "trip";
   name: string;
   subtitle: string;
   unread: number;
