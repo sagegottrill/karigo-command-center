@@ -4937,6 +4937,30 @@ function isPartnerRequest(req: any): boolean {
 }
 
 /**
+ * LANGUAGE POLICY — enterprise chat is on the record with partners watching.
+ * Profanity, abuse and "go to hell" style attacks are refused at the door and
+ * anything that slipped through an older client is purged.
+ */
+const BANNED_LANGUAGE =
+  /\b(fuck|fucking|motherfuck|shit|bitch|bastard|asshole|arsehole|dickhead|cunt|nigga|nigger|retard|go\s*to\s*hell|hell\s+bro|fuck\s+you)\b/i;
+function messageRejectedByPolicy(body: string): string | null {
+  return BANNED_LANGUAGE.test(body)
+    ? 'Blocked by the language policy — this thread is on the record. Keep it professional.'
+    : null;
+}
+/**
+ * EMPTY CLOSED THREADS are noise, not history: 400+ completed dispatches
+ * nobody ever wrote in burying the actual work. A trip thread with zero
+ * messages whose trip is over (Completed/Stopped) is filtered out of the
+ * list everywhere — it reappears the moment anybody writes in it.
+ */
+function isDeadEmptyThread(c: any, closedTrips: Set<string>): boolean {
+  if (!c?.tripId || !closedTrips.has(c.tripId)) return false;
+  const raw = Array.isArray(c.messages) ? c.messages : [];
+  return raw.length === 0;
+}
+
+/**
  * Every dispatched trip gets exactly one thread, created the first time anyone
  * opens Messages. Idempotent: a trip already carrying a conversation is skipped,
  * so history and existing messages are never touched.
@@ -5042,7 +5066,9 @@ async function chatMemberIds(memberIds: any[]): Promise<string[]> {
  * each message.
  */
 function serializeConversation(c: any, viewerId: string, readAt: number) {
-  const raw = Array.isArray(c.messages) ? c.messages : [];
+  const raw = Array.isArray(c.messages)
+    ? c.messages
+    : [];
   let unread = 0;
   const messages = raw.map((m: any) => {
     const at = m.at || m.time || '';
@@ -5053,7 +5079,9 @@ function serializeConversation(c: any, viewerId: string, readAt: number) {
       author: m.author || 'Unknown',
       authorId: m.authorId || null,
       role: m.role || 'Ops',
-      body: m.body || '',
+      // Live policy sweep: anything abusive that predates the filter is
+      // silenced here too — the record keeps its shape, the words are gone.
+      body: m.recalled ? '' : messageRejectedByPolicy(String(m.body || '')) ? '' : String(m.body || ''),
       at,
       time: at,
       self: mine,
@@ -5089,10 +5117,18 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
   try {
     await ensureDispatchThreads();
     const all = await prisma.conversation.findMany({ orderBy: { updatedAt: 'desc' } });
-    let visible = all;
+    // Closed dispatches with nobody having ever written in them are noise —
+    // hide them from EVERY reader.
+    const closed = await prisma.trip.findMany({
+      where: { status: { in: ['Completed', 'Stopped'] } },
+      select: { id: true },
+    });
+    const closedTrips = new Set(closed.map((t: any) => t.id));
+    const audible = all.filter((c: any) => !isDeadEmptyThread(c, closedTrips));
+    let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = all.map((c: any) => c.tripId).filter(Boolean);
+      const tripIds = audible.map((c: any) => c.tripId).filter(Boolean);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5102,11 +5138,12 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
+      visible = audible.filter((c: any) => c.tripId && mine.has(c.tripId));
     } else {
-      // Staff see trip threads, plus the DMs and groups they belong to.
+      // Staff see trip threads (minus dead empty closed ones), plus the DMs
+      // and groups they belong to.
       const uid = String(req.user.id);
-      visible = all.filter(
+      visible = audible.filter(
         (c: any) =>
           c.tripId ||
           (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
@@ -5124,10 +5161,16 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   try {
     await ensureDispatchThreads();
     const all = await prisma.conversation.findMany();
-    let visible = all;
+    const closed = await prisma.trip.findMany({
+      where: { status: { in: ['Completed', 'Stopped'] } },
+      select: { id: true },
+    });
+    const closedTrips = new Set(closed.map((t: any) => t.id));
+    const audible = all.filter((c: any) => !isDeadEmptyThread(c, closedTrips));
+    let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = all.map((c: any) => c.tripId).filter(Boolean);
+      const tripIds = audible.map((c: any) => c.tripId).filter(Boolean);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5137,17 +5180,16 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
+      visible = audible.filter((c: any) => c.tripId && mine.has(c.tripId));
     } else {
       const uid = String(req.user.id);
-      visible = all.filter(
+      visible = audible.filter(
         (c: any) =>
           c.tripId ||
           (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
       );
-    }
-    const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
-    let count = 0;
+    }      const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
+      let count = 0;
     for (const c of visible) {
       const raw = Array.isArray(c.messages) ? c.messages : [];
       const readAt = read.get(c.id) || 0;
@@ -5244,6 +5286,9 @@ app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) 
     }
     const body = String(req.body?.body || '').trim();
     if (!body) return res.status(400).json({ error: 'Message body is required' });
+    // Language policy: refuse abuse before it can ever reach the thread.
+    const rejected = messageRejectedByPolicy(body);
+    if (rejected) return res.status(400).json({ error: rejected });
     const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
     const at = new Date().toISOString();
     messages.push({

@@ -201,12 +201,53 @@ function MessagesPage() {
     [],
   );
 
-  const directoryMatches = useMemo(() => {
+  /**
+   * The directory organised the way the company actually thinks: departments
+   * as groups (Partner teams, Truck Drivers, Fleet Ops, …) instead of one
+   * unsorted wall of names. A partner liaison finds the drivers; the TM finds
+   * Saba's people without scrolling the whole company.
+   */
+  const directoryGroups = useMemo(() => {
     const q = newChatQuery.trim().toLowerCase();
-    return directory
-      .filter((d) => d.id !== authService.getCurrentUser()?.id)
-      .filter((d) => !q || d.name.toLowerCase().includes(q) || d.role.toLowerCase().includes(q))
-      .slice(0, 30);
+    const meId = authService.getCurrentUser()?.id;
+    const rows = directory
+      .filter((d) => d.id !== meId)
+      .filter((d) => !q || d.name.toLowerCase().includes(q) || d.role.toLowerCase().includes(q));
+    /** Group label for a staff role — the company's own shape, not code keys. */
+    const groupOf = (role: string): string => {
+      const r = role.toLowerCase();
+      if (r.includes('driver')) return 'Truck Drivers';
+      if (r.includes('fleet field')) return 'Yard / Field Ops';
+      if (r.includes('fleet operations') || r.includes('fuel')) return 'Fleet Operations & Fuel';
+      if (r.includes('tracking')) return 'Tracking Operations';
+      if (r.includes('loading')) return 'Loading Operations';
+      if (r.includes('security') || r.includes('gate')) return 'Gate Security';
+      if (r.includes('engineering') || r.includes('maintenance')) return 'Engineering & Maintenance';
+      if (r.includes('parts') || r.includes('store') || r.includes('inventory')) return 'Parts & Store';
+      if (r.includes('lubricant')) return 'Lubricant Desk';
+      if (r.includes('account')) return 'Accounts';
+      if (r.includes('hr') || r.includes('personnel')) return 'HR & Personnel';
+      if (r.includes('transport manager') || r.includes('platform admin') || r.includes('transport admin')) return 'Management';
+      return 'Other Departments';
+    };
+    // Transport Manager leads the list; departments follow alphabetically.
+    const order = ['Management', 'Truck Drivers', 'Fleet Operations & Fuel', 'Tracking Operations'];
+    const groups = new Map<string, ChatDirectoryEntry[]>();
+    for (const d of rows) {
+      const g = groupOf(d.role);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g)!.push(d);
+    }
+    return [...groups.entries()]
+      .map(([name, people]) => ({ name, people }))
+      .sort((a, b) => {
+        const ai = order.indexOf(a.name);
+        const bi = order.indexOf(b.name);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
   }, [directory, newChatQuery]);
 
   const pickForNewChat = (entry: ChatDirectoryEntry) => {
@@ -513,38 +554,50 @@ function MessagesPage() {
             </div>
 
             <div className="max-h-[320px] min-h-[160px] overflow-y-auto rounded border border-[#E2E5E9]">
-              {directoryMatches.length === 0 ? (
+              {directoryGroups.length === 0 ? (
                 <FigmaEmptyState title="No colleagues found" body="Staff accounts appear here once they exist."
                 />
               ) : (
-                directoryMatches.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => pickForNewChat(d)}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 border-b border-[#E2E5E9] px-3 py-2.5 text-left last:border-b-0",
-                      newChatPicked.some((p) => p.id === d.id) ? "bg-[#FDECEA]" : "hover:bg-[#F7F8FA]",
-                    )}
-                  >
-                    <span className="relative shrink-0">
-                      <span className="grid size-8 place-items-center rounded-full bg-[#E2E5E9] text-[11px] font-semibold text-[#5C6470]">
-                        {d.initials}
+                directoryGroups.map((group) => (
+                  <div key={group.name}>
+                    <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[#E2E5E9] bg-[#F7F8FA] px-3 py-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.6px] text-[#5C6470]">
+                        {group.name}
                       </span>
-                      {d.online ? (
-                        <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white bg-[#0A7F58]" />
-                      ) : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium text-[#1B2432]">
-                        {d.name}
+                      <span className="text-[10px] tracking-[0.4px] text-[#8A9099]">
+                        {group.people.length}
                       </span>
-                      <span className="block truncate text-[12px] text-[#5C6470]">
-                        {d.role}
-                        {d.typingIn ? " · typing…" : d.online ? " · online" : ""}
-                      </span>
-                    </span>
-                  </button>
+                    </div>
+                    {group.people.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => pickForNewChat(d)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 border-b border-[#E2E5E9] px-3 py-2.5 text-left last:border-b-0",
+                          newChatPicked.some((p) => p.id === d.id) ? "bg-[#FDECEA]" : "hover:bg-[#F7F8FA]",
+                        )}
+                      >
+                        <span className="relative shrink-0">
+                          <span className="grid size-8 place-items-center rounded-full bg-[#E2E5E9] text-[11px] font-semibold text-[#5C6470]">
+                            {d.initials}
+                          </span>
+                          {d.online ? (
+                            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white bg-[#0A7F58]" />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-[#1B2432]">
+                            {d.name}
+                          </span>
+                          <span className="block truncate text-[12px] text-[#5C6470]">
+                            {d.role}
+                            {d.typingIn ? " · typing…" : d.online ? " · online" : ""}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 ))
               )}
             </div>
