@@ -190,7 +190,7 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
       { label: "In Transit", state: "pending", stage: "In Transit" },
       { label: "At Destination", state: "pending", stage: "At Destination" },
       { label: "Offloaded", state: "pending", stage: "Offloaded" },
-      { label: "Returned", state: "pending", stage: "Return" },
+      { label: "Returned", state: "pending" },
     ];
   }
 
@@ -224,10 +224,13 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
       : ["Returning", "Completed"].includes(trip.status)
         ? "done"
         : "pending";
-  const offloaded =
-    trip.status === "Returning" ? "current" : trip.status === "Completed" ? "done" : "pending";
-  const returned =
-    trip.status === "Completed" ? "done" : trip.status === "Returning" ? "current" : "pending";
+  // RETURN IS THE GATE'S WORD (21 Oct 2026): the partner timeline used to show
+  // "Returned" as current whenever Tracking flipped the truck to Returning —
+  // which read as the truck home while it was still on the road. From here the
+  // road ends at Offloaded; "Returned" is done only when the dispatch is
+  // Completed — closed by Security's gate with the truck physically in the yard.
+  const offloaded = trip.status === "Completed" ? "done" : trip.status === "Offloading" ? "current" : "pending";
+  const returned = trip.status === "Completed" ? "done" : "pending";
 
   const steps: PartnerTimelineStep[] = [
     { label: "Request Submitted", state: "done", at: submittedAt },
@@ -248,7 +251,7 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
     { label: "In Transit", state: inTransit, stage: "In Transit" },
     { label: "At Destination", state: atDestination, stage: "At Destination" },
     { label: "Offloaded", state: offloaded, stage: "Offloaded" },
-    { label: "Returned", state: returned, stage: "Return" },
+    { label: "Returned", state: returned },
   ];
   return steps;
 }

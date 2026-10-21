@@ -142,12 +142,16 @@ function LogLocationPage() {
   const canLogAnything = loggableLegs.length > 0;
   const loadingOnly = canLogAnything && !canLogTracking;
   /**
-   * Who may CLOSE the trip. Tracking and Security are the two who physically see
-   * the truck come back; the Loading department only marks collection and has no
-   * view of the return at all. A trip that is already over (Completed) or was
-   * declined (Stopped) is never offered the button again.
+   * Who may CLOSE the trip — GATE-ONLY CLOSURE (21 Oct 2026). Tracking used to
+   * carry this button too, and every Tracking close flipped the dispatch to
+   * Completed with the truck still on the road: Security's gate log then lost
+   * the row (a Completed dispatch is no longer "still out" — or even visible
+   * there) while the truck was miles away. Tracking now STOPS at Offloading;
+   * the return is Security's gate + Transport Manager's flow, the same people
+   * the gate page already trust. A trip already over (Completed) or declined
+   * (Stopped) is never offered the button again.
    */
-  const CLOSING_ROLES = ["Tracking", "Tracking Operations", "Security", "Platform Admin"];
+  const CLOSING_ROLES = ["Security", "Platform Admin"];
   const canCloseTrip =
     roles.some((r: string) => CLOSING_ROLES.includes(String(r))) &&
     trip?.status !== "Completed" &&
@@ -175,10 +179,9 @@ function LogLocationPage() {
   };
 
   /**
-   * Close the trip — the truck is back, so the circle is over. This is the end
-   * point the Tracking department never had: the dispatch leaves the active board
-   * (it is no longer a truck that is out) and the head and tail go to Check Up via
-   * the same shared routine Security's gate uses.
+   * Close the trip — Security (or the TM) confirms the truck is back. Same
+   * shared routine the gate page runs: Completed, head + tail to Check Up,
+   * driver freed.
    */
   const closeTrip = async () => {
     if (!trip) return;
@@ -608,14 +611,17 @@ function LogLocationPage() {
           ) : null}
 
           {/* Stage history — every stage carries its own growing sub-dots */}
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5">
             <HistoryCard
               title="Trip History"
               stages={["Loading", "In Transit", "At Destination", "Offloaded"]}
               sites={sites}
               checkpoints={checkpoints}
             />
-            <HistoryCard title="Return History" stages={["Return"]} sites={sites} checkpoints={checkpoints} />
+            {/* RETURN HISTORY CARD REMOVED (21 Oct 2026): Tracking no longer logs
+                a Return stage — the return is Security's gate flow. Stale legacy
+                checkpoints written with leg "Return" still surface under
+                Offloaded via normalizeLeg, so no history is lost. */}
           </div>
         </div>
       </div>

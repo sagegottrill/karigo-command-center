@@ -1738,24 +1738,57 @@ setInterval(() => void syncDriverDuty(), 10 * 60 * 1000);
 // freed and its tail brought home. This is the difference between fixing a
 // screen and fixing the system: no missed edge case can ever again leave a
 // returned truck showing "in transit" (the P109/071 case, 15 Oct 2026).
+//
+// GATERETURN:V5 GUARD (21 Oct 2026): "Check Up" is ALSO engineering's NORMAL
+// state for a truck freshly serviced and put on a NEW dispatch — a truck on a
+// live En Route run can legitimately sit typed Check Up in the registry right
+// after the workshop released it. The old sweep matched on status alone and
+// closed those live runs wholesale — a truck vanished from the Tracking board
+// and from Security's gate log the moment its registry row said Check Up, with
+// no gate action anywhere. Now a truck typed Check Up may only lose a dispatch
+// if BOTH are true: no live OUT-OF-YARD trip still names it (a truck on the
+// road is not home), AND its registry row has had no departure for 1 hour
+// (movement flips statuses within seconds, so a stale Check Up is a truck
+// that genuinely came back and nobody closed the paperwork for).
+function truckDatedInStatus(truck: any): Date | null {
+  // Truck carries only updatedAt; its last status write is no older than that.
+  const d = truck?.updatedAt ? new Date(truck.updatedAt) : null;
+  return d && !isNaN(d.getTime()) ? d : null;
+}
 async function sweepReturnedTrucks(): Promise<number> {
   try {
     const trucks = await prisma.truck.findMany();
-    const homeKeys = new Set<string>();
+    const homeKeys = new Map<string, any>();
     for (const t of trucks) {
       if (String(t.status || '') !== 'Check Up') continue;
       for (const v of [t.registration, t.cabId]) {
         const k = TRUCK_KEY(v);
-        if (k.length >= 4) homeKeys.add(k);
+        if (k.length >= 4) homeKeys.set(k, t);
       }
     }
     if (homeKeys.size === 0) return 0;
     const open = await prisma.trip.findMany({
       where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
     });
+    // A truck still named on a live En Route/Loaded run is ON THE ROAD, not
+    // home — no matter what its registry row says. The sweep must never touch
+    // its dispatches.
+    const onRoad = open.filter((t: any) =>
+      ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'].includes(String(t.status)));
+    const onRoadKeys = new Set<string>();
+    for (const t of onRoad) for (const k of truckKeysOf(t)) onRoadKeys.add(k);
+    const RECENT_DEPARTURE_MS = 60 * 60 * 1000; // 1 hour
+    const now = Date.now();
     const doomed = open.filter((t: any) =>
-      truckKeysOf(t).some((k) =>
-        Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k))));
+      truckKeysOf(t).some((k) => {
+        const home = Array.from(homeKeys.entries()).find(([h]) => k === h || k.includes(h) || h.includes(k));
+        if (!home) return false;
+        const [homeKey, homeTruck] = home;
+        if (onRoadKeys.has(homeKey) || onRoadKeys.has(k)) return false; // still moving
+        const departed = truckDatedInStatus(homeTruck);
+        if (departed && now - departed.getTime() < RECENT_DEPARTURE_MS) return false; // just came back, gate may still be typing
+        return true;
+      }));
     let closed = 0;
     for (const trip of doomed) {
       try {
@@ -2204,7 +2237,11 @@ const LEG_STATUS: Record<string, string> = {
   'in transit': 'En Route',
   'at destination': 'Offloading',
   offloaded: 'Offloading',
-  return: 'Returning',
+  // NO 'return' MAPPING (Fortune/Daniel, 21 Oct 2026): Tracking logging a
+  // "Return" checkpoint used to flip the dispatch to Returning — which the
+  // gate log reads as the truck already home, so Security lost the track while
+  // the truck was still on the road. Tracking now STOPS at Offloading; only
+  // Security's gate (or the TM) closes the circle to Completed.
 };
 const ON_ROAD_RANK: Record<string, number> = {
   Scheduled: 0,
@@ -2238,6 +2275,19 @@ app.get('/api/tracking/:tripId', authenticate, async (req, res) => {
 app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading'), async (req, res) => {
   const { tripId, location, leg } = req.body;
   if (!tripId || !location || !leg) return res.status(400).json({ error: 'Missing required fields' });
+  // TRACKING CANNOT CLOSE THE TRIP (Fortune/Daniel, 21 Oct 2026): a "Return"
+  // leg flipped the dispatch to Returning — the gate log then read the truck
+  // as already home and Security lost the track while it was still on the
+  // road. The return is Security's gate (+ check-up) flow, so the leg is
+  // REFUSED here outright — not just hidden in the UI — so even a stale open
+  // client, an old cached bundle or a hand-rolled API call can never flip a
+  // truck to Return from the Tracking board again.
+  const legTrim = String(leg || '').trim().toLowerCase();
+  if (legTrim === 'return' || legTrim === 'returning') {
+    return res.status(400).json({
+      error: 'Tracking stops at Offloading — the return is logged by Security at the gate, not here.',
+    });
+  }
   // Tracking AND Loading both log loading — one source of truth, never a second row.
   const siteKeyOf = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const siblings = await prisma.trackingCheckpoint.findMany({ where: { tripId } });
@@ -2264,15 +2314,12 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
       }
       const next = statusFromLeg(trip.status, leg);
       if (next) data.status = next;
-      // return-stamp-on-offload: the RETURN column on the gate log is the truck
-      // back at base — but the readable moment the road ended is the OFFLOAD
-      // checkpoint. When that leg is logged and no return stamp exists, write
-      // the checkpoint's own timestamp into `eta`, so the gate log shows the
-      // real date+time instead of the bare word "Returned" (which is what the
-      // board prints when the status says completed but eta holds nothing).
-      if (!data.eta && String(leg || '').trim().toLowerCase() === 'offloaded' && !String(trip.eta || '').trim()) {
-        data.eta = (checkpoint.at instanceof Date ? checkpoint.at : new Date()).toISOString();
-      }
+      // return-stamp-on-offload REMOVED (21 Oct 2026): this used to write the
+      // offload checkpoint's time into `eta`, and `eta` IS the gate log's
+      // RETURN stamp — so Tracking logging Offloaded made the gate log show
+      // the truck as Returned (and it left Security's "still out" list) while
+      // it was still on the road. The return stamp now comes from one place:
+      // Security's gate. No tracking checkpoint may ever write it again.
       if (Object.keys(data).length > 0) {
         await prisma.trip.update({ where: { id: tripId }, data });
         // lifecycle-coupling-v2: a checkpoint that advances the dispatch moves the

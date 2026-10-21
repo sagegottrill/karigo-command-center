@@ -55,26 +55,34 @@ export const dispatchDisplayId = displayDispatchId;
 /**
  * Dispatch-trip stages Tracking Ops updates, in physical order. Every stage can
  * carry any number of locations ("sub-dots"): Loading → In Transit →
- * At Destination → Offloaded → Return. The partner's timeline shows them under
- * the matching stage.
+ * At Destination → Offloaded.
+ *
+ * NO RETURN LEG (Fortune/Daniel, 21 Oct 2026): the Tracking department used to
+ * log a "Return" stage — and the moment they did, the backend flipped the
+ * dispatch to Returning, which the gate log reads as the truck already back.
+ * Security then lost the track (the row left their "Still out" list while the
+ * truck was still on the road) and the movement auto-flipped to Return without
+ * Security touching anything. The return belongs to the GATE + check-up flow:
+ * Tracking now STOPS at Offloaded, and only Security's gate closes the circle.
  */
-export type TrackingLeg = "Loading" | "In Transit" | "At Destination" | "Offloaded" | "Return";
+export type TrackingLeg = "Loading" | "In Transit" | "At Destination" | "Offloaded";
 
 export const TRACKING_LEGS: TrackingLeg[] = [
   "Loading",
   "In Transit",
   "At Destination",
   "Offloaded",
-  "Return",
 ];
 
-/** Legacy rows stored "Outgoing"; everything maps onto the stage names above. */
+/** Legacy rows stored "Outgoing"; everything maps onto the stage names above.
+ * A checkpoint older stores wrote leg "Return"/"Returning" is READ as
+ * "Offloaded" so stale history never resurrects the removed stage. */
 export function normalizeLeg(leg?: string | null): TrackingLeg {
   const raw = (leg || "").trim().toLowerCase();
-  if (raw === "return" || raw === "returning") return "Return";
   if (raw === "loading" || raw === "loaded") return "Loading";
   if (raw === "at destination" || raw === "destination") return "At Destination";
   if (raw === "offloaded" || raw === "offloading") return "Offloaded";
+  if (raw === "return" || raw === "returning") return "Offloaded"; // legacy rows
   return "In Transit";
 }
 

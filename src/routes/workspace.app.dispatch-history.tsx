@@ -252,7 +252,9 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
   const transit = newestCheckpoint(checkpoints, "In Transit");
   const destination = newestCheckpoint(checkpoints, "At Destination");
   const offload = newestCheckpoint(checkpoints, "Offloaded");
-  const back = newestCheckpoint(checkpoints, "Return");
+  // RETURN STEP READS THE GATE ONLY (21 Oct 2026): Tracking no longer logs a
+  // Return stage, so the last stop of the road is the offload. "Returned" is
+  // the dispatch being Completed — which only Security's gate (or the TM) does.
 
   const steps: Array<Omit<TimelineStep, "state"> & { done: boolean }> = [
     { label: "Request Submitted", done: true, at: trip.createdAt },
@@ -290,7 +292,7 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
       at: offload?.at,
       stage: "Offloaded",
     },
-    { label: "Returned", done: returned || Boolean(back), at: back?.at, stage: "Return" },
+    { label: "Returned", done: returned },
   ];
 
   // The furthest step actually reached is the one that happened last; the step
