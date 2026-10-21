@@ -1739,56 +1739,49 @@ setInterval(() => void syncDriverDuty(), 10 * 60 * 1000);
 // screen and fixing the system: no missed edge case can ever again leave a
 // returned truck showing "in transit" (the P109/071 case, 15 Oct 2026).
 //
-// GATERETURN:V5 GUARD (21 Oct 2026): "Check Up" is ALSO engineering's NORMAL
-// state for a truck freshly serviced and put on a NEW dispatch — a truck on a
-// live En Route run can legitimately sit typed Check Up in the registry right
-// after the workshop released it. The old sweep matched on status alone and
-// closed those live runs wholesale — a truck vanished from the Tracking board
-// and from Security's gate log the moment its registry row said Check Up, with
-// no gate action anywhere. Now a truck typed Check Up may only lose a dispatch
-// if BOTH are true: no live OUT-OF-YARD trip still names it (a truck on the
-// road is not home), AND its registry row has had no departure for 1 hour
-// (movement flips statuses within seconds, so a stale Check Up is a truck
-// that genuinely came back and nobody closed the paperwork for).
-function truckDatedInStatus(truck: any): Date | null {
-  // Truck carries only updatedAt; its last status write is no older than that.
-  const d = truck?.updatedAt ? new Date(truck.updatedAt) : null;
-  return d && !isNaN(d.getTime()) ? d : null;
-}
+// GATERETURN:V5 GUARD (21 Oct 2026): "Check Up" is NOT proof by itself —
+// engineering also parks healthy trucks there mid-flow, and the yard coupling
+// can lag a fresh departure. Closing a truck's dispatches wholesale on a stale
+// word made live runs vanish from the Tracking board with no gate action
+// anywhere. The distinguishing signal is TRACKING FRESHNESS: a run that is
+// genuinely moving has a checkpoint (or a birth) inside the last 12 hours —
+// one closed-and-forgotten behind the gate does not. Only dormant dispatches
+// are swept; anything with recent tracking activity is left exactly as it is.
 async function sweepReturnedTrucks(): Promise<number> {
   try {
     const trucks = await prisma.truck.findMany();
-    const homeKeys = new Map<string, any>();
+    const homeKeys = new Set<string>();
     for (const t of trucks) {
       if (String(t.status || '') !== 'Check Up') continue;
       for (const v of [t.registration, t.cabId]) {
         const k = TRUCK_KEY(v);
-        if (k.length >= 4) homeKeys.set(k, t);
+        if (k.length >= 4) homeKeys.add(k);
       }
     }
     if (homeKeys.size === 0) return 0;
     const open = await prisma.trip.findMany({
       where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
     });
-    // A truck still named on a live En Route/Loaded run is ON THE ROAD, not
-    // home — no matter what its registry row says. The sweep must never touch
-    // its dispatches.
-    const onRoad = open.filter((t: any) =>
-      ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'].includes(String(t.status)));
-    const onRoadKeys = new Set<string>();
-    for (const t of onRoad) for (const k of truckKeysOf(t)) onRoadKeys.add(k);
-    const RECENT_DEPARTURE_MS = 60 * 60 * 1000; // 1 hour
+    const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours of tracked life
     const now = Date.now();
-    const doomed = open.filter((t: any) =>
-      truckKeysOf(t).some((k) => {
-        const home = Array.from(homeKeys.entries()).find(([h]) => k === h || k.includes(h) || h.includes(k));
-        if (!home) return false;
-        const [homeKey, homeTruck] = home;
-        if (onRoadKeys.has(homeKey) || onRoadKeys.has(k)) return false; // still moving
-        const departed = truckDatedInStatus(homeTruck);
-        if (departed && now - departed.getTime() < RECENT_DEPARTURE_MS) return false; // just came back, gate may still be typing
-        return true;
-      }));
+    const doomed = [];
+    for (const t of open) {
+      if (!truckKeysOf(t).some((k) =>
+        Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
+      // DORMANT-ONLY: a dispatch a department is still logging against — or one
+      // raised within the window — is live work, whatever the registry word says.
+      const born = new Date(t.createdAt || 0).getTime();
+      if (!isNaN(born) && now - born < ACTIVE_WINDOW_MS) continue;
+      const lastCp = await prisma.trackingCheckpoint.findFirst({
+        where: { tripId: t.id },
+        orderBy: { at: 'desc' },
+      });
+      if (lastCp) {
+        const seen = new Date(lastCp.at).getTime();
+        if (!isNaN(seen) && now - seen < ACTIVE_WINDOW_MS) continue;
+      }
+      doomed.push(t);
+    }
     let closed = 0;
     for (const trip of doomed) {
       try {
@@ -1961,9 +1954,12 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
       const driverName = String(entry.driver || '').trim().toUpperCase();
       const openTrips = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
       // RETURN-CLOSES-SIBLINGS (driver-duty fix): every open dispatch naming this
-      // truck or the guard-read driver ends together. Leaving the other siblings
-      // open is exactly how a returned truck kept its driver "On Trip" and Fleet
-      // Operations could never hand him another load.
+      // truck — or the guard-read driver on THIS truck's dispatches — ends
+      // together. Plate match first: a driver's name may sit on several open
+      // dispatches, and only the ones carrying THIS TRUCK belong to the return
+      // (the man cannot drive two trucks at once; anything else naming him is a
+      // duplicate or a data-entry artefact — closing a second truck's live run
+      // wholesale made dispatches vanish from boards no gate action touched).
       const matches = openTrips.filter((t: any) => {
         const tr = String(t.truckReg || '').toUpperCase();
         const trKey = tr.split(/[\s/]+/)[0] || '';
@@ -1971,7 +1967,13 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         if (plate && (tr === plate || tail === plate || (plateKey && trKey === plateKey) || (plateKey && trKey && tr.includes(plateKey)))) {
           return true;
         }
-        return Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName;
+        // Driver-name fallback ONLY when the stamp ran without a readable plate
+        // — the guard names the truck first at the barrier, so a plate in hand
+        // must never let the name sweep unrelated dispatches in.
+        if (!plate && Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName) {
+          return true;
+        }
+        return false;
       });
       const trip = matches[0] || null;
       if (trip) {
@@ -2066,7 +2068,9 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         } catch (e2) {
           console.error('gate return asset cycle failed:', e2?.message || e2);
         }
-        void notify('Gate Security', 'Dispatch Completed', 'Truck ' + closed.truckReg + ' is back in the yard — dispatch ' + dispatchRef(closed.id) + ' closed and the driver freed.', 'info', 'TransportManager,Fleet Operations,Security,Tracking', { module: 'Gate Security', eventKey: 'dispatch.completed', refId: closed.id, refLabel: dispatchRef(closed.id) });
+        // RECIPIENT-FIX: "TransportManager" (no space) matches no role — every
+        // gate-closed dispatch silently skipped the Transport Manager's bell.
+        void notify('Gate Security', 'Dispatch Completed', 'Truck ' + closed.truckReg + ' is back in the yard — dispatch ' + dispatchRef(closed.id) + ' closed and the driver freed.', 'info', 'Transport Manager,Fleet Operations,Security,Tracking', { module: 'Gate Security', eventKey: 'dispatch.completed', refId: closed.id, refLabel: dispatchRef(closed.id) });
       }
     } catch (e: any) {
       // A failed closure must never lose the gate stamp itself.
@@ -2513,7 +2517,7 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
           await coupleTailRegistry(closedTrip, 'home');
         }
         if (stuck.length) {
-          void notify('HR & Personnel', 'Driver Released', driver.name + ' was released and ' + stuck.length + ' open dispatch' + (stuck.length === 1 ? '' : 'es') + ' closed with him.', 'warning', 'TransportManager,HR & Personnel,Fleet Operations,Tracking', { module: 'HR & Personnel', eventKey: 'driver.released', refId: driver.id, refLabel: driver.staffId || driver.name });
+          void notify('HR & Personnel', 'Driver Released', driver.name + ' was released and ' + stuck.length + ' open dispatch' + (stuck.length === 1 ? '' : 'es') + ' closed with him.', 'warning', 'Transport Manager,HR & Personnel,Fleet Operations,Tracking', { module: 'HR & Personnel', eventKey: 'driver.released', refId: driver.id, refLabel: driver.staffId || driver.name });
         }
       }
     }

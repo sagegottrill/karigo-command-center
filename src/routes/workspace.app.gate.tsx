@@ -262,6 +262,15 @@ function SecurityLogPage() {
   };
 
   const handleLogReturn = async (trip: Trip) => {
+    // ALREADY-HOME GUARD: "Returned" on a row the gate has already closed must
+    // not restamp the return — the second click used to overwrite the real
+    // moment the truck came back with a later time and fire the notify again.
+    // One return, one stamp.
+    if (returnStamp(trip)) {
+      toast.info("This dispatch is already logged back in — its return stamp stands.");
+      setMenuTripId(null);
+      return;
+    }
     try {
       const { marked } = await completeTripReturn(trip);
       toast.success(marked ? "Return logged — truck set to Check Up" : "Return logged");
