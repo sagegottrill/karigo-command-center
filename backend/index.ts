@@ -3123,6 +3123,20 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
     where: { id: item.id },
     data: { stock, status },
   });
+  // LOW-STOCK ALERT (PRD §2) — a disbursement that pushes a line to (or below)
+  // its threshold tells the Transport Manager the moment stock moves, so
+  // procurement starts before the shelf empties for the next truck. It fires
+  // only on the downward crossing: once a line is low/empty, every later issue
+  // on it no longer re-alerts.
+  if (
+    (stock <= item.reorderLevel || stock <= 0) &&
+    item.stock > Math.max(item.reorderLevel, 0)
+  ) {
+    await notify('Inventory', stock <= 0 ? 'Stock depleted' : 'Low stock alert',
+      `${item.name} dropped to ${stock} on the shelf (threshold: ${item.reorderLevel}) after ${qty} × ${requisition.part} was released to ${requisition.truckReg}. Initiate procurement to replenish the line.`,
+      'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant',
+      { module: 'Inventory', eventKey: 'inventory.low_stock', refId: item.id, refLabel: item.name, actionRoles: ['Transport Manager'] });
+  }
   const releasedValue = qty * wac;
   const updated = await prisma.inventoryRequisition.update({
     where: { id: requisition.id },

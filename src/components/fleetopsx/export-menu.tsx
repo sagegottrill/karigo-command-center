@@ -1,19 +1,26 @@
+import { Download, FileCode2, FileSpreadsheet, FileText, Image as ImageIcon, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Image as ImageIcon, Printer } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
+  downloadBlobFile,
   downloadCsvBlob,
+  downloadTableHtml,
   downloadTableImage,
   downloadTablePdf,
   findExportCard,
 } from "@/lib/fleetopsx/table-export";
 import { cn } from "@/lib/utils";
 
+/** Same file-stamp convention as table-export's own download helpers. */
+const stamp = () => new Date().toISOString().slice(0, 10);
+
 /**
- * The one export control every table uses: CSV, Image and PDF.
+ * The one export control every table uses: CSV, Excel, HTML, Image and PDF.
  *
  * Fortune's rule — "always put image and pdf options" — applied in one place
- * instead of seventeen copies. The button opens a small menu; each option runs
+ * instead of seventeen copies; the Storehouse PRD adds Excel and HTML to the
+ * set every board must offer. The button opens a small menu; each option runs
  * against the data the page already filtered (the export honours the search
  * and the filters, exactly like the old CSV-only button did).
  */
@@ -25,6 +32,7 @@ export function ExportMenu({
   className,
   mobile = false,
   csvAction,
+  xlsx,
   /** What the button reads. Defaults to "Export"; a page whose drawing names
    *  the format passes its own label. */
   label = "Export",
@@ -40,6 +48,10 @@ export function ExportMenu({
   mobile?: boolean;
   /** Optional override for the CSV action when the page already owns its download (e.g. the lubricant footer). */
   csvAction?: () => void;
+  /** A typed workbook builder (headers + rows + sheet name). When the page
+   *  does not pass one, the Excel option is still offered — it converts the
+   *  page's own CSV string into a real .xlsx workbook. */
+  xlsx?: () => { headers: string[]; rows: (string | number)[][]; sheet?: string };
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -114,8 +126,72 @@ export function ExportMenu({
     }
   };
 
+  const runExcel = async () => {
+    if (!guard()) return;
+    setBusy(true);
+    try {
+      const base = fileNameBase ?? "export";
+      if (xlsx) {
+        const { headers, rows: sheetRows, sheet } = xlsx();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...sheetRows]);
+        // Columns sized to the longest cell so the sheet opens readable.
+        ws["!cols"] = headers.map((h, i) => ({
+          wch: Math.min(
+            42,
+            Math.max(
+              String(h).length + 2,
+              ...sheetRows.slice(0, 200).map((r) => String(r[i] ?? "").length + 2),
+            ),
+          ),
+        }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, sheet ?? "Export");
+        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+        downloadBlobFile(
+          new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          `${base}-${stamp()}.xlsx`,
+        );
+      } else {
+        // No typed sheet on this board — round-trip its own CSV through the
+        // xlsx reader so every board still exports a real workbook.
+        if (!csvBuilder) throw new Error("Nothing to export.");
+        const csvText = String(await csvBuilder());
+        const wb = XLSX.read(csvText, { type: "string" });
+        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+        downloadBlobFile(
+          new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          `${base}-${stamp()}.xlsx`,
+        );
+      }
+      toast.success("Excel workbook downloaded.");
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The workbook could not be created.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runHtml = async () => {
+    if (!guard()) return;
+    setBusy(true);
+    try {
+      const card = findExportCard(btnRef.current);
+      if (!card) throw new Error("Could not find the table to capture.");
+      downloadTableHtml(card, title ?? "Export", fileNameBase ?? "export");
+      toast.success("HTML file downloaded.");
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The HTML file could not be created.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const items = [
     { label: "Export CSV", icon: FileText, action: runCsv, hint: "Spreadsheet data" },
+    { label: "Export Excel", icon: FileSpreadsheet, action: runExcel, hint: ".xlsx workbook" },
+    { label: "Export HTML", icon: FileCode2, action: runHtml, hint: "Shareable snapshot" },
     { label: "Export Image", icon: ImageIcon, action: runImage, hint: ".png for sharing" },
     { label: "Export PDF", icon: Printer, action: runPdf, hint: "Print-ready sheet" },
   ];

@@ -448,3 +448,20 @@ export function findExportCard(from: HTMLElement | null): HTMLElement | null {
 export function downloadCsvBlob(csv: string, fileNameBase: string): void {
   saveBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${fileNameBase}-${stamp()}.csv`);
 }
+
+/** The same snapshot the image/PDF paths draw from, saved as a real .html file
+ *  — one more format for the boards that must survive the yard's connection. */
+export function downloadTableHtml(
+  card: HTMLElement,
+  title: string,
+  fileNameBase: string,
+): void {
+  const snap = snapshotTableCard(card, title);
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${fileNameBase}-${stamp()}</title></head><body style="margin:0;background:#F1F2F4">${snap.html}</body></html>`;
+  saveBlob(new Blob([doc], { type: "text/html;charset=utf-8" }), `${fileNameBase}-${stamp()}.html`);
+}
+
+/** Generic download helper for callers that build their own blob (Excel). */
+export function downloadBlobFile(blob: Blob, fileName: string): void {
+  saveBlob(blob, fileName);
+}

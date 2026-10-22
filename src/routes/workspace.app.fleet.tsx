@@ -201,10 +201,26 @@ function StatusPill({ status }: { status: FleetStatus }) {
 }
 
 function headLabel(trip: Trip, heads: TruckHead[]) {
+  // trip.headId is a client-side fiction — the live Trip table has no headId
+  // column, only truckReg ("PLATE / TAILCODE"). So beyond the (harmless) id
+  // probes, resolve the head from the plate the trip actually stores — the
+  // same fallback the details modal below already runs. Without it a truck
+  // added after the roster sheet showed its bare plate where all its
+  // neighbours read `P0xx (PLATE)`.
+  const platePart = (trip.truckReg || "").split("/")[0]?.trim() ?? "";
   const head =
     heads.find(
       (h) => h.id === trip.headId || h.number === trip.headId || h.capNumber === trip.headId,
-    ) ?? null;
+    ) ??
+    // Unassigned is the absence of a truck, never a plate to match against.
+    (platePart && !/^unassigned$/i.test(platePart)
+      ? heads.find(
+          (h) =>
+            (h.registration || "").replace(/\s/g, "").toUpperCase() ===
+            platePart.replace(/\s/g, "").toUpperCase(),
+        )
+      : undefined) ??
+    null;
   const cap = displayCapFromTrip(trip, head);
   const plate = displayPlateFromTrip(trip, head);
   if (cap && plate) return `${cap} (${plate})`;

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Download, Printer, Search } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Printer, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
@@ -14,19 +14,17 @@ import {
   PartsRequestDialog,
   LubricantRequestDialog,
 } from "@/components/fleetopsx/eng-requests";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import {
   authService,
   engineeringService,
   fleetService,
   formatNairaFull,
   inventoryService,
+  lubricantService,
 } from "@/lib/fleetopsx/services";
 import { liveListFuelRequests, liveSetFuelRequestStatus } from "@/lib/fleetopsx/live-api";
-import {
-  fuelBadge,
-  groupRequisitions,
-  type RequestGroup,
-} from "@/lib/fleetopsx/request-status";
+import { fuelBadge, groupRequisitions, type RequestGroup } from "@/lib/fleetopsx/request-status";
 import {
   ENGINEERING_ACCESS_ROLES,
   indexWorkOrdersByTruck,
@@ -58,7 +56,19 @@ export const Route = createFileRoute("/workspace/app/engineering-requests")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const roles = authService.getRoles();
-    if (!roles.some((r: string) => ["Transport Manager", "Platform Admin", "Engineering", "Engineering & Maintenance", "Engineering and Maintenance", "Head of Engineering", "Engineering Manager"].includes(r))) {
+    if (
+      !roles.some((r: string) =>
+        [
+          "Transport Manager",
+          "Platform Admin",
+          "Engineering",
+          "Engineering & Maintenance",
+          "Engineering and Maintenance",
+          "Head of Engineering",
+          "Engineering Manager",
+        ].includes(r),
+      )
+    ) {
       window.location.assign("/workspace/app/unauthorized");
     }
   },
@@ -109,6 +119,8 @@ function EngineeringRequestsPage() {
   const [requisitions, setRequisitions] = useState<InventoryRequisition[]>([]);
   const [fuel, setFuel] = useState<FuelRequest[]>([]);
   const [orders, setOrders] = useState<WorkOrder[]>([]);
+  /** Bulk-tank standing levels, keyed "Diesel" | "Gas" — the lubricant rows' stock figure. */
+  const [lubStock, setLubStock] = useState<Record<string, number>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [partsForm, setPartsForm] = useState(false);
   const [lubeForm, setLubeForm] = useState(false);
@@ -123,7 +135,9 @@ function EngineeringRequestsPage() {
   const [completingBusy, setCompletingBusy] = useState(false);
 
   const me = authService.getCurrentUser()?.name || "Transport Manager";
-  const canTM = authService.getRoles().some((r: string) => ["Transport Manager", "Platform Admin"].includes(r));
+  const canTM = authService
+    .getRoles()
+    .some((r: string) => ["Transport Manager", "Platform Admin"].includes(r));
   const canWork = authService.getRoles().some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r));
   // The HOE approval desk belongs to the Engineering Manager's account. The
   // workshop role keeps its raise/inspect work; the Platform Admin reads the
@@ -131,12 +145,13 @@ function EngineeringRequestsPage() {
   const canHoe = isEngineeringManager() || canTM;
 
   const refresh = useCallback(async () => {
-    const [headsRows, tailsRows, store, reqs, wos] = await Promise.all([
+    const [headsRows, tailsRows, store, reqs, wos, overview] = await Promise.all([
       fleetService.listHeads().catch(() => [] as TruckHead[]),
       fleetService.listTails().catch(() => [] as TruckTail[]),
       inventoryService.list().catch(() => [] as InventoryItem[]),
       inventoryService.requisitions().catch(() => [] as InventoryRequisition[]),
       engineeringService.listWorkOrders().catch(() => [] as WorkOrder[]),
+      lubricantService.overview().catch(() => null),
     ]);
     let fuelRows: FuelRequest[] = [];
     try {
@@ -150,6 +165,9 @@ function EngineeringRequestsPage() {
     setRequisitions(reqs);
     setFuel(fuelRows);
     setOrders(wos);
+    setLubStock(
+      Object.fromEntries((overview?.stocks ?? []).map((s) => [String(s.fuelType), s.quantity])),
+    );
   }, []);
 
   useEffect(() => {
@@ -157,6 +175,20 @@ function EngineeringRequestsPage() {
       .catch(() => toast.error("Failed to load the requests"))
       .finally(() => setLoading(false));
   }, [refresh]);
+
+  /** The store shelf lookup the lubricant tab uses to name its oil lines. */
+  const itemById = useCallback((id: string) => items.find((i) => i.id === id), [items]);
+  /** Oil-shelf lines (Motor Oil draws) — the requisitions that belong on the
+   *  Lubricant tab rather than the Parts one. */
+  const isOilItem = useCallback(
+    (i?: InventoryItem) =>
+      !!i &&
+      (/^(oil|grs|grease|lub|lube|hyd|coolant|atf|ep2|2t|4t|sae)/i.test(i.sku) ||
+        /lubricant|grease|coolant|hydraulic|engine oil|gear oil|transmission oil|brake oil/i.test(
+          `${i.category} ${i.name}`,
+        )),
+    [],
+  );
 
   const groups = useMemo(() => groupRequisitions(requisitions), [requisitions]);
   const engFuel = useMemo(
@@ -173,7 +205,10 @@ function EngineeringRequestsPage() {
 
   /** The Figma queue: only the group the TM authorises — with a real target. */
   const pendingParts = useMemo(
-    () => groups.filter((g) => g.stage === "Awaiting Admin Approval" || g.lines.some((l) => l.status === "Pending")),
+    () =>
+      groups.filter(
+        (g) => g.stage === "Awaiting Admin Approval" || g.lines.some((l) => l.status === "Pending"),
+      ),
     [groups],
   );
   const pendingLube = useMemo(
@@ -181,17 +216,29 @@ function EngineeringRequestsPage() {
     [engFuel],
   );
 
+  /** What the authorization board holds per tab: oil requisitions ride the
+   *  Lubricant tab next to the tank draws; everything else on Parts. */
+  const oilGroup = useCallback(
+    (g: RequestGroup) => g.lines.length > 0 && g.lines.every((l) => isOilItem(itemById(l.itemId))),
+    [isOilItem, itemById],
+  );
+  const boardLubeGroups = useMemo(() => groups.filter(oilGroup), [groups, oilGroup]);
+  const boardParts = useMemo(
+    () => pendingParts.filter((g) => !oilGroup(g)),
+    [pendingParts, oilGroup],
+  );
+
   const stockOf = (part: string) => {
-    const hit = items.find(
-      (i) => i.name.trim().toLowerCase() === part.trim().toLowerCase(),
-    );
+    const hit = items.find((i) => i.name.trim().toLowerCase() === part.trim().toLowerCase());
     return hit ? hit.stock : null;
   };
 
   /* ------------------------------------------------ the two decisions */
 
   const rejectGroup = async (key: string, lines: InventoryRequisition[]) => {
-    const note = (window.prompt(`Why is request ${key} rejected? Attached to the record.`) ?? "").trim();
+    const note = (
+      window.prompt(`Why is request ${key} rejected? Attached to the record.`) ?? ""
+    ).trim();
     if (!note) return;
     setBusyId(key);
     try {
@@ -209,7 +256,11 @@ function EngineeringRequestsPage() {
     setBusyId(key);
     try {
       for (const l of lines) {
-        await inventoryService.approveRequisition({ id: l.id, itemId: l.itemId, quantity: l.quantity });
+        await inventoryService.approveRequisition({
+          id: l.id,
+          itemId: l.itemId,
+          quantity: l.quantity,
+        });
       }
       toast.success(`${key} authorized — handed to the store floor.`);
       await refresh();
@@ -224,16 +275,24 @@ function EngineeringRequestsPage() {
     setBusyId(r.id);
     try {
       if (hoe) {
-        const reason = approve ? "" : (window.prompt(`Why is ${r.reference} declined? Attached to the record.`) ?? "").trim();
+        const reason = approve
+          ? ""
+          : (window.prompt(`Why is ${r.reference} declined? Attached to the record.`) ?? "").trim();
         if (!approve && !reason) {
           setBusyId(null);
           return;
         }
         await inventoryService.hoeReviewFuelRequest(r.id, approve, reason);
-        toast.success(approve ? `${r.reference} validated — sent to the TM desk.` : `${r.reference} declined.`);
+        toast.success(
+          approve ? `${r.reference} validated — sent to the TM desk.` : `${r.reference} declined.`,
+        );
       } else {
         await liveSetFuelRequestStatus(r.id, approve ? "Authorized" : "Declined");
-        toast.success(approve ? `${r.reference} authorized — the desk can dispense it.` : `${r.reference} declined.`);
+        toast.success(
+          approve
+            ? `${r.reference} authorized — the desk can dispense it.`
+            : `${r.reference} declined.`,
+        );
       }
       await refresh();
     } catch (err) {
@@ -266,11 +325,17 @@ function EngineeringRequestsPage() {
     () =>
       [...orders]
         .filter((o) => o.status === "Completed" || o.status === "Cancelled")
-        .sort((a, b) => String(b.completedAt || b.reportedAt).localeCompare(String(a.completedAt || a.reportedAt))),
+        .sort((a, b) =>
+          String(b.completedAt || b.reportedAt).localeCompare(
+            String(a.completedAt || a.reportedAt),
+          ),
+        ),
     [orders],
   );
   const availableCount = useMemo(
-    () => heads.filter((h) => h.status === "Available").length + tails.filter((t) => t.status === "Available").length,
+    () =>
+      heads.filter((h) => h.status === "Available").length +
+      tails.filter((t) => t.status === "Available").length,
     [heads, tails],
   );
 
@@ -289,7 +354,8 @@ function EngineeringRequestsPage() {
   const completeRepairs = async (asset: CheckAsset, notes: string) => {
     setCompletingBusy(true);
     try {
-      if (asset.kind === "head") await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
+      if (asset.kind === "head")
+        await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
       else await fleetService.updateTailStatus(asset.id, "Available", asset.label);
       const job = openFor(asset);
       if (job && job.status !== "Completed") {
@@ -329,11 +395,7 @@ function EngineeringRequestsPage() {
             <ArrowLeft className="size-5" />
           </button>
         </div>
-        <MaintenanceReportView
-          heads={heads}
-          tails={tails}
-          requisitions={requisitions}
-        />
+        <MaintenanceReportView heads={heads} tails={tails} requisitions={requisitions} />
       </>
     );
   }
@@ -345,17 +407,17 @@ function EngineeringRequestsPage() {
     <EngineeringRequestsBoard
       tab={tab}
       setTab={setTab}
-      pendingParts={pendingParts}
-      pendingLube={pendingLube}
-      engFuel={engFuel}
+      boardParts={boardParts}
+      boardLubeGroups={boardLubeGroups}
+      engineFuel={engFuel}
       items={items}
       busyId={busyId}
-      canTM={canTM}
-      canWork={canWork}
       onRejectGroup={rejectGroup}
       onApproveGroup={approveGroup}
       onDecideFuel={decideFuel}
       stockOf={stockOf}
+      itemById={itemById}
+      lubTankStock={lubStock}
     />
   );
 
@@ -378,17 +440,26 @@ function EngineeringRequestsPage() {
   const hubOverview = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {([
-          ["Available", availableCount, "Ready Fleet"],
-          ["Parts Request", pendingParts.length, "Active"],
-          ["Check-up", checkupAssets.length, "In Queue"],
-          ["Under Maintenance", maintAssets.length, "In Repair"],
-        ] as const).map(([label, value, hint]) => (
-          <div key={label} className="flex flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        {(
+          [
+            ["Available", availableCount, "Ready Fleet"],
+            ["Parts Request", pendingParts.length, "Active"],
+            ["Check-up", checkupAssets.length, "In Queue"],
+            ["Under Maintenance", maintAssets.length, "In Repair"],
+          ] as const
+        ).map(([label, value, hint]) => (
+          <div
+            key={label}
+            className="flex flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]"
+          >
             <span className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">{label}</span>
+              <span className="text-[12px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
+                {label}
+              </span>
             </span>
-            <span className="text-[30px] font-bold leading-8 text-[#1B2432] tabular-nums">{value}</span>
+            <span className="text-[30px] font-bold leading-8 text-[#1B2432] tabular-nums">
+              {value}
+            </span>
             <span className="text-[12px] text-[#8E95A1]">{hint}</span>
           </div>
         ))}
@@ -402,7 +473,9 @@ function EngineeringRequestsPage() {
         </p>
         <p className="text-[12.5px] text-[#8E95A1]">Returning fleet awaiting evaluation</p>
         {checkupAssets.length === 0 ? (
-          <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">No truck is waiting for check-up.</p>
+          <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">
+            No truck is waiting for check-up.
+          </p>
         ) : (
           <div className="mt-3 flex flex-col divide-y divide-[#E2E5E9]">
             {checkupAssets.slice(0, 5).map((a) => (
@@ -439,7 +512,13 @@ function EngineeringRequestsPage() {
         </div>
         <label className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] px-2.5 text-[13px] text-[#5C6470]">
           <Search className="size-4" />
-          <input value={assetQuery} onChange={(e) => setAssetQuery(e.target.value)} placeholder="Search" aria-label="Search check-up queue" className="w-36 bg-transparent outline-none placeholder:text-[#8E95A1]" />
+          <input
+            value={assetQuery}
+            onChange={(e) => setAssetQuery(e.target.value)}
+            placeholder="Search"
+            aria-label="Search check-up queue"
+            className="w-36 bg-transparent outline-none placeholder:text-[#8E95A1]"
+          />
         </label>
       </div>
       {filterAssets(checkupAssets).length === 0 ? (
@@ -447,17 +526,28 @@ function EngineeringRequestsPage() {
       ) : (
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {filterAssets(checkupAssets).map((a) => (
-            <div key={a.kind + a.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-[#E2E5E9] px-4 py-3">
+            <div
+              key={a.kind + a.id}
+              className="flex items-center justify-between gap-3 rounded-[8px] border border-[#E2E5E9] px-4 py-3"
+            >
               <div className="min-w-0">
                 <p className="truncate text-[14.5px] font-semibold text-[#1B2432]">{a.label}</p>
-                <p className="text-[12px] text-[#8E95A1]">{a.kind === "head" ? "Truck Head" : "Truck Tail"} • Check Up</p>
+                <p className="text-[12px] text-[#8E95A1]">
+                  {a.kind === "head" ? "Truck Head" : "Truck Tail"} • Check Up
+                </p>
               </div>
               {canWork ? (
-                <button type="button" onClick={() => setInspecting(a)} className="h-9 shrink-0 rounded bg-[#ED351D] px-4 text-[13.5px] font-medium text-white hover:bg-[#d62e19]">
+                <button
+                  type="button"
+                  onClick={() => setInspecting(a)}
+                  className="h-9 shrink-0 rounded bg-[#ED351D] px-4 text-[13.5px] font-medium text-white hover:bg-[#d62e19]"
+                >
                   Inspect
                 </button>
               ) : (
-                <span className="shrink-0 rounded-full bg-[#F99E1F]/15 px-2.5 py-1 text-[11px] font-semibold text-[#B26A00]">Awaiting inspection</span>
+                <span className="shrink-0 rounded-full bg-[#F99E1F]/15 px-2.5 py-1 text-[11px] font-semibold text-[#B26A00]">
+                  Awaiting inspection
+                </span>
               )}
             </div>
           ))}
@@ -476,20 +566,38 @@ function EngineeringRequestsPage() {
               {maintAssets.length}
             </span>
           </p>
-          <p className="text-[12.5px] text-[#8E95A1]">Manage fleet grounded for repairs following defect log</p>
+          <p className="text-[12.5px] text-[#8E95A1]">
+            Manage fleet grounded for repairs following defect log
+          </p>
         </div>
         <label className="flex h-9 items-center gap-2 rounded border border-[#E2E5E9] px-2.5 text-[13px] text-[#5C6470]">
           <Search className="size-4" />
-          <input value={assetQuery} onChange={(e) => setAssetQuery(e.target.value)} placeholder="Search" aria-label="Search maintenance queue" className="w-36 bg-transparent outline-none placeholder:text-[#8E95A1]" />
+          <input
+            value={assetQuery}
+            onChange={(e) => setAssetQuery(e.target.value)}
+            placeholder="Search"
+            aria-label="Search maintenance queue"
+            className="w-36 bg-transparent outline-none placeholder:text-[#8E95A1]"
+          />
         </label>
       </div>
       {filterAssets(maintAssets).length === 0 ? (
-        <FigmaEmptyState title="No truck under maintenance" body="Defects logged at check-up ground trucks here." />
+        <FigmaEmptyState
+          title="No truck under maintenance"
+          body="Defects logged at check-up ground trucks here."
+        />
       ) : (
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {filterAssets(maintAssets).map((a) => {
             const awaiting = requisitions.filter(
-              (p) => p.truckReg === a.reg && ["Awaiting HOE Review", "Awaiting Admin Approval", "Awaiting Pickup", "Awaiting Procurement"].includes(p.status),
+              (p) =>
+                p.truckReg === a.reg &&
+                [
+                  "Awaiting HOE Review",
+                  "Awaiting Admin Approval",
+                  "Awaiting Pickup",
+                  "Awaiting Procurement",
+                ].includes(p.status),
             );
             return (
               <div key={a.kind + a.id} className="rounded-[8px] border border-[#E2E5E9] p-4">
@@ -497,19 +605,27 @@ function EngineeringRequestsPage() {
                   <p className="text-[14.5px] font-semibold text-[#1B2432]">
                     {a.kind === "head" ? "Truck Head" : "Truck Tail"}: {a.label}
                   </p>
-                  <span className="rounded-full bg-[#ED351D]/10 px-2.5 py-1 text-[11px] font-semibold text-[#ED351D]">Under Maintenance</span>
+                  <span className="rounded-full bg-[#ED351D]/10 px-2.5 py-1 text-[11px] font-semibold text-[#ED351D]">
+                    Under Maintenance
+                  </span>
                 </div>
                 {(() => {
                   const job = openFor(a);
                   return job?.mechanic ? (
                     <p className="mt-1.5 text-[12px] text-[#5C6470]">
-                      Assigned engineer: <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
+                      Assigned engineer:{" "}
+                      <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
                     </p>
                   ) : null;
                 })()}
                 {awaiting.length > 0 ? (
                   <p className="mt-1.5 text-[12px] text-[#5C6470]">
-                    Parts: {awaiting.map((p) => p.part).slice(0, 3).join(" + ")} ({awaiting.length} awaiting approval)
+                    Parts:{" "}
+                    {awaiting
+                      .map((p) => p.part)
+                      .slice(0, 3)
+                      .join(" + ")}{" "}
+                    ({awaiting.length} awaiting approval)
                   </p>
                 ) : null}
                 {canWork ? (
@@ -534,7 +650,9 @@ function EngineeringRequestsPage() {
       <h3 className="text-[16px] font-semibold text-[#1B2432]">Fleet Inspection Log</h3>
       <p className="mt-0.5 text-[12.5px] text-[#8E95A1]">Completed inspections, newest first</p>
       {completedJobs.length === 0 ? (
-        <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">No completed job on record yet.</p>
+        <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">
+          No completed job on record yet.
+        </p>
       ) : (
         <div className="mt-3 flex flex-col divide-y divide-[#E2E5E9]">
           {completedJobs.slice(0, 12).map((o) => (
@@ -593,14 +711,16 @@ function EngineeringRequestsPage() {
       {/* THE ONE NAV. Requests first — then the hub's sections in one page,
           replacing the old Engineering/Maintenance Hub/Work Orders split. */}
       <div className="flex flex-wrap gap-2">
-      {([
-        ["requests", "Requests"],
-        ["hoe", `HOE Review (${hoeParts.length + hoeLube.length})`],
-        ["overview", "Overview"],
-        ["checkup", `Check-up Queue (${checkupAssets.length})`],
-        ["queue", `Maintenance Queue (${maintAssets.length})`],
-        ["log", "Maintenance Log"],
-      ] as const).map(([key, label]) => (
+        {(
+          [
+            ["requests", "Requests"],
+            ["hoe", `HOE Review (${hoeParts.length + hoeLube.length})`],
+            ["overview", "Overview"],
+            ["checkup", `Check-up Queue (${checkupAssets.length})`],
+            ["queue", `Maintenance Queue (${maintAssets.length})`],
+            ["log", "Maintenance Log"],
+          ] as const
+        ).map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -629,7 +749,13 @@ function EngineeringRequestsPage() {
       {section === "log" ? hubLog : null}
 
       {inspecting ? (
-        <InspectionDialog asset={inspecting} items={items} inspector={me} onClose={() => setInspecting(null)} onDone={() => void refresh()} />
+        <InspectionDialog
+          asset={inspecting}
+          items={items}
+          inspector={me}
+          onClose={() => setInspecting(null)}
+          onDone={() => void refresh()}
+        />
       ) : null}
       {hoeReviewing ? (
         <GroupReviewDialog
@@ -639,13 +765,30 @@ function EngineeringRequestsPage() {
         />
       ) : null}
       {completing ? (
-        <MaintenanceCompleteDialog asset={completing} busy={completingBusy} onClose={() => (completingBusy ? null : setCompleting(null))} onConfirm={(notes) => void completeRepairs(completing, notes)} />
+        <MaintenanceCompleteDialog
+          asset={completing}
+          busy={completingBusy}
+          onClose={() => (completingBusy ? null : setCompleting(null))}
+          onConfirm={(notes) => void completeRepairs(completing, notes)}
+        />
       ) : null}
       {partsForm ? (
-        <PartsRequestDialog heads={heads} tails={tails} items={items} onClose={() => setPartsForm(false)} onDone={refresh} />
+        <PartsRequestDialog
+          heads={heads}
+          tails={tails}
+          items={items}
+          onClose={() => setPartsForm(false)}
+          onDone={refresh}
+        />
       ) : null}
       {lubeForm ? (
-        <LubricantRequestDialog heads={heads} tails={tails} onClose={() => setLubeForm(false)} onDone={refresh} />
+        <LubricantRequestDialog
+          heads={heads}
+          tails={tails}
+          items={items}
+          onClose={() => setLubeForm(false)}
+          onDone={refresh}
+        />
       ) : null}
     </div>
   );
@@ -700,7 +843,9 @@ function MaintenanceReportView({
   const jobsFor = useCallback(
     (asset: { id: string } | null) => {
       if (!asset) return [];
-      return requisitions.filter((r) => r.requestGroup && r.truckReg && r.status !== "Rejected").slice(0, 3);
+      return requisitions
+        .filter((r) => r.requestGroup && r.truckReg && r.status !== "Rejected")
+        .slice(0, 3);
     },
     [requisitions],
   );
@@ -708,7 +853,9 @@ function MaintenanceReportView({
   return (
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:p-[30px] md:pb-[30px]">
       <div className="flex flex-col gap-[5px]">
-        <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Standardized Fleet Maintenance Report</h2>
+        <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+          Standardized Fleet Maintenance Report
+        </h2>
         <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
           Official maintenance report for truck heads and tails, formatted with details, diagnostic,
           timestamps and resolve date.
@@ -718,13 +865,18 @@ function MaintenanceReportView({
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[440px_1fr]">
         <div className="flex flex-col gap-4 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="grid grid-cols-2 rounded bg-[#1B2432] p-1">
-            {([
-              ["head", "Truck Head"],
-              ["tail", "Truck Tail"],
-            ] as const).map(([k, label]) => {
-              const n = k === "head"
-                ? heads.filter((h) => h.status === "Maintenance" || h.status === "Check Up").length
-                : tails.filter((t) => t.status === "Maintenance" || t.status === "Check Up").length;
+            {(
+              [
+                ["head", "Truck Head"],
+                ["tail", "Truck Tail"],
+              ] as const
+            ).map(([k, label]) => {
+              const n =
+                k === "head"
+                  ? heads.filter((h) => h.status === "Maintenance" || h.status === "Check Up")
+                      .length
+                  : tails.filter((t) => t.status === "Maintenance" || t.status === "Check Up")
+                      .length;
               return (
                 <button
                   key={k}
@@ -750,12 +902,17 @@ function MaintenanceReportView({
           {underMaintenance.length === 0 ? (
             <FigmaEmptyState
               title="Nothing under maintenance"
-              body={kind === "head" ? "No truck head is in the workshop." : "No truck tail is in the workshop."}
+              body={
+                kind === "head"
+                  ? "No truck head is in the workshop."
+                  : "No truck tail is in the workshop."
+              }
             />
           ) : (
             underMaintenance.map((a, i) => {
               const on = a.id === selectedId;
-              const label = kind === "head" ? truckLabel(a as TruckHead) : tailLabel(a as TruckTail);
+              const label =
+                kind === "head" ? truckLabel(a as TruckHead) : tailLabel(a as TruckTail);
               const cap =
                 kind === "head"
                   ? `${(a as AssetLike).capNumber ?? (a as AssetLike).number} \u2022 ${(a as AssetLike).registration}`
@@ -779,9 +936,7 @@ function MaintenanceReportView({
                     </span>
                   </span>
                   <span className="text-[12.5px] text-[#5C6470]">{label}</span>
-                  <span className="text-[11.5px] text-[#8E95A1]">
-                    Asset id: {a.id.slice(0, 8)}
-                  </span>
+                  <span className="text-[11.5px] text-[#8E95A1]">Asset id: {a.id.slice(0, 8)}</span>
                 </button>
               );
             })
@@ -803,10 +958,10 @@ function MaintenanceReportView({
               <p className="text-[15px] font-semibold text-white">Truck Details</p>
               <div className="mt-3 grid grid-cols-3 gap-4">
                 {[
-                    ["Head Number", head ? ((head as AssetLike).capNumber ?? head.number) : "\u2014"],
-                    ["Plate No", head?.registration ?? "\u2014"],
-                    ["Make/Model", (head as AssetLike | null)?.make || head?.type || "\u2014"],
-                  ].map(([label, value]) => (
+                  ["Head Number", head ? ((head as AssetLike).capNumber ?? head.number) : "\u2014"],
+                  ["Plate No", head?.registration ?? "\u2014"],
+                  ["Make/Model", (head as AssetLike | null)?.make || head?.type || "\u2014"],
+                ].map(([label, value]) => (
                   <div key={label}>
                     <p className="text-[11px] uppercase tracking-[0.4px] text-[#8FA0B3]">{label}</p>
                     <p className="mt-1 text-[15px] font-medium text-white">{value}</p>
@@ -837,10 +992,16 @@ function MaintenanceReportView({
               Issue Diagnostics and Description
             </div>
             <div className="mt-2 rounded border border-[#E2E5E9] bg-white px-3 py-2 text-[13.5px] text-[#344256]">
-              {selected ? jobsFor(selected)[0]?.part || "Defect under repair \u2014 see the work order." : "\u2014"}
+              {selected
+                ? jobsFor(selected)[0]?.part || "Defect under repair \u2014 see the work order."
+                : "\u2014"}
             </div>
             <div className="mt-2 min-h-[110px] rounded border border-[#E2E5E9] bg-white px-3 py-2 text-[13.5px] text-[#627084]">
-              {selected ? jobsFor(selected).map((j) => j.part).join(" \u2022 ") || "\u2014" : "\u2014"}
+              {selected
+                ? jobsFor(selected)
+                    .map((j) => j.part)
+                    .join(" \u2022 ") || "\u2014"
+                : "\u2014"}
             </div>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -915,7 +1076,8 @@ function HoeReviewDesk({
           Head of Engineering Approval
         </h3>
         <p className="mt-1 text-[12.5px] text-[#8E95A1]">
-          Requests the workshop raised, waiting on this desk before the Transport Manager authorises them
+          Requests the workshop raised, waiting on this desk before the Transport Manager authorises
+          them
         </p>
       </div>
 
@@ -940,7 +1102,10 @@ function HoeReviewDesk({
                 </span>
               </p>
               {parts.map((g) => (
-                <div key={g.key} className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4">
+                <div
+                  key={g.key}
+                  className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-[15px] font-semibold text-[#1B2432]">
@@ -948,7 +1113,8 @@ function HoeReviewDesk({
                         <span className="ml-2 text-[12px] font-normal text-[#8E95A1]">{g.key}</span>
                       </p>
                       <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                        Requested by: <span className="text-[#344256]">Engr. {g.requestedBy || "\u2014"}</span>
+                        Requested by:{" "}
+                        <span className="text-[#344256]">Engr. {g.requestedBy || "\u2014"}</span>
                       </p>
                     </div>
                     <button
@@ -971,8 +1137,13 @@ function HoeReviewDesk({
                       <span className="text-right">Available Stock</span>
                     </div>
                     {g.lines.map((l) => (
-                      <div key={l.id} className="grid grid-cols-[1fr_72px_110px] items-center border-t border-[#E2E5E9] bg-white px-3 py-2">
-                        <span className="min-w-0 truncate text-[13.5px] font-medium text-[#1B2432]">{l.part}</span>
+                      <div
+                        key={l.id}
+                        className="grid grid-cols-[1fr_72px_110px] items-center border-t border-[#E2E5E9] bg-white px-3 py-2"
+                      >
+                        <span className="min-w-0 truncate text-[13.5px] font-medium text-[#1B2432]">
+                          {l.part}
+                        </span>
                         <span className="grid h-7 w-16 place-items-center rounded border border-[#E2E5E9] bg-white text-[13px] font-semibold tabular-nums">
                           {l.quantity}
                         </span>
@@ -996,15 +1167,21 @@ function HoeReviewDesk({
                 </span>
               </p>
               {lube.map((r) => (
-                <div key={r.id} className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4">
+                <div
+                  key={r.id}
+                  className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-[15px] font-semibold text-[#1B2432]">
                         {r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || r.reference}
-                        <span className="ml-2 text-[12px] font-normal text-[#8E95A1]">{r.reference}</span>
+                        <span className="ml-2 text-[12px] font-normal text-[#8E95A1]">
+                          {r.reference}
+                        </span>
                       </p>
                       <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                        Requested by: <span className="text-[#344256]">Engr. {r.requestedBy || "\u2014"}</span>
+                        Requested by:{" "}
+                        <span className="text-[#344256]">Engr. {r.requestedBy || "\u2014"}</span>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1042,176 +1219,527 @@ function HoeReviewDesk({
 
 /* ========================= the authorization board ========================= */
 
+/** The store shelf a lubricant line names — for the family + stock columns. */
+const OIL_SKU_RX = /^(oil|grs|grease|lub|lube|hyd|coolant|atf|ep2|2t|4t|sae)/i;
+const OIL_TEXT_RX =
+  /lubricant|grease|coolant|hydraulic|engine oil|gear oil|transmission oil|brake oil/i;
+
+const isOilItem = (it?: InventoryItem | null) =>
+  Boolean(it && (OIL_SKU_RX.test(it.sku) || OIL_TEXT_RX.test(`${it.category} ${it.name}`)));
+
+const isOilLine = (r: InventoryRequisition, itemOf: (id: string) => InventoryItem | undefined) =>
+  isOilItem(itemOf(r.itemId)) || OIL_TEXT_RX.test(r.part) || OIL_SKU_RX.test(r.part);
+
+/** The unit a quantity chip prints — the bulk tank's Diesel/Gas words, shelf oil in litres. */
+const qtyChipLabel = (qty: number, name: string) =>
+  name === "Gas" ? `${qty.toLocaleString("en-NG")} kg` : `${qty.toLocaleString("en-NG")}litres`;
+
+/** One card's printable slip — the printer icon on the card. */
+function printRequestSlip(
+  head: string,
+  meta: string,
+  description: string,
+  lines: Array<[string, string, string]>,
+) {
+  const win = window.open("", "_blank", "width=760,height=680");
+  if (!win) {
+    toast.error("The print sheet could not be opened — allow pop-ups.");
+    return;
+  }
+  const rows = lines
+    .map(([a, b, c]) => `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`)
+    .join("");
+  win.document.write(
+    `<!doctype html><html><head><title>${head}</title>
+    <style>body{font-family:system-ui,sans-serif;padding:32px;color:#1B2432}
+    h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:16px}
+    td,th{border:1px solid #E2E5E9;padding:8px;text-align:left;font-size:14px}th{background:#F7F8FA}</style>
+    </head><body><h1>${head}</h1><p>${meta}</p>
+    <p><strong>Description:</strong> ${description || "&mdash;"}</p>
+    <table><tr><th>Item</th><th>Quantity</th><th>Available stock</th></tr>${rows}</table>
+    <p><small>Engineering Requests Authorization &mdash; FleetOpsX</small></p>
+    </body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+/** A decision button's look: enabled green authorize, white reject, gray pending. */
+function DecisionButtons({
+  hoePending,
+  busy,
+  onReject,
+  onAuthorize,
+  onPrint,
+  authorizeLabel = "Authorize Part Approval",
+}: {
+  /** Still on the Head of Engineering's desk — the design's disabled gray button. */
+  hoePending: boolean;
+  busy: boolean;
+  onReject?: () => void;
+  onAuthorize?: () => void;
+  onPrint: () => void;
+  authorizeLabel?: string;
+}) {
+  if (hoePending) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled
+          title="Awaiting Head of Engineering review"
+          className="h-9 rounded-lg bg-[#C4CAD2] px-3.5 text-[13px] font-medium text-white"
+        >
+          Authorize Approval
+        </button>
+        <button
+          type="button"
+          onClick={onPrint}
+          aria-label="Print request slip"
+          className="grid size-9 place-items-center rounded-lg text-[#8E95A1] hover:bg-[#F1F2F4] hover:text-[#1B2432]"
+        >
+          <Printer className="size-4" strokeWidth={1.75} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onReject}
+        className="h-9 rounded-lg border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#5C6470] hover:bg-[#F7F8FA] disabled:opacity-60"
+      >
+        Reject Request
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onAuthorize}
+        className="h-9 rounded-lg bg-[#2ECC71] px-3.5 text-[13px] font-medium text-white hover:bg-[#28b564] disabled:opacity-60"
+      >
+        {authorizeLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onPrint}
+        aria-label="Print request slip"
+        className="grid size-9 place-items-center rounded-lg text-[#8E95A1] hover:bg-[#F1F2F4] hover:text-[#1B2432]"
+      >
+        <Printer className="size-4" strokeWidth={1.75} />
+      </button>
+    </div>
+  );
+}
+
+/** The stages the TM's board still shows: HOE-pending rows sit grayed right here. */
+const BOARD_STAGES = new Set([
+  "Awaiting HOE Review",
+  "Awaiting Admin Approval",
+  "Pending Review",
+  "Mixed",
+]);
+const boardStageVisible = (stage: string) => BOARD_STAGES.has(stage);
+const boardStageTmReady = (g: { stage: string }) => g.stage !== "Awaiting HOE Review";
+
 function EngineeringRequestsBoard({
   tab,
   setTab,
-  pendingParts,
-  pendingLube,
-  engFuel,
+  boardParts,
+  boardLubeGroups,
+  engineFuel,
   items,
   busyId,
-  canTM,
-  canWork,
   onRejectGroup,
   onApproveGroup,
   onDecideFuel,
   stockOf,
+  itemById,
+  lubTankStock,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
-  pendingParts: ReturnType<typeof groupRequisitions>;
-  pendingLube: FuelRequest[];
-  engFuel: FuelRequest[];
+  /** Parts-tab groups: from Awaiting HOE Review (disabled rows) to Awaiting
+   *  Admin Approval (the rows this desk decides). */
+  boardParts: RequestGroup[];
+  /** Oil-shelf requisitions that ride the Lubricant tab, same stage grammar. */
+  boardLubeGroups: RequestGroup[];
+  /** Diesel/Gas tank draws still in the loop. */
+  engineFuel: FuelRequest[];
   items: InventoryItem[];
   busyId: string | null;
-  canTM: boolean;
-  canWork: boolean;
   onRejectGroup: (key: string, lines: InventoryRequisition[]) => void;
   onApproveGroup: (key: string, lines: InventoryRequisition[]) => void;
   onDecideFuel: (r: FuelRequest, approve: boolean, hoe: boolean) => void;
   stockOf: (part: string) => number | null;
+  itemById: (id: string) => InventoryItem | undefined;
+  /** The bulk tank's standing level per fuel type — Diesel/Gas rows' stock. */
+  lubTankStock: Record<string, number>;
 }) {
+  const [page, setPage] = useState(0);
+  const rows = tab === "parts" ? boardParts.length : boardLubeGroups.length + engineFuel.length;
+  const pageCount = Math.max(1, Math.ceil(rows / 5));
+  const current = Math.min(page, pageCount - 1);
+  const windowed = <T,>(list: T[]) => list.slice(current * 5, current * 5 + 5);
+
+  const csvFor =
+    tab === "parts"
+      ? () =>
+          toCsv([
+            [
+              "Date",
+              "Request",
+              "Target",
+              "Requested by",
+              "Part",
+              "Quantity",
+              "Available Stock",
+              "Stage",
+            ],
+            ...boardParts.flatMap((g) =>
+              g.lines.map((l) => [
+                String(g.date).slice(0, 10),
+                g.key,
+                g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg,
+                g.requestedBy || "",
+                l.part,
+                String(l.quantity),
+                String(stockOf(l.part) ?? ""),
+                g.stage,
+              ]),
+            ),
+          ])
+      : () =>
+          toCsv([
+            [
+              "Date",
+              "Request",
+              "Target",
+              "Requested by",
+              "Lubricant",
+              "Quantity",
+              "Available Stock",
+              "Stage",
+            ],
+            ...boardLubeGroups.flatMap((g) =>
+              g.lines.map((l) => {
+                const it = itemById(l.itemId);
+                return [
+                  String(g.date).slice(0, 10),
+                  g.key,
+                  g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg,
+                  g.requestedBy || "",
+                  it ? `${it.name}${it.sku ? ` (${it.sku})` : ""}` : l.part,
+                  qtyChipLabel(l.quantity, "Diesel"),
+                  String(it?.stock ?? ""),
+                  g.stage,
+                ];
+              }),
+            ),
+            ...engineFuel.map((r) => [
+              String(r.createdAt).slice(0, 10),
+              r.reference,
+              r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || "",
+              r.requestedBy || "",
+              r.fuelType,
+              qtyChipLabel(r.quantity, r.fuelType),
+              String(lubTankStock[r.fuelType] ?? ""),
+              fuelBadge(r).label,
+            ]),
+          ]);
+
   return (
     <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E5E9] pb-5">
-        <div className="flex items-center gap-3">
-          <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
-            Part Requests Authorization
-          </h3>
-          <div className="flex h-10 items-center rounded bg-[#F1F2F4] px-1">
-            {([
-              ["parts", "Parts Requests"],
-              ["lubricant", "Lubricant Requests"],
-            ] as const).map(([t, label]) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={cn(
-                  "h-8 rounded px-3 text-[13px] font-medium",
-                  tab === t ? "bg-white shadow-sm" : "text-[#8E95A1] hover:text-[#344256]",
-                )}
-              >
-                {label} ({t === "parts" ? pendingParts.length : engFuel.length})
-              </button>
-            ))}
-          </div>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-[#E2E5E9] pb-5">
+        <p className="flex items-center gap-2">
+          <span className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
+            Part Request Awaiting Approval
+          </span>
+          <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#ED351D] px-1.5 text-[12px] font-semibold text-white">
+            {rows}
+          </span>
+        </p>
+        <div className="flex h-10 items-center rounded-lg bg-[#F1F2F4] px-1">
+          {(
+            [
+              ["parts" as Tab, `Parts Requests (${boardParts.length})`],
+              [
+                "lubricant" as Tab,
+                `Lubricant Requests (${boardLubeGroups.length + engineFuel.length})`,
+              ],
+            ] as [Tab, string][]
+          ).map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTab(t);
+                setPage(0);
+              }}
+              className={cn(
+                "h-8 rounded-md px-3 text-[13px] font-medium",
+                tab === t
+                  ? "bg-white text-[#1B2432] shadow-sm"
+                  : "text-[#8E95A1] hover:text-[#344256]",
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {tab === "parts" ? (
-        pendingParts.length === 0 ? (
-          <FigmaEmptyState
-            title="No parts request awaits approval"
-            body="Engineering raises; HOE validates; what reaches this desk needs your authorization."
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {pendingParts.map((g) => (
-              <div key={g.key} className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#1B2432]">
-                      {g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}
-                    </p>
-                    <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                      Requested by: <span className="text-[#344256]">Engr. {g.requestedBy || "\u2014"}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={busyId === g.key}
-                      onClick={() => onRejectGroup(g.key, g.lines)}
-                      className="h-9 rounded border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA] disabled:opacity-60"
-                    >
-                      Reject Request
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyId === g.key}
-                      onClick={() => onApproveGroup(g.key, g.lines)}
-                      className="h-9 rounded bg-[#2ECC71] px-3.5 text-[13px] font-medium text-white hover:bg-[#28b564] disabled:opacity-60"
-                    >
-                      Authorize Part Approval
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-2 rounded-[6px] border border-[#F3A69A] bg-[#FFF5F4] px-3 py-2">
-                  <p className="text-[13px] font-semibold text-[#ED351D]">Description:</p>
-                  <p className="text-[13px] text-[#1B2432]">{g.description || "\u2014"}</p>
-                </div>
-                <div className="mt-2 overflow-hidden rounded-[6px] border border-[#E2E5E9]">
-                  <div className="grid grid-cols-[1fr_72px_110px] items-center bg-[#F7F8FA] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8E95A1]">
-                    <span>Part Number</span>
-                    <span>Quantity</span>
-                    <span className="text-right">Available Stock</span>
-                  </div>
-                  {g.lines.map((l) => (
-                    <div key={l.id} className="grid grid-cols-[1fr_72px_110px] items-center border-t border-[#E2E5E9] px-3 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13.5px] font-medium text-[#1B2432]">{l.part}</span>
-                      </span>
-                      <span className="grid h-7 w-16 place-items-center rounded border border-[#E2E5E9] bg-white text-[13px] font-semibold tabular-nums">
-                        {l.quantity}
-                      </span>
-                      <span className="text-right text-[13px] font-semibold tabular-nums text-[#1B2432]">
-                        {stockOf(l.part) ?? "\u2014"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      ) : pendingLube.length === 0 ? (
+      {rows === 0 ? (
         <FigmaEmptyState
-          title="No lubricant request awaits approval"
-          body="Engineering draws pass HOE first; the approved ones wait here."
+          title={`No ${tab === "parts" ? "parts" : "lubricant"} request awaits approval`}
+          body={
+            tab === "parts"
+              ? "Engineering raises; HOE validates; what reaches this desk needs your authorization."
+              : "Bulk tank draws and oil shelf asks land here — HOE first, then your word."
+          }
         />
       ) : (
         <div className="flex flex-col gap-4">
-          {pendingLube.map((r) => {
-            const hoe = r.status === "Requested";
-            return (
-              <div key={r.id} className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#1B2432]">
-                      {r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || r.reference}
-                    </p>
-                    <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                      Requested by: <span className="text-[#344256]">Engr. {r.requestedBy || "\u2014"}</span>
-                    </p>
+          {tab === "parts" ? (
+            windowed(boardParts).map((g) => {
+              const hoe = !boardStageTmReady(g);
+              return (
+                <div key={g.key} className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[15px] font-semibold text-[#1B2432]">
+                        {g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}
+                      </p>
+                      <p className="mt-0.5 text-[13px] text-[#344256]">
+                        Requested by:{" "}
+                        <span className="font-medium">Engr. {g.requestedBy || "\u2014"}</span>
+                      </p>
+                    </div>
+                    <DecisionButtons
+                      hoePending={hoe}
+                      busy={busyId === g.key}
+                      onReject={() => onRejectGroup(g.key, g.lines)}
+                      onAuthorize={() => onApproveGroup(g.key, g.lines)}
+                      onPrint={() =>
+                        printRequestSlip(
+                          `Request ${g.key} — ${g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}`,
+                          `Requested by Engr. ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
+                          g.description,
+                          g.lines.map((l) => [
+                            l.part,
+                            `${l.quantity}`,
+                            String(stockOf(l.part) ?? "\u2014"),
+                          ]),
+                        )
+                      }
+                    />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={busyId === r.id}
-                      onClick={() => onDecideFuel(r, false, hoe)}
-                      className="h-9 rounded border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA] disabled:opacity-60"
-                    >
-                      Reject Request
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyId === r.id}
-                      onClick={() => onDecideFuel(r, true, hoe)}
-                      className="h-9 rounded bg-[#2ECC71] px-3.5 text-[13px] font-medium text-white hover:bg-[#28b564] disabled:opacity-60"
-                    >
-                      Authorize Part Approval
-                    </button>
+                  <div className="mt-2 rounded-md border border-[#F3A69A]/60 bg-[#FEF2F1] px-3 py-2.5">
+                    <p className="text-[13px] font-semibold text-[#ED351D]">Description:</p>
+                    <p className="mt-0.5 text-[13px] text-[#1B2432]">{g.description || "\u2014"}</p>
+                  </div>
+                  <div className="mt-2 overflow-hidden rounded-md border border-[#E2E5E9]">
+                    <div className="grid grid-cols-[1fr_90px_140px] items-center bg-[#F1F3F5] px-3 py-1.5 text-[13px] text-[#5C6470]">
+                      <span>Part Number</span>
+                      <span className="text-center">Quantity</span>
+                      <span className="text-right">Available Stock</span>
+                    </div>
+                    {g.lines.map((l) => (
+                      <div
+                        key={l.id}
+                        className="grid grid-cols-[1fr_90px_140px] items-center border-t border-[#E2E5E9] bg-white px-3 py-1.5"
+                      >
+                        <span className="min-w-0 truncate text-[13.5px] text-[#344256]">
+                          {l.part}
+                        </span>
+                        <span className="justify-self-center rounded-md border border-[#E2E5E9] px-2.5 py-0.5 text-[13px] font-medium tabular-nums text-[#344256]">
+                          {l.quantity}
+                        </span>
+                        <span className="text-right text-[13px] font-medium tabular-nums text-[#344256]">
+                          {stockOf(l.part) ?? "\u2014"}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="mt-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3 py-2 text-[13.5px] text-[#1B2432]">
-                  {r.fuelType} • {r.quantity.toLocaleString()} litres
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <>
+              {windowed(boardLubeGroups).map((g) => {
+                const hoe = !boardStageTmReady(g);
+                return (
+                  <div key={g.key} className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[15px] font-semibold text-[#1B2432]">
+                          {g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}
+                        </p>
+                        <p className="mt-0.5 text-[13px] text-[#344256]">
+                          Requested by:{" "}
+                          <span className="font-medium">Engr. {g.requestedBy || "\u2014"}</span>
+                        </p>
+                      </div>
+                      <DecisionButtons
+                        hoePending={hoe}
+                        busy={busyId === g.key}
+                        onReject={() => onRejectGroup(g.key, g.lines)}
+                        onAuthorize={() => onApproveGroup(g.key, g.lines)}
+                        onPrint={() =>
+                          printRequestSlip(
+                            `Request ${g.key} — ${g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}`,
+                            `Requested by Engr. ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
+                            g.description,
+                            g.lines.map((l) => {
+                              const it = itemById(l.itemId);
+                              return [
+                                it ? `${it.name}${it.sku ? ` (${it.sku})` : ""}` : l.part,
+                                qtyChipLabel(l.quantity, "Diesel"),
+                                it ? qtyChipLabel(it.stock, "Diesel") : "\u2014",
+                              ];
+                            }),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="mt-2 rounded-md border border-[#E2E5E9] bg-[#FCFCFD] px-3 py-2.5">
+                      <p className="text-[13px] font-semibold text-[#1B2432]">Description:</p>
+                      <p className="mt-0.5 text-[13px] text-[#344256]">
+                        {g.description || "\u2014"}
+                      </p>
+                    </div>
+                    <div className="mt-2 overflow-hidden rounded-md border border-[#E2E5E9]">
+                      <div className="grid grid-cols-[1fr_90px_140px] items-center bg-[#F1F3F5] px-3 py-1.5 text-[13px] text-[#5C6470]">
+                        <span>Lubricant</span>
+                        <span className="text-center">Quantity</span>
+                        <span className="text-right">Available Stock</span>
+                      </div>
+                      {g.lines.map((l) => {
+                        const it = itemById(l.itemId);
+                        return (
+                          <div
+                            key={l.id}
+                            className="grid grid-cols-[1fr_90px_140px] items-center border-t border-[#E2E5E9] bg-white px-3 py-1.5"
+                          >
+                            <span className="min-w-0 truncate text-[13.5px] text-[#344256]">
+                              {it ? `${it.name}${it.sku ? ` (${it.sku})` : ""}` : l.part}
+                            </span>
+                            <span className="justify-self-center rounded-md border border-[#E2E5E9] px-2.5 py-0.5 text-[13px] font-medium tabular-nums text-[#344256]">
+                              {qtyChipLabel(l.quantity, "Diesel")}
+                            </span>
+                            <span className="text-right text-[13px] font-medium tabular-nums text-[#344256]">
+                              {it ? qtyChipLabel(it.stock, "Diesel") : "\u2014"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {windowed(engineFuel).map((r) => {
+                const hoe = r.status === "Requested";
+                return (
+                  <div key={r.id} className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[15px] font-semibold text-[#1B2432]">
+                          {r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || r.reference}
+                        </p>
+                        <p className="mt-0.5 text-[13px] text-[#344256]">
+                          Requested by:{" "}
+                          <span className="font-medium">Engr. {r.requestedBy || "\u2014"}</span>
+                        </p>
+                      </div>
+                      <DecisionButtons
+                        hoePending={hoe}
+                        busy={busyId === r.id}
+                        onReject={hoe ? undefined : () => onDecideFuel(r, false, false)}
+                        onAuthorize={() => onDecideFuel(r, true, hoe)}
+                        onPrint={() =>
+                          printRequestSlip(
+                            `${r.reference} — ${r.fuelType}`,
+                            `Requested by Engr. ${r.requestedBy || "\u2014"} • ${r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || "\u2014"} • ${String(r.createdAt).slice(0, 10)}`,
+                            r.purpose || "",
+                            [
+                              [
+                                r.fuelType,
+                                qtyChipLabel(r.quantity, r.fuelType),
+                                lubTankStock[r.fuelType] != null
+                                  ? qtyChipLabel(Number(lubTankStock[r.fuelType]), r.fuelType)
+                                  : "\u2014",
+                              ],
+                            ],
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="mt-2 rounded-md border border-[#E2E5E9] bg-[#FCFCFD] px-3 py-2.5">
+                      <p className="text-[13px] font-semibold text-[#1B2432]">Description:</p>
+                      <p className="mt-0.5 text-[13px] text-[#344256]">{r.purpose || "\u2014"}</p>
+                    </div>
+                    <div className="mt-2 overflow-hidden rounded-md border border-[#E2E5E9]">
+                      <div className="grid grid-cols-[1fr_90px_140px] items-center bg-[#F1F3F5] px-3 py-1.5 text-[13px] text-[#5C6470]">
+                        <span>Lubricant</span>
+                        <span className="text-center">Quantity</span>
+                        <span className="text-right">Available Stock</span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_90px_140px] items-center border-t border-[#E2E5E9] bg-white px-3 py-1.5">
+                        <span className="text-[13.5px] text-[#344256]">{r.fuelType}</span>
+                        <span className="justify-self-center rounded-md border border-[#E2E5E9] px-2.5 py-0.5 text-[13px] font-medium tabular-nums text-[#344256]">
+                          {qtyChipLabel(r.quantity, r.fuelType)}
+                        </span>
+                        <span className="text-right text-[13px] font-medium tabular-nums text-[#344256]">
+                          {lubTankStock[r.fuelType] != null
+                            ? qtyChipLabel(Number(lubTankStock[r.fuelType]), r.fuelType)
+                            : "\u2014"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
+
+      {rows > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-[#8E95A1]">
+            {rows === 0 ? "0" : `${current * 5 + 1} - ${Math.min(rows, (current + 1) * 5)}`} of{" "}
+            {rows}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={current === 0}
+              onClick={() => setPage(current - 1)}
+              className="grid size-9 place-items-center rounded-lg border border-[#E2E5E9] bg-white text-[#8E95A1] hover:text-[#1B2432] disabled:opacity-40"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={current >= pageCount - 1}
+              onClick={() => setPage(current + 1)}
+              className="grid size-9 place-items-center rounded-lg border border-[#E2E5E9] bg-white text-[#8E95A1] hover:text-[#1B2432] disabled:opacity-40"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <ExportMenu
+              csv={csvFor}
+              rows={rows}
+              label="Export CSV"
+              fileNameBase="engineering-requests"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

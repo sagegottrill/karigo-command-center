@@ -22,7 +22,7 @@ import {
   tripLoadingSites,
   type LocationCheckpoint,
 } from "@/lib/fleetopsx/tracking-ops";
-import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { canLogLoading, canLogTracking } from "@/lib/fleetopsx/active-role";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import {
@@ -249,6 +249,9 @@ function ActiveDispatchPage() {
         if (!cancelled) setLoading(false);
       }
     })();
+    // NEW-TRUCK-CAP: mirror the fleet so a cap reads `P0xx (PLATE)` even for a
+    // truck added after the roster sheet — see displayCapFromTrip.
+    void fleetService.listHeads().catch(() => []);
     return () => {
       cancelled = true;
     };

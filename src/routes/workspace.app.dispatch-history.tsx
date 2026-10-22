@@ -6,7 +6,7 @@ import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { displayDispatchId as dispatchId } from "@/lib/fleetopsx/request-id";
-import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, fleetService, tripService } from "@/lib/fleetopsx/services";
 import { canSeeTmPricing } from "@/lib/fleetopsx/active-role";
 import {
   displayCapFromTrip,
@@ -664,6 +664,9 @@ function DispatchHistoryPage() {
       .list()
       .then(setDrivers)
       .catch(() => {});
+    // NEW-TRUCK-CAP: mirror the fleet so a truck added after the roster sheet
+    // still names its cap in the Vehicle & Operator details.
+    void fleetService.listHeads().catch(() => []);
   }, []);
 
   // Near real-time: status changes (departed, returned, completed) appear live

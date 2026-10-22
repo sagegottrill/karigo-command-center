@@ -34,6 +34,7 @@ import {
   mapInventoryMovement,
 } from "./live-api";
 import { displayRequestId } from "./request-id";
+import { registerLiveHeads } from "./display-ids";
 import { setActiveRole } from "./active-role";
 import { clearPendingLoginPassword, getPendingLoginPassword } from "./password-policy";
 import type { DirectCostKey } from "./direct-costs";
@@ -159,20 +160,31 @@ export const companyService = {
 };
 
 export const fleetService = {
-  listHeads: () => fetchApi("/trucks").then((res: any[]) => res.map(mapTruckHead)),
+  // listHeads also mirrors the fleet into display-ids' live registry: a truck
+  // added after the roster sheet exists only here, and every board that names a
+  // truck (cap number first) reads its cap through that mirror.
+  listHeads: () =>
+    fetchApi("/trucks")
+      .then((res: any[]) => res.map(mapTruckHead))
+      .then((heads: TruckHead[]) => {
+        registerLiveHeads(heads);
+        return heads;
+      }),
   listTails: (): Promise<TruckTail[]> =>
     fetchApi("/tails").then((res: any[]) => asList(res).map(mapTail)),
   createHead: (input: any) =>
     fetchApi("/trucks", { method: "POST", body: JSON.stringify(input) }).then((res) => {
       // Scoped to staff: a partner has never been told the yard owns a new truck,
-      // and an unaddressed row goes to every user on the platform.
+      // and an unaddressed row goes to every user on the platform. The truck is
+      // named the way every board names it — cap number first, plate in
+      // brackets — not by its plate alone.
       notificationService.create({
         title: "New Asset Added",
-        body: `Truck ${input.registration} has been added to the fleet.`,
+        body: `Truck ${input.cabId ? `${input.cabId} (${input.registration})` : input.registration} has been added to the fleet.`,
         category: "Operations",
         module: "Fleet Operations",
         audience: "Fleet Operations,Transport Manager,Platform Admin",
-        refLabel: input.registration,
+        refLabel: input.cabId || input.registration,
       });
       return res;
     }),

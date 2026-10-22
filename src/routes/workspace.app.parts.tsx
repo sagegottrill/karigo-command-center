@@ -1,7 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Package, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileSpreadsheet, Package, Plus, Search, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { FilterButton } from "@/components/fleetopsx/filter-button";
 import {
@@ -137,6 +139,147 @@ function PartsAndStore() {
   const [purchaseDraft, setPurchaseDraft] = useState<Record<string, string> | null>(null);
   const [historyFor, setHistoryFor] = useState<InventoryItem | null>(null);
   const [historyRows, setHistoryRows] = useState<InventoryMovement[] | null>(null);
+
+  /**
+   * The bulk intake: the storehouse's existing .xlsx ledger, 2,000+ lines
+   * deep, in ONE upload. The sheet is parsed in the browser (no server round
+   * trip per row), shown back as a preview the attendant can read, and only
+   * then sent to /api/inventory/import — which upserts by SKU, so a re-upload
+   * corrects lines rather than duplicating them.
+   */
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [importRows, setImportRows] = useState<ImportRow[] | null>(null);
+
+  /** One parsed store line, with what the row is missing attached for the preview. */
+  type ImportRow = {
+    name: string;
+    sku: string;
+    stock: number;
+    unitCost: number;
+    reorderLevel: number;
+    category: string;
+    location: string;
+    supplier: string;
+    vehicleCompatibility: string;
+    warnings: string[];
+  };
+
+  /** Header matching: a legacy sheet calls the same column ten different names. */
+  const pickField = (
+    row: Record<string, unknown>,
+    patterns: readonly RegExp[],
+  ): unknown => {
+    for (const pattern of patterns) {
+      for (const [key, value] of Object.entries(row)) {
+        if (pattern.test(String(key).toLowerCase().replace(/[^a-z]/g, ""))) {
+          if (value !== "" && value != null) return value;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  const HEADER_PATTERNS = {
+    name: [/name/, /description/, /part/, /item/],
+    sku: [/sku/, /code/, /partno/, /partnumber/, /itemcode/],
+    stock: [/quantity/, /qty/, /stock/, /onhand/, /count/],
+    unitCost: [/unitcost/, /unitprice/, /price/, /cost/, /rate/],
+    reorderLevel: [/reorder/, /threshold/, /minimum/, /min/, /alert/],
+    category: [/category/, /type/, /class/, /group/],
+    location: [/location/, /store/, /shelf/, /section/, /bin/],
+    supplier: [/supplier/, /vendor/],
+    vehicleCompatibility: [/compatibility/, /vehicle/, /fitment/, /applicable/],
+  } as const;
+
+  type HeaderField = keyof typeof HEADER_PATTERNS;
+
+  const parseImportFile = async (file: File) => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) throw new Error("The workbook has no sheets.");
+      const ws = wb.Sheets[sheetName];
+      if (!ws) throw new Error("The first sheet is empty.");
+      const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+      const rows: ImportRow[] = [];
+      let invalid = 0;
+      raw.forEach((entry, index) => {
+        const str = (field: HeaderField) => String(pickField(entry, HEADER_PATTERNS[field]) ?? "").trim();
+        const num = (field: HeaderField) => {
+          const value = pickField(entry, HEADER_PATTERNS[field]);
+          const n = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""));
+          return Number.isFinite(n) ? n : 0;
+        };
+        const name = str("name");
+        if (!name) {
+          invalid += 1;
+          return;
+        }
+        const warnings: string[] = [];
+        let sku = str("sku");
+        if (!sku) {
+          // A legacy line without a SKU still deserves to enter the store —
+          // the ledger's identity is generated here and stays stable.
+          sku = `AUTO-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24)}-${index + 1}`.toUpperCase();
+          warnings.push("SKU generated");
+        }
+        const stock = Math.trunc(num("stock"));
+        const unitCost = num("unitCost");
+        if (stock <= 0) warnings.push("no quantity — stored at 0");
+        if (unitCost <= 0) warnings.push("no unit cost — priced at ₦0");
+        rows.push({
+          name,
+          sku,
+          stock,
+          unitCost,
+          reorderLevel: Math.trunc(num("reorderLevel")) || 5,
+          category: str("category") || "General",
+          location: str("location") || "Main Store",
+          supplier: str("supplier"),
+          vehicleCompatibility: str("vehicleCompatibility"),
+          warnings,
+        });
+      });
+      if (rows.length === 0)
+        throw new Error(
+          invalid > 0
+            ? "No row carried a part name — check the column headings."
+            : "The sheet is empty.",
+        );
+      setImportFileName(file.name);
+      setImportRows(rows);
+      if (invalid > 0)
+        toast.message(`${invalid} empty ${invalid === 1 ? "row" : "rows"} skipped before the preview.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The file could not be read.");
+    }
+  };
+
+  const commitImport = async () => {
+    if (!importRows?.length) return;
+    setImporting(true);
+    try {
+      const result = await inventoryService.importItems(
+        importRows.map(({ warnings: _w, ...row }) => row),
+      );
+      toast.success(
+        `Import saved — ${result.created} parts created, ${result.updated} updated${
+          result.skipped.length ? `, ${result.skipped.length} skipped` : ""
+        }.`,
+      );
+      setImportOpen(false);
+      setImportRows(null);
+      setImportFileName("");
+      void load().catch(() => {});
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The import was not saved.");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   useEffect(() => {
     const roles = authService.getRoles();
@@ -527,6 +670,18 @@ function PartsAndStore() {
             <button
               type="button"
               onClick={() => {
+                setImportRows(null);
+                setImportFileName("");
+                setImportOpen(true);
+              }}
+              className="flex h-8 items-center gap-1.5 rounded border border-[#1B2432] px-3 text-[14px] font-medium tracking-[0.4px] text-[#1B2432]"
+            >
+              <Upload className="size-4" strokeWidth={1.75} />
+              Import Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setEditing(null);
                 setDraft(emptyDraft());
               }}
@@ -869,6 +1024,45 @@ function PartsAndStore() {
             <span className="ml-auto text-[13px] text-[#5C6470]">
               {filteredItems.length} of {items.length} line{items.length === 1 ? "" : "s"}
             </span>
+            <ExportMenu
+              label="Export"
+              rows={filteredItems.length}
+              title="Parts & Store — Inventory Ledger"
+              fileNameBase="inventory-ledger"
+              csv={() =>
+                [
+                  ["Part", "SKU", "Category", "Unit Cost", "Stock", "Reorder At", "Total Value", "Location", "Status"],
+                  ...filteredItems.map((i) => [
+                    i.name,
+                    i.sku,
+                    i.category,
+                    String(i.unitCost),
+                    String(i.stock),
+                    String(i.reorderLevel),
+                    String(i.stock * i.unitCost),
+                    i.location,
+                    i.status,
+                  ]),
+                ]
+                  .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+                  .join("\n")
+              }
+              xlsx={() => ({
+                headers: ["Part", "SKU", "Category", "Unit Cost (₦)", "Stock", "Reorder At", "Total Value (₦)", "Location", "Status"],
+                rows: filteredItems.map((i) => [
+                  i.name,
+                  i.sku,
+                  i.category,
+                  i.unitCost,
+                  i.stock,
+                  i.reorderLevel,
+                  i.stock * i.unitCost,
+                  i.location,
+                  i.status,
+                ]),
+                sheet: "Inventory Ledger",
+              })}
+            />
           </div>
 
           <div className="overflow-x-auto">
@@ -1082,6 +1276,132 @@ function PartsAndStore() {
                 {editing ? "Save part" : "Add to store"}
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ------------------------------------------------ bulk Excel import */}
+      {importOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Import Excel"
+          onClick={() => !importing && setImportOpen(false)}
+        >
+          <div
+            className="flex max-h-[90vh] w-[720px] max-w-full flex-col gap-4 overflow-y-auto rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.1)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-[#E2E5E9] pb-3">
+              <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
+                Import the store's Excel ledger
+              </h3>
+              <p className="mt-1 text-[12px] text-[#5C6470]">
+                One upload, however many lines. The .xlsx is read in the browser, shown back here
+                for a look, then saved — existing SKUs are updated in place, new SKUs are created.
+              </p>
+            </div>
+
+            {!importRows ? (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-[#1B2432] bg-[#F7F8FA] px-4 py-10 text-center">
+                <FileSpreadsheet className="size-7 text-[#1B2432]" strokeWidth={1.5} />
+                <span className="text-[14px] font-medium text-[#1B2432]">
+                  Choose the .xlsx file
+                </span>
+                <span className="text-[12px] text-[#5C6470]">
+                  Columns read by name: name/part, SKU/code, quantity/stock, unit cost/price,
+                  reorder/threshold, category, location, supplier, vehicle compatibility —
+                  a row without a SKU gets one generated.
+                </span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void parseImportFile(file);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-[13px] font-medium text-[#1B2432]">
+                    {importFileName} — {importRows.length} parts ready
+                  </span>
+                  <button
+                    type="button"
+                    disabled={importing}
+                    onClick={() => {
+                      setImportRows(null);
+                      setImportFileName("");
+                    }}
+                    className="h-8 shrink-0 rounded border border-[#1B2432] px-3 text-[13px] font-medium text-[#1B2432] disabled:opacity-50"
+                  >
+                    Pick another file
+                  </button>
+                </div>
+                <div className="max-h-[280px] overflow-auto rounded border border-[#E2E5E9]">
+                  <div className="min-w-[640px]">
+                    <div className="grid grid-cols-[1.5fr_120px_90px_110px_90px] items-center gap-3 border-b border-[#E2E5E9] bg-[#F7F8FA] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                      <span>Part</span>
+                      <span>SKU</span>
+                      <span>Quantity</span>
+                      <span>Unit cost</span>
+                      <span>Reorder at</span>
+                    </div>
+                    {importRows.slice(0, 100).map((row) => (
+                      <div
+                        key={row.sku}
+                        className="grid grid-cols-[1.5fr_120px_90px_110px_90px] items-center gap-3 border-b border-[#E2E5E9] px-3 py-1.5 text-[13px] text-[#344256] last:border-b-0"
+                      >
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate">{row.name}</span>
+                          {row.warnings.length ? (
+                            <span className="truncate text-[11px] text-[#B26A00]">
+                              {row.warnings.join(" · ")}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="truncate text-[12px] text-[#5C6470]">{row.sku}</span>
+                        <span className="tabular-nums">{row.stock.toLocaleString("en-NG")}</span>
+                        <span className="tabular-nums">{formatNairaFull(row.unitCost)}</span>
+                        <span className="tabular-nums">{row.reorderLevel}</span>
+                      </div>
+                    ))}
+                    {importRows.length > 100 ? (
+                      <div className="px-3 py-2 text-[12px] text-[#5C6470]">
+                        …and {importRows.length - 100} more lines (all will be saved).
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={importing}
+                    onClick={() => {
+                      setImportOpen(false);
+                      setImportRows(null);
+                      setImportFileName("");
+                    }}
+                    className="h-9 rounded border border-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-[#1B2432] disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={importing}
+                    onClick={() => void commitImport()}
+                    className="h-9 rounded bg-[#1B2432] px-4 text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-50"
+                  >
+                    {importing ? "Saving…" : `Save ${importRows.length} parts to the store`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

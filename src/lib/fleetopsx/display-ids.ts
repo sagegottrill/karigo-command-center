@@ -263,6 +263,36 @@ export function displayTicket(tripOrId: { id: string } | string): string {
   return displayRequestId(typeof tripOrId === "string" ? tripOrId : tripOrId.id);
 }
 
+/**
+ * The LIVE truck rows (the /api/trucks table), mirrored by every screen that
+ * loads the fleet — services.listHeads registers them. The roster file pairs
+ * plate ↔ cap only for the trucks that predate it; a truck the TM or Fleet Ops
+ * adds later lives ONLY in this table (the cap is stored as cabId), so this is
+ * the fallback that keeps every board able to call the new truck by its cap
+ * number as soon as it exists.
+ */
+const liveHeadByPlate = new Map<string, TruckHead>();
+
+/** Mirror the fleet the API returned, so cap lookups work for new trucks too. */
+export function registerLiveHeads(heads: TruckHead[]): void {
+  if (!heads.length) return;
+  liveHeadByPlate.clear();
+  for (const h of heads) {
+    const plateKey = normalizePlate(h.registration);
+    if (plateKey) liveHeadByPlate.set(plateKey, h);
+    for (const code of [h.capNumber, h.number]) {
+      const codeKey = (code || "").trim().toUpperCase();
+      if (codeKey && !liveHeadByPlate.has(codeKey)) liveHeadByPlate.set(codeKey, h);
+    }
+  }
+}
+
+/** Live-truck fallback: plate (or cap code) → the truck the API knows. */
+function findLiveHead(plateOrCode: string | null | undefined): TruckHead | undefined {
+  const key = normalizePlate(plateOrCode);
+  return key ? liveHeadByPlate.get(key) : undefined;
+}
+
 /** Cap from trip + optional resolved head (never UUID). */
 export function displayCapFromTrip(
   trip: { headId?: string | null; truckReg?: string | null },
@@ -271,10 +301,14 @@ export function displayCapFromTrip(
   if (head) return displayHeadCap(head, trip.headId);
   const plate = (trip.truckReg || "").split("/")[0]?.trim() ?? "";
   const roster = findRosterCabByPlate(plate) || findRosterCabById(trip.headId);
-  // The plate→roster lookup is the whole point: truckReg is the only assignment
-  // signal Fleet Ops' historical writes left behind, and it ALWAYS pairs with a
-  // cap code in the roster (NEW CAB ↔ REG.).
-  return humanCode(roster?.cabId, trip.headId) || roster?.cabId || "";
+  if (roster) return humanCode(roster?.cabId, trip.headId) || roster?.cabId || "";
+  // TRUCK-AFTER-THE-SHEET (23 Oct 2026): a truck added to the platform is not
+  // in the roster pairing, so the old lookup ended at "" and every board read
+  // the bare plate where all its neighbours read `P0xx (PLATE)`. Resolve the
+  // cap from the live fleet table before giving up.
+  const live = findLiveHead(plate) || findLiveHead(trip.headId);
+  if (live) return displayHeadCap(live) || humanCode(live.number, trip.headId) || "";
+  return humanCode(trip.headId) || "";
 }
 
 export function displayPlateFromTrip(
