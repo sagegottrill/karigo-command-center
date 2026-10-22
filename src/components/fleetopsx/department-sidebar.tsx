@@ -117,12 +117,16 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
   },
   // The STORE DEPARTMENT as its own portal: the Parts & Store board IS the
   // department's working page — catalog, purchases, requisitions, movements.
+  // "Part Inventory" points HERE, not at /part-inventory: that route is the
+  // Transport Manager's authorisation desk (Reject / Approve procurement) and
+  // its guard rejects store roles — the first link of this portal used to be
+  // an Unauthorized Access dead end for exactly the people it was shown to.
   parts: {
     heading: "PARTS & INVENTORY",
     title: "Parts & Inventory Portal",
     subtitle: "The store's catalog, purchases and requisitions",
     items: [
-      { label: "Part Inventory", to: "/workspace/app/part-inventory", icon: PackageSearch },
+      { label: "Part Inventory", to: "/workspace/app/parts", icon: PackageSearch },
       { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
