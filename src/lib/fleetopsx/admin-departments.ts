@@ -53,7 +53,13 @@ export function departmentToRoleKey(department: string): string {
     case "Drivers":
       return "Driver";
     default:
-      return "Transport Manager";
+    // The lane-leak rule: an unmapped department NEVER silently becomes the
+    // Transport Manager — the wrong default issued the manager's role (his
+    // sidebar, his approvals, his access) to a staff account nobody made a
+    // manager. The tick list is ADMIN_DEPARTMENTS, so this only fires when a
+    // new department label exists before its mapping does; making it loud
+    // keeps every account in its own lane.
+    throw new Error(`Unknown department "${department}" — add its RoleKey mapping before issuing the role.`);
   }
 }
 

@@ -163,21 +163,93 @@ function PortalNotFound() {
   );
 }
 
+/**
+ * The lanes this shell can render. The manager lane is granted BY ROLE (the
+ * Transport Manager / Platform Admin seats) — never by fall-through: under the
+ * old picker, a role every predicate missed simply inherited the manager's
+ * sidebar, which is how other departments kept ending up in his chrome.
+ */
+type ChromeLane =
+  | "manager"
+  | "fleetops"
+  | "gate"
+  | "tracking"
+  | "loading"
+  | "lubricant"
+  | "fieldops"
+  | "department";
+
+/**
+ * Which sidebar/header this session gets, decided once against the ACTIVE role:
+ *
+ *   1. the manager seats → the manager's chrome, deliberately;
+ *   2. each department's own portal (Fleet Ops, Gate, Tracking, Loading,
+ *      Lubricant, Field Ops) → its own shell;
+ *   3. HR / Engineering / Accounts / Stores → their department portals, the
+ *      probes evaluated only against the selected role;
+ *   4. anything the predicates never claimed → the GENERIC workspace portal —
+ *      its overview, its notifications, its messages — so a lane-less role
+ *      can no longer pose in the Transport Manager's chrome.
+ */
+function computeChrome() {
+  const roles = authService.getRoles();
+  // Department switch: evaluate shell predicates against the active role only.
+  const active = getActiveRole(roles);
+  const scoped = active && roles.length > 1 ? [active] : roles;
+  const lane: ChromeLane = scoped.some((r) => r === "Transport Manager" || r === "Platform Admin")
+    ? "manager"
+    : shouldUseFleetOpsShell(scoped)
+      ? "fleetops"
+      : shouldUseGateSecurityShell(scoped)
+        ? "gate"
+        : shouldUseTrackingOpsShell(scoped)
+          ? "tracking"
+          : shouldUseLoadingShell(scoped)
+            ? "loading"
+            : shouldUseLubricantShell(scoped)
+              ? "lubricant"
+              : shouldUseFieldOpsShell(scoped)
+                ? "fieldops"
+                : "department";
+  // HR, Engineering, Inventory and Accounts own their portals; the manager reads
+  // them as an audit.
+  const department: DepartmentKey | null =
+    lane !== "department"
+      ? null
+      : shouldUseHrShell(scoped)
+        ? "hr"
+        : shouldUseEngineeringShell(scoped)
+          ? "engineering"
+          : // The money desk: an Accounts login works its own disbursal board, with
+            // its own sidebar and its own header, never the manager's chrome.
+            shouldUseAccountsShell(scoped)
+            ? "accounts"
+            : // Parts & Inventory is ITS OWN department — its shell is picked
+              // before the storehouse's, and neither ever resolves to the
+              // manager's dashboard.
+              shouldUsePartsStoreShell(scoped)
+              ? "parts"
+              : shouldUseInventoryShell(scoped)
+                ? "inventory"
+                : "generic";
+  return {
+    active,
+    lane,
+    department,
+  };
+}
+
 function AppShell() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   // Set once the stored collapse choice has been applied — persistence waits for it
   const [collapseReady, setCollapseReady] = useState(false);
-  const [useFoShell, setUseFoShell] = useState(false);
-  const [useGateShell, setUseGateShell] = useState(false);
-  const [useTrackingShell, setUseTrackingShell] = useState(false);
-  const [useLoadingShell, setUseLoadingShell] = useState(false);
-  const [useLubricantShell, setUseLubricantShell] = useState(false);
-  const [useFieldOpsShell, setUseFieldOpsShell] = useState(false);
-  // HR, Engineering, Inventory and Accounts own their portals; the manager reads
-  // them as an audit.
-  const [departmentShell, setDepartmentShell] = useState<DepartmentKey | null>(null);
-  const [shellReady, setShellReady] = useState(false);
+  // The chrome this session renders is ONE computed lane, resolved synchronously
+  // from the active role — never a pile of half-set booleans. The old picker
+  // started every shell "off" in state, and anything "off" painted the
+  // Transport Manager's sidebar: a department login opened inside the manager's
+  // chrome before the effect ran, and a role no predicate matched STAYED there.
+  const [chrome, setChrome] = useState(() => computeChrome());
 
   const [activeRole, setActiveRoleState] = useState<string>("");
 
@@ -185,40 +257,13 @@ function AppShell() {
     setCollapsed(window.innerWidth < 768 || readSidebarCollapsed());
     setCollapseReady(true);
     const applyShell = () => {
-      const roles = authService.getRoles();
-      // Department switch: evaluate shell predicates against the active role only.
-      const active = getActiveRole(roles);
-      const scoped = active && roles.length > 1 ? [active] : roles;
-      setUseFoShell(shouldUseFleetOpsShell(scoped));
-      setUseGateShell(shouldUseGateSecurityShell(scoped));
-      setUseTrackingShell(shouldUseTrackingOpsShell(scoped));
-      setUseLoadingShell(shouldUseLoadingShell(scoped));
-      setUseLubricantShell(shouldUseLubricantShell(scoped));
-      setUseFieldOpsShell(shouldUseFieldOpsShell(scoped));
-      setDepartmentShell(
-        shouldUseHrShell(scoped)
-          ? "hr"
-          : shouldUseEngineeringShell(scoped)
-            ? "engineering"
-            : // The money desk: an Accounts login works its own disbursal board, with
-              // its own sidebar and its own header, never the manager's chrome.
-              shouldUseAccountsShell(scoped)
-              ? "accounts"
-              : // Parts & Inventory is ITS OWN department — its shell is picked
-                // before the storehouse's, and neither ever resolves to the
-                // manager's dashboard.
-                shouldUsePartsStoreShell(scoped)
-                ? "parts"
-                : shouldUseInventoryShell(scoped)
-                  ? "inventory"
-                  : null,
-      );
-      setActiveRoleState(active);
-      setShellReady(true);
+      // Role switch (header dropdown) re-picks sidebar + header chrome.
+      const next = computeChrome();
+      setChrome(next);
+      setActiveRoleState(next.active);
     };
     applyShell();
 
-    // Role switch (header dropdown) re-evaluates which department shell to render.
     window.addEventListener("fleetopsx:role-switched", applyShell);
     return () => window.removeEventListener("fleetopsx:role-switched", applyShell);
   }, []);
@@ -259,23 +304,23 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
-      {departmentShell ? (
+      {chrome.lane === "department" ? (
         <DepartmentSidebar
-          department={departmentShell}
+          department={chrome.department ?? "generic"}
           collapsed={collapsed}
           onToggle={() => setCollapsed((c) => !c)}
         />
-      ) : useGateShell ? (
+      ) : chrome.lane === "gate" ? (
         <GateSecuritySidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      ) : useLoadingShell ? (
+      ) : chrome.lane === "loading" ? (
         <LoadingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      ) : useLubricantShell ? (
+      ) : chrome.lane === "lubricant" ? (
         <LubricantSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      ) : useFieldOpsShell ? (
+      ) : chrome.lane === "fieldops" ? (
         <FieldOpsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      ) : useTrackingShell ? (
+      ) : chrome.lane === "tracking" ? (
         <TrackingOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      ) : useFoShell ? (
+      ) : chrome.lane === "fleetops" ? (
         <FleetOperationsSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       ) : (
         <TransportAdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
@@ -285,35 +330,37 @@ function AppShell() {
         <AppHeader
           key={activeRole}
           onToggleSidebar={() => setCollapsed((c) => !c)}
-          forceFleetOps={shellReady ? useFoShell : false}
-          forceTrackingOps={shellReady ? useTrackingShell : false}
-          forceGateSecurity={shellReady ? useGateShell : false}
-          forceLoadingOps={shellReady ? useLoadingShell : false}
-          forceLubricantOps={shellReady ? useLubricantShell : false}
-          forceFieldOps={shellReady ? useFieldOpsShell : false}
-          forceDepartment={shellReady ? departmentShell : null}
+          forceFleetOps={chrome.lane === "fleetops"}
+          forceTrackingOps={chrome.lane === "tracking"}
+          forceGateSecurity={chrome.lane === "gate"}
+          forceLoadingOps={chrome.lane === "loading"}
+          forceLubricantOps={chrome.lane === "lubricant"}
+          forceFieldOps={chrome.lane === "fieldops"}
+          forceDepartment={chrome.lane === "department" ? (chrome.department ?? "generic") : null}
         />
         <main className={cn("scroll-edge min-w-0 flex-1 overflow-auto", "pb-24 md:pb-0")}>
           <div className="mx-auto w-full max-w-[1920px]">
             <Outlet />
           </div>
         </main>
-        {departmentShell ? (
-          <DepartmentMobileNav department={departmentShell} />
-        ) : useGateShell ? (
+        {chrome.lane === "department" ? (
+          <DepartmentMobileNav department={chrome.department ?? "generic"} />
+        ) : chrome.lane === "gate" ? (
           <GateSecurityMobileNav />
-        ) : useLoadingShell ? (
+        ) : chrome.lane === "loading" ? (
           <LoadingOperationsMobileNav />
-        ) : useLubricantShell ? (
+        ) : chrome.lane === "lubricant" ? (
           <LubricantMobileNav />
-        ) : useFieldOpsShell ? (
+        ) : chrome.lane === "fieldops" ? (
           <FieldOpsMobileNav />
-        ) : useTrackingShell ? (
+        ) : chrome.lane === "tracking" ? (
           <TrackingOperationsMobileNav />
-        ) : useFoShell ? (
+        ) : chrome.lane === "fleetops" ? (
           <FleetOperationsMobileNav />
-        ) : (
+        ) : chrome.lane === "manager" ? (
           <TransportAdminMobileNav />
+        ) : (
+          <DepartmentMobileNav department="generic" />
         )}
       </div>
     </div>

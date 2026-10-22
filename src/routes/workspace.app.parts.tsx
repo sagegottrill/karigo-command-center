@@ -51,7 +51,11 @@ export const Route = createFileRoute("/workspace/app/parts")({
       "Parts & Store",
       "Parts and Store",
       "Inventory",
-      "Head of Inventory",
+      // PROCUREMENT is the buying desk of the same loop (PRD §5: when the shelf
+      // cannot cover an approved request, it escalates here and buys the restock
+      // that fills it back) — so it sits in the store portal, never in the
+      // manager's chrome.
+      "Procurement",
       ...ENGINEERING_ACCESS_ROLES,
     ];
     if (!authService.getRoles().some((r: string) => allowed.includes(r))) {
@@ -296,7 +300,11 @@ function PartsAndStore() {
       "Parts & Store",
       "Parts and Store",
       "Inventory",
-      "Head of Inventory",
+      // PROCUREMENT is the buying desk of the same loop (PRD §5: when the shelf
+      // cannot cover an approved request, it escalates here and buys the restock
+      // that fills it back) — so it sits in the store portal, never in the
+      // manager's chrome.
+      "Procurement",
       ...ENGINEERING_ACCESS_ROLES,
     ];
     if (!roles.some((r: string) => allowed.includes(r))) {

@@ -44,7 +44,9 @@ export function shouldUseLubricantShell(roles: string[]) {
   if (roles.includes("Fleet Operations")) return false;
   if (roles.includes("Security")) return false;
   if (roles.some((r) => /tracking|loading/i.test(r))) return false;
-  return roles.some((r) => /lubricant|fuel manager|fuel management/i.test(r));
+  // "Diesel" is a legacy spelling of the fuel desk — it used to fall straight
+  // through to the Transport Manager's chrome; its lane is here.
+  return roles.some((r) => /lubricant|fuel manager|fuel management|\bdiesel\b/i.test(r));
 }
 
 /**

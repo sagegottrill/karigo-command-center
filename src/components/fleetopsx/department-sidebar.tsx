@@ -32,7 +32,17 @@ import { SidebarCollapseButton } from "./sidebar-collapse-button";
  * the manager's account menus on screen. A department is its own department; the
  * TM gets a glimpse of the data, not the department's desk.
  */
-export type DepartmentKey = "hr" | "engineering" | "inventory" | "parts" | "accounts";
+export type DepartmentKey =
+  | "hr"
+  | "engineering"
+  | "inventory"
+  | "parts"
+  | "accounts"
+  // The CAUGHT-NOTHING lane: a role no portal claims and the manager seats do
+  // not own. It used to fall through to the Transport Manager's chrome — the
+  // leak this portal exists to stop — and now gets its own minimal workspace
+  // instead: notifications, messages, its overview, nothing of the manager's.
+  | "generic";
 
 type DepartmentNavItem = {
   label: string;
@@ -115,6 +125,20 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
     ],
   },
+  // The caught-nothing lane (see DepartmentKey): a role that no portal claims
+  // and the manager seats do not own keeps a minimal workspace of its own —
+  // its overview, its notifications, its messages — and never inherits the
+  // Transport Manager's sidebar the way the old fall-through showed it.
+  generic: {
+    heading: "WORKSPACE",
+    title: "Workspace",
+    subtitle: "Your notifications, messages and overview",
+    items: [
+      { label: "Overview", to: "/workspace/app", icon: LayoutGrid },
+      { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
+    ],
+  },
   // The STORE DEPARTMENT as its own portal: the Parts & Store board IS the
   // department's working page — catalog, purchases, requisitions, movements.
   // "Part Inventory" points HERE, not at /part-inventory: that route is the
@@ -150,7 +174,13 @@ const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   // The STORE DEPARTMENT: a Parts & Store login gets ITS OWN portal, never
   // Engineering's shell and never the manager's dashboard. Parts & Inventory
   // is its own department — the thing the brief has said three times.
-  parts: /^(parts & store|parts and store|parts|store)$/i,
+  // PROCUREMENT rides the store loop too — PRD §5 makes it the buying desk of
+  // the same parts pipeline (it receives the out-of-stock escalation and buys
+  // the stock), so its lane is here, never the manager's chrome.
+  parts: /^(parts & store|parts and store|parts|store|storehouse|procurement)$/i,
+  // Never true: the generic lane is assigned by the shell picker, not by a role
+  // spelling. Its ROLES entry exists only to satisfy the record.
+  generic: /\bneverassigned\b/i,
   // The money desk. `Accountant` is the same department's second seat, and the
   // API issues both spellings.
   accounts: /^(accounts|accountant|accounts officer|accounts clerk|finance|finance officer)$/i,

@@ -145,7 +145,8 @@ function Dashboard() {
   if (has("Security")) return <GateDashboard {...data} />;
   if (has("HR")) return <HRDashboard {...data} />;
   if (has("Engineering")) return <EngineerDashboard {...data} />;
-  if (has("Parts & Store")) return <ProcurementDashboard {...data} />;
+  // PROCUREMENT rides the same buying desk as the store — one loop, per PRD §5.
+  if (has("Parts & Store") || has("Procurement")) return <ProcurementDashboard {...data} />;
 
   return <CentralDashboard data={data} />;
 }
