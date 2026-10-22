@@ -1,8 +1,11 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
+import { ChevronDown, Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
-import { PARTNER_LOADING_LOCATION_GROUPS } from "@/lib/fleetopsx/partner-request-options";
+import {
+  ADD_LOADING_SITE_LABEL,
+  loadingSiteChoiceGroups,
+} from "@/lib/fleetopsx/partner-request-options";
 import { adminService, authService, partnerSiteService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
@@ -23,6 +26,8 @@ export const Route = createFileRoute("/workspace/app/add-partner")({
 function AddPartner() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // The loading-site select's wrapper — a click outside it closes the list.
+  const siteSelectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Transport Manager is the highest admin role — always allowed on the admin track
@@ -52,6 +57,10 @@ function AddPartner() {
   // list at save. One account belongs to one site.
   const [savedPartnerSites, setSavedPartnerSites] = useState<string[]>([]);
   const [accountSite, setAccountSite] = useState<string | null>(null);
+  // The dropdown itself is the normal picker — list open, pick, close. The
+  // typed box only exists when the user chooses "Add a different site".
+  const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
+  const [typingNewSite, setTypingNewSite] = useState(false);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -93,16 +102,27 @@ function AddPartner() {
     };
   }, [companyKey]);
 
-  // The register's wired yards lead the table, then the company's saved sites,
-  // then yards typed just now. A brand-new company no longer starts with an
-  // empty board — the named locations are HERE to input, and what remains is
-  // the same free-typing box as before.
-  const WIRED_SITES: string[] = PARTNER_LOADING_LOCATION_GROUPS.flatMap((g) => g.sites);
-  /** Every yard on the table: the wired ones, the company's saved ones, and those just typed. */
-  const siteChoices: string[] = [];
-  for (const site of [...WIRED_SITES, ...savedPartnerSites, ...loaderSites]) {
-    if (!siteChoices.some((s) => s.toLowerCase() === site.toLowerCase())) siteChoices.push(site);
+  /**
+   * The dropdown's groups, in the portal's shape — the same builder that
+   * builds the partner portal's own loading-site selectors. The register's
+   * wired yards under their ports, then the company's own saved sites, then
+   * yards typed just now (removable before saving), and finally the typed
+   * entry for a yard nobody carries yet.
+   */
+  const siteOptionGroups: { heading: string | null; options: string[] }[] = [
+    ...loadingSiteChoiceGroups(savedPartnerSites),
+  ];
+  {
+    const listed = new Set(
+      siteOptionGroups.flatMap((g) => g.options.map((o) => o.toLowerCase())),
+    );
+    const fresh = loaderSites.filter((s) => !listed.has(s.toLowerCase()));
+    if (fresh.length > 0) siteOptionGroups.push({ heading: "Added just now", options: fresh });
   }
+  siteOptionGroups.push({
+    heading: "Add a different site — type it",
+    options: [ADD_LOADING_SITE_LABEL],
+  });
 
   /** Register a new yard: it joins the company's list AND becomes the site this account belongs to. */
   const addNewSite = () => {
@@ -113,6 +133,17 @@ function AddPartner() {
     if (v) setAccountSite(v);
     setLoaderSiteDraft("");
   };
+
+  // The dropdown closes on a click anywhere outside it, like every other
+  // select on the admin track.
+  useEffect(() => {
+    if (!siteDropdownOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!siteSelectRef.current?.contains(e.target as Node)) setSiteDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [siteDropdownOpen]);
 
   const generatedUsername =
     firstName && surname
@@ -370,9 +401,9 @@ function AddPartner() {
               })}
             </div>
           </div>
-          {/* Company → Loading site: the yard this account belongs to. Saved
-              yards of a company that already exists are picked from the live
-              list; a new yard is added to the same list and picked. */}
+          {/* Company → Loading site: the yard this account belongs to. A
+              normal dropdown — the same list and grouping the partner portal's
+              selectors run; typing is reserved for a yard nobody has yet. */}
           <div className="flex flex-col gap-[8px] w-full">
             <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
               Loading site{" "}
@@ -382,90 +413,134 @@ function AddPartner() {
                   : "— the yard this account's trucks load at"}
               </span>
             </label>
-            {companyKey ? (
-              siteChoices.length > 0 ? (
-                <>
-                  <div className="flex flex-wrap gap-[8px]">
-                    {siteChoices.map((site) => {
-                      const picked = Boolean(accountSite) && accountSite!.toLowerCase() === site.toLowerCase();
-                      const isNew = loaderSites.some((s) => s.toLowerCase() === site.toLowerCase());
-                      return (
-                        <button
-                          key={site}
-                          type="button"
-                          onClick={() => setAccountSite(picked ? null : site)}
-                          aria-pressed={picked}
-                          className={
-                            "flex items-center gap-[6px] rounded-full border px-3 py-1 text-[13px] transition-colors " +
-                            (picked
-                              ? "border-[#e3351d] bg-[#e3351d]/5 text-[#e3351d] font-[500]"
-                              : "border-[#e2e5e9] bg-white text-[#141a1f] hover:border-[#141a1f]")
-                          }
-                        >
-                          {site}
-                          {isNew ? (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`Remove ${site} before saving`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLoaderSites((cur) => cur.filter((s) => s.toLowerCase() !== site.toLowerCase()));
-                                if (picked) setAccountSite(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  setLoaderSites((cur) => cur.filter((s) => s.toLowerCase() !== site.toLowerCase()));
-                                  if (picked) setAccountSite(null);
-                                }
-                              }}
-                              className="text-[#e3351d] hover:opacity-70"
-                            >
-                              ×
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
-                    Pick the site this account belongs to — the register's wired yards first, then
-                    {savedPartnerSites.length} saved for {companyKey}. A yard that is missing is typed below.
-                  </p>
-                </>
-              ) : (
-                <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
-                  No saved loading site for {companyKey} yet — add the first yard below.
-                </p>
-              )
+            {typingNewSite ? (
+              <div className="flex flex-col gap-[8px]">
+                <div className="flex items-center gap-[8px]">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={loaderSiteDraft}
+                    onChange={(e) => setLoaderSiteDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addNewSite();
+                        setTypingNewSite(false);
+                      }
+                    }}
+                    placeholder={companyKey ? "example: Babaginda 1" : "example: Saba Steel Ikeja"}
+                    className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] flex-1 outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addNewSite();
+                      setTypingNewSite(false);
+                    }}
+                    className="flex h-[44px] items-center rounded-[4px] border-[1px] border-[#141a1f] px-[16px] text-[14px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]"
+                  >
+                    Add site
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTypingNewSite(false)}
+                  className="self-start text-[13px] font-medium text-[#e3351d]"
+                >
+                  ← Back to the saved sites list
+                </button>
+              </div>
             ) : (
-              <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
-                Type the company name first — its saved loading sites will appear here.
-              </p>
-            )}
-            <div className="flex items-center gap-[8px]">
-              <input
-                type="text"
-                value={loaderSiteDraft}
-                onChange={(e) => setLoaderSiteDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addNewSite();
+              <div ref={siteSelectRef} className="relative w-full">
+                <button
+                  type="button"
+                  onClick={() => setSiteDropdownOpen((o) => !o)}
+                  className={
+                    "flex h-[44px] w-full items-center justify-between gap-3 py-[10px] px-[16px] rounded-[4px] border-[1px] bg-[#ffffff] text-[15px] font-[400] " +
+                    (siteDropdownOpen ? "border-[#141a1f]" : "border-[#e2e5e9]")
                   }
-                }}
-                placeholder={companyKey ? "example: Babaginda 1" : "example: Saba Steel Ikeja"}
-                className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] flex-1 outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
-              />
-              <button
-                type="button"
-                onClick={addNewSite}
-                className="flex h-[44px] items-center rounded-[4px] border-[1px] border-[#141a1f] px-[16px] text-[14px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]"
-              >
-                Add site
-              </button>
-            </div>
+                >
+                  <span className={accountSite ? "text-[#141a1f]" : "text-[#8e95a1]"}>
+                    {accountSite ?? "Select"}
+                  </span>
+                  <ChevronDown
+                    className={
+                      "size-4 shrink-0 text-[#8e95a1] transition-transform " +
+                      (siteDropdownOpen ? "rotate-180" : "")
+                    }
+                  />
+                </button>
+                {siteDropdownOpen ? (
+                  <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#e2e5e9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                    {siteOptionGroups.map((group, gi) => (
+                      <div key={group.heading ?? `group-${gi}`}>
+                        {group.heading ? (
+                          <p className="sticky top-0 bg-[#f1f2f4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#8e95a1]">
+                            {group.heading}
+                          </p>
+                        ) : null}
+                        {group.options.map((opt) => {
+                          const isAddEntry = opt === ADD_LOADING_SITE_LABEL;
+                          const isFresh =
+                            !isAddEntry &&
+                            loaderSites.some((s) => s.toLowerCase() === opt.toLowerCase());
+                          const picked =
+                            Boolean(accountSite) && accountSite!.toLowerCase() === opt.toLowerCase();
+                          return (
+                            <div key={opt} className="flex items-stretch">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isAddEntry) {
+                                    setSiteDropdownOpen(false);
+                                    setTypingNewSite(true);
+                                    return;
+                                  }
+                                  setAccountSite(opt);
+                                  setSiteDropdownOpen(false);
+                                }}
+                                className={
+                                  "flex-1 px-3 py-2.5 text-left text-[14px] " +
+                                  (picked
+                                    ? "bg-[#e3351d] text-white"
+                                    : "text-[#141a1f] hover:bg-[#f1f2f4]")
+                                }
+                              >
+                                {opt}
+                                {picked ? " ✓" : ""}
+                              </button>
+                              {isFresh ? (
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${opt} before saving`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLoaderSites((cur) =>
+                                      cur.filter((s) => s.toLowerCase() !== opt.toLowerCase()),
+                                    );
+                                    if (picked) setAccountSite(null);
+                                  }}
+                                  className="px-3 text-[14px] text-[#e3351d] hover:opacity-70"
+                                >
+                                  ×
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {!typingNewSite && !accountSite ? (
+              <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
+                {companyKey
+                  ? `Pick the site this account belongs to — the register's wired yards first, then ${savedPartnerSites.length} saved for ${companyKey}. A yard nobody has yet is typed from the bottom of the list.`
+                  : "Type the company name first — its saved loading sites will appear in this list. The register's yards are always on it."}
+              </p>
+            ) : null}
             {accountSite ? (
               <p className="text-[12px] font-[500] text-[#1b2432]">
                 This account belongs to: <span className="text-[#e3351d]">{accountSite}</span>
