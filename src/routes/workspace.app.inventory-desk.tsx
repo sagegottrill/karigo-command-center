@@ -8,6 +8,7 @@ import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import { ENGINEERING_ACCESS_ROLES, truckLabel } from "@/lib/fleetopsx/engineering-helpers";
+import { isStorekeeper } from "@/lib/fleetopsx/admin-departments";
 import {
   authService,
   engineeringService,
@@ -101,9 +102,13 @@ function InventoryDesk() {
     const roles = authService.getRoles();
     setHead(isHead());
     // Engineering may read the queue to follow its parts; the store floor and
-    // the Head of Inventory are the ones who work it.
+    // the Head of Inventory are the ones who work it. The issued store role is
+    // "Parts & Store" — a storekeeper's handoff desk must never open view-only
+    // on its own yard because that regex missed it.
     setCanWork(
-      roles.some((r: string) => /inventory/i.test(r)) || roles.includes("Transport Manager"),
+      roles.some((r: string) => /inventory/i.test(r)) ||
+        isStorekeeper() ||
+        roles.includes("Transport Manager"),
     );
     void load()
       .catch((error) =>

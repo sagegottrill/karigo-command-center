@@ -24,6 +24,7 @@ import {
   rolesCanWorkOnTrucks,
   truckLabel,
 } from "@/lib/fleetopsx/engineering-helpers";
+import { isStorekeeper } from "@/lib/fleetopsx/admin-departments";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   authService,
@@ -287,13 +288,15 @@ function PartsAndStore() {
 
   useEffect(() => {
     const roles = authService.getRoles();
-    // The store is kept by Engineering AND by the Head of Inventory (the RBAC
-    // matrix gives that role full inbound/purchase/threshold access); the
-    // Transport Manager reads the board as an audit. Parts & Store is its own
-    // department — its accounts must NEVER be bounced off their own board by a
+    // The store is kept by the STOREHOUSE itself (PRD §1/§2: the bulk Excel
+    // intake, manual entries and minimum thresholds are the storehouse's, not
+    // Engineering's) plus Engineering and the Head of Inventory; the Transport
+    // Manager reads the board as an audit. Parts & Store is its own department
+    // — its accounts must NEVER get a view-only shelf on their own board by a
     // stale check that predates the split.
     setCanEdit(
       rolesCanWorkOnTrucks() ||
+        isStorekeeper() ||
         roles.some((r: string) => /head of inventory|inventory manager/i.test(r)),
     );
     const allowed = [

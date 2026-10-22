@@ -1,3 +1,5 @@
+import { authService } from "@/lib/fleetopsx/services";
+
 /** Figma 93:1374 / 42:700 Workplace List labels (+ Tracking Ops department). */
 export const ADMIN_DEPARTMENTS = [
   "Transport Admin",
@@ -95,6 +97,23 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
 /** RoleKeys that grant the given department (primary mapping + aliases, deduped). */
 export function departmentRoleKeys(department: string): string[] {
   return Array.from(new Set([departmentToRoleKey(department), ...(DEPARTMENT_ROLE_ALIASES[department] ?? [])]));
+}
+
+/**
+ * The STOREHOUSE's own seats — the accounts that keep the shelf.
+ *
+ * PRD §1 and §2 are theirs, not Engineering's: the bulk Excel intake, manual
+ * entries, unit costs and minimum thresholds are set by the storehouse (or the
+ * TM on its oversight board). The issued RoleKey for the department is
+ * "Parts & Store"; the other spellings cover accounts minted before the
+ * department split so a legacy store login does not lose its keys.
+ */
+export const STORE_ROLES = ["Parts & Store", "Parts and Store", "Inventory"] as const;
+
+/** True on a storekeeper account — the department that actually works the store. */
+export function isStorekeeper(): boolean {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => STORE_ROLES.includes(r));
 }
 
 /**
