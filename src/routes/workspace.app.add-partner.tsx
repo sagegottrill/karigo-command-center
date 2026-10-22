@@ -44,6 +44,13 @@ function AddPartner() {
   // opens on a real site the day the account starts, not on a seeded guess.
   const [loaderSites, setLoaderSites] = useState<string[]>([]);
   const [loaderSiteDraft, setLoaderSiteDraft] = useState("");
+  // QA brief: an account is created COMPANY FIRST, then the loading site it
+  // belongs to. As the company name is typed, that company's SAVED yards are
+  // fetched, so an existing company's sites (Saba Steel → Babaginda 1) are
+  // picked from the live list — a yard not saved yet is added to the same
+  // list at save. One account belongs to one site.
+  const [savedPartnerSites, setSavedPartnerSites] = useState<string[]>([]);
+  const [accountSite, setAccountSite] = useState<string | null>(null);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -53,6 +60,53 @@ function AddPartner() {
   // see the yards that came with the account instead of wondering where the
   // partner's site list will come from.
   const [createdSites, setCreatedSites] = useState<string[]>([]);
+
+  // Company → its saved loading sites, refetched (debounced) as the name is
+  // typed. A company rename clears the picked yard — a site belongs to ITS
+  // company, never to the one typing moved away from.
+  const companyKey = companyName.trim().replace(/\s+/g, " ");
+  const pickedSiteCompanyRef = useRef("");
+  useEffect(() => {
+    if (pickedSiteCompanyRef.current !== companyKey) {
+      pickedSiteCompanyRef.current = companyKey;
+      setAccountSite(null);
+    }
+    if (!companyKey) {
+      setSavedPartnerSites((cur) => (cur.length ? [] : cur));
+      return;
+    }
+    let alive = true;
+    const timer = setTimeout(() => {
+      partnerSiteService
+        .list(companyKey)
+        .then((sites) => {
+          if (alive) setSavedPartnerSites(sites);
+        })
+        .catch(() => {
+          if (alive) setSavedPartnerSites([]);
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [companyKey]);
+
+  /** Every yard on the table: the company's saved ones plus those just typed. */
+  const siteChoices: string[] = [];
+  for (const site of [...savedPartnerSites, ...loaderSites]) {
+    if (!siteChoices.some((s) => s.toLowerCase() === site.toLowerCase())) siteChoices.push(site);
+  }
+
+  /** Register a new yard: it joins the company's list AND becomes the site this account belongs to. */
+  const addNewSite = () => {
+    const v = loaderSiteDraft.trim().replace(/\s+/g, " ");
+    if (v && !loaderSites.some((s) => s.toLowerCase() === v.toLowerCase())) {
+      setLoaderSites((cur) => [...cur, v]);
+    }
+    if (v) setAccountSite(v);
+    setLoaderSiteDraft("");
+  };
 
   const generatedUsername =
     firstName && surname
@@ -82,6 +136,13 @@ function AddPartner() {
     e.preventDefault();
     if (!companyName || !firstName || !surname) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+    // The yard a Loader RUNS must be set at creation — it is what the yard
+    // board opens on. A Requester may go without: its trucks load wherever the
+    // requests say.
+    if (partnerType === "Loader" && !accountSite) {
+      toast.error("Pick the loading site this account belongs to — add the yard below if the company has none saved.");
       return;
     }
     setShowConfirmModal(true);
@@ -146,7 +207,11 @@ function AddPartner() {
   };
 
   const shareUsername = createdUsername || generatedUsername;
-  const shareText = `Hello ${firstName},\n\nYour Partner account has been created for ${companyName}.\nUsername: ${shareUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
+  // SSR renders this component too — window is not defined there, and a bare
+  // window.location here faults the server render (the hydration mismatch the
+  // production console was showing). Share is only ever used client-side.
+  const loginOrigin = typeof window === "undefined" ? "" : window.location.origin;
+  const shareText = `Hello ${firstName},\n\nYour Partner account has been created for ${companyName}${accountSite ? `, loading site ${accountSite}` : ""}.\nUsername: ${shareUsername}\nPassword: ${generatedPassword}\nLogin at: ${loginOrigin}/workspace/customer-portal/login`;
 
   const handleShareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
@@ -290,70 +355,108 @@ function AddPartner() {
               })}
             </div>
           </div>
-          {/* Loader yards — a Loader runs a site, so name the site(s) here. */}
-          {partnerType === "Loader" ? (
-            <div className="flex flex-col gap-[8px] w-full">
-              <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
-                Loading site(s){" "}
-                <span className="text-[#8e95a1] font-[400]">— the yard(s) this account runs</span>
-              </label>
-              <div className="flex items-center gap-[8px]">
-                <input
-                  type="text"
-                  value={loaderSiteDraft}
-                  onChange={(e) => setLoaderSiteDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const v = loaderSiteDraft.trim().replace(/\s+/g, " ");
-                      if (v && !loaderSites.some((s) => s.toLowerCase() === v.toLowerCase()))
-                        setLoaderSites((cur) => [...cur, v]);
-                      setLoaderSiteDraft("");
-                    }
-                  }}
-                  placeholder="example: Saba Steel Ikeja"
-                  className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] flex-1 outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const v = loaderSiteDraft.trim().replace(/\s+/g, " ");
-                    if (v && !loaderSites.some((s) => s.toLowerCase() === v.toLowerCase()))
-                      setLoaderSites((cur) => [...cur, v]);
-                    setLoaderSiteDraft("");
-                  }}
-                  className="flex h-[44px] items-center rounded-[4px] border-[1px] border-[#141a1f] px-[16px] text-[14px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]"
-                >
-                  Add site
-                </button>
-              </div>
-              {loaderSites.length > 0 ? (
-                <ul className="flex flex-wrap gap-[8px]">
-                  {loaderSites.map((site) => (
-                    <li
-                      key={site}
-                      className="flex items-center gap-[6px] rounded-full border border-[#e2e5e9] bg-white px-3 py-1 text-[13px] text-[#141a1f]"
-                    >
-                      {site}
-                      <button
-                        type="button"
-                        onClick={() => setLoaderSites((cur) => cur.filter((s) => s !== site))}
-                        aria-label={`Remove ${site}`}
-                        className="text-[#e3351d] hover:opacity-70"
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+          {/* Company → Loading site: the yard this account belongs to. Saved
+              yards of a company that already exists are picked from the live
+              list; a new yard is added to the same list and picked. */}
+          <div className="flex flex-col gap-[8px] w-full">
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              Loading site{" "}
+              <span className="text-[#8e95a1] font-[400]">
+                {partnerType === "Loader"
+                  ? "— the yard this account runs"
+                  : "— the yard this account's trucks load at"}
+              </span>
+            </label>
+            {companyKey ? (
+              siteChoices.length > 0 ? (
+                <>
+                  <div className="flex flex-wrap gap-[8px]">
+                    {siteChoices.map((site) => {
+                      const picked = Boolean(accountSite) && accountSite!.toLowerCase() === site.toLowerCase();
+                      const isNew = loaderSites.some((s) => s.toLowerCase() === site.toLowerCase());
+                      return (
+                        <button
+                          key={site}
+                          type="button"
+                          onClick={() => setAccountSite(picked ? null : site)}
+                          aria-pressed={picked}
+                          className={
+                            "flex items-center gap-[6px] rounded-full border px-3 py-1 text-[13px] transition-colors " +
+                            (picked
+                              ? "border-[#e3351d] bg-[#e3351d]/5 text-[#e3351d] font-[500]"
+                              : "border-[#e2e5e9] bg-white text-[#141a1f] hover:border-[#141a1f]")
+                          }
+                        >
+                          {site}
+                          {isNew ? (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Remove ${site} before saving`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLoaderSites((cur) => cur.filter((s) => s.toLowerCase() !== site.toLowerCase()));
+                                if (picked) setAccountSite(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setLoaderSites((cur) => cur.filter((s) => s.toLowerCase() !== site.toLowerCase()));
+                                  if (picked) setAccountSite(null);
+                                }
+                              }}
+                              className="text-[#e3351d] hover:opacity-70"
+                            >
+                              ×
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
+                    Pick the site this account belongs to — {savedPartnerSites.length} saved for {companyKey}. A
+                    yard that is missing is added below.
+                  </p>
+                </>
               ) : (
                 <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
-                  The truck board keys on these names — type them exactly as the dispatches will say
-                  them.
+                  No saved loading site for {companyKey} yet — add the first yard below.
                 </p>
-              )}
+              )
+            ) : (
+              <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
+                Type the company name first — its saved loading sites will appear here.
+              </p>
+            )}
+            <div className="flex items-center gap-[8px]">
+              <input
+                type="text"
+                value={loaderSiteDraft}
+                onChange={(e) => setLoaderSiteDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addNewSite();
+                  }
+                }}
+                placeholder={companyKey ? "example: Babaginda 1" : "example: Saba Steel Ikeja"}
+                className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] flex-1 outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+              />
+              <button
+                type="button"
+                onClick={addNewSite}
+                className="flex h-[44px] items-center rounded-[4px] border-[1px] border-[#141a1f] px-[16px] text-[14px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]"
+              >
+                Add site
+              </button>
             </div>
-          ) : null}
+            {accountSite ? (
+              <p className="text-[12px] font-[500] text-[#1b2432]">
+                This account belongs to: <span className="text-[#e3351d]">{accountSite}</span>
+              </p>
+            ) : null}
+          </div>
 
           {/* Logo Upload */}
           <div className="flex flex-col gap-[8px] w-full">
@@ -442,10 +545,20 @@ function AddPartner() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-[14px] font-semibold text-[#141A1F]">Account Type</label>
-                  <input
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Account Type</label>                  <input
                     type="text"
                     value={`${partnerType} — ${partnerType === "Loader" ? "runs a loading site" : "raises loading and fuel requests"}`}
+                    disabled
+
+                    className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[14px] font-semibold text-[#141A1F]">Loading Site</label>
+                  <input
+                    type="text"
+                    value={accountSite || "Not set yet"}
                     disabled
                     className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
                   />
