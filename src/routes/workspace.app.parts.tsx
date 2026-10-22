@@ -795,8 +795,11 @@ function PartsAndStore() {
           ))}
         </div>
 
-        {/* ----------------------------------- the TM's approval desk */}
-        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        {/* The TM's approval desk — last on the page: it is the one store
+            board whose primary subject is the DECISION, and it belongs to the
+            Transport Manager. The store's own content (its shelf, its
+            releases) reads first. */}
+        <div className="order-4 w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E5E9] pb-4">
             <div className="flex items-center gap-3">
               <h3 className="text-[16px] font-medium text-[#1B2432]">Transport Manager Approval</h3>
@@ -904,8 +907,9 @@ function PartsAndStore() {
           ) : null}
         </div>
 
-        {/* ------------------------------------------- what the shop asked for */}
-        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        {/* What the shop asked for — the workshop's pipeline, after the shelf
+            and its own store's outbound releases. */}
+        <div className="order-3 w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="flex flex-col gap-1">
               <h3 className="text-[16px] font-medium text-[#1B2432]">Parts requested</h3>
@@ -1064,6 +1068,7 @@ function PartsAndStore() {
         </div>
 
         {/* ------------------------------------ what actually left the shelf --- */}
+        {/* Order 2: the store's outbound story sits under its holdings. */}
         {
           /* Same board, third answer: the shop asked (above), the shelf holds
            * (below), and here is what the shelf has actually handed over —
@@ -1073,7 +1078,8 @@ function PartsAndStore() {
            * it; only they may approve, so only they may also edit.
            */
         }
-        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        {/* Order 2: the store's outbound story sits under its holdings. */}
+        <div className="order-2 w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="flex flex-col gap-1">
               <h3 className="text-[16px] font-medium text-[#1B2432]">Released from the store</h3>
@@ -1238,8 +1244,15 @@ function PartsAndStore() {
           </div>
         </div>
 
-        {/* ------------------------------------------------------- the shelf --- */}
-        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+        {/* ------------------------------------------------- the shelf first --- */}
+        {
+          /* Order 1: the inventory itself — Part, SKU, Category, Unit Cost,
+           * Stock, Reorder At — is the first thing this page shows. The critic
+           * was right: a store opens on what it HOLDS, not on the approval
+           * machinery around how parts move.
+           */
+        }
+        <div className="order-1 w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
           <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="relative w-full max-w-[400px]">
               <Search
