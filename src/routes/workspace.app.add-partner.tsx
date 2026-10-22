@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
-import { adminService, authService } from "@/lib/fleetopsx/services";
+import { adminService, authService, partnerSiteService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/workspace/app/add-partner")({
 function AddPartner() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   useEffect(() => {
     // Transport Manager is the highest admin role — always allowed on the admin track
     const roles = authService.getRoles();
@@ -30,7 +30,7 @@ function AddPartner() {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
     }
   }, [navigate]);
-  
+
   const [companyName, setCompanyName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
@@ -39,7 +39,12 @@ function AddPartner() {
   // a loading site (Loader). Persisted as an extra role on the account, so the
   // Partner-loading-site module can gate on it without a schema change.
   const [partnerType, setPartnerType] = useState<"Requester" | "Loader">("Requester");
-  
+  // A Loader's job IS its yard: the site names typed here become the company's
+  // loading-site list (the same rows every board matches), so the yard board
+  // opens on a real site the day the account starts, not on a seeded guess.
+  const [loaderSites, setLoaderSites] = useState<string[]>([]);
+  const [loaderSiteDraft, setLoaderSiteDraft] = useState("");
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -49,7 +54,10 @@ function AddPartner() {
   // partner's site list will come from.
   const [createdSites, setCreatedSites] = useState<string[]>([]);
 
-  const generatedUsername = firstName && surname ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}` : "";
+  const generatedUsername =
+    firstName && surname
+      ? `${firstName.charAt(0).toUpperCase()}.${surname.charAt(0).toUpperCase()}${surname.slice(1).toLowerCase()}`
+      : "";
   const [generatedPassword] = useState(() => {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
     const bytes = new Uint8Array(10);
@@ -94,7 +102,10 @@ function AddPartner() {
         const created = (await adminService.createUser({
           firstName,
           surname,
-          roles: ["Customer Portals (External)", partnerType === "Loader" ? "Partner Loader" : "Partner Requester"],
+          roles: [
+            "Customer Portals (External)",
+            partnerType === "Loader" ? "Partner Loader" : "Partner Requester",
+          ],
           username: usernameForLogin,
           email: `${usernameForLogin}@${emailDomain}`,
           department: "External Partner",
@@ -104,8 +115,18 @@ function AddPartner() {
           companyLogo: logo,
           password: generatedPassword,
         })) as { seededLoadingSites?: string[] } | undefined;
-        setCreatedSites(Array.isArray(created?.seededLoadingSites) ? created.seededLoadingSites : []);
+        const seeded = Array.isArray(created?.seededLoadingSites)
+          ? created.seededLoadingSites
+          : loaderSites;
+        setCreatedSites(seeded);
         setCreatedUsername(usernameForLogin);
+        // The yard's own sites typed at creation join the seeded defaults on the
+        // company's list — exactly what the loading-site boards match against.
+        if (loaderSites.length) {
+          await Promise.all(
+            loaderSites.map((site) => partnerSiteService.add(site, companyName).catch(() => null)),
+          );
+        }
         toast.success("Partner account created.");
         setShowConfirmModal(false);
         setShowShareModal(true);
@@ -114,7 +135,10 @@ function AddPartner() {
         lastError = err;
         const msg = err instanceof Error ? err.message.toLowerCase() : "";
         const isDuplicate =
-          msg.includes("unique") || msg.includes("already") || msg.includes("exist") || msg.includes("duplicate");
+          msg.includes("unique") ||
+          msg.includes("already") ||
+          msg.includes("exist") ||
+          msg.includes("duplicate");
         if (!isDuplicate) break;
       }
     }
@@ -130,7 +154,10 @@ function AddPartner() {
   };
 
   const handleShareEmail = () => {
-    window.open(`mailto:?subject=Your Partner Account Details&body=${encodeURIComponent(shareText)}`, "_blank");
+    window.open(
+      `mailto:?subject=Your Partner Account Details&body=${encodeURIComponent(shareText)}`,
+      "_blank",
+    );
     handleShareDone();
   };
 
@@ -150,7 +177,9 @@ function AddPartner() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex flex-row justify-between items-center w-full lg:w-auto">
           <div className="flex flex-col gap-[5px]">
-            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Create Partner Account</h2>
+            <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
+              Create Partner Account
+            </h2>
             <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
               create the digital profile of partner company
             </p>
@@ -169,17 +198,23 @@ function AddPartner() {
         </button>
       </div>
 
-      <form onSubmit={handleSaveAccountClick} className="w-full rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] pt-[24px] lg:pt-[32px] pb-[24px] lg:pb-[32px] px-[20px] lg:px-[40px] shadow-sm lg:shadow-[0px_10px_40px_rgba(0,0,0,0.04)]">
-        <h3 className="text-[18px] lg:text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[16px] lg:mb-[24px]">Partner Information</h3>
+      <form
+        onSubmit={handleSaveAccountClick}
+        className="w-full rounded-[10px] border border-[#e2e5e9] bg-[#ffffff] pt-[24px] lg:pt-[32px] pb-[24px] lg:pb-[32px] px-[20px] lg:px-[40px] shadow-sm lg:shadow-[0px_10px_40px_rgba(0,0,0,0.04)]"
+      >
+        <h3 className="text-[18px] lg:text-[20px] font-[600] leading-[28px] text-[#141a1f] mb-[16px] lg:mb-[24px]">
+          Partner Information
+        </h3>
         <div className="w-full h-[1px] bg-[#f1f2f4] -mx-[20px] lg:-mx-[40px] px-[40px] lg:px-[80px] mb-[24px] lg:mb-[32px]"></div>
 
         <div className="flex flex-col gap-[20px] lg:gap-[24px] max-w-[800px]">
-
           {/* Company Name */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Company name <span className="text-[#e3351d]">*</span></label>
-            <input 
-              type="text" 
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              Company name <span className="text-[#e3351d]">*</span>
+            </label>
+            <input
+              type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="example: Saba Steel"
@@ -189,21 +224,25 @@ function AddPartner() {
 
           {/* First Name */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">First name <span className="text-[#e3351d]">*</span></label>
-            <input 
-              type="text" 
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              First name <span className="text-[#e3351d]">*</span>
+            </label>
+            <input
+              type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="example: Joe"
               className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
             />
           </div>
-          
+
           {/* Surname */}
           <div className="flex flex-col gap-[8px] w-full">
-            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">Surname <span className="text-[#e3351d]">*</span></label>
-            <input 
-              type="text" 
+            <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+              Surname <span className="text-[#e3351d]">*</span>
+            </label>
+            <input
+              type="text"
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
               placeholder="example: Doe"
@@ -214,7 +253,10 @@ function AddPartner() {
           {/* Account Type */}
           <div className="flex flex-col gap-[8px] w-full">
             <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
-              Account type <span className="text-[#8e95a1] font-[400]">— what this partner does on the platform</span>
+              Account type{" "}
+              <span className="text-[#8e95a1] font-[400]">
+                — what this partner does on the platform
+              </span>
             </label>
             <div className="flex gap-[12px]">
               {(["Requester", "Loader"] as const).map((t) => {
@@ -231,7 +273,13 @@ function AddPartner() {
                         : "border-[#e2e5e9] bg-[#ffffff] hover:border-[#141a1f]")
                     }
                   >
-                    <span className={"text-[14px] font-[600] " + (selected ? "text-[#e3351d]" : "text-[#141a1f]")}>{t}</span>
+                    <span
+                      className={
+                        "text-[14px] font-[600] " + (selected ? "text-[#e3351d]" : "text-[#141a1f]")
+                      }
+                    >
+                      {t}
+                    </span>
                     <span className="text-[12px] leading-4 text-[#8e95a1]">
                       {t === "Requester"
                         ? "Raises loading and fuel requests from their portal"
@@ -242,6 +290,70 @@ function AddPartner() {
               })}
             </div>
           </div>
+          {/* Loader yards — a Loader runs a site, so name the site(s) here. */}
+          {partnerType === "Loader" ? (
+            <div className="flex flex-col gap-[8px] w-full">
+              <label className="text-[14px] font-[600] leading-[20px] text-[#141a1f]">
+                Loading site(s){" "}
+                <span className="text-[#8e95a1] font-[400]">— the yard(s) this account runs</span>
+              </label>
+              <div className="flex items-center gap-[8px]">
+                <input
+                  type="text"
+                  value={loaderSiteDraft}
+                  onChange={(e) => setLoaderSiteDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = loaderSiteDraft.trim().replace(/\s+/g, " ");
+                      if (v && !loaderSites.some((s) => s.toLowerCase() === v.toLowerCase()))
+                        setLoaderSites((cur) => [...cur, v]);
+                      setLoaderSiteDraft("");
+                    }
+                  }}
+                  placeholder="example: Saba Steel Ikeja"
+                  className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] flex-1 outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = loaderSiteDraft.trim().replace(/\s+/g, " ");
+                    if (v && !loaderSites.some((s) => s.toLowerCase() === v.toLowerCase()))
+                      setLoaderSites((cur) => [...cur, v]);
+                    setLoaderSiteDraft("");
+                  }}
+                  className="flex h-[44px] items-center rounded-[4px] border-[1px] border-[#141a1f] px-[16px] text-[14px] font-[500] text-[#141a1f] hover:bg-[#f6f7f9]"
+                >
+                  Add site
+                </button>
+              </div>
+              {loaderSites.length > 0 ? (
+                <ul className="flex flex-wrap gap-[8px]">
+                  {loaderSites.map((site) => (
+                    <li
+                      key={site}
+                      className="flex items-center gap-[6px] rounded-full border border-[#e2e5e9] bg-white px-3 py-1 text-[13px] text-[#141a1f]"
+                    >
+                      {site}
+                      <button
+                        type="button"
+                        onClick={() => setLoaderSites((cur) => cur.filter((s) => s !== site))}
+                        aria-label={`Remove ${site}`}
+                        className="text-[#e3351d] hover:opacity-70"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
+                  The truck board keys on these names — type them exactly as the dispatches will say
+                  them.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           {/* Logo Upload */}
           <div className="flex flex-col gap-[8px] w-full">
@@ -249,29 +361,34 @@ function AddPartner() {
               Attach Company Logo{" "}
               <span className="text-[#8e95a1] font-[400]">(optional · max. 10mb)</span>
             </label>
-            <div 
+            <div
               className="flex items-center justify-center w-full h-[48px] border-[1px] border-[#e3351d] rounded-[4px] bg-[#ffffff] cursor-pointer hover:bg-[#e3351d]/5 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
               {logo ? (
-                <span className="text-[14px] font-[500] text-[#e3351d]">Logo Selected (Click to change)</span>
+                <span className="text-[14px] font-[500] text-[#e3351d]">
+                  Logo Selected (Click to change)
+                </span>
               ) : (
                 <div className="flex items-center gap-[8px]">
                   <Upload className="w-[18px] h-[18px] text-[#e3351d]" />
                   <span className="text-[14px] font-[500] text-[#e3351d]">Upload Image</span>
                 </div>
               )}
-              <input 
-                type="file" 
+              <input
+                type="file"
                 ref={fileInputRef}
-                className="hidden" 
+                className="hidden"
                 accept="image/*"
                 onChange={handleLogoUpload}
               />
             </div>
           </div>
 
-          <button type="submit" className="flex items-center justify-center py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors self-end mt-[16px]">
+          <button
+            type="submit"
+            className="flex items-center justify-center py-[12px] px-[24px] rounded-[4px] bg-[#e3351d] hover:bg-[#d62e19] transition-colors self-end mt-[16px]"
+          >
             <span className="text-[14px] font-[500] text-[#ffffff]">Save Account</span>
           </button>
         </div>
@@ -284,24 +401,44 @@ function AddPartner() {
             onClick={(e) => e.stopPropagation()}
             style={{ maxHeight: "calc(100vh - 48px)" }}
           >
-            <div className="overflow-y-auto px-6 pt-6 pb-6 lg:px-10 lg:pt-10 lg:pb-8" style={{ maxHeight: "calc(100vh - 48px)" }}>
-              <h3 className="mb-4 text-[20px] font-semibold text-[#141A1F] lg:mb-6 lg:text-[24px]">Confirm Partner Details</h3>
+            <div
+              className="overflow-y-auto px-6 pt-6 pb-6 lg:px-10 lg:pt-10 lg:pb-8"
+              style={{ maxHeight: "calc(100vh - 48px)" }}
+            >
+              <h3 className="mb-4 text-[20px] font-semibold text-[#141A1F] lg:mb-6 lg:text-[24px]">
+                Confirm Partner Details
+              </h3>
               <div className="mb-4 h-px w-full bg-[#F1F2F4] lg:mb-6" />
 
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <label className="text-[14px] font-semibold text-[#141A1F]">Company</label>
-                  <input type="text" value={companyName} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                  <input
+                    type="text"
+                    value={companyName}
+                    disabled
+                    className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[14px] font-semibold text-[#141A1F]">First Name</label>
-                  <input type="text" value={firstName} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                  <input
+                    type="text"
+                    value={firstName}
+                    disabled
+                    className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[14px] font-semibold text-[#141A1F]">Last Name</label>
-                  <input type="text" value={surname} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                  <input
+                    type="text"
+                    value={surname}
+                    disabled
+                    className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -318,7 +455,11 @@ function AddPartner() {
                   <label className="text-[14px] font-semibold text-[#141A1F]">Company Logo</label>
                   {logo ? (
                     <div className="flex size-20 items-center justify-center rounded border border-[#E2E5E9] bg-white p-2">
-                      <img src={logo} alt="Company Logo" className="max-h-full max-w-full object-contain" />
+                      <img
+                        src={logo}
+                        alt="Company Logo"
+                        className="max-h-full max-w-full object-contain"
+                      />
                     </div>
                   ) : (
                     <div className="flex h-11 items-center rounded border border-[#ED351D] px-4 text-[15px] text-[#8E95A1]">
@@ -331,20 +472,42 @@ function AddPartner() {
 
                 <div className="flex gap-6">
                   <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">Assigned Username</label>
-                    <input type="text" value={generatedUsername} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">
+                      Assigned Username
+                    </label>
+                    <input
+                      type="text"
+                      value={generatedUsername}
+                      disabled
+                      className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                    />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">Default Password</label>
-                    <input type="text" value={generatedPassword} disabled className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none" />
+                    <label className="whitespace-nowrap text-[13px] font-semibold text-[#141A1F] lg:text-[14px]">
+                      Default Password
+                    </label>
+                    <input
+                      type="text"
+                      value={generatedPassword}
+                      disabled
+                      className="h-11 rounded border-0 bg-[#F6F7F9] px-4 text-[15px] text-[#8E95A1] outline-none"
+                    />
                   </div>
                 </div>
 
                 <div className="mt-6 flex items-center justify-between">
-                  <button type="button" onClick={() => setShowConfirmModal(false)} className="text-[15px] font-medium text-[#ED351D] hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmModal(false)}
+                    className="text-[15px] font-medium text-[#ED351D] hover:underline"
+                  >
                     Go Back
                   </button>
-                  <button type="button" onClick={handleConfirmAndSend} className="rounded bg-[#ED351D] px-6 py-3 text-[15px] font-medium text-white hover:bg-[#d62e19]">
+                  <button
+                    type="button"
+                    onClick={handleConfirmAndSend}
+                    className="rounded bg-[#ED351D] px-6 py-3 text-[15px] font-medium text-white hover:bg-[#d62e19]"
+                  >
                     Confirm and Send
                   </button>
                 </div>
@@ -361,7 +524,11 @@ function AddPartner() {
             className="relative flex w-full max-w-[360px] flex-col rounded-[10px] bg-white shadow-[0px_20px_60px_rgba(0,0,0,0.15)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" onClick={handleShareDone} className="absolute top-5 right-5 text-[#5C6470] hover:text-[#141A1F]">
+            <button
+              type="button"
+              onClick={handleShareDone}
+              className="absolute top-5 right-5 text-[#5C6470] hover:text-[#141A1F]"
+            >
               <X className="size-5" />
             </button>
             <div className="px-8 pt-8 pb-5">
@@ -376,15 +543,27 @@ function AddPartner() {
             <div className="mb-2 h-px w-full bg-[#F1F2F4]" />
 
             <div className="flex items-center justify-between px-10 py-8">
-              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleShareWhatsApp}>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-3 hover:opacity-80"
+                onClick={handleShareWhatsApp}
+              >
                 <WhatsAppIcon className="size-7" />
                 <span className="text-[13px] font-medium text-[#8E95A1]">WhatsApp</span>
               </button>
-              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleShareEmail}>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-3 hover:opacity-80"
+                onClick={handleShareEmail}
+              >
                 <Mail className="size-7 text-[#5C6470]" />
                 <span className="text-[13px] font-medium text-[#8E95A1]">Gmail</span>
               </button>
-              <button type="button" className="flex flex-col items-center gap-3 hover:opacity-80" onClick={handleCopyLink}>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-3 hover:opacity-80"
+                onClick={handleCopyLink}
+              >
                 <Copy className="size-7 text-[#5C6470]" />
                 <span className="text-[13px] font-medium text-[#8E95A1]">Copy</span>
               </button>
@@ -399,18 +578,18 @@ function AddPartner() {
         onImport={async (rows) => {
           const currentUser = authService.getCurrentUser();
           const tenantCompanyId = currentUser?.companyId || "tnt_001";
-          
+
           let successCount = 0;
           for (const row of rows) {
             const rowCompany = row["company name"] || row["company"];
             const rowFirst = row["first name"] || row["firstname"] || "Partner";
             const rowLast = row["last name"] || row["surname"] || "User";
-            
+
             if (!rowCompany) continue;
-            
+
             const emailDomain = `${rowCompany.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`;
-            let generatedUsername = `${rowFirst.charAt(0).toUpperCase()}.${rowLast.charAt(0).toUpperCase()}${rowLast.slice(1).toLowerCase()}`;
-            
+            const generatedUsername = `${rowFirst.charAt(0).toUpperCase()}.${rowLast.charAt(0).toUpperCase()}${rowLast.slice(1).toLowerCase()}`;
+
             let usernameForLogin = generatedUsername;
             for (let attempt = 0; attempt < 3; attempt++) {
               const suffix = attempt === 0 ? "" : String(attempt + 1);
@@ -421,7 +600,9 @@ function AddPartner() {
                   surname: rowLast,
                   roles: [
                     "Customer Portals (External)",
-                    String(row["account type"] || row["type"] || "").toLowerCase().includes("loader")
+                    String(row["account type"] || row["type"] || "")
+                      .toLowerCase()
+                      .includes("loader")
                       ? "Partner Loader"
                       : "Partner Requester",
                   ],
@@ -437,11 +618,12 @@ function AddPartner() {
                 break;
               } catch (err) {
                 const msg = err instanceof Error ? err.message.toLowerCase() : "";
-                if (!(msg.includes("unique") || msg.includes("already") || msg.includes("exist"))) break;
+                if (!(msg.includes("unique") || msg.includes("already") || msg.includes("exist")))
+                  break;
               }
             }
           }
-          
+
           if (successCount === 0 && rows.length > 0) {
             throw new Error("Failed to import any partners. Please check your CSV format.");
           }

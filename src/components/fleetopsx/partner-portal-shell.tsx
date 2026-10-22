@@ -1,6 +1,15 @@
 import { Link, Outlet, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
 import { NotificationPopover } from "@/components/fleetopsx/notification-popover";
-import { ArrowLeft, ArrowLeftRight, Bell, LayoutDashboard, LogOut, MoreVertical, Truck } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Bell,
+  LayoutDashboard,
+  LogOut,
+  MoreVertical,
+  PackageCheck,
+  Truck,
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { authService, notificationService, tenantService } from "@/lib/fleetopsx/services";
 import { getTenantSlug } from "@/lib/fleetopsx/hostname";
@@ -19,6 +28,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   const { tenantLogo, tenantName } = RootRoute.useRouteContext();
   const [mounted, setMounted] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
+  // The account's second half: a partner created as a Loader runs a loading
+  // site, so the shell offers its yard board beside the requesting tabs.
+  const [isLoader, setIsLoader] = useState(false);
   const [logoSrc, setLogoSrc] = useState(tenantLogo || "/figma/petroline-logo.png");
   const [companyName, setCompanyName] = useState("Partner");
   const [userEmail, setUserEmail] = useState("");
@@ -36,6 +48,7 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    setIsLoader(authService.getRoles().includes("Partner Loader"));
     const currentUser = authService.getCurrentUser();
     setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
     setUserEmail(currentUser?.email || "");
@@ -88,9 +101,13 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     hardLogout("/workspace/customer-portal/login");
   };
 
+  const loadingSiteActive = pathname.includes("/loading-site");
   const dashActive =
     pathname.includes("/dashboard") ||
-    (!pathname.endsWith("/request") && !pathname.includes("/login") && pathname.includes("/customer-portal/"));
+    (!pathname.endsWith("/request") &&
+      !pathname.includes("/login") &&
+      !loadingSiteActive &&
+      pathname.includes("/customer-portal/"));
   const requestActive = pathname.endsWith("/request");
   const showBack = !pathname.includes("/dashboard") && !pathname.includes("/login");
 
@@ -103,14 +120,23 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen w-full bg-[#F1F2F4]">
       <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col bg-[#1B2432] lg:flex">
         <Link to="/workspace/account-type" className="flex w-full items-end justify-end px-5 py-2">
-          <img src={displayLogo} alt={tenantName || "Petroline"} className="h-[60px] w-[107px] object-contain" />
+          <img
+            src={displayLogo}
+            alt={tenantName || "Petroline"}
+            className="h-[60px] w-[107px] object-contain"
+          />
         </Link>
         <nav className="flex flex-1 flex-col items-center py-5">
           <div className="flex w-[224px] flex-col gap-[5px]">
-            <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">Transport Request</span>
+            <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">
+              Transport Request
+            </span>
             <Link
               to="/workspace/customer-portal/dashboard"
-              className={cn("flex h-8 items-center gap-2 rounded p-2", dashActive ? "bg-[#ED351D]" : "hover:bg-white/5")}
+              className={cn(
+                "flex h-8 items-center gap-2 rounded p-2",
+                dashActive ? "bg-[#ED351D]" : "hover:bg-white/5",
+              )}
             >
               <LayoutDashboard className="size-4 text-white" strokeWidth={1.5} />
               <span className="text-[14px] tracking-[0.4px] text-white">Dashboard</span>
@@ -125,6 +151,18 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
               <Truck className="size-4 text-white" strokeWidth={1.5} />
               <span className="text-[14px] tracking-[0.4px] text-white">New Request</span>
             </Link>
+            {isLoader ? (
+              <Link
+                to="/workspace/customer-portal/loading-site"
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded p-2",
+                  loadingSiteActive ? "bg-[#ED351D]" : "hover:bg-white/5",
+                )}
+              >
+                <PackageCheck className="size-4 text-white" strokeWidth={1.5} />
+                <span className="text-[14px] tracking-[0.4px] text-white">Loading Site</span>
+              </Link>
+            ) : null}
           </div>
         </nav>
         <div className="p-2">
@@ -160,7 +198,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
             role="button"
             tabIndex={0}
             onClick={() => setShowLogout((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setShowLogout((v) => !v);
+            }}
             className="flex h-12 w-full cursor-pointer items-center gap-2 rounded p-2 hover:bg-white/5"
           >
             <div className="grid size-8 shrink-0 place-items-center rounded-md bg-[#F1F2F4] text-[14px] text-[#5C6470]">
@@ -194,7 +234,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
                 <img src={displayLogo} alt="" className="size-6 object-contain" />
               </Link>
             )}
-            <span className="text-[20px] font-semibold tracking-[0.4px] text-white">Partner Portal</span>
+            <span className="text-[20px] font-semibold tracking-[0.4px] text-white">
+              Partner Portal
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <NotificationPopover triggerClassName="relative grid size-8 place-items-center rounded-md bg-[#344256] text-white">
@@ -258,7 +300,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
           >
             <Truck className="size-5" strokeWidth={1.5} />
             <span className="text-[10px] font-medium">New Request</span>
-            {requestActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
+            {requestActive ? (
+              <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" />
+            ) : null}
           </Link>
         </nav>
       </div>

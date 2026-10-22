@@ -815,6 +815,120 @@ export const partnerSiteService = {
     ).then((res) => (Array.isArray(res?.sites) ? res.sites : [])),
 };
 
+/**
+ * THE LOADING SITE (the Loader partner's portal — the account type Add Partner
+ * creates with the "Partner Loader" tag).
+ *
+ * A partner account can be one of two things: a REQUESTER raising its own
+ * dispatches, or a LOADER running a yard. The loader's page is not its
+ * requests — it is the yard itself: the trucks waiting to load at its sites
+ * (whoever they haul for) and the pickups already signed there. Confirming a
+ * pickup writes the same "Loading" checkpoint the tracking board writes, so
+ * the dispatch reads Loaded everywhere from one source of truth.
+ */
+export interface LoadingSitePickup {
+  id: string;
+  tripId: string;
+  reference: string;
+  site: string;
+  company?: string | null;
+  truckReg?: string | null;
+  tailNumber?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  signature?: string | null;
+  confirmedBy?: string | null;
+  confirmedAt?: string;
+}
+
+export interface LoadingSiteBoard {
+  company: string | null;
+  sites: string[];
+  site: string | null;
+  waiting: Array<{
+    tripId: string;
+    reference: string;
+    status: string;
+    truckReg: string | null;
+    tailNumber: string | null;
+    tailType: string | null;
+    driverName: string | null;
+    driverPhone: string | null;
+    dropoff: string | null;
+  }>;
+  pickedUp: LoadingSitePickup[];
+  counts: { waiting: number; pickedUp: number };
+}
+
+const rawLoadingPickup = (p: Record<string, unknown>): LoadingSitePickup => ({
+  id: String(p.id ?? ""),
+  tripId: String(p.tripId ?? ""),
+  reference: String(p.reference ?? ""),
+  site: String(p.site ?? ""),
+  company: p.company == null ? null : String(p.company),
+  truckReg: p.truckReg == null ? null : String(p.truckReg),
+  tailNumber: p.tailNumber == null ? null : String(p.tailNumber),
+  driverName: p.driverName == null ? null : String(p.driverName),
+  driverPhone: p.driverPhone == null ? null : String(p.driverPhone),
+  signature: p.signature == null ? null : String(p.signature),
+  confirmedBy: p.confirmedBy == null ? null : String(p.confirmedBy),
+  confirmedAt: p.confirmedAt == null ? undefined : String(p.confirmedAt),
+});
+
+export const loadingSiteService = {
+  /** The board in one call — ?site= picks a yard when an account runs several. */
+  board: (site?: string) =>
+    fetchApi<Partial<LoadingSiteBoard> & { waiting?: unknown; pickedUp?: unknown }>(
+      site ? `/loading-site?site=${encodeURIComponent(site)}` : "/loading-site",
+    ).then((res: any): LoadingSiteBoard => ({
+      company: res?.company ?? null,
+      sites: Array.isArray(res?.sites) ? res.sites.map(String) : [],
+      site: res?.site ? String(res.site) : null,
+      waiting: (Array.isArray(res?.waiting) ? res.waiting : []).map(
+        (t: Record<string, unknown>) => ({
+          tripId: String(t.tripId ?? ""),
+          reference: String(t.reference ?? ""),
+          status: String(t.status ?? ""),
+          truckReg: t.truckReg == null ? null : String(t.truckReg),
+          tailNumber: t.tailNumber == null ? null : String(t.tailNumber),
+          tailType: t.tailType == null ? null : String(t.tailType),
+          driverName: t.driverName == null ? null : String(t.driverName),
+          driverPhone: t.driverPhone == null ? null : String(t.driverPhone),
+          dropoff: t.dropoff == null ? null : String(t.dropoff),
+        }),
+      ),
+      pickedUp: (Array.isArray(res?.pickedUp) ? res.pickedUp : []).map(rawLoadingPickup),
+      counts: {
+        waiting: Number(res?.counts?.waiting ?? 0),
+        pickedUp: Number(res?.counts?.pickedUp ?? 0),
+      },
+    })),
+
+  /** One signed pickup — the details view behind a card. */
+  pickup: (id: string) =>
+    fetchApi<Record<string, unknown>>(`/loading-site/pickups/${id}`).then(rawLoadingPickup),
+
+  /**
+   * The driver signs, the site confirms: the truck is loaded. The server
+   * refuses a second signature for the same truck at the same site (a retry
+   * after a lost reply gets the first record back, so re-submitting is safe).
+   */
+  confirmPickup: (input: {
+    tripId: string;
+    site: string;
+    signature: string;
+    driverName?: string;
+    driverPhone?: string;
+  }) =>
+    fetchApi<Record<string, unknown>>("/loading-site/pickups", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then((res: any): LoadingSitePickup & { duplicate?: boolean } => ({
+      ...rawLoadingPickup(res ?? {}),
+      duplicate: Boolean(res?.duplicate),
+    })),
+};
+
 export const fuelService = {
   /**
    * Mapped, not raw: the odometer reading on a fuel record is what turns
@@ -1148,14 +1262,25 @@ export const inventoryService = {
     description: string;
     requestedBy: string;
     workOrder?: string;
-    lines: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number; reason?: string }>;
+    lines: Array<{
+      part: string;
+      itemId?: string;
+      quantity: number;
+      unitCost?: number;
+      reason?: string;
+    }>;
   }) =>
     fetchApi<{ group: string; lines: unknown[] }>("/inventory-requisitions/group", {
       method: "POST",
       body: JSON.stringify(input),
     }),
   /** The Head of Engineering's verdict on a group: validate (with line edits) or decline. */
-  reviewRequisitionGroup: (group: string, approve: boolean, note?: string, lines?: Array<{ id: string; part?: string; quantity?: number }>) =>
+  reviewRequisitionGroup: (
+    group: string,
+    approve: boolean,
+    note?: string,
+    lines?: Array<{ id: string; part?: string; quantity?: number }>,
+  ) =>
     fetchApi<{ ok: boolean }>(`/inventory-requisitions/group/${group}/review`, {
       method: "POST",
       body: JSON.stringify({ approve, note, lines }),

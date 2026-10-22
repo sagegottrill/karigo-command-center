@@ -68,6 +68,7 @@ import { Route as WorkspaceAppActiveDispatchIndexRouteImport } from './routes/wo
 import { Route as WorkspaceAppActiveDispatchDispatchIdRouteImport } from './routes/workspace.app.active-dispatch.$dispatchId'
 import { Route as WorkspaceCustomerPortalAuthRequestIdRouteImport } from './routes/workspace.customer-portal._auth.$requestId'
 import { Route as WorkspaceCustomerPortalAuthDashboardRouteImport } from './routes/workspace.customer-portal._auth.dashboard'
+import { Route as WorkspaceCustomerPortalAuthLoadingSiteRouteImport } from './routes/workspace.customer-portal._auth.loading-site'
 import { Route as WorkspaceCustomerPortalAuthNotificationsRouteImport } from './routes/workspace.customer-portal._auth.notifications'
 import { Route as WorkspaceCustomerPortalAuthRequestRouteImport } from './routes/workspace.customer-portal._auth.request'
 
@@ -394,6 +395,12 @@ const WorkspaceCustomerPortalAuthDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
   } as any)
+const WorkspaceCustomerPortalAuthLoadingSiteRoute =
+  WorkspaceCustomerPortalAuthLoadingSiteRouteImport.update({
+    id: '/loading-site',
+    path: '/loading-site',
+    getParentRoute: () => WorkspaceCustomerPortalAuthRoute,
+  } as any)
 const WorkspaceCustomerPortalAuthNotificationsRoute =
   WorkspaceCustomerPortalAuthNotificationsRouteImport.update({
     id: '/notifications',
@@ -465,6 +472,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
@@ -524,6 +532,7 @@ export interface FileRoutesByTo {
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchIndexRoute
@@ -588,6 +597,7 @@ export interface FileRoutesById {
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
   '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/_auth/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
+  '/workspace/customer-portal/_auth/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/_auth/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/_auth/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
@@ -652,6 +662,7 @@ export interface FileRouteTypes {
     | '/workspace/app/active-dispatch/$dispatchId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/loading-site'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch/'
@@ -711,6 +722,7 @@ export interface FileRouteTypes {
     | '/workspace/app/active-dispatch/$dispatchId'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
+    | '/workspace/customer-portal/loading-site'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch'
@@ -774,6 +786,7 @@ export interface FileRouteTypes {
     | '/workspace/app/active-dispatch/$dispatchId'
     | '/workspace/customer-portal/_auth/$requestId'
     | '/workspace/customer-portal/_auth/dashboard'
+    | '/workspace/customer-portal/_auth/loading-site'
     | '/workspace/customer-portal/_auth/notifications'
     | '/workspace/customer-portal/_auth/request'
     | '/workspace/app/active-dispatch/'
@@ -1203,6 +1216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceCustomerPortalAuthDashboardRouteImport
       parentRoute: typeof WorkspaceCustomerPortalAuthRoute
     }
+    '/workspace/customer-portal/_auth/loading-site': {
+      id: '/workspace/customer-portal/_auth/loading-site'
+      path: '/loading-site'
+      fullPath: '/workspace/customer-portal/loading-site'
+      preLoaderRoute: typeof WorkspaceCustomerPortalAuthLoadingSiteRouteImport
+      parentRoute: typeof WorkspaceCustomerPortalAuthRoute
+    }
     '/workspace/customer-portal/_auth/notifications': {
       id: '/workspace/customer-portal/_auth/notifications'
       path: '/notifications'
@@ -1333,6 +1353,7 @@ const WorkspaceAppRouteWithChildren = WorkspaceAppRoute._addFileChildren(
 interface WorkspaceCustomerPortalAuthRouteChildren {
   WorkspaceCustomerPortalAuthRequestIdRoute: typeof WorkspaceCustomerPortalAuthRequestIdRoute
   WorkspaceCustomerPortalAuthDashboardRoute: typeof WorkspaceCustomerPortalAuthDashboardRoute
+  WorkspaceCustomerPortalAuthLoadingSiteRoute: typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   WorkspaceCustomerPortalAuthNotificationsRoute: typeof WorkspaceCustomerPortalAuthNotificationsRoute
   WorkspaceCustomerPortalAuthRequestRoute: typeof WorkspaceCustomerPortalAuthRequestRoute
 }
@@ -1343,6 +1364,8 @@ const WorkspaceCustomerPortalAuthRouteChildren: WorkspaceCustomerPortalAuthRoute
       WorkspaceCustomerPortalAuthRequestIdRoute,
     WorkspaceCustomerPortalAuthDashboardRoute:
       WorkspaceCustomerPortalAuthDashboardRoute,
+    WorkspaceCustomerPortalAuthLoadingSiteRoute:
+      WorkspaceCustomerPortalAuthLoadingSiteRoute,
     WorkspaceCustomerPortalAuthNotificationsRoute:
       WorkspaceCustomerPortalAuthNotificationsRoute,
     WorkspaceCustomerPortalAuthRequestRoute:
