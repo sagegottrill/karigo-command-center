@@ -545,6 +545,64 @@ function PartsAndStore() {
     />
   );
 
+  /**
+   * Released stock, rolled up part by part: everything the shelf signed out
+   * in the same window the requests read — how many releases, how many units,
+   * which truck drew it last and what each part cost the fleet. A legacy row
+   * without a posted release value is priced at the line's unit cost — and a
+   * row without either stays in the count as an unpriced release.
+   */
+  const releasedGroups = useMemo(() => {
+    const released = requests
+      .filter((r) => r.status === "Released" && inWindow(r.date, requestRange))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const byPart = new Map<
+      string,
+      {
+        name: string;
+        last: InventoryRequisition;
+        releases: number;
+        units: number;
+        value: number;
+      }
+    >();
+    for (const r of released) {
+      const key = r.part.trim().toLowerCase();
+      const units = Number(r.releasedQty ?? r.quantity ?? 0);
+      const value = Number(r.releasedValue ?? units * Number(r.unitCost ?? 0));
+      const group = byPart.get(key);
+      if (group) {
+        group.releases += 1;
+        group.units += units;
+        group.value += value;
+      } else {
+        byPart.set(key, { name: r.part, last: r, releases: 1, units, value });
+      }
+    }
+    return Array.from(byPart.values());
+  }, [requests, requestRange]);
+
+  /** The released roll-up's footer: parts moved, releases, units and money out. */
+  const releasedSummary = (
+    <SummaryBar
+      items={[
+        { label: "Parts moved", value: String(releasedGroups.length) },
+        {
+          label: "Releases",
+          value: String(releasedGroups.reduce((s, g) => s + g.releases, 0)),
+        },
+        {
+          label: "Units released",
+          value: String(releasedGroups.reduce((s, g) => s + g.units, 0)),
+        },
+        {
+          label: "Value released",
+          value: formatNairaFull(releasedGroups.reduce((s, g) => s + g.value, 0)),
+        },
+      ]}
+    />
+  );
+
   const emptyDraft = () => ({
     name: "",
     sku: "",
@@ -999,6 +1057,181 @@ function PartsAndStore() {
               )}
             </div>
             {filteredRequests.length > 0 ? requestSummary : null}
+          </div>
+        </div>
+
+        {/* ------------------------------------ what actually left the shelf --- */}
+        {
+          /* Same board, third answer: the shop asked (above), the shelf holds
+           * (below), and here is what the shelf has actually handed over —
+           * grouped part by part, with the trucks, mechanics and money behind
+           * every signed-out unit. It reads the same period window as the
+           * requests above. Storekeepers and the Transport Manager both see
+           * it; only they may approve, so only they may also edit.
+           */
+        }
+        <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
+          <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-[16px] font-medium text-[#1B2432]">Released from the store</h3>
+              <p className="text-[12px] text-[#5C6470]">
+                Goods consumed by the workshop, rolled up part by part — the releases, the
+                units signed out and what each part cost the fleet · same window as the
+                requests above
+              </p>
+            </div>
+            <PeriodFilter
+              value={requestPeriod}
+              onChange={setRequestPeriod}
+              custom={requestCustom.custom}
+              customOpen={requestCustom.open}
+              onToggleCustom={requestCustom.setOpen}
+            >
+              <CustomRangePicker
+                custom={requestCustom.custom}
+                onSet={requestCustom.set}
+                onClear={requestCustom.clear}
+              />
+            </PeriodFilter>
+            <div className="ml-auto">
+              <ExportMenu
+                label="Export"
+                rows={releasedGroups.length}
+                title="Parts & Store — Released from the store"
+                fileNameBase="store-releases"
+                csv={() =>
+                  [
+                    [
+                      "Part",
+                      "Releases",
+                      "Units Released",
+                      "Value Released",
+                      "Cost (each)",
+                      "Last Truck",
+                      "Mechanic",
+                      "Released By",
+                      "Last Released",
+                    ],
+                    ...releasedGroups.map((g) => [
+                      g.name,
+                      String(g.releases),
+                      String(g.units),
+                      String(g.value),
+                      String(g.last.unitCost ?? ""),
+                      g.last.truckReg,
+                      g.last.mechanic,
+                      g.last.pickedBy ?? "",
+                      g.last.handoffAt ?? g.last.date,
+                    ]),
+                  ]
+                    .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+                    .join("\n")
+                }
+                xlsx={() => ({
+                  headers: [
+                    "Part",
+                    "Releases",
+                    "Units Released",
+                    "Value Released (₦)",
+                    "Cost (each) (₦)",
+                    "Last Truck",
+                    "Mechanic",
+                    "Released By",
+                    "Last Released",
+                  ],
+                  rows: releasedGroups.map((g) => [
+                    g.name,
+                    g.releases,
+                    g.units,
+                    g.value,
+                    g.last.unitCost ?? "",
+                    g.last.truckReg,
+                    g.last.mechanic,
+                    g.last.pickedBy ?? "",
+                    g.last.handoffAt ?? g.last.date,
+                  ]),
+                  sheet: "Store releases",
+                })}
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[1120px]">
+              <div className="grid grid-cols-[minmax(0,1.5fr)_110px_140px_120px_150px_130px_130px_110px] items-center gap-4 border-b border-[#E2E5E9] py-[15px]">
+                {[
+                  "Part",
+                  "Units Released",
+                  "Value Released",
+                  "Cost (each)",
+                  "Last Truck",
+                  "Mechanic",
+                  "Released By",
+                  "Last Released",
+                ].map((heading) => (
+                  <span
+                    key={heading}
+                    className="text-[13px] font-medium uppercase tracking-[0.4px] text-[#5C6470]"
+                  >
+                    {heading}
+                  </span>
+                ))}
+              </div>
+
+              {releasedGroups.length === 0 ? (
+                <FigmaEmptyState
+                  title="Nothing released yet"
+                  body="When the store hands parts over and the mechanic signs, every release lands here — grouped by part with the units, trucks and cost of the goods consumed."
+                />
+              ) : (
+                releasedGroups.map((group, index) => {
+                  const released = formatDateLines(group.last.handoffAt ?? group.last.date);
+                  const machine = displayHeadCap(
+                    heads.find(
+                      (h) =>
+                        h.registration.trim().toLowerCase() ===
+                          String(group.last.truckReg ?? "").trim().toLowerCase() ||
+                        (displayHeadCap(h) || h.number).trim().toLowerCase() ===
+                          String(group.last.truckReg ?? "").trim().toLowerCase(),
+                    ) ?? ({} as TruckHead),
+                  );
+                  return (
+                    <div
+                      key={group.name.toLowerCase()}
+                      className={cn(
+                        "grid grid-cols-[minmax(0,1.5fr)_110px_140px_120px_150px_130px_130px_110px] items-center gap-4 py-[13px]",
+                        index < releasedGroups.length - 1 && "border-b border-[#E2E5E9]",
+                      )}
+                    >
+                      <span className="flex flex-col gap-0.5">
+                        <span className="text-[14px] text-[#344256]">{group.name}</span>
+                        <span className="text-[11px] text-[#5C6470]">
+                          {group.releases} release{group.releases === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      <span className={cell}>{group.units.toLocaleString("en-NG")}</span>
+                      <span className={cell}>{formatNairaFull(group.value)}</span>
+                      <span className={quiet}>
+                        {group.last.unitCost ? formatNairaFull(group.last.unitCost) : "—"}
+                      </span>
+                      <span className="flex flex-col gap-0.5 text-[14px] text-[#344256]">
+                        <span>{machine || truckOf(group.last.truckReg)}</span>
+                        <span className="text-[11px] text-[#5C6470]">
+                          {group.last.truckReg || "—"}
+                        </span>
+                      </span>
+                      <span className={quiet}>{group.last.mechanic || "—"}</span>
+                      <span className={quiet}>{group.last.pickedBy || "—"}</span>
+                      <span className="flex flex-col gap-0.5 text-[13px] leading-tight text-[#5C6470]">
+                        <span>{released.date}</span>
+                        {released.time ? <span className="text-[11px]">{released.time}</span> : null}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {releasedGroups.length > 0 ? releasedSummary : null}
           </div>
         </div>
 
