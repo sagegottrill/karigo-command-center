@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Copy, Download, Mail, MoreVertical, Upload, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { PortalOverlay, WhatsAppIcon } from "@/components/fleetopsx/portal-overlay";
+import { PARTNER_LOADING_LOCATION_GROUPS } from "@/lib/fleetopsx/partner-request-options";
 import { adminService, authService, partnerSiteService } from "@/lib/fleetopsx/services";
 import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
@@ -92,9 +93,14 @@ function AddPartner() {
     };
   }, [companyKey]);
 
-  /** Every yard on the table: the company's saved ones plus those just typed. */
+  // The register's wired yards lead the table, then the company's saved sites,
+  // then yards typed just now. A brand-new company no longer starts with an
+  // empty board — the named locations are HERE to input, and what remains is
+  // the same free-typing box as before.
+  const WIRED_SITES: string[] = PARTNER_LOADING_LOCATION_GROUPS.flatMap((g) => g.sites);
+  /** Every yard on the table: the wired ones, the company's saved ones, and those just typed. */
   const siteChoices: string[] = [];
-  for (const site of [...savedPartnerSites, ...loaderSites]) {
+  for (const site of [...WIRED_SITES, ...savedPartnerSites, ...loaderSites]) {
     if (!siteChoices.some((s) => s.toLowerCase() === site.toLowerCase())) siteChoices.push(site);
   }
 
@@ -187,6 +193,15 @@ function AddPartner() {
           await Promise.all(
             loaderSites.map((site) => partnerSiteService.add(site, companyName).catch(() => null)),
           );
+        }
+        // A yard picked from the wired list joins the company's own list too, so
+        // the account belongs to a filed site on every board, not just here.
+        if (
+          accountSite &&
+          !loaderSites.some((s) => s.toLowerCase() === accountSite.toLowerCase()) &&
+          !savedPartnerSites.some((s) => s.toLowerCase() === accountSite.toLowerCase())
+        ) {
+          await partnerSiteService.add(accountSite, companyName).catch(() => null);
         }
         toast.success("Partner account created.");
         setShowConfirmModal(false);
@@ -415,8 +430,8 @@ function AddPartner() {
                     })}
                   </div>
                   <p className="text-[11px] tracking-[0.4px] text-[#8e95a1]">
-                    Pick the site this account belongs to — {savedPartnerSites.length} saved for {companyKey}. A
-                    yard that is missing is added below.
+                    Pick the site this account belongs to — the register's wired yards first, then
+                    {savedPartnerSites.length} saved for {companyKey}. A yard that is missing is typed below.
                   </p>
                 </>
               ) : (
