@@ -32,6 +32,7 @@ import {
   lubricantService,
   procurementService,
 } from "@/lib/fleetopsx/services";
+import { classifyStoreLine } from "@/lib/fleetopsx/indirect-categories";
 import {
   formatClockTime,
   formatDayLabel,
@@ -878,9 +879,11 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         lubricantOilCost += Number((d as any).amount ?? 0);
       }
     }
-    // Indirect cost for the window: workshop labour (work-order cost, never
-    // Cancelled) + store issues at recorded value. Purchases are capital into
-    // stock, not spend, so they stay out of the indirect total.
+    // Indirect cost for the window (the Accounts board matches): external
+    // labour (work-order cost, never Cancelled) + the store's issues at
+    // recorded value, classified into the same six components (spare parts,
+    // tyres, lubricant, battery, rim). Purchases are capital into stock, not
+    // spend, so they stay out of the indirect total.
     let indirectLabour = 0;
     for (const o of workOrders) {
       if (o.status === "Cancelled") continue;
@@ -890,13 +893,49 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     }
     let indirectParts = 0;
     let indirectPartsUnits = 0;
+    /** The issue ledger, told in the indirect ledger's own words (the six). */
+    let indirectSpares = 0;
+    let indirectTyres = 0;
+    let indirectLubricant = 0;
+    let indirectBattery = 0;
+    let indirectRim = 0;
     for (const m of movements) {
       if ((m as any).kind !== "Issue") continue;
       if (!inPeriod((m as any).actedAt, range)) continue;
-      indirectParts += Math.abs(Number((m as any).value ?? 0));
+      const value = Math.abs(Number((m as any).value ?? 0));
+      switch (classifyStoreLine(`${(m as any).itemName ?? ""} ${(m as any).sku ?? ""}`)) {
+        case "Tyres":
+          indirectTyres += value;
+          break;
+        case "Lubricant":
+          indirectLubricant += value;
+          break;
+        case "Battery":
+          indirectBattery += value;
+          break;
+        case "Rim":
+          indirectRim += value;
+          break;
+        default:
+          indirectSpares += value;
+      }
+      indirectParts += value;
       indirectPartsUnits += Math.abs(Number((m as any).quantity ?? 0));
     }
-    const indirectCost = indirectLabour + indirectParts;
+    // "Other" — the expense ledger's non-trip rows (police claims, insurance,
+    // medical), the seventh component of indirect cost. The same rows the
+    // Accounts > Indirect board reads, filters included, so both totals agree.
+    let indirectOther = 0;
+    for (const e of live.expenses ?? []) {
+      if ((e as any).type !== "Other") continue;
+      if ((e as any).status === "Rejected") continue;
+      if (/engineering/i.test(String((e as any).requester ?? ""))) continue;
+      const amount = Number((e as any).amount ?? 0);
+      if (!(amount > 0)) continue;
+      if (!inPeriod((e as any).date, range)) continue;
+      indirectOther += amount;
+    }
+    const indirectCost = indirectLabour + indirectParts + indirectOther;
     // Direct cost, meeting formula: disbursed road expense + dispensed diesel +
     // dispensed gas + lubricant oil dispensed. Zero when nothing was paid or
     // poured — no committed-but-unpaid figure leaks in.
@@ -963,6 +1002,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         indirectLabour,
         indirectParts,
         indirectPartsUnits,
+        indirectSpares,
+        indirectTyres,
+        indirectLubricant,
+        indirectBattery,
+        indirectRim,
+        indirectOther,
         indirectCost,
         directCost,
         totalCost,
@@ -1021,7 +1066,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         suspended: staff.filter((u) => u.status === "Suspended").length,
       },
     };
-  }, [live.trips, live.trucks, live.drivers, tails, users, deskPours, disbursals, workOrders, movements, range]);
+  }, [live.trips, live.trucks, live.drivers, live.expenses, tails, users, deskPours, disbursals, workOrders, movements, range]);
 
   /** The window's own activity — raised / approved / dispatched / declined. */
   const activity = useMemo(
@@ -2326,7 +2371,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Wallet}
           title="Cost Overview"
-          subtitle="Cost = disbursed road expense + dispensed diesel + gas · Indirect = workshop labour + store issues · today and this window"
+          subtitle="Cost = disbursed road expense + dispensed diesel + gas · Indirect = external labour + store issues (spare parts, tyres, lubricant, battery, rim) · today and this window"
         >
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
@@ -2370,7 +2415,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <LiveMetricTile
               label="Indirect Cost"
               value={formatMoney(stats.spend.indirectCost)}
-              hint="Workshop + store issues"
+              hint="External labour + store issues"
               tone="amber"
               icon={Wrench}
               hasDrill
@@ -2378,8 +2423,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               detail={
                 <TileDetailRows
                   rows={[
-                    { label: "Repairs:", value: formatMoney(stats.spend.indirectLabour), tone: "amber" },
-                    { label: "Parts:", value: formatMoney(stats.spend.indirectParts), tone: "amber" },
+                    { label: "External Labour:", value: formatMoney(stats.spend.indirectLabour), tone: "amber" },
+                    { label: "Spares:", value: formatMoney(stats.spend.indirectSpares), tone: "amber" },
+                    { label: "Tyres:", value: formatMoney(stats.spend.indirectTyres), tone: "amber" },
+                    { label: "Lubricant:", value: formatMoney(stats.spend.indirectLubricant), tone: "amber" },
+                    { label: "Battery:", value: formatMoney(stats.spend.indirectBattery), tone: "amber" },
+                    { label: "Rim:", value: formatMoney(stats.spend.indirectRim), tone: "amber" },
+                    { label: "Other:", value: formatMoney(stats.spend.indirectOther), tone: "amber" },
                   ]}
                 />
               }
@@ -2389,11 +2439,16 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
               onClose={drill.close}
               title={`Indirect cost (${formatMoney(stats.spend.indirectCost)})`}
               width={360}
-              footer={<span>{stats.spend.indirectPartsUnits.toLocaleString()} units issued · spare parts, repairs, tyres & rims, other claims</span>}
+              footer={<span>{stats.spend.indirectPartsUnits.toLocaleString()} units issued · spare parts, tyres, lubricant, battery, rim, external labour, other claims</span>}
             >
               <div className="flex flex-col gap-1.5 py-1 text-[12px] text-white/75">
-                <div className="flex justify-between"><span>Repairs & maintenance (work orders)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectLabour)}</span></div>
-                <div className="flex justify-between"><span>Spare parts / store issues</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectParts)}</span></div>
+                <div className="flex justify-between"><span>External labour (work orders)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectLabour)}</span></div>
+                <div className="flex justify-between"><span>Spare parts (store issues)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectSpares)}</span></div>
+                <div className="flex justify-between"><span>Tyres (store issues)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectTyres)}</span></div>
+                <div className="flex justify-between"><span>Lubricant (store issues)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectLubricant)}</span></div>
+                <div className="flex justify-between"><span>Battery (store issues)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectBattery)}</span></div>
+                <div className="flex justify-between"><span>Rim (store issues)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectRim)}</span></div>
+                <div className="flex justify-between"><span>Other (claims, insurance, medical)</span><span className="font-semibold text-white">{formatMoney(stats.spend.indirectOther)}</span></div>
               </div>
             </DrillPopover>
           </div>
@@ -2418,8 +2473,8 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                     { name: "Road", value: stats.spend.roadDisbursed },
                     { name: "Diesel", value: stats.spend.pouredDieselCost },
                     { name: "Gas", value: stats.spend.pouredGasCost },
-                    { name: "Repairs", value: stats.spend.indirectLabour },
-                    { name: "Parts", value: stats.spend.indirectParts },
+                    { name: "Ext. Labour", value: stats.spend.indirectLabour },
+                    { name: "Store issues", value: stats.spend.indirectParts },
                   ]}
                   margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
                 >

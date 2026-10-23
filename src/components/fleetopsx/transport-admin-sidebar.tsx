@@ -117,8 +117,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       { label: "Part Inventory", to: "/workspace/app/part-inventory", icon: PackageSearch, liveDot: "partInventory" },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
       // The department's own ledger: litres in the tank, litres dispensed, and
-      // what the Transport Manager's rate turned them into.
-      { label: "Lubricant", to: "/workspace/app/lubricant", icon: Droplets },
+      // what the Transport Manager's rate turned them into. Shown as
+      // "Diesel & Gas" — the department used to be labeled "Lubricant".
+      { label: "Diesel & Gas", to: "/workspace/app/lubricant", icon: Droplets },
       { label: "Accounts", to: "/workspace/app/accounts", icon: CircleDollarSign },
     ],
   },

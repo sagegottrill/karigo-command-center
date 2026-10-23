@@ -789,10 +789,10 @@ export function TmLubricant() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-[5px]">
           <h2 className="text-[22px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[26px]">
-            Lubricant Inventory
+            Diesel & Gas Inventory
           </h2>
           <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-            Manage lubricant inventory and restock records
+            Manage diesel & gas inventory and restock records
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

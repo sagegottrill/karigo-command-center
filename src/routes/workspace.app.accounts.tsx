@@ -7,8 +7,9 @@ import { authService } from "@/lib/fleetopsx/services";
  *
  * The page holds the department's boards as tabs, the way Engineering's three
  * boards read under one department: Direct Expense (the per-dispatch cost
- * sheets), Indirect Expense (spare parts, repairs & maintenance, tires & rims,
- * other expenses) and Estimates & Depreciation (the standing assumptions).
+ * sheets), Indirect Expense (spare parts, tyres, lubricant, battery, rim,
+ * external labour, other expenses) and Estimates & Depreciation (the standing
+ * assumptions).
  *
  * Guarded like every other module: the page exists for the roles that own the
  * money. The Accounts department's own side — paying and entering the bank

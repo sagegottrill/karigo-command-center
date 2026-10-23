@@ -31,6 +31,11 @@ import { DepartmentTabStrip } from "@/components/fleetopsx/department-sidebar";
 import { FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { exportCsv } from "@/components/fleetopsx/lubricant-ui";
 import { escHtml, printSheet } from "@/components/fleetopsx/dashboard-drill";
+import {
+  INDIRECT_CATEGORIES,
+  classifyStoreLine,
+  type IndirectCategory,
+} from "@/lib/fleetopsx/indirect-categories";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
 import {
   CustomRangePicker,
@@ -60,9 +65,9 @@ import { cn } from "@/lib/utils";
  * that read as tabs across the top of it. Four boards:
  *
  *   Direct Expense   — the per-dispatch cost sheets (TmVouchers, unchanged).
- *   Indirect Expense — the money that is not a dispatch: spare parts, repairs &
- *                      maintenance, tires & rims, and other expenses (police
- *                      claims, insurance, medical injuries…).
+ *   Indirect Expense — the money that is not a dispatch: spare parts, tyres,
+ *                      lubricant, battery, rim, external labour, and other
+ *                      expenses (police claims, insurance, medical injuries…).
  *   Estimates & Depreciation — the standing assumptions (straight-line, useful
  *                      life, rate) and the asset base they will charge against.
  *   Analytics        — the money as pictures: profit and loss, what the spend
@@ -72,13 +77,12 @@ import { cn } from "@/lib/utils";
  * same way the direct sheet is read from the dispatch itself — this board never
  * re-enters a figure another department already owns:
  *
- *   Spare Parts           → the store's movement ledger (purchases in, issues
- *                           out at their recorded value).
- *   Repairs & Maintenance → workshop work orders (their `cost`; the workshop's
+ *   Spare Parts / Tyres / → the store's movement ledger (purchases in, issues
+ *   Lubricant / Battery /    out at their recorded value), classified by what
+ *   Rim                   → the line bought.
+ *   External Labour       → workshop work orders (their `cost`; the workshop's
  *                           own repair-expense rows describe the same money, so
  *                           they are not counted twice).
- *   Tires & Rims          → purchases/issues and workshop jobs whose item or
- *                           category is tyre/rim.
  *   Other Expenses        → the expense ledger's non-trip "Other" rows — the
  *                           figures the cost clients will hand over (papers,
  *                           engineering, HR) land here.
@@ -91,13 +95,9 @@ const TABS = [
   { label: "Analytics", icon: BarChart3 },
 ] as const;
 
-const INDIRECT_CATEGORIES = [
-  "Spare Parts",
-  "Repairs & Maintenance",
-  "Tires & Rims",
-  "Other Expenses",
-] as const;
-type IndirectCategory = (typeof INDIRECT_CATEGORIES)[number];
+// The indirect ledger's categories live in @/lib/fleetopsx/indirect-categories
+// — shared with the dashboard's Indirect Cost breakdown so both boards always
+// name the same six components.
 
 type IndirectRow = {
   id: string;
@@ -121,9 +121,7 @@ const capOf = (heads: TruckHead[], plate: string) => {
   return head?.capNumber ? `${head.capNumber} (${clean})` : clean;
 };
 
-const isTyreLine = (text: string) => /tyre|tire|rim/i.test(text);
-
-/** The store ledger's money lines, named by the four indirect categories. */
+/** The store ledger's money lines, named by the indirect categories. */
 function movementRows(heads: TruckHead[], movements: InventoryMovement[]): IndirectRow[] {
   const rows: IndirectRow[] = [];
   for (const line of movements) {
@@ -132,11 +130,11 @@ function movementRows(heads: TruckHead[], movements: InventoryMovement[]): Indir
     const fallback = Math.abs(Number(line.quantity ?? 0) * Number(line.unitCost ?? 0));
     const amount = value > 0 ? value : fallback;
     if (!(amount > 0)) continue;
-    const tyres = isTyreLine(`${line.itemName} ${line.sku}`);
+    const category = classifyStoreLine(`${line.itemName} ${line.sku}`);
     if (line.kind === "Purchase") {
       rows.push({
         id: `mv-${line.id}`,
-        category: tyres ? "Tires & Rims" : "Spare Parts",
+        category,
         label: line.itemName,
         detail: `Purchase from ${line.vendor?.trim() || "vendor not recorded"}${
           line.reference ? ` · ${line.reference}` : ""
@@ -149,7 +147,7 @@ function movementRows(heads: TruckHead[], movements: InventoryMovement[]): Indir
     } else {
       rows.push({
         id: `mv-${line.id}`,
-        category: tyres ? "Tires & Rims" : "Spare Parts",
+        category,
         label: `${line.itemName} issued to ${line.truckReg?.trim() || "the floor"}`,
         detail: `Requisition draw${line.note ? ` · ${line.note}` : ""}`,
         truck: capOf(heads, line.truckReg ?? ""),
@@ -168,9 +166,9 @@ function workOrderRows(orders: WorkOrder[]): IndirectRow[] {
     .filter((order) => order.status !== "Cancelled" && Number(order.cost ?? 0) > 0)
     .map((order) => ({
       id: `wo-${order.id}`,
-      category: (isTyreLine(`${order.category} ${order.defect}`)
-        ? "Tires & Rims"
-        : "Repairs & Maintenance") as IndirectCategory,
+      // A work order is the labour bill that fits whatever the store issued —
+      // it reads as External Labour whatever part the job was about.
+      category: "External Labour" as IndirectCategory,
       label: order.defect,
       detail: `Work order · ${order.category} · ${order.mechanic?.trim() || "mechanic unassigned"}`,
       truck: order.truckReg?.trim() || "—",
@@ -287,8 +285,8 @@ function IndirectBoard({ rows, loading }: { rows: IndirectRow[]; loading: boolea
           Indirect Expenses
         </h2>
         <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-          Spare parts · repairs &amp; maintenance · tires &amp; rims · other expenses — read from
-          the store, the workshop and the expense ledger, never re-entered here.
+          Spare parts · tyres · lubricant · battery · rim · external labour · other expenses — read
+          from the store, the workshop and the expense ledger, never re-entered here.
         </p>
       </div>
 
@@ -400,8 +398,9 @@ function IndirectBoard({ rows, loading }: { rows: IndirectRow[]; loading: boolea
             <FigmaLoadingState label="Reading the store, workshop and expense ledgers…" />
           ) : slice.length === 0 ? (
             <p className="py-6 text-[13px] text-[#5C6470]">
-              Nothing indirect recorded in this window yet. Spare-parts purchases and issues arrive
-              from the store's ledger, repairs from workshop work orders, and the other-expense
+              Nothing indirect recorded in this window yet. The store's ledger feeds
+              spare parts, tyres, lubricant, battery and rim (purchases and issues),
+              external labour comes from workshop work orders, and the other-expense
               figures (police claims, insurance, medical) from the desks that raise them.
             </p>
           ) : (
@@ -439,9 +438,12 @@ function IndirectBoard({ rows, loading }: { rows: IndirectRow[]; loading: boolea
             items={[
               { label: "Total Indirect", value: money(total) },
               { label: "Spare Parts", value: byCategory("Spare Parts") },
-              { label: "Repairs & Maint.", value: byCategory("Repairs & Maintenance") },
-              { label: "Tires & Rims", value: byCategory("Tires & Rims") },
-              { label: "Other Expenses", value: byCategory("Other Expenses") },
+              { label: "Tyres", value: byCategory("Tyres") },
+              { label: "Lubricant", value: byCategory("Lubricant") },
+              { label: "Battery", value: byCategory("Battery") },
+              { label: "Rim", value: byCategory("Rim") },
+              { label: "External Labour", value: byCategory("External Labour") },
+              { label: "Other", value: byCategory("Other Expenses") },
             ]}
           />
         ) : null}
