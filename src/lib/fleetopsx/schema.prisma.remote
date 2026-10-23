@@ -155,6 +155,10 @@ model ProcurementRequest {
   quantity   Int
   linkedId   String
   truckReg   String?
+  /// Who raised the buy (the mobile form's Requested By) — optional.
+  requestedBy String?
+  /// Free note attached to the request (the mobile form's Note).
+  note        String?
   status     String   @default("Requested")
   date       DateTime @default(now())
   createdAt  DateTime @default(now())

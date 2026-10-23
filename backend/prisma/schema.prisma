@@ -251,6 +251,10 @@ model ProcurementRequest {
   unitPrice  Float?
   /// Who the buy is from — procurement owns the vendor record.
   vendor     String?
+  /// Who raised the buy (the mobile form's Requested By) — optional.
+  requestedBy String?
+  /// Free note attached to the request (the mobile form's Note).
+  note        String?
   status     String   @default("Requested")
   date       DateTime @default(now())
   createdAt  DateTime @default(now())
