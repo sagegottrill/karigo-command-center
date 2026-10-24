@@ -2377,9 +2377,36 @@ app.get('/api/trucks', authenticate, async (_req, res) => {
   res.json(await prisma.truck.findMany({ orderBy: { cabId: 'asc' } }));
 });
 // The cap number is UNIQUE: a duplicate is the operator's mistake, not a crash.
+// TRUCK-CAP-AUTO (24 Oct 2026): the cap number (cabId, "P0xx") is the identity
+// every board, gate log and assignment picker reads. Fleet adds new trucks with
+// nothing but a plate — or with the plate pasted into the cap field — and every
+// screen then showed the bare plate ("AAA395YP") where its neighbours read
+// "P0xx (PLATE)". The server now owns the cap: it trims what arrives, refuses a
+// truck with no plate, and AUTO-ISSUES the next free P-code whenever the cap
+// field is blank or merely repeats the plate, so a truck added by anyone in any
+// department carries a usable cap number from the moment it exists.
+const truckCapKey = (v: string) => String(v ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+async function nextFreeTruckCap(): Promise<string> {
+  const rows = await prisma.truck.findMany({ select: { cabId: true } });
+  let max = 0;
+  for (const r of rows) {
+    const m = /^P(\d+)$/i.exec(String(r.cabId || '').trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `P${max + 1}`;
+}
+
 app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
-    res.json(await prisma.truck.create({ data: req.body }));
+    const data = { ...req.body };
+    delete data.id;
+    data.registration = String(data.registration ?? data.plate ?? '').trim();
+    if (!data.registration) return res.status(400).json({ error: 'The plate number is required — the cap alone does not identify the truck.' });
+    const cap = String(data.cabId ?? data.capNumber ?? '').trim();
+    data.cabId = !cap || truckCapKey(cap) === truckCapKey(data.registration) ? await nextFreeTruckCap() : cap;
+    delete data.capNumber;
+    delete data.plate;
+    res.json(await prisma.truck.create({ data }));
   } catch (e: any) {
     if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'A truck with this number already exists' });
     throw e;
@@ -2390,7 +2417,23 @@ app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Man
 // trip; the status is the one column the whole availability story hangs on.
 app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   try {
-    res.json(await prisma.truck.update({ where: { id: req.params.id }, data: req.body }));
+    const data = { ...req.body };
+    delete data.id;
+    // Same cap rule on edit: the cap can be trimmed, but never blanked out and
+    // never turned into the plate — the registry row keeps a real cap number.
+    if (data.registration !== undefined) data.registration = String(data.registration ?? '').trim();
+    if (data.cabId !== undefined || data.capNumber !== undefined) {
+      const cap = String(data.cabId ?? data.capNumber ?? '').trim();
+      if (!cap || truckCapKey(cap) === truckCapKey(data.registration ?? '')) {
+        // resolve the row's own plate first so the blank-plate case is rejected.
+        const row = await prisma.truck.findUnique({ where: { id: req.params.id }, select: { registration: true } });
+        const refPlate = String(row?.registration ?? '').trim();
+        if (!refPlate && !data.registration) return res.status(400).json({ error: 'A truck with no plate cannot be saved — add the plate number.' });
+        data.cabId = await nextFreeTruckCap();
+      } else data.cabId = cap;
+      delete data.capNumber;
+    }
+    res.json(await prisma.truck.update({ where: { id: req.params.id }, data }));
   } catch (e: any) {
     if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'A truck with this number already exists' });
     if (String(e?.code) === 'P2025') return res.status(404).json({ error: 'Truck not found' });

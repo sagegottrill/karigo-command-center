@@ -26,7 +26,6 @@ function departmentRoleKeys(department) {
     'Accounts': ['Accounts', 'Accountant'],
     'HR and Personnel': ['HR', 'HR & Personnel', 'HR and Personnel'],
     'Security': ['Security', 'Gate Security', 'Gate'],
-    'Fleet Field Operations': ['Fleet Field Ops', 'Fleet Field Operations'],
     'Drivers': ['Driver'],
   };
   return map[department] || [department];
@@ -310,12 +309,19 @@ async function notificationScope(req: any) {
       return { OR: [{ audience: null }, { audience: { contains: companyTag } }, { audience: { equals: 'Partner' } }] };
     }
     return { OR: [{ audience: null }, { audience: { contains: 'Partner' } }] };
-  }
-  const held = (Array.isArray(req.user?.roles) ? req.user.roles : [role]).filter(Boolean);
+  }  const held = (Array.isArray(req.user?.roles) ? req.user.roles : [role]).filter(Boolean);
   // One OR per held role: joining them into 'A|B' asked the database for a
   // literal 'A|B' substring, which no audience contains — multi-role staff
   // silently missed every notification.
-  return { OR: [{ audience: null }, ...held.map((r) => ({ audience: { contains: r } }))] };
+  // Chat notifications target USERS by id in the audience list, so the reader
+  // also matches on their own id — one comma-delimited list per row.
+  return {
+    OR: [
+      { audience: null },
+      ...held.map((r) => ({ audience: { contains: r } })),
+      { audience: { contains: String(req.user.id) } },
+    ],
+  };
 }
 
 /**
@@ -334,10 +340,10 @@ function dispatchRef(tripId: any) {
 
 // Lifecycle status -> notification sent to the right roles (partner stays informed of ITS cargo).
 const TRIP_STATUS_NOTICES: Record<string, { category: string; title: string; body: (t: any) => string; audience: string; severity?: string }> = {
-  'Approved': { category: 'Approvals', title: 'Request Approved', body: (t) => `Dispatch ${dispatchRef(t.id)} was approved and is awaiting truck assignment.`, audience: 'Partner,Transport Manager,Fleet Operations', severity: 'success', module: 'Fleet Operations', action: ['Fleet Operations'] },
+  'Approved': { category: 'Approvals', title: 'Request Approved', body: (t) => `Dispatch ${dispatchRef(t.id)} was approved and is awaiting truck assignment.`, audience: 'Partner,Transport Manager,Fleet Operations', severity: 'success', module: 'Fleet Operations', actionRoles: ['Fleet Operations'] },
   'Scheduled': { category: 'Operations', title: 'Truck Assigned', body: (t) => `Dispatch ${dispatchRef(t.id)} is fully assigned (${t.truckReg} · ${t.driverName}) and scheduled for ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking,Loading', severity: 'success', module: 'Fleet Operations' },
   'En Route': { category: 'Operations', title: 'Truck Departed', body: (t) => `Dispatch ${dispatchRef(t.id)} departed — truck ${t.truckReg} is En Route to ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Security,Tracking', severity: 'info', module: 'Gate Security' },
-  'Delayed': { category: 'Operations', title: 'Dispatch Delayed', body: (t) => `Dispatch ${dispatchRef(t.id)} has been marked Delayed.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'warning', module: 'Tracking', action: ['Tracking'] },
+  'Delayed': { category: 'Operations', title: 'Dispatch Delayed', body: (t) => `Dispatch ${dispatchRef(t.id)} has been marked Delayed.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'warning', module: 'Tracking', actionRoles: ['Tracking'] },
     // returning-notice-removed
   'Completed': { category: 'Operations', title: 'Delivery Completed', body: (t) => `Dispatch ${dispatchRef(t.id)} completed delivery to ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking', severity: 'success', module: 'Fleet Operations' },
   'Stopped': { category: 'Approvals', title: 'Request Declined', body: (t) => `Dispatch ${dispatchRef(t.id)} was declined/stopped by Transport Manager.`, audience: 'Partner,Transport Manager', severity: 'error', module: 'Fleet Operations' },
@@ -480,9 +486,8 @@ app.post('/api/auth/login', async (req, res) => {
       // oldest same-username account can never answer for the newest one.
       const wantedDept = String(req.body?.department || '').trim();
       const wantedRoles = wantedDept ? departmentRoleKeys(wantedDept) : null;
-      // Fetch all statuses so a correct password on a suspended/deleted account gives the right error
       const candidates = await prisma.user.findMany({
-        where: { email: { startsWith: `${email}@`, mode: 'insensitive' } },
+        where: { email: { startsWith: `${email}@`, mode: 'insensitive' }, status: 'Active' },
         orderBy: { createdAt: 'asc' },
       });
       const holdsWanted = (u) => {
@@ -493,24 +498,17 @@ app.post('/api/auth/login', async (req, res) => {
       if (wantedDept && pool.length === 0) {
         return res.status(403).json({ error: `None of the accounts using username "${email}" belong to ${wantedDept}. Pick the department on your credentials, or leave the department blank.` });
       }
-
-      // Try Active accounts first
-      const orderedPool = [
-        ...pool.filter(c => c.status === 'Active'),
-        ...pool.filter(c => c.status !== 'Active')
-      ];
-
-      for (const candidate of orderedPool) {
+      for (const candidate of pool) {
         if (await bcrypt.compare(password, candidate.password)) { user = candidate; break; }
       }
-      if (!user && pool.length > 0) {
+      if (!user && candidates.length > 0) {
         // Right username, wrong password — never impersonate another match.
         return res.status(401).json({ error: 'Invalid credentials' });
       }
     }
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    if (user.status === 'Suspended') return res.status(401).json({ error: 'Your account has been suspended. Contact your administrator.', code: 'ACCOUNT_SUSPENDED' });
-    if (user.status === 'Deleted') return res.status(401).json({ error: 'This account has been deleted. Contact your administrator.', code: 'ACCOUNT_DELETED' });
+    if (user.status === 'Suspended') return res.status(401).json({ error: 'Your account has been suspended. Contact your administrator.' });
+    if (user.status === 'Deleted') return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     if (user.role === 'Customer Portals (External)' && !user.partnerCompanyName) {
@@ -658,6 +656,15 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
       if (req.body?.[key] !== undefined) data[key] = req.body[key];
     }
     if (Array.isArray(data.roles)) data.roles = data.roles.join(',');
+    // GUARD-SELF-ROLES: nobody edits their own access. An HR account (or any
+    // manager here) could otherwise grant themself Transport Manager, or
+    // quietly demote a colleague — the privilege change would leave behind
+    // nothing but the mutation notice, because every admin holds this route.
+    const changingAccess =
+      data.role !== undefined || data.roles !== undefined || data.status !== undefined;
+    if (changingAccess && req.params.id === String(req.user?.id || '')) {
+      return res.status(403).json({ error: "You cannot change your own role, roles or status on this account — ask another admin." });
+    }
     let generatedTempPassword: string | undefined;
     if (req.body?.resetPassword === true) {
       const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
@@ -680,7 +687,7 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
     data.password = await bcrypt.hash(data.password, 10);
     // Admin reset / temp password → force Set New Password on next login
     if (data.passwordResetRequired === undefined) data.passwordResetRequired = true;
-    void notify('Compliance', 'Password Reset', `A new temporary password was issued for ${existing?.name || 'your account'}. Please change it on next login.`, 'warning', existing?.role, { module: 'Accounts', eventKey: 'account.password_reset' });
+    void notify('Compliance', 'Password Reset', `A new temporary password was issued for ${existing?.name || 'your account'}. Please change it on next login.`, 'warning', 'Transport Manager,Platform Admin,HR', { module: 'Accounts', eventKey: 'account.password_reset' });
   }
   const user = await prisma.user.update({ where: { id: req.params.id }, data });
   if (data.status === 'Suspended') {
@@ -880,38 +887,27 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
       },
     };
   }
-  const quantity = Math.max(1, parseInt(req.body.quantity) || 1);
-  const createdTrips = [];
-  if (quantity > 1) {
-    const promises = Array.from({ length: quantity }).map(() => prisma.trip.create({ data }));
-    const trips = await Promise.all(promises);
-    createdTrips.push(...trips);
-  } else {
-    createdTrips.push(await prisma.trip.create({ data }));
-  }
-  const trip = createdTrips[0];
-  const qStr = quantity > 1 ? ` (${quantity} trucks)` : '';
-
+  const trip = await prisma.trip.create({ data });
   // partner-sites-optin-patch: auto-collector removed from POST /api/trips
   if (raisedForPartner) {
     // Both sides are told in ONE write: the partner sees the request on his own
     // dashboard (his bell is scoped to `Partner:<Company>`) and the Transport
     // Manager's queue carries it as work. Nobody re-types anybody's paperwork.
-    void notify('Approvals', 'New Delivery Request' + qStr,
-      `${onBehalfCompany} requested ${quantity > 1 ? quantity + ' ' : 'a '}${data.tailType || 'truck'}s for ${data.customerConsignee || 'a customer'} to ${data.dropoff} (raised by ${req.user?.name || 'the Transport Manager'}).`,
+    void notify('Approvals', 'New Delivery Request',
+      `${onBehalfCompany} requested a ${data.tailType || 'truck'} for ${data.customerConsignee || 'a customer'} to ${data.dropoff} (raised by ${req.user?.name || 'the Transport Manager'}).`,
       'info', `Partner:${onBehalfCompany},Transport Manager,Fleet Operations`,
-      { module: 'Partners', eventKey: 'request.submitted_on_behalf', refId: trip.id, refLabel: dispatchRef(trip.id) + (quantity > 1 ? ' +' : ''), actionRoles: ['Transport Manager', 'Fleet Operations'] });
+      { module: 'Partners', eventKey: 'request.submitted_on_behalf', refId: trip.id, refLabel: dispatchRef(trip.id), actionRoles: ['Transport Manager', 'Fleet Operations'] });
   } else if (isPartner) {
     // A partner's request waits on the Transport Manager FIRST; Fleet Operations
     // is told it exists but has nothing to do until it is approved.
-    void notify('Approvals', 'New Delivery Request' + qStr, `${partnerName} requested ${quantity > 1 ? quantity + ' ' : 'a '}${data.tailType || 'truck'}s for ${data.customerConsignee || 'a customer'} to ${data.dropoff}.`, 'info', 'Transport Manager,Fleet Operations', { module: 'Partners', eventKey: 'request.submitted', refId: trip.id, refLabel: dispatchRef(trip.id) + (quantity > 1 ? ' +' : ''), actionRoles: ['Transport Manager'] });
+    void notify('Approvals', 'New Delivery Request', `${partnerName} requested a ${data.tailType || 'truck'} for ${data.customerConsignee || 'a customer'} to ${data.dropoff}.`, 'info', 'Transport Manager,Fleet Operations', { module: 'Partners', eventKey: 'request.submitted', refId: trip.id, refLabel: dispatchRef(trip.id), actionRoles: ['Transport Manager'] });
     // partner-received-notice: the partner gets the receipt TOO. Their follow-up
     // starts the moment they send: this lands in their bell immediately, and
     // every later move (approved, truck assigned, departed, checkpoint,
     // completed) rides the same channel.
-    void notify('Approvals', 'Request Received', `We received your delivery request${quantity > 1 ? 's' : ''} starting with ${dispatchRef(trip.id)} — ${quantity > 1 ? quantity + ' ' : 'a '}${data.tailType || 'truck'}s for ${data.customerConsignee || 'your customer'} to ${data.dropoff}. The Transport Manager will review it and you will be notified at every step.`, 'info', `Partner:${partnerName}`, { module: 'Partners', eventKey: 'request.received', refId: trip.id, refLabel: dispatchRef(trip.id) + (quantity > 1 ? ' +' : '') });
+    void notify('Approvals', 'Request Received', `We received your delivery request ${dispatchRef(trip.id)} — ${data.tailType || 'truck'} for ${data.customerConsignee || 'your customer'} to ${data.dropoff}. The Transport Manager will review it and you will be notified at every step.`, 'info', `Partner:${partnerName}`, { module: 'Partners', eventKey: 'request.received', refId: trip.id, refLabel: dispatchRef(trip.id) });
   } else {
-    void notify('Operations', 'Dispatch Created' + qStr, `Dispatch ${dispatchRef(trip.id)}${quantity > 1 ? ' (and ' + (quantity - 1) + ' others)' : ''} created for ${data.customer || 'internal operations'} (${data.pickup} → ${data.dropoff}).`, 'info', 'Transport Manager,Fleet Operations', { module: 'Fleet Operations', eventKey: 'dispatch.created', refId: trip.id, refLabel: dispatchRef(trip.id) + (quantity > 1 ? ' +' : '') });
+    void notify('Operations', 'Dispatch Created', `Dispatch ${dispatchRef(trip.id)} created for ${data.customer || 'internal operations'} (${data.pickup} → ${data.dropoff}).`, 'info', 'Transport Manager,Fleet Operations', { module: 'Fleet Operations', eventKey: 'dispatch.created', refId: trip.id, refLabel: dispatchRef(trip.id) });
   }
   res.json(trip);
 });
@@ -1011,6 +1007,33 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     const first = raw.split(',')[0]?.trim();
     return first ? first.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Security';
   })();
+  // RETURN-AUDIT (meeting: "can the back end show which user triggered
+  // returns?") — EVERY transition to Completed is stamped by the server with
+  // the authenticated account, on any path (the gate window, Tracking's
+  // return action, a partner-visible closure). A client-supplied gateInBy no
+  // longer decides who the record blames: the token does.
+  const completingNow = data.status === 'Completed' && before && before.status !== 'Completed';
+  if (completingNow) {
+    data.gateInBy = gateActor;
+    const dcAudit =
+      data.directCosts && typeof data.directCosts === 'object'
+        ? { ...(data.directCosts as any) }
+        : before.directCosts && typeof before.directCosts === 'object'
+          ? { ...(before.directCosts as any) }
+          : {};
+    dcAudit.returnedBy = {
+      by: gateActor,
+      role: req.user?.role || '',
+      at: new Date().toISOString(),
+      via: 'trip-status-change',
+    };
+    data.directCosts = dcAudit;
+    void notify('Security', 'Return logged outside the gate',
+      dispatchRef(before.id) + ' was completed (' + gateActor + ', ' + String(req.user?.role || '') +
+      '). If the truck is not physically back, restore it from this dispatch.',
+      'warning', 'Transport Manager,Platform Admin,Security',
+      { module: 'Gate Security', eventKey: 'gate.remote_return', refId: before.id, refLabel: dispatchRef(before.id), actionRoles: ['Transport Manager'] });
+  }
   const isGateAccount = ['Security', 'Gate Security', 'Gate'].includes(String(req.user?.role || ''))
     || /(^|,)(security|gate)(,|$)/i.test(String(req.user?.roles || ''));
   if (isGateAccount && before && before.status !== data.status) {
@@ -1049,20 +1072,6 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   if (isGateAccount && data.status === 'Delayed' && before && ['En Route', 'Loaded'].includes(before.status)) {
     data.gateInBy = gateActor;
   }
-  if (data.status === 'Completed') {
-    // TRUTHFUL-RETURN-STAMP (B2): the return stamp names the account that
-    // actually ended the movement. A real stamp by Tracking or the gate is
-    // never rewritten into a fixed department name — the old code silently
-    // re-labelled these closures as "Petroline Security", which is exactly how
-    // the ledger lost its truth. Only genuine auto-stamp placeholders from the
-    // old reconcile sweep collapse back to the acting account.
-    const rawIn = data.gateInBy || before?.gateInBy || gateActor;
-    const cleanIn = rawIn && !/auto-reconcil|superseded|departure predates/i.test(rawIn) ? rawIn : gateActor;
-    data.gateInBy = cleanIn || null;
-    if (!data.eta && !String(before?.eta || '').trim()) {
-      data.eta = autoStamp(new Date());
-    }
-  }
   const trip = await prisma.trip.update({ where: { id: req.params.id }, data });
   /*
    * THE RETURN STAMP FREES THE DRIVER (return-frees-driver).
@@ -1092,8 +1101,17 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       void coupleTailRegistry(trip, 'out');
     }
     // lifecycle-coupling-v2: a COMPLETED dispatch frees its driver — full stop.
-  if (String(trip.status) === 'Completed') {
-    await freeDriverOnReturn(trip.driverName, trip.truckReg);
+  // The old check demanded gateInBy in the request body, which a tracking-leg
+  // completion never carries, stranding the man as 'On Trip' with no load.
+  if (String(trip.status) === 'Completed' && before && before.status !== 'Completed' && trip.driverName) {
+    try {
+      await prisma.driver.updateMany({
+        where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
+        data: { status: 'Active' },
+      });
+    } catch (e: any) {
+      console.error('return could not free the driver:', e?.message || e);
+    }
   }
   // Stamp first dispatch (final TM approval -> Scheduled) for the Date Dispatched column.
   if (trip.status === 'Scheduled' && !trip.dispatchedAt) {
@@ -1158,10 +1176,28 @@ app.get('/api/expenses', authenticate, async (_req, res) => {
   res.json(await prisma.expense.findMany({ orderBy: { createdAt: 'desc' } }));
 });
 app.post('/api/expenses', authenticate, authorize('Transport Manager', 'Platform Admin', 'Accounts', 'Fleet Operations', 'HR'), async (req, res) => {
-  res.json(await prisma.expense.create({ data: req.body }));
+  // Whitelist the Expense columns the board actually edits. Straying client
+  // fields used to 500 the write, and `amount` arrived as text half the time.
+  const ALLOWED_EXPENSE_FIELDS = ['requester', 'department', 'type', 'category', 'amount', 'description', 'status'];
+  const data: any = {};
+  for (const key of ALLOWED_EXPENSE_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  const amount = Number(data.amount);
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+  data.amount = amount;
+  res.json(await prisma.expense.create({ data }));
 });
 app.patch('/api/expenses/:id', authenticate, authorize('Transport Manager', 'Platform Admin', 'Accounts', 'Fleet Operations', 'HR'), async (req, res) => {
-  res.json(await prisma.expense.update({ where: { id: req.params.id }, data: req.body }));
+  const existing = await prisma.expense.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'Expense not found' });
+  const ALLOWED_EXPENSE_FIELDS = ['requester', 'department', 'type', 'category', 'amount', 'description', 'status'];
+  const data: any = {};
+  for (const key of ALLOWED_EXPENSE_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  if (data.amount !== undefined) {
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+    data.amount = amount;
+  }
+  res.json(await prisma.expense.update({ where: { id: req.params.id }, data }));
 });
 
 // --- WORK ORDERS ---
@@ -1169,10 +1205,136 @@ app.get('/api/work-orders', authenticate, async (_req, res) => {
   res.json(await prisma.workOrder.findMany({ orderBy: { createdAt: 'desc' } }));
 });
 app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
-  res.json(await prisma.workOrder.create({ data: req.body }));
+  // Validate before writing: `truckReg` is the record's identity (the fleet
+  // audit matches it against the registry) and an empty defect produced a job
+  // no workshop could act on.
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const defect = String(req.body?.defect || '').trim();
+  if (!truckReg) return res.status(400).json({ error: 'Name the truck this job is for.' });
+  if (!defect) return res.status(400).json({ error: 'Log the defect the workshop must fix.' });
+  const ALLOWED_WO_FIELDS = ['truckReg', 'defect', 'category', 'priority', 'mechanic', 'reportedBy', 'cost', 'notes', 'status', 'severity', 'inspectedBy', 'startedAt', 'estimatedReadyAt', 'completedAt'];
+  const data: any = {};
+  for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  res.json(await prisma.workOrder.create({ data }));
 });
 app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
-  res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data: req.body }));
+  // Same whitelist as create — an unknown field in an update payload must
+  // correct the job, not kill the save with a Prisma 500.
+  const ALLOWED_WO_FIELDS = ['truckReg', 'defect', 'category', 'priority', 'mechanic', 'reportedBy', 'cost', 'notes', 'status', 'severity', 'inspectedBy', 'startedAt', 'estimatedReadyAt', 'completedAt'];
+  if (req.body?.cost !== undefined && (!Number.isFinite(Number(req.body.cost)) || Number(req.body.cost) < 0)) {
+    return res.status(400).json({ error: 'cost must be a non-negative number' });
+  }
+  if (req.body?.status !== undefined && !["Reported", "Diagnosing", "Awaiting Parts", "Repairing", "Testing", "Completed", "Cancelled"].includes(String(req.body.status))) {
+    return res.status(400).json({ error: 'Unknown work-order status: ' + String(req.body.status) });
+  }
+  const data: any = {};
+  if (req.body?.status === 'Completed' && !req.body?.completedAt) data.completedAt = new Date();
+  for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+  res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data }));
+});
+// Incorrect records (e.g. sent back) can be removed entirely — Engineering /
+// TM only, so the workshop board keeps its audit trail by default.
+app.delete('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager'), async (req, res) => {
+  await prisma.workOrder.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+/**
+ * The check-up verdict, exactly as the approved design inspects it.
+ *
+ * No issues  → the truck returns to Available (and any open job closes).
+ * Issues     → the truck goes Under Maintenance, a work order carries the
+ *               defect + severity + inspector, and any listed spare parts land
+ *               on the Head of Engineering's desk as one grouped request.
+ */
+app.get('/api/engineering/technicians', authenticate, async (req: any, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        status: 'Active',
+        OR: [{ role: { contains: 'Engin' } }, { roles: { contains: 'Engin' } }],
+      },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json(users.map((u: any) => u.name).filter(Boolean));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+  const headId = String(req.body?.headId || '').trim() || null;
+  const tailId = String(req.body?.tailId || '').trim() || null;
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const result = String(req.body?.result || '').trim();
+  const defect = String(req.body?.defect || '').trim();
+  const severity = String(req.body?.severity || '').trim();
+  const inspectedBy = String(req.body?.inspectedBy || req.user?.name || '').trim();
+  // ASSIGN-ENGINEER: the hands-on engineer the defect is given to — travels on
+  // the work order as `mechanic`, the field every surface already shows.
+  const assignedTo = String(req.body?.assignedTo || '').trim();
+  const parts = Array.isArray(req.body?.parts) ? req.body.parts : [];
+  if (!headId && !tailId) return res.status(400).json({ error: 'Choose the truck that was inspected.' });
+  if (!['no-issues', 'issues'].includes(result)) return res.status(400).json({ error: 'result must be no-issues or issues.' });
+  if (result === 'issues' && !defect) return res.status(400).json({ error: 'Log the defect that was found.' });
+  try {
+    const by = actingUser(req);
+    if (result === 'no-issues') {
+      if (headId) await prisma.truck.updateMany({ where: { id: headId }, data: { status: 'Available' } });
+      if (tailId) await prisma.tail.updateMany({ where: { id: tailId }, data: { status: 'Available' } });
+      const open = await prisma.workOrder.findMany({ where: { truckReg, status: { notIn: ['Completed', 'Cancelled'] } }, orderBy: { createdAt: 'desc' }, take: 1 });
+      if (open.length) {
+        await prisma.workOrder.update({ where: { id: open[0].id }, data: { status: 'Completed', completedAt: new Date(), inspectedBy: inspectedBy || by } });
+      }
+      await notify('Engineering', 'Check-up passed — truck available', `${truckReg} passed inspection by ${inspectedBy || by} and is back to Available.`, 'success', 'Engineering,Fleet Operations,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.checkup_passed', refLabel: truckReg });
+      return res.json({ ok: true, result, truckReg });
+    }
+    if (headId) await prisma.truck.updateMany({ where: { id: headId }, data: { status: 'Maintenance' } });
+    if (tailId) await prisma.tail.updateMany({ where: { id: tailId }, data: { status: 'Maintenance' } });
+    const job = await prisma.workOrder.create({
+      data: {
+        truckReg,
+        defect,
+        category: 'General',
+        priority: severity === 'Critical (Grounded)' ? 'Critical' : severity.startsWith('Major') ? 'High' : 'Medium',
+        mechanic: assignedTo || '',
+        reportedBy: inspectedBy || by,
+        cost: 0,
+        notes: `Check-up: ${defect}`,
+        status: 'Reported',
+        severity: severity || null,
+        inspectedBy: inspectedBy || by,
+      },
+    });
+    let group: string | null = null;
+    const validParts = parts.filter((p: any) => String(p?.part || '').trim() && Math.trunc(Number(p?.quantity)) > 0);
+    if (validParts.length) {
+      group = 'EG-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      for (const p of validParts) {
+        await prisma.inventoryRequisition.create({
+          data: {
+            workOrder: job.id,
+            truckReg,
+            mechanic: inspectedBy || by,
+            part: String(p.part).trim(),
+            itemId: String(p.itemId || '') || null,
+            quantity: Math.trunc(Number(p.quantity)),
+            reason: defect,
+            unitCost: Number(p.unitCost) || 0,
+            status: 'Awaiting HOE Review',
+            requestGroup: group,
+            description: defect,
+            targetType: tailId && !headId ? 'Truck Tail' : 'Truck Head',
+          },
+        });
+      }
+    }
+    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
+    res.status(201).json({ ok: true, result, job, group });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // --- GATE ---
@@ -1239,102 +1401,6 @@ function truckMatches(truck: any, keys: string[]): boolean {
 }
 
 /**
- * RETURN-FREES-DRIVER:
- * When a trip completes, or a truck returns to yard/Check Up, the driver MUST be freed to 'Active'.
- * Matches:
- * 1. By driverName (exact, case-insensitive, trimmed, and word fragments).
- * 2. By driver staffId (if driverName contains or matches staffId).
- * 3. By assigned truck registration, cab ID, or trip truckReg / headCode.
- */
-async function freeDriverOnReturn(driverName?: string | null, truckIdent?: string | null): Promise<number> {
-  let freed = 0;
-  try {
-    const rawName = String(driverName || '').trim();
-    const candidateIds = new Set<string>();
-
-    if (rawName && !/^unassigned$/i.test(rawName)) {
-      const matched = await prisma.driver.findMany({
-        where: {
-          OR: [
-            { name: { equals: rawName, mode: 'insensitive' } },
-            { staffId: { equals: rawName, mode: 'insensitive' } },
-          ],
-        },
-      });
-      for (const d of matched) {
-        candidateIds.add(d.id);
-      }
-    }
-
-    const rawTruck = String(truckIdent || '').trim();
-    // RETURN-FREES-BY-TRUCK: the truck the dispatch named is as good an identity
-    // as the driver's name — fragment dispatches ("UMAR", "ali") cannot resolve
-    // to one man, but his registered truck can. Matched on whole stripped keys
-    // only, never on bare fragments.
-    if (rawTruck && rawTruck.length >= 3 && !/^unassigned$/i.test(rawTruck)) {
-      const tokens = rawTruck.split(/[\/\s]+/).map((v) => TRUCK_KEY(v)).filter((k: string) => k.length >= 3);
-      if (tokens.length) {
-        const drivers = await prisma.driver.findMany();
-        for (const d of drivers) {
-          for (const own of [d.truckReg, d.truckReg2]) {
-            if (own && tokens.includes(TRUCK_KEY(own))) {
-              candidateIds.add(d.id);
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (candidateIds.size === 0) return 0;
-
-    // SAFEGUARD: Never mark a driver Active if they are still on live/open dispatches!
-    const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
-    const candidates = await prisma.driver.findMany({
-      where: { id: { in: Array.from(candidateIds) } },
-    });
-
-    // SAFEGUARD with the same identities the free used: the man may be made
-    // Active only when NO open dispatch names him — by exact name OR by his
-    // registered truck. The old name-only count missed truck-identity trips, so
-    // it could free a man whose dispatch was still open under his truck (and
-    // never free the fragment-named ones). HR verdicts are protected from the
-    // machine either way (D3): Suspended / Off Duty / Deleted are never flipped.
-    const openTrips = await prisma.trip.findMany({
-      where: { status: { in: OPEN_TRIP_STATUSES } },
-      select: { driverName: true, truckReg: true, tailNumber: true },
-    });
-    const PROTECTED_STATUS = ['Suspended', 'Off Duty', 'Deleted'];
-    const headKeyOf = (v: any) => {
-      const k = TRUCK_KEY(String(v || '').split(/[\/\s]+/)[0]);
-      return k && k.length >= 3 ? k : null;
-    };
-    for (const d of candidates) {
-      const nameKey = String(d.name || '').trim().toLowerCase();
-      const ownTrucks = [d.truckReg, d.truckReg2].map((v) => headKeyOf(v)).filter(Boolean);
-      const stillOn = openTrips.some((t: any) => {
-        if (String(t.driverName || '').trim().toLowerCase() === nameKey) return true;
-        const headKey = headKeyOf(String(t.truckReg || '').trim());
-        const tailKey = headKeyOf(String(t.tailNumber || '').trim());
-        return ownTrucks.includes(headKey) || ownTrucks.includes(tailKey);
-      });
-      const blocked = PROTECTED_STATUS.includes(String(d.status));
-      if (!stillOn) {
-        if (!blocked && d.status !== 'Active') {
-          await prisma.driver.update({ where: { id: d.id }, data: { status: 'Active' } });
-          freed++;
-        }
-      } else if (!blocked && d.status !== 'On Trip') {
-        await prisma.driver.update({ where: { id: d.id }, data: { status: 'On Trip' } });
-      }
-    }
-  } catch (err: any) {
-    console.error('[freeDriverOnReturn] error:', err?.message || err);
-  }
-  return freed;
-}
-
-/**
  * Move the trucks a dispatch names to the state the movement implies.
  * "out" = it has left the yard; "home" = it has come back to engineering.
  * Engineering's own verdicts (Maintenance, Accident) are never overwritten by
@@ -1354,15 +1420,10 @@ async function coupleTruckRegistry(trip: any, movement: 'out' | 'home'): Promise
         await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Out of Yard' } });
         moved += 1;
       } else {
-        if (current !== 'Check Up' && current !== 'Maintenance' && current !== 'Accident') {
-          await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Check Up' } });
-          moved += 1;
-        }
-        void freeDriverOnReturn(trip?.driverName, [truck.registration, truck.cabId, trip?.truckReg].filter(Boolean).join(' '));
+        if (current === 'Check Up' || current === 'Maintenance' || current === 'Accident') continue;
+        await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Check Up' } });
+        moved += 1;
       }
-    }
-    if (movement === 'home') {
-      void freeDriverOnReturn(trip?.driverName, trip?.truckReg);
     }
     return moved;
   } catch (e: any) {
@@ -1406,7 +1467,17 @@ async function coupleTailRegistry(trip: any, movement: 'out' | 'home'): Promise<
 app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
   const raw = String(req.body?.truck || req.body?.plate || '').trim();
   if (!raw) return res.status(400).json({ error: 'truck (cap number or plate) is required' });
-  const actor = (req as any).user?.name || (req as any).user?.email || 'Security';
+  // CONFIRM-RETURN: the meeting's "someone triggers return while the truck is
+  // still outside" — a server flag forces the client to have put the operator
+  // through an explicit confirmation step. One careless click can no longer
+  // close dispatches, strand a driver in transit and send wrong assets to Check Up.
+  if (!req.body?.confirmed) {
+    return res.status(428).json({ error: 'Confirm the truck is physically back in the yard before logging the return (send confirmed: true).' });
+  }
+  // RETURN-ACTOR-V2: the stamp IS the authenticated account — not a name the
+  // client typed. "Which user triggered this return?" is answered from the
+  // row's own gateInBy / directCosts.returnedBy, readable on every dispatch it closed.
+  const actor = req.user?.name || req.user?.email || 'Security';
   const stamp = new Date().toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -1429,6 +1500,13 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     const trucks = await prisma.truck.findMany();
     const ownKeys = (t: any) => [TRUCK_KEY(t.registration), TRUCK_KEY(t.cabId)].filter((k: string) => k.length >= 3);
     const truck = trucks.find((t) => [...tokens, key].some((m) => ownKeys(t).includes(m))) || null;
+    // GATERETURN:V4 — match on the RESOLVED truck, not only the typed text. A
+    // guard who logs "071" names the cap number; the dispatch's truckReg may
+    // carry the plate ("GGE95YK / B055") or vice versa, and the typed-token
+    // match above then finds nothing and the returned truck stayed "in transit"
+    // with its driver held. Once the register row is known, its own two keys
+    // (registration + cabId) describe the truck completely — match those too.
+    const matchKeys = truck ? [...tokens, key, ...ownKeys(truck)] : [...tokens, key];
 
     // Any dispatch still naming this truck is over — the truck is at the gate.
     // Matching is on whole tokens; substring containment is kept ONLY for
@@ -1439,13 +1517,6 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
       },
     });
-    // GATERETURN:V4 — match on the RESOLVED truck, not only the typed text. A
-    // guard who logs "071" names the cap number; the dispatch's truckReg may
-    // carry the plate ("GGE95YK / B055") or vice versa. (ownKeys, above, lists
-    // the register row's registration + cabId.) Once the truck is known, its
-    // own keys describe it completely — match those too, so the typed text can
-    // never miss the truck it belongs to.
-    const matchKeys = truck ? [...tokens, key, ...ownKeys(truck)] : [...tokens, key];
     const stillOpen = open.filter((t) => {
       const keys = truckKeysOf(t);
       return keys.some((k) =>
@@ -1460,18 +1531,24 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
       return res.status(409).json({ error: stillOpen.length + ' dispatches matched "' + raw + '" — too many to close on one return. Type the exact cap number or plate.' });
     }
 
-    const truckIdentifiers = [raw];
-    if (truck) {
-      truckIdentifiers.push(truck.registration, truck.cabId);
-    }
-
     let closed = 0;
     const freed: string[] = [];
     let tailsReleased = 0;
     for (const trip of stillOpen) {
+      const dc = trip.directCosts && typeof trip.directCosts === 'object' ? { ...(trip.directCosts as any) } : {};
+      // RETURN-AUDIT-TRAIL: who closed it, from where, and whether the truck was
+      // still shown out of the yard at that moment — the record the Transport
+      // Manager needs when he asks why a driver is standing "in transit".
+      dc.returnedBy = {
+        by: actor,
+        role: req.user?.role || '',
+        at: new Date().toISOString(),
+        confirmed: true,
+        note: closed === 0 && stillOpen.length === 1 ? 'Gate return logged' : `Part of ${stillOpen.length} dispatch(es) closed by this return`,
+      };
       await prisma.trip.update({
         where: { id: trip.id },
-        data: { status: 'Completed', eta: trip.eta || stamp, gateInBy: actor },
+        data: { status: 'Completed', eta: trip.eta || stamp, gateInBy: trip.gateInBy || actor, directCosts: dc },
       });
       closed += 1;
       // RETURN-COUPLES-TAIL — the TAIL rode in with the truck; it cannot stay
@@ -1488,24 +1565,13 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
           tailsReleased += 1;
         }
       }
-      const headCode = String(trip.truckReg || '').split('/')[0].trim();
-      if (headCode) {
-        truckIdentifiers.push(headCode);
-        const hk = TRUCK_KEY(headCode);
-        const headRow = trucks.find((t) => TRUCK_KEY(t.registration) === hk || TRUCK_KEY(t.cabId) === hk);
-        if (headRow && !['Check Up', 'Maintenance', 'Accident'].includes(String(headRow.status))) {
-          await prisma.truck.update({ where: { id: headRow.id }, data: { status: 'Check Up' } });
-        }
-      }
       if (trip.driverName && trip.driverName !== 'Unassigned') {
-        void freeDriverOnReturn(trip.driverName, trip.truckReg);
+        await prisma.driver.updateMany({
+          where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
+          data: { status: 'Active' },
+        });
         freed.push(trip.driverName);
       }
-    }
-
-    for (const ident of truckIdentifiers) {
-      if (!ident || ident.length < 2) continue;
-      void freeDriverOnReturn(null, ident);
     }
 
     // The truck itself goes to engineering, exactly as a returned truck should.
@@ -1588,6 +1654,7 @@ async function autoReconcileGateDepartures(): Promise<number> {
         data: {
           // The best evidence of when it really left, in that order of trust.
           startTime: autoStamp(trip.dispatchedAt || trip.assignedAt || trip.approvedAt || trip.createdAt),
+          gateOutBy: 'Auto-reconciled (departure predates the gate log)',
           directCosts: costs,
         },
       });
@@ -1668,8 +1735,18 @@ setInterval(() => void syncDriverDuty(), 10 * 60 * 1000);
 // logged the return — the gate log, "Return a truck", a dispatch page, even a
 // half-failed write from an older run — anything still open that names that
 // truck is closed here with the self-heal stamp on the record, its drivers
-// freed and its tail brought home. No missed edge case can ever again leave a
-// returned truck showing "in transit" (the 071 case, 15 Oct 2026).
+// freed and its tail brought home. This is the difference between fixing a
+// screen and fixing the system: no missed edge case can ever again leave a
+// returned truck showing "in transit" (the P109/071 case, 15 Oct 2026).
+//
+// GATERETURN:V5 GUARD (21 Oct 2026): "Check Up" is NOT proof by itself —
+// engineering also parks healthy trucks there mid-flow, and the yard coupling
+// can lag a fresh departure. Closing a truck's dispatches wholesale on a stale
+// word made live runs vanish from the Tracking board with no gate action
+// anywhere. The distinguishing signal is TRACKING FRESHNESS: a run that is
+// genuinely moving has a checkpoint (or a birth) inside the last 12 hours —
+// one closed-and-forgotten behind the gate does not. Only dormant dispatches
+// are swept; anything with recent tracking activity is left exactly as it is.
 async function sweepReturnedTrucks(): Promise<number> {
   try {
     const trucks = await prisma.truck.findMany();
@@ -1685,29 +1762,21 @@ async function sweepReturnedTrucks(): Promise<number> {
     const open = await prisma.trip.findMany({
       where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
     });
-    // DORMANT-ONLY (GATERETURN:V5, 24 Oct 2026): "Check Up" is NOT proof —
-    // engineering parks healthy trucks there mid-flow, and the yard coupling can
-    // lag a fresh departure. Closing a truck's dispatches wholesale on a stale
-    // word made LIVE RUNS vanish from the boards with no gate action anywhere —
-    // the fleet "returned by itself" at one identical timestamp while Security
-    // never signed anything. The distinguishing signal is TRACKING FRESHNESS: a
-    // run a department is still logging against — or one raised inside the
-    // window — is live work, whatever the registry word says. Only dormant
-    // stragglers are swept.
-    const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000;
+    const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours of tracked life
     const now = Date.now();
     const doomed = [];
     for (const t of open) {
       if (!truckKeysOf(t).some((k) =>
         Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
-      // DORMANT-ONLY: a dispatch the lifecycle touched inside the window is
-      // live work, whatever the registry word says. V5B (24 Oct 2026): the
-      // born check alone left a hole the front office caught — long-raised
-      // requests approved and departed TODAY have no checkpoints yet, so the
-      // sweep still closed them at one identical timestamp and stamped a fake
-      // guard name. updatedAt is the trip's last lifecycle write (re-approval
-      // edit, approval, assignment, departure); a record no path has written
-      // to in 12 hours is the only kind the sweep may close.
+      // DORMANT-ONLY (V5B, 24 Oct 2026): a dispatch the lifecycle touched
+      // inside the window is live work, whatever the registry word says.
+      // The born check alone left a hole the front office caught — long
+      // raised requests approved and departed TODAY have no checkpoints
+      // yet, so the sweep still closed them at one identical timestamp and
+      // stamped a fake guard name. updatedAt is the trip's last lifecycle
+      // write (re-approval edit, approval, assignment, departure); a
+      // record no path has written to in 12 hours is the only kind the
+      // sweep may close.
       const born = new Date(t.createdAt || 0).getTime();
       const touched = new Date(t.updatedAt || '').getTime();
       if (!isNaN(born) && now - born < ACTIVE_WINDOW_MS) continue;
@@ -1739,9 +1808,9 @@ async function sweepReturnedTrucks(): Promise<number> {
             status: 'Completed',
             eta: trip.eta || autoStamp(new Date()),
             // TRUTHFUL-RETURN-NAME (24 Oct 2026): the sweep is bookkeeping, not
-            // a signature — the stamp must never name a guard that did not sign:
-            // "Petroline Security" is not an account on this platform, and the
-            // front office reads it as a security officer closing trucks.
+            // a signature — the stamp must never name a guard that did not
+            // sign: "Petroline Security" is not an account on this platform,
+            // and the front office reads it as a security officer closing trucks.
             gateInBy: trip.gateInBy || 'System (return sweep)',
             directCosts: dc,
           },
@@ -1762,6 +1831,8 @@ async function sweepReturnedTrucks(): Promise<number> {
       }
     }
     if (closed) {
+      // Free the drivers the sweep just unburdened — but only those the LIVE
+      // dispatch list no longer holds anywhere (the same guard every path uses).
       try {
         const remaining = await prisma.trip.findMany({
           where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'] } },
@@ -1895,7 +1966,13 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
       const plateKey = plate.split(/[\s/]+/)[0] || '';
       const driverName = String(entry.driver || '').trim().toUpperCase();
       const openTrips = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
-      // D1: every sibling naming this truck ends together, not just the first.
+      // RETURN-CLOSES-SIBLINGS (driver-duty fix): every open dispatch naming this
+      // truck — or the guard-read driver on THIS truck's dispatches — ends
+      // together. Plate match first: a driver's name may sit on several open
+      // dispatches, and only the ones carrying THIS TRUCK belong to the return
+      // (the man cannot drive two trucks at once; anything else naming him is a
+      // duplicate or a data-entry artefact — closing a second truck's live run
+      // wholesale made dispatches vanish from boards no gate action touched).
       const matches = openTrips.filter((t: any) => {
         const tr = String(t.truckReg || '').toUpperCase();
         const trKey = tr.split(/[\s/]+/)[0] || '';
@@ -1903,29 +1980,66 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         if (plate && (tr === plate || tail === plate || (plateKey && trKey === plateKey) || (plateKey && trKey && tr.includes(plateKey)))) {
           return true;
         }
-        return Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName;
+        // Driver-name fallback ONLY when the stamp ran without a readable plate
+        // — the guard names the truck first at the barrier, so a plate in hand
+        // must never let the name sweep unrelated dispatches in.
+        if (!plate && Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName) {
+          return true;
+        }
+        return false;
       });
-      // RETURN-CLOSES-SIBLINGS (driver-duty fix): every open dispatch naming this
-      // truck (or the guard-read driver) ends together. Leaving the other
-      // siblings open is exactly how a returned truck kept its driver "On Trip"
-      // and Fleet Operations could never hand him another load.
-      const trip: any = matches[0] || null;
+      const trip = matches[0] || null;
       if (trip) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Security';
+        let lastClosed: any = null;
         for (const mt of matches) {
-          await prisma.trip.update({
+          lastClosed = await prisma.trip.update({
             where: { id: mt.id },
             // return-stamp-on-gate-return: the return stamp the gate log shows is
             // `eta` — leaving it empty made the board print the bare word
             // "Returned" where every other row shows a real date+time.
             data: { status: 'Completed', eta: mt.eta || autoStamp(entry.timestamp), gateInBy: mt.gateInBy || actor },
           });
-          if (mt.driverName || mt.truckReg) {
-            void freeDriverOnReturn(mt.driverName, mt.truckReg);
+        }
+        const closed = lastClosed || trip;
+        /* THE DRIVERS' CYCLE ENDS WITH THE TRUCK'S. Whoever the closed dispatches
+         * named — by exact roster name or by the truck he is registered on (the
+         * "UMAR"/"ali"-style fragment names cannot be resolved to one man, his
+         * truck can) — goes Active again, unless a sibling dispatch still holds
+         * him or HR already decided otherwise: Suspended / Off Duty / Deleted
+         * are never quietly overwritten.
+         */
+        const plateKeyOf = (v: any) => {
+          const k = String(v || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+          return k.length >= 3 ? k : null;
+        };
+        const closedNames = new Set(
+          matches.map((mt: any) => String(mt.driverName || '').trim().toUpperCase()).filter(Boolean),
+        );
+        const closedPlates = new Set(
+          matches.flatMap((mt: any) => [plateKeyOf(String(mt.truckReg || '').split(/[\s/]+/)[0]), plateKeyOf(mt.tailNumber)]).filter(Boolean),
+        );
+        const remaining = openTrips.filter((t: any) => !matches.some((m: any) => m.id === t.id));
+        const remainingNames = new Set(remaining.map((t: any) => String(t.driverName || '').trim().toUpperCase()).filter(Boolean));
+        const remainingPlates = new Set(
+          remaining.flatMap((t: any) => [plateKeyOf(String(t.truckReg || '').split(/[\s/]+/)[0]), plateKeyOf(t.tailNumber)]).filter(Boolean),
+        );
+        const roster = await prisma.driver.findMany({
+          select: { id: true, name: true, status: true, truckReg: true, truckReg2: true },
+        });
+        for (const d of roster) {
+          const status = String(d.status || '');
+          if (status !== 'On Trip') continue;
+          if (['Suspended', 'Off Duty', 'Deleted'].includes(status)) continue;
+          const nameKey = String(d.name || '').trim().toUpperCase();
+          const dPlates = [plateKeyOf(d.truckReg), plateKeyOf(d.truckReg2)].filter(Boolean);
+          const onThisReturn = closedNames.has(nameKey) || dPlates.some((k) => closedPlates.has(k));
+          if (!onThisReturn) continue;
+          const stillOut = remainingNames.has(nameKey) || dPlates.some((k) => remainingPlates.has(k));
+          if (!stillOut) {
+            await prisma.driver.update({ where: { id: d.id }, data: { status: 'Active' } });
           }
         }
-        // The asset cycles below read the first closed dispatch's tail/head.
-        const closed = trip;
         // The TRUCK came back with the stamp — take the asset rows off the road
         // too (the availability boards read them): head and tail to Check Up,
         // exactly as the "Return a truck" quick action does.
@@ -1952,22 +2066,9 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
               });
               truckBusyElsewhere = openTripsForTruck.some((t2) => t2.id !== closed.id &&
                 String(t2.truckReg || '').trim().toUpperCase() === String(truckRow.registration || '').trim().toUpperCase());
-              
-              if (!truckBusyElsewhere && !['Check Up', 'Maintenance', 'Accident'].includes(String(truckRow.status))) {
-                await prisma.truck.update({ where: { id: truckRow.id }, data: { status: 'Check Up' } });
-              }
-
-              // Also free any permanently assigned drivers
-              const identList = [truckRow.registration, truckRow.cabId].filter(i => i && i.length > 2);
-              for (const ident of identList) {
-                await prisma.driver.updateMany({
-                  where: {
-                    OR: [{ truckReg: { contains: ident } }, { truckReg2: { contains: ident } }],
-                    status: { in: ['On Trip', 'Active'] },
-                  },
-                  data: { status: 'Active' },
-                });
-              }
+            }
+            if (truckRow && !truckBusyElsewhere && !['Check Up', 'Maintenance', 'Accident'].includes(String(truckRow.status))) {
+              await prisma.truck.update({ where: { id: truckRow.id }, data: { status: 'Check Up' } });
             }
             const tailCode = String(closed.tailNumber || '').trim();
             if (tailCode) {
@@ -1980,7 +2081,9 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         } catch (e2) {
           console.error('gate return asset cycle failed:', e2?.message || e2);
         }
-        void notify('Gate Security', 'Dispatch Completed', 'Truck ' + closed.truckReg + ' is back in the yard — dispatch ' + dispatchRef(closed.id) + ' closed and the driver freed.', 'info', 'TransportManager,Fleet Operations,Security,Tracking', { module: 'Gate Security', eventKey: 'dispatch.completed', refId: closed.id, refLabel: dispatchRef(closed.id) });
+        // RECIPIENT-FIX: "TransportManager" (no space) matches no role — every
+        // gate-closed dispatch silently skipped the Transport Manager's bell.
+        void notify('Gate Security', 'Dispatch Completed', 'Truck ' + closed.truckReg + ' is back in the yard — dispatch ' + dispatchRef(closed.id) + ' closed and the driver freed.', 'info', 'Transport Manager,Fleet Operations,Security,Tracking', { module: 'Gate Security', eventKey: 'dispatch.completed', refId: closed.id, refLabel: dispatchRef(closed.id) });
       }
     } catch (e: any) {
       // A failed closure must never lose the gate stamp itself.
@@ -2045,7 +2148,7 @@ async function writePartnerSites(company, sites) {
  *               (Kirikiri: none recorded yet)
  */
 const DEFAULT_PARTNER_SITES: Record<string, string[]> = {
-  petroline: ['ENL', 'Eco Support', 'Dangote', 'Port and Cargo', 'Niger Dock', 'Joseph Dam', 'Apapa Port', 'TINCAN PORT'],
+  petroline: ['ENL', 'Eco Support', 'Dangote', 'Port and Cargo', 'Niger Dock', 'Joseph Dam'],
 };
 
 function defaultPartnerSites(company: string | null): string[] {
@@ -2151,7 +2254,11 @@ const LEG_STATUS: Record<string, string> = {
   'in transit': 'En Route',
   'at destination': 'Offloading',
   offloaded: 'Offloading',
-  return: 'Returning',
+  // NO 'return' MAPPING (Fortune/Daniel, 21 Oct 2026): Tracking logging a
+  // "Return" checkpoint used to flip the dispatch to Returning — which the
+  // gate log reads as the truck already home, so Security lost the track while
+  // the truck was still on the road. Tracking now STOPS at Offloading; only
+  // Security's gate (or the TM) closes the circle to Completed.
 };
 const ON_ROAD_RANK: Record<string, number> = {
   Scheduled: 0,
@@ -2182,9 +2289,31 @@ app.get('/api/tracking/:tripId', authenticate, async (req, res) => {
   res.json(checkpoints);
 });
 
-app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading'), async (req, res) => {
+app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading', 'Partner Loader'), async (req, res) => {
   const { tripId, location, leg } = req.body;
   if (!tripId || !location || !leg) return res.status(400).json({ error: 'Missing required fields' });
+  // LOADER-CHECKPOINT: a Partner Loader confirms collection at its own site —
+  // the Loading leg only. Every other leg stays with the staff roles above.
+  {
+    const held: string[] = Array.isArray((req as any).user?.roles) ? (req as any).user.roles : [String((req as any).user?.role || '')];
+    const staff = ['Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading'].some((r) => held.includes(r));
+    if (!staff && String(leg).trim().toLowerCase() !== 'loading') {
+      return res.status(403).json({ error: 'A loading site can only confirm loading.' });
+    }
+  }
+  // TRACKING CANNOT CLOSE THE TRIP (Fortune/Daniel, 21 Oct 2026): a "Return"
+  // leg flipped the dispatch to Returning — the gate log then read the truck
+  // as already home and Security lost the track while it was still on the
+  // road. The return is Security's gate (+ check-up) flow, so the leg is
+  // REFUSED here outright — not just hidden in the UI — so even a stale open
+  // client, an old cached bundle or a hand-rolled API call can never flip a
+  // truck to Return from the Tracking board again.
+  const legTrim = String(leg || '').trim().toLowerCase();
+  if (legTrim === 'return' || legTrim === 'returning') {
+    return res.status(400).json({
+      error: 'Tracking stops at Offloading — the return is logged by Security at the gate, not here.',
+    });
+  }
   // Tracking AND Loading both log loading — one source of truth, never a second row.
   const siteKeyOf = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const siblings = await prisma.trackingCheckpoint.findMany({ where: { tripId } });
@@ -2211,15 +2340,12 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
       }
       const next = statusFromLeg(trip.status, leg);
       if (next) data.status = next;
-      // return-stamp-on-offload: the RETURN column on the gate log is the truck
-      // back at base — but the readable moment the road ended is the OFFLOAD
-      // checkpoint. When that leg is logged and no return stamp exists, write
-      // the checkpoint's own timestamp into `eta`, so the gate log shows the
-      // real date+time instead of the bare word "Returned" (which is what the
-      // board prints when the status says completed but eta holds nothing).
-      if (!data.eta && String(leg || '').trim().toLowerCase() === 'offloaded' && !String(trip.eta || '').trim()) {
-        data.eta = (checkpoint.at instanceof Date ? checkpoint.at : new Date()).toISOString();
-      }
+      // return-stamp-on-offload REMOVED (21 Oct 2026): this used to write the
+      // offload checkpoint's time into `eta`, and `eta` IS the gate log's
+      // RETURN stamp — so Tracking logging Offloaded made the gate log show
+      // the truck as Returned (and it left Security's "still out" list) while
+      // it was still on the road. The return stamp now comes from one place:
+      // Security's gate. No tracking checkpoint may ever write it again.
       if (Object.keys(data).length > 0) {
         await prisma.trip.update({ where: { id: tripId }, data });
         // lifecycle-coupling-v2: a checkpoint that advances the dispatch moves the
@@ -2256,287 +2382,6 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
   res.json(checkpoint);
 });
 
-// --- LOADING SITE PICKUPS (FleetOpsX mobile: the "Loading Site" portal) ---
-// The company running a loading site signs in with its "Loader" partner account
-// (web Add Partner → Account type Loader, stamped as the role 'Partner Loader'),
-// sees the trucks coming to load at ITS OWN sites — whichever partner they haul
-// for — and confirms each pickup with the driver's signature. A Loading
-// Operations account (role Loading) may run any partner's site the same way.
-// The yards are the partners' own loading sites (PARTNER LOADING SITES above).
-// A requesting partner stays scoped to its own company exactly like
-// GET /api/trips; staff may pass ?company= to look at one partner's sites only.
-// Confirming writes the same "Loading" checkpoint POST /api/tracking writes, so
-// the dispatch reads Loaded everywhere — one source of truth, never a second row.
-const LOADING_SITE_WAITING = ['Scheduled', 'En Route', 'Delayed'];
-const LOADING_SITE_ROLES = [
-  'Loading', 'Loading Operations',
-  'Customer Portals (External)', 'Platform Admin', 'Transport Manager', 'Fleet Operations',
-];
-
-function loadingSiteKey(value: any) {
-  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-}
-
-/** A trip loads at a site when its loadingSite list (or its pickup) names it. */
-function tripLoadsAt(trip: any, key: string) {
-  if (!key) return false;
-  const parts = String(trip.loadingSite || '')
-    .split(/[;,]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (trip.pickup) parts.push(String(trip.pickup));
-  return parts.some((p) => loadingSiteKey(p) === key);
-}
-
-/** A partner account created as a Loader runs a loading site (web Add Partner). */
-function isPartnerLoader(req: any) {
-  return req.user?.role === 'Customer Portals (External)' &&
-    Array.isArray(req.user?.roles) && req.user.roles.includes('Partner Loader');
-}
-
-async function loadingSiteCompany(req: any): Promise<string | null> {
-  if (req.user?.role === 'Customer Portals (External)') {
-    return (await partnerCompanyForUser(req.user.id, req.user.email, req.user.role)) || null;
-  }
-  const asked = String(req.query?.company || req.body?.company || '').trim();
-  return asked || null;
-}
-
-/** Every partner's loading sites, A–Z — the yards a Loading account picks from. */
-async function allPartnerSites(): Promise<string[]> {
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    'SELECT "loadingSites" FROM "User" WHERE "loadingSites" IS NOT NULL AND "loadingSites" <> \'\'',
-  );
-  const merged: string[] = [];
-  for (const row of rows) {
-    for (const site of splitSites(row.loadingSites)) {
-      if (!merged.some((m) => m.toLowerCase() === site.toLowerCase())) merged.push(site);
-    }
-  }
-  return merged.sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * A site's own account is named after its yard ("ENL", "Saba Factory",
- * "Dangote Loading"): the board opens on that site. Exact match first, then the
- * longest site name inside the account's name or username.
- */
-function ownLoadingSite(user: any, sites: string[]): string | null {
-  const names = [user?.name, String(user?.email || '').split('@')[0]].map(loadingSiteKey).filter(Boolean);
-  if (!names.length) return null;
-  const exact = sites.find((s) => names.includes(loadingSiteKey(s)));
-  if (exact) return exact;
-  let best: string | null = null;
-  for (const s of sites) {
-    const k = loadingSiteKey(s);
-    if (k.length >= 3 && names.some((n) => n.includes(k)) && (!best || k.length > loadingSiteKey(best).length)) {
-      best = s;
-    }
-  }
-  return best;
-}
-
-async function driverPhones(): Promise<(name: any) => string | null> {
-  const drivers = await prisma.driver.findMany({ select: { name: true, phone: true } });
-  return (name: any) => {
-    const k = String(name || '').trim().toLowerCase();
-    if (!k) return null;
-    const d = drivers.find((x: any) => String(x.name || '').trim().toLowerCase() === k);
-    return d?.phone || null;
-  };
-}
-
-/** The board: trucks waiting to load at the site, and the pickups already signed there. */
-app.get('/api/loading-site', authenticate, authorize(...LOADING_SITE_ROLES), async (req: any, res: any) => {
-  // A Loader runs its own sites and sees every company's truck loading there; a
-  // requesting partner sees its own trucks; a Loading account reads every
-  // partner's yards, because any company's truck may load at its site.
-  const company = await loadingSiteCompany(req);
-  if (req.user?.role === 'Customer Portals (External)' && !company) {
-    return res.status(400).json({ error: 'No partner company for this account.' });
-  }
-  const loader = isPartnerLoader(req);
-  const sites: string[] = company ? await readPartnerSites(company) : await allPartnerSites();
-  const asked = String(req.query.site || '').trim();
-  const site =
-    (asked && sites.find((s) => loadingSiteKey(s) === loadingSiteKey(asked))) ||
-    (loader ? '' : asked) ||
-    ownLoadingSite(req.user, sites) ||
-    sites[0] ||
-    '';
-  const key = loadingSiteKey(site);
-  // Only a requesting partner's view is cut to its own trucks.
-  const ownTrucksOnly = !!company && !loader;
-
-  const trips = await prisma.trip.findMany({
-    where: {
-      status: { in: LOADING_SITE_WAITING },
-      ...(ownTrucksOnly ? { customer: { equals: company, mode: 'insensitive' } } : {}),
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  const here = trips.filter((t: any) => tripLoadsAt(t, key));
-  const pickups: any[] = !key
-    ? []
-    : ownTrucksOnly
-      ? await prisma.$queryRawUnsafe(
-          'SELECT * FROM "LoadingPickup" WHERE "company" ILIKE $1 AND "siteKey" = $2 ORDER BY "confirmedAt" DESC LIMIT 200',
-          company,
-          key,
-        )
-      : await prisma.$queryRawUnsafe(
-          'SELECT * FROM "LoadingPickup" WHERE "siteKey" = $1 ORDER BY "confirmedAt" DESC LIMIT 200',
-          key,
-        );
-  const signed = new Set(pickups.map((p) => String(p.tripId)));
-  // Already marked loaded here by the Loading department (no signature): not waiting either.
-  const checkpoints = here.length
-    ? await prisma.trackingCheckpoint.findMany({
-        where: { tripId: { in: here.map((t: any) => t.id) }, leg: { equals: 'Loading', mode: 'insensitive' } },
-      })
-    : [];
-  const loadedHere = new Set(checkpoints.filter((c: any) => loadingSiteKey(c.location) === key).map((c: any) => c.tripId));
-  const phoneOf = await driverPhones();
-
-  const waiting = here
-    .filter((t: any) => LOADING_SITE_WAITING.includes(String(t.status)) && !signed.has(String(t.id)) && !loadedHere.has(t.id))
-    .map((t: any) => ({
-      tripId: t.id,
-      reference: dispatchRef(t.id),
-      status: t.status,
-      truckReg: t.truckReg || null,
-      tailNumber: t.tailNumber || null,
-      tailType: t.tailType || null,
-      driverName: t.driverName || null,
-      driverPhone: phoneOf(t.driverName),
-      dropoff: t.dropoff || null,
-    }));
-  const pickedUp = pickups.map((p) => ({ ...p, reference: dispatchRef(p.tripId) }));
-  res.json({
-    company,
-    sites,
-    site,
-    waiting,
-    pickedUp,
-    counts: { waiting: waiting.length, pickedUp: pickedUp.length },
-    generatedAt: new Date().toISOString(),
-  });
-});
-
-/** One signed pickup — the details screen and its printed report. */
-app.get('/api/loading-site/pickups/:id', authenticate, authorize(...LOADING_SITE_ROLES), async (req: any, res: any) => {
-  const rows: any[] = await prisma.$queryRawUnsafe('SELECT * FROM "LoadingPickup" WHERE "id" = $1', req.params.id);
-  const row = rows[0];
-  if (!row) return res.status(404).json({ error: 'Pickup not found.' });
-  if (req.user?.role === 'Customer Portals (External)') {
-    const company = await loadingSiteCompany(req);
-    const mine = isPartnerLoader(req)
-      ? (await readPartnerSites(company)).some((s) => loadingSiteKey(s) === row.siteKey)
-      : samePartnerCompany(row.company, company);
-    if (!mine) return res.status(404).json({ error: 'Pickup not found.' });
-  }
-  res.json({ ...row, reference: dispatchRef(row.tripId) });
-});
-
-/** The driver signs, the site confirms: the truck is loaded. */
-app.post('/api/loading-site/pickups', authenticate, authorize(...LOADING_SITE_ROLES), async (req: any, res: any) => {
-  const tripId = String(req.body?.tripId || '').trim();
-  const site = String(req.body?.site || '').trim().replace(/\s+/g, ' ');
-  const signature = String(req.body?.signature || '');
-  if (!tripId || !site) return res.status(400).json({ error: 'A dispatch and a loading site are required.' });
-  if (!/^data:image\//.test(signature)) {
-    return res.status(400).json({ error: 'The driver must sign before the pickup is confirmed.' });
-  }
-  if (signature.length > 400000) {
-    return res.status(413).json({ error: 'The signature is too large — clear it and sign again.' });
-  }
-  const trip: any = await prisma.trip.findUnique({ where: { id: tripId } });
-  if (!trip) return res.status(404).json({ error: 'Dispatch not found.' });
-  const company = await loadingSiteCompany(req);
-  const key = loadingSiteKey(site);
-  if (isPartnerLoader(req)) {
-    // A Loader confirms trucks at its own sites, whoever they haul for.
-    const ownSite = (await readPartnerSites(company)).some((s) => loadingSiteKey(s) === key);
-    if (!ownSite || !tripLoadsAt(trip, key)) {
-      return res.status(403).json({ error: 'This dispatch does not load at your site.' });
-    }
-  } else if (req.user?.role === 'Customer Portals (External)' && !samePartnerCompany(trip.customer, company)) {
-    return res.status(403).json({ error: 'This dispatch belongs to another company.' });
-  }
-
-  // Signed once per truck per site: a repeat (a retry after a lost reply) gets the first record back.
-  const existing: any[] = await prisma.$queryRawUnsafe(
-    'SELECT * FROM "LoadingPickup" WHERE "tripId" = $1 AND "siteKey" = $2 LIMIT 1',
-    tripId,
-    key,
-  );
-  if (existing.length) return res.json({ ...existing[0], reference: dispatchRef(tripId), duplicate: true });
-  if (!LOADING_SITE_WAITING.includes(String(trip.status))) {
-    return res.status(409).json({ error: `${dispatchRef(trip.id)} is "${trip.status}", so it is not waiting to load.` });
-  }
-
-  const phoneOf = await driverPhones();
-  const driverName = String(req.body?.driverName || trip.driverName || '').trim() || null;
-  const inserted: any[] = await prisma.$queryRawUnsafe(
-    'INSERT INTO "LoadingPickup" ("id", "tripId", "site", "siteKey", "company", "truckReg", "tailNumber", "driverName", "driverPhone", "signature", "confirmedBy", "confirmedById", "confirmedAt") ' +
-      "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, (now() AT TIME ZONE 'UTC')) " +
-      'ON CONFLICT ("tripId", "siteKey") DO NOTHING RETURNING *',
-    crypto.randomUUID(),
-    tripId,
-    site,
-    key,
-    trip.customer || company || null,
-    trip.truckReg || null,
-    trip.tailNumber || null,
-    driverName,
-    String(req.body?.driverPhone || '').trim() || phoneOf(driverName),
-    signature,
-    actingUser(req),
-    String(req.user.id),
-  );
-  if (!inserted.length) {
-    const again: any[] = await prisma.$queryRawUnsafe(
-      'SELECT * FROM "LoadingPickup" WHERE "tripId" = $1 AND "siteKey" = $2 LIMIT 1',
-      tripId,
-      key,
-    );
-    return res.json({ ...again[0], reference: dispatchRef(tripId), duplicate: true });
-  }
-  const row = inserted[0];
-
-  // Loaded at the site — the same checkpoint and status move as POST /api/tracking.
-  try {
-    const siblings = await prisma.trackingCheckpoint.findMany({ where: { tripId } });
-    const already = siblings.find(
-      (cp: any) => String(cp.leg).trim().toLowerCase() === 'loading' && loadingSiteKey(cp.location) === key,
-    );
-    if (!already) await prisma.trackingCheckpoint.create({ data: { tripId, location: site, leg: 'Loading' } });
-    const data: Record<string, any> = {};
-    if (!trip.startTime || !String(trip.startTime).trim()) data.startTime = new Date().toISOString();
-    const next = statusFromLeg(trip.status, 'Loading');
-    if (next) data.status = next;
-    if (Object.keys(data).length > 0) {
-      await prisma.trip.update({ where: { id: tripId }, data });
-      void coupleTruckRegistry({ ...trip, ...data }, 'out');
-      void coupleTailRegistry({ ...trip, ...data }, 'out');
-    }
-  } catch (e: any) {
-    // The signed pickup is recorded even if the dispatch cannot be moved.
-    console.error('loading pickup checkpoint failed', e?.message);
-  }
-
-  void notify(
-    'Operations',
-    'Load Picked Up',
-    `${dispatchRef(tripId)}: ${row.truckReg || 'the truck'} collected its load at ${site}. Driver ${row.driverName || '—'} signed; confirmed by ${row.confirmedBy}.`,
-    'success',
-    `Partner:${row.company || ''},Transport Manager,Fleet Operations,Tracking,Loading`,
-    { module: 'Loading', eventKey: 'loading.pickup', refId: tripId, refLabel: dispatchRef(tripId) },
-  );
-  res.status(201).json({ ...row, reference: dispatchRef(tripId) });
-});
-// --- end loading site pickups ---
-
 // --- TRUCKS ---
 app.get('/api/trucks', authenticate, async (_req, res) => {
   res.json(await prisma.truck.findMany({ orderBy: { cabId: 'asc' } }));
@@ -2553,7 +2398,7 @@ app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Man
 // FIELD-OPS-STATUS — the yard desk flips a head's registry status (Available,
 // Check Up, Maintenance, Out of Yard…) as it inspects trucks returning from
 // trip; the status is the one column the whole availability story hangs on.
-app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Security'), async (req, res) => {
+app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   try {
     res.json(await prisma.truck.update({ where: { id: req.params.id }, data: req.body }));
   } catch (e: any) {
@@ -2581,7 +2426,7 @@ app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Mana
     throw e;
   }
 });
-app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Security'), async (req, res) => {
+app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   const data = { ...req.body };
   delete data.id;
   delete data.createdAt;
@@ -2623,31 +2468,6 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
     const key = String(t.driverName || '').trim().toLowerCase();
     if (!key) continue;
     counts.set(key, (counts.get(key) || 0) + 1);
-  }
-  // Auto-heal drivers parked in 'On Trip' who have 0 open dispatches
-  const stuckDrivers = drivers.filter(d => d.status === 'On Trip' && !counts.get(String(d.name || '').trim().toLowerCase()));
-  if (stuckDrivers.length > 0) {
-    void prisma.driver.updateMany({
-      where: { id: { in: stuckDrivers.map(d => d.id) } },
-      data: { status: 'Active' },
-    }).catch(err => console.error('[GET /api/drivers] auto-heal failed:', err?.message || err));
-    for (const d of stuckDrivers) {
-      d.status = 'Active';
-    }
-  }
-  // Auto-sync drivers with live dispatches to 'On Trip' if erroneously marked 'Active' or 'Available'
-  const wronglyActive = drivers.filter(d => 
-    ['Active', 'Available'].includes(d.status) && 
-    (counts.get(String(d.name || '').trim().toLowerCase()) || 0) > 0
-  );
-  if (wronglyActive.length > 0) {
-    void prisma.driver.updateMany({
-      where: { id: { in: wronglyActive.map(d => d.id) } },
-      data: { status: 'On Trip' },
-    }).catch(err => console.error('[GET /api/drivers] auto-sync on-trip failed:', err?.message || err));
-    for (const d of wronglyActive) {
-      d.status = 'On Trip';
-    }
   }
   res.json(
     drivers.map(({ licenseDocument, ...d }) => ({
@@ -2701,17 +2521,14 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
       const OPEN_TRIP_STATUSES: string[] = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
       const driver = await prisma.driver.findUnique({ where: { id: req.params.id } });
       if (driver && driver.name) {
+        const actor = (req as any).user?.name || (req as any).user?.email || 'Transport Manager';
         const stuck = await prisma.trip.findMany({
           where: { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
         });
         for (const trip of stuck) {
           const closedTrip = await prisma.trip.update({
             where: { id: trip.id },
-            data: {
-              status: 'Completed',
-              eta: trip.eta || autoStamp(new Date()),
-              gateInBy: trip.gateInBy || actingUser(req),
-            },
+            data: { status: 'Completed', gateInBy: trip.gateInBy || actor },
           });
           // THE RELEASE FOLLOWS THE FLOW (self-return fix): a release-closed
           // dispatch runs the same home cycle Security's gate runs — head to
@@ -2722,7 +2539,7 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
           await coupleTailRegistry(closedTrip, 'home');
         }
         if (stuck.length) {
-          void notify('HR & Personnel', 'Driver Released', driver.name + ' was released and ' + stuck.length + ' open dispatch' + (stuck.length === 1 ? '' : 'es') + ' closed with him.', 'warning', 'TransportManager,HR & Personnel,Fleet Operations,Tracking', { module: 'HR & Personnel', eventKey: 'driver.released', refId: driver.id, refLabel: driver.staffId || driver.name });
+          void notify('HR & Personnel', 'Driver Released', driver.name + ' was released and ' + stuck.length + ' open dispatch' + (stuck.length === 1 ? '' : 'es') + ' closed with him.', 'warning', 'Transport Manager,HR & Personnel,Fleet Operations,Tracking', { module: 'HR & Personnel', eventKey: 'driver.released', refId: driver.id, refLabel: driver.staffId || driver.name });
         }
       }
     }
@@ -2872,10 +2689,26 @@ app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport 
 app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const existing = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Not found' });
-  const stock = req.body.stock != null ? Number(req.body.stock) : existing.stock;
-  const reorderLevel = req.body.reorderLevel != null ? Number(req.body.reorderLevel) : existing.reorderLevel;
+  // Whitelist exactly the columns the store board edits. Spreading req.body
+  // straight through meant an unknown UI field (or a hand-crafted payload with
+  // `id`/`createdAt`) crashed the write with a Prisma 500 — the stock number
+  // never saved and the ledger never recorded the edit.
+  const ALLOWED_ITEM_FIELDS = ['name', 'sku', 'category', 'stock', 'reorderLevel', 'unitCost', 'vehicleCompatibility', 'supplier', 'location'];
+  const body: any = {};
+  for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
+  if (body.stock != null && (!Number.isFinite(Number(body.stock)) || Number(body.stock) < 0)) {
+    return res.status(400).json({ error: 'stock must be a non-negative number' });
+  }
+  if (body.reorderLevel != null && (!Number.isFinite(Number(body.reorderLevel)) || Number(body.reorderLevel) < 0)) {
+    return res.status(400).json({ error: 'reorderLevel must be a non-negative number' });
+  }
+  if (body.unitCost != null && (!Number.isFinite(Number(body.unitCost)) || Number(body.unitCost) < 0)) {
+    return res.status(400).json({ error: 'unitCost must be a non-negative number' });
+  }
+  const stock = body.stock != null ? Number(body.stock) : existing.stock;
+  const reorderLevel = body.reorderLevel != null ? Number(body.reorderLevel) : existing.reorderLevel;
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
-  const updated = await prisma.inventoryItem.update({ where: { id: req.params.id }, data: { ...req.body, stock, reorderLevel, status } });
+  const updated = await prisma.inventoryItem.update({ where: { id: req.params.id }, data: { ...body, stock, reorderLevel, status } });
   // Editing a stock number is a movement like any other: it goes on the ledger,
   // with who did it, so a shelf that changes with no purchase behind it is
   // visible instead of silent.
@@ -3071,13 +2904,138 @@ app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
   // decision (status / decisionNote) or the request's own lines. Identity and
   // audit columns are never client-writable, so a stray client cannot rewrite
   // the queue's bookkeeping.
-  const EDITABLE_REQUEST_FIELDS = ['status', 'decisionNote', 'quantity', 'reason', 'part', 'mechanic', 'truckReg', 'workOrder'];
+  const EDITABLE_REQUEST_FIELDS = ['status', 'decisionNote', 'quantity', 'reason', 'part', 'mechanic', 'truckReg', 'workOrder', 'description', 'targetType', 'requestGroup', 'reviewedBy', 'reviewedAt'];
   const body = req.body || {};
   const data: any = {};
   for (const key of EDITABLE_REQUEST_FIELDS) {
     if (body[key] !== undefined) data[key] = body[key];
   }
+  // A ticket becomes Released (parts issued) through the store's sign-off, or
+  // when the Transport Manager approves a line the store does not stock.
+  // Anything else must travel the chain, so a stray write cannot skip it.
+  if (data.status === 'Released') {
+    const current = await prisma.inventoryRequisition.findUnique({ where: { id: req.params.id } });
+    if (!current || !['Pending', 'Awaiting Admin Approval'].includes(current.status)) {
+      return res.status(400).json({ error: 'This ticket has already moved down the line.' });
+    }
+  }
   res.json(await prisma.inventoryRequisition.update({ where: { id: req.params.id }, data }));
+});
+
+/**
+ * A grouped engineering request: ONE header (target + description) with MANY
+ * store lines, the way the approved design raises it.
+ *
+ * Every line is its own row (the store picks, signs and prices lines
+ * independently) sharing a requestGroup, and every line lands on the Head of
+ * Engineering's desk as Awaiting HOE Review — never directly with the store.
+ */
+app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+  const targetType = String(req.body?.targetType || '').trim();
+  const truckReg = String(req.body?.truckReg || '').trim();
+  const description = String(req.body?.description || '').trim();
+  const requestedBy = String(req.body?.requestedBy || req.user?.name || '').trim();
+  const workOrder = String(req.body?.workOrder || '').trim();
+  const lines = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  if (!['Truck Head', 'Truck Tail', 'Workshop'].includes(targetType)) return res.status(400).json({ error: 'targetType must be Truck Head, Truck Tail or Workshop.' });
+  if (targetType !== 'Workshop' && !truckReg) return res.status(400).json({ error: 'Choose the truck this request is for.' });
+  if (!description) return res.status(400).json({ error: 'Describe what the parts are needed for.' });
+  if (!lines.length) return res.status(400).json({ error: 'Add at least one part line.' });
+  const group = 'EG-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  try {
+    const created = [];
+    for (const line of lines) {
+      const part = String(line?.part || '').trim();
+      const quantity = Math.trunc(Number(line?.quantity));
+      if (!part || !Number.isFinite(quantity) || quantity <= 0) continue;
+      created.push(await prisma.inventoryRequisition.create({
+        data: {
+          workOrder,
+          truckReg: targetType === 'Workshop' ? 'WORKSHOP' : truckReg,
+          mechanic: requestedBy,
+          part,
+          itemId: String(line?.itemId || '') || null,
+          quantity,
+          reason: String(line?.reason || '').trim(),
+          unitCost: Number(line?.unitCost) || 0,
+          status: 'Awaiting HOE Review',
+          requestGroup: group,
+          description,
+          targetType,
+        },
+      }));
+    }
+    if (!created.length) return res.status(400).json({ error: 'No valid part line was supplied.' });
+    // The decision now belongs to the Engineering Manager's account, so his
+    // roles carry the actionable badge — not the workshop that raised it.
+    await notify('Engineering', 'Parts request needs HOE review', `${group} • ${created.length} line(s) for ${targetType === 'Workshop' ? 'the workshop' : truckReg}: ${description} — raised by ${requestedBy}.`, 'warning', 'Head of Engineering,Engineering Manager,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.parts_submitted', refId: group, refLabel: truckReg || 'Workshop', actionRoles: ['Head of Engineering', 'Engineering Manager'] });
+    res.status(201).json({ group, lines: created });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * The Head of Engineering's verdict on a grouped request: validate (optionally
+ * correcting quantities / names first) and pass it to the Transfer Manager, or
+ * decline it with a reason. Only Awaiting HOE Review groups can be decided —
+ * the status machine, not the role list, enforces the order.
+ */
+// HOE-APPROVE-ONLY: the review verdict belongs to the Engineering Manager's
+// account — the workshop role raises requests but does not decide them.
+function isEngineeringReviewer(user: any): boolean {
+  const roles: string[] = Array.isArray(user?.roles) ? user.roles : [user?.role, ...String(user?.roles || '').split(',')].filter(Boolean).map((r: string) => String(r).trim());
+  return roles.some((r) => ['Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager'].includes(r));
+}
+// The review routes admit the department roles through the shared `authorize`
+// wrapper and then decide, inside, whether THIS account may actually rule:
+// the workshop (Engineering) may pass the door but never the verdict — that is
+// the Engineering Manager's alone (plus the TM/admin supervisors).
+const HOE_REVIEW_ROLES = [
+  'Engineering',
+  'Engineering & Maintenance',
+  'Engineering and Maintenance',
+  'Head of Engineering',
+  'Engineering Manager',
+  'Platform Admin',
+  'Transport Manager',
+];
+app.post('/api/inventory-requisitions/group/:group/review', authenticate, authorize(...HOE_REVIEW_ROLES), async (req: any, res) => {
+  const group = String(req.params.group);
+  const approve = req.body?.approve !== false;
+  const note = String(req.body?.note || '').trim();
+  const mods = Array.isArray(req.body?.lines) ? req.body.lines : [];
+  if (!isEngineeringReviewer(req.user)) return res.status(403).json({ error: 'Only the Engineering Manager may review requests here.' });
+  try {
+    const rows = await prisma.inventoryRequisition.findMany({ where: { requestGroup: group } });
+    if (!rows.length) return res.status(404).json({ error: 'Request group not found.' });
+    if (rows.some((r) => r.status !== 'Awaiting HOE Review')) {
+      return res.status(400).json({ error: 'This request has already been reviewed.' });
+    }
+    if (!approve && !note) return res.status(400).json({ error: 'A reason is required to decline the request.' });
+    const by = actingUser(req);
+    const now = new Date();
+    for (const row of rows) {
+      const mod = mods.find((m: any) => String(m?.id) === row.id);
+      const data: any = {
+        status: approve ? 'Awaiting Admin Approval' : 'Rejected',
+        reviewedBy: by,
+        reviewedAt: now,
+        decisionNote: note || null,
+      };
+      if (approve && mod) {
+        if (String(mod.part || '').trim()) data.part = String(mod.part).trim();
+        const q = Math.trunc(Number(mod.quantity));
+        if (Number.isFinite(q) && q > 0) data.quantity = q;
+      }
+      await prisma.inventoryRequisition.update({ where: { id: row.id }, data });
+    }
+    const head = rows[0];
+    await notify('Engineering', approve ? 'Parts request validated — TM approval needed' : 'Parts request declined by HOE', `${group} for ${head.truckReg}: ${head.description || head.reason} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + note}`, approve ? 'info' : 'warning', 'Transport Manager,Engineering,Platform Admin,Parts & Store', { module: 'Engineering', eventKey: approve ? 'engineering.hoe_approved' : 'engineering.hoe_declined', refId: group, refLabel: head.truckReg, actionRoles: approve ? ['Transport Manager'] : ['Engineering', 'Head of Engineering', 'Engineering Manager'] });
+    res.json({ ok: true, group, approved: approve, count: rows.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /**
@@ -3263,7 +3221,10 @@ app.post('/api/inventory/:id/release', authenticate, authorize('Platform Admin',
   const reqId = req.body.reqId as string | undefined;
   if (!reqId) return res.status(400).json({ error: 'Release requires a valid requisition ID.' });
   const requisition = await prisma.inventoryRequisition.findUnique({ where: { id: reqId } });
-  if (!requisition || requisition.status !== 'Pending') return res.status(400).json({ error: 'Requisition not found or already processed.' });
+  // The Transport Manager approves what the Head of Engineering validated —
+  // legacy one-liners still arrive as Pending, grouped engineering requests as
+  // Awaiting Admin Approval. Anything else has already moved down the line.
+  if (!requisition || !['Pending', 'Awaiting Admin Approval'].includes(requisition.status)) return res.status(400).json({ error: 'Requisition not found or already processed.' });
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   // Approval used to deduct stock immediately — but nothing physical had
@@ -3375,19 +3336,31 @@ app.post('/api/fuel', authenticate, async (req, res) => {
   res.json(await prisma.fuelRequisition.create({ data: req.body }));
 });
 app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Accounts', 'Accountant'), async (req, res) => {
+  // Every approval is ONE expense: PATCH is also called to correct a field or
+  // re-send a status, so without this a second save of the same row (or any
+  // swim at the status other than Approved) double-billed the trip in the
+  // expense ledger forever.
+  const before = await prisma.fuelRequisition.findUnique({ where: { id: req.params.id } });
+  if (!before) return res.status(404).json({ error: 'Fuel record not found' });
   const fuel = await prisma.fuelRequisition.update({ where: { id: req.params.id }, data: req.body });
-  if (req.body.status === 'Approved') {
-    await prisma.expense.create({
-      data: {
-        requester: fuel.driverName,
-        department: 'Fleet Manager',
-        type: 'Fuel',
-        category: 'Fuel',
-        amount: fuel.cost,
-        description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}`,
-        status: 'Approved',
-      },
+  const approvedNow = req.body.status === 'Approved' && before.status !== 'Approved';
+  if (approvedNow) {
+    const dup = await prisma.expense.findFirst({
+      where: { requester: fuel.driverName, amount: fuel.cost, description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}` },
     });
+    if (!dup) {
+      await prisma.expense.create({
+        data: {
+          requester: fuel.driverName,
+          department: 'Fleet Manager',
+          type: 'Fuel',
+          category: 'Fuel',
+          amount: fuel.cost,
+          description: `Fuel for ${fuel.truckReg} / trip ${fuel.tripId}`,
+          status: 'Approved',
+        },
+      });
+    }
   }
   res.json(fuel);
 });
@@ -4265,6 +4238,7 @@ app.post('/api/fuel-requests', authenticate, async (req: any, res) => {
       plateNumber: String(req.body?.plateNumber || '').trim() || null,
       note: String(req.body?.note || '').trim() || null,
       status: 'Requested',
+      targetType: String(req.body?.targetType || '').trim() || null,
     });
     try {
       const unit = lubricantUnit(row.fuelType);
@@ -4394,37 +4368,41 @@ app.get('/api/fuel-requests/desk', authenticate, async (req: any, res) => {
  * The desk's decision on a request: Authorize it (cleared to draw), push it
  * back to Requested, or Decline it with the reason on the row.
  */
-app.delete('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
-  if (!mayWorkFuelDesk(req)) {
-    return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager can withdraw a tank draw request.' });
-  }
-  try {
-    const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
-    if (!row) return res.status(404).json({ error: 'Fuel request not found' });
-    if (row.status === 'Dispensed') {
-      return res.status(409).json({
-        error: row.reference + ' was already dispensed — history is corrected on the record, not by a delete.',
-      });
-    }
-    await prisma.fuelRequest.delete({ where: { id: req.params.id } });
-    res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
   if (!mayWorkFuelDesk(req)) {
     return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager decide on a tank draw.' });
   }
+  // Status is optional now: the same endpoint also carries the raiser's
+  // correction (quantity, fuel, who it is for, purpose, plate, note) so a TM
+  // who mistyped the litres can fix the draw instead of deleting it.
+  const hasStatus = req.body?.status !== undefined && String(req.body?.status || '').trim() !== '';
   const wanted = String(req.body?.status || '').trim();
-  if (!['Requested', 'Authorized', 'Declined'].includes(wanted)) {
-    return res.status(400).json({ error: 'status must be Requested, Authorized or Declined' });
+  if (hasStatus && !['Requested', 'HOE Approved', 'Authorized', 'Declined'].includes(wanted)) {
+    return res.status(400).json({ error: 'status must be Requested, HOE Approved, Authorized or Declined' });
+  }
+  // The chain runs Requested → HOE Approved → Authorized: the desk's
+  // authorisation only lands on what the Head of Engineering validated (or a
+  // walk-in sale, which never needs HOE review).
+  if (hasStatus && wanted === 'Authorized') {
+    const current = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
+    if (current && current.source === 'Internal Use' && (current as any).targetType && !['HOE Approved', 'Authorized'].includes(current.status)) {
+      return res.status(400).json({ error: 'This engineering draw needs HOE review before the Transport Manager authorises it.' });
+    }
   }
   try {
     const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: 'Fuel request not found' });
-    if (row.status === 'Dispensed' && wanted !== 'Requested') {
+    const wantsFields =
+      req.body?.quantity !== undefined ||
+      req.body?.fuelType !== undefined ||
+      req.body?.requestedFor !== undefined ||
+      req.body?.purpose !== undefined ||
+      req.body?.plateNumber !== undefined ||
+      req.body?.note !== undefined;
+    // A dispensed draw is history — its litres already left the tank, so the
+    // quantity, fuel and decision on it can no longer change. Recording the
+    // walk-in payment afterwards is the only write still allowed on it.
+    if (row.status === 'Dispensed' && (hasStatus || wantsFields)) {
       return res.status(409).json({
         error: row.reference + ' was already dispensed (' + row.quantity.toLocaleString() +
           ' ' + lubricantUnit(row.fuelType) + ' by ' + (row.dispensedBy || 'the desk') + ') — one draw per request.',
@@ -4432,20 +4410,43 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
     }
     const by = req.user?.name || req.user?.email || 'Fuel desk';
     const reason = String(req.body?.reason || '').trim();
-    const data: any = { status: wanted };
-    if (wanted === 'Authorized') {
+    const data: any = {};
+    if (hasStatus) data.status = wanted;
+    if (hasStatus && wanted === 'Authorized') {
       data.authorizedBy = by;
       data.authorizedAt = new Date();
       data.declinedBy = null;
       data.declinedAt = null;
       data.declineReason = null;
-    } else if (wanted === 'Declined') {
+    } else if (hasStatus && wanted === 'Declined') {
       data.declinedBy = by;
       data.declinedAt = new Date();
       data.declineReason = reason || null;
-    } else {
+    } else if (hasStatus) {
       data.authorizedBy = null;
       data.authorizedAt = null;
+    }
+    // The raiser correcting his own draw before the pump pours it. A smaller
+    // quantity never breaks the tank; a larger one is checked against stock
+    // at dispense time, so the correction is always safe to accept here.
+    if (req.body?.quantity !== undefined) {
+      const litres = Number(req.body.quantity);
+      if (!Number.isFinite(litres) || litres <= 0) {
+        return res.status(400).json({ error: 'quantity must be a positive number of litres' });
+      }
+      data.quantity = litres;
+    }
+    if (req.body?.fuelType !== undefined) {
+      const t = String(req.body.fuelType || '').trim();
+      if (!['Diesel', 'Gas'].includes(t)) return res.status(400).json({ error: 'fuelType must be Diesel or Gas' });
+      data.fuelType = t;
+    }
+    if (req.body?.requestedFor !== undefined) data.requestedFor = String(req.body.requestedFor || '').trim() || null;
+    if (req.body?.purpose !== undefined) data.purpose = String(req.body.purpose || '').trim() || null;
+    if (req.body?.plateNumber !== undefined) data.plateNumber = String(req.body.plateNumber || '').trim() || null;
+    if (req.body?.note !== undefined) data.note = String(req.body.note || '').trim() || null;
+    if (!hasStatus && !wantsFields && !req.body?.paymentStatus && req.body?.paymentRef === undefined) {
+      return res.status(400).json({ error: 'Nothing to update.' });
     }
     // Payment can be recorded without dispensing again (the buyer came back).
     const paymentStatus = String(req.body?.paymentStatus || '').trim();
@@ -4455,7 +4456,13 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
     try {
       const unit = lubricantUnit(row.fuelType);
       const what = row.reference + ' • ' + row.quantity.toLocaleString() + ' ' + unit + ' of ' + row.fuelType;
-      if (wanted === 'Authorized') {
+      if ((data.quantity !== undefined || data.fuelType !== undefined) && (!hasStatus || wanted === 'Requested')) {
+        const nowFuel = String(data.fuelType ?? row.fuelType);
+        await notify('Lubricant', 'Tank draw corrected — ' + row.reference,
+          row.reference + ' was corrected by ' + by + ': now ' + Number(data.quantity ?? row.quantity).toLocaleString() + ' ' + lubricantUnit(nowFuel) + ' of ' + nowFuel + ' for ' + ((data.requestedFor ?? row.requestedFor) || row.requestedBy) + '.',
+          'info', 'Lubricant,Lubricant Manager,Fuel Manager,Fleet Operations,Transport Manager',
+          { module: 'Fuel & Lubricant', eventKey: 'fuel.request_corrected', refId: row.id, refLabel: row.reference });
+      } else if (hasStatus && wanted === 'Authorized') {
         await notify('Lubricant', 'Diesel request cleared — dispense ' + row.quantity.toLocaleString() + ' ' + unit,
           what + ' for ' + (row.requestedFor || row.requestedBy) + ' was authorized by ' + by + '. Take it to the pump.',
           'info', 'Lubricant,Lubricant Manager,Fuel Manager,Fleet Operations,Transport Manager',
@@ -4488,6 +4495,34 @@ app.patch('/api/fuel-requests/:id', authenticate, async (req: any, res) => {
  * and dispenses in one breath, so dispensing a Requested row authorizes it on
  * the way through — stamped, not skipped.
  */
+/**
+ * The Head of Engineering's verdict on an engineering lubricant draw:
+ * validate it toward the Transfer Manager, or decline it with a reason.
+ * Walk-in sales skip this desk — only engineering draws (targetType set) pass
+ * through HOE review.
+ */
+app.post('/api/fuel-requests/:id/hoe-review', authenticate, authorize(...HOE_REVIEW_ROLES), async (req: any, res) => {
+  const approve = req.body?.approve !== false;
+  const reason = String(req.body?.reason || '').trim();
+  try {
+    const row = await prisma.fuelRequest.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: 'Fuel request not found' });
+    if (!isEngineeringReviewer(req.user)) return res.status(403).json({ error: 'Only the Engineering Manager may review requests here.' });
+  if (row.status !== 'Requested') return res.status(400).json({ error: 'This request has already been reviewed.' });
+    if (!approve && !reason) return res.status(400).json({ error: 'A reason is required to decline the request.' });
+    const by = actingUser(req);
+    const updated = await prisma.fuelRequest.update({
+      where: { id: row.id },
+      data: approve
+        ? { status: 'HOE Approved', reviewedBy: by, reviewedAt: new Date() }
+        : { status: 'Declined', declinedBy: by, declinedAt: new Date(), declineReason: reason },
+    });
+    await notify('Lubricant', approve ? 'Lubricant draw validated — TM authorisation needed' : 'Lubricant draw declined by HOE', `${row.reference} • ${row.quantity.toLocaleString()} L of ${row.fuelType} for ${(row as any).targetType || 'engineering use'} — ${approve ? 'validated by ' + by + ', awaiting the Transfer Manager.' : 'declined: ' + reason}`, approve ? 'info' : 'warning', 'Transport Manager,Lubricant,Head of Engineering,Engineering Manager,Engineering,Platform Admin', { module: 'Fuel & Lubricant', eventKey: approve ? 'fuel.hoe_approved' : 'fuel.hoe_declined', refId: row.id, refLabel: row.reference, actionRoles: approve ? ['Transport Manager'] : ['Engineering', 'Head of Engineering', 'Engineering Manager'] });
+    res.json(updated);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.post('/api/fuel-requests/:id/dispense', authenticate, async (req: any, res) => {
   if (!mayWorkFuelDesk(req)) {
     return res.status(403).json({ error: 'Only the fuel desk, Fleet Operations or the Transport Manager dispense from the tank.' });
@@ -4958,9 +4993,12 @@ app.post('/api/notifications/mark-all-read', authenticate, async (req: any, res)
   res.json({ ok: true, marked: pending.length });
 });
 
-// --- MESSAGES / CONVERSATIONS ---
-// One thread per dispatch (see ensureDispatchThreads): the contextual
-// communication the spec calls for, not a generic inbox.
+// --- MESSAGES / CONVERSATIONS (enterprise chat) ---
+// The contextual communication layer: one thread per dispatch (created lazily
+// and idempotently), PLUS direct messages and department groups between staff.
+// Per-user read receipts, message reactions, recall/edit, presence and typing
+// signals live here too, so every department's Messages nav points at the same
+// truth.
 const CHAT_THREAD_STATUSES = [
   'Scheduled',
   'Loaded',
@@ -4990,6 +5028,37 @@ async function partnerCompanyOf(req: any): Promise<string> {
 
 function isPartnerRequest(req: any): boolean {
   return req.user?.role === 'Customer Portals (External)';
+}
+
+/**
+ * LANGUAGE POLICY — enterprise chat is on the record with partners watching.
+ * Profanity, abuse and "go to hell" style attacks are refused at the door and
+ * anything that slipped through an older client is purged.
+ */
+const BANNED_LANGUAGE =
+  /\b(fuck|fucking|motherfuck|shit|bitch|bastard|asshole|arsehole|dickhead|cunt|nigga|nigger|retard|go\s*to\s*hell|hell\s+bro|fuck\s+you)\b/i;
+function messageRejectedByPolicy(body: string): string | null {
+  return BANNED_LANGUAGE.test(body)
+    ? 'Blocked by the language policy — this thread is on the record. Keep it professional.'
+    : null;
+}
+
+/** First name from a full name or email — used in notification copy. */
+function firstName(name: string): string {
+  const n = String(name || '').trim();
+  if (!n) return 'A colleague';
+  if (n.includes('@')) return n.split('@')[0] || 'A colleague';
+  return n.split(/\s+/)[0] || n;
+}
+/**
+ * EMPTY THREADS are noise, not future: a conversation does not exist until
+ * somebody writes in it. Trip threads, DMs and groups alike stay out of the
+ * sidebar while they have zero messages — the moment a first message lands
+ * (and only then) the thread becomes a chat. Nothing is ever deleted.
+ */
+function isEmptyThread(c: any): boolean {
+  const raw = Array.isArray(c?.messages) ? c.messages : [];
+  return raw.length === 0;
 }
 
 /**
@@ -5025,6 +5094,7 @@ async function ensureDispatchThreads() {
           .join(' · '),
         tripId: t.id,
         participants: ['Transport Manager', 'Fleet Operations', 'Tracking', 'Security', 'Partner'],
+        memberIds: [],
         messages: [],
         unread: 0,
         lastAt: '',
@@ -5050,12 +5120,56 @@ function messageTime(m: any): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** May this viewer READ this conversation? */
+async function canAccessConversation(req: any, convo: any): Promise<boolean> {
+  if (!isPartnerRequest(req)) {
+    // Staff may always read trip threads and their own DMs/groups.
+    return true;
+  }
+  if (!convo?.tripId) return false;
+  const trip = await prisma.trip.findUnique({
+    where: { id: convo.tripId },
+    select: { customer: true },
+  });
+  if (!trip) return false;
+  return samePartnerCompany(trip.customer, await partnerCompanyOf(req));
+}
+
+/** Self-visible chat participants of the STAFF directory (partners excluded). */
+async function chatDirectory() {
+  const rows = await prisma.user.findMany({
+    where: { status: 'Active', role: { not: 'Customer Portals (External)' } },
+    select: { id: true, name: true, email: true, role: true, roles: true, phone: true },
+    orderBy: { name: 'asc' },
+  });
+  return rows.map((u: any) => {
+    const extra = String(u.roles || '').split(',').map((r: string) => r.trim()).filter(Boolean);
+    const roles = Array.from(new Set([u.role, ...extra])).filter(Boolean);
+    const initials = String(u.name || '?').split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase();
+    return { id: u.id, name: u.name, email: u.email, role: u.role, roles, phone: u.phone || '', initials };
+  });
+}
+
+/** Staff user IDs allowed into a DM/group thread (the caller plus the picked members). */
+async function chatMemberIds(memberIds: any[]): Promise<string[]> {
+  const wanted = (Array.isArray(memberIds) ? memberIds : []).map((v: any) => String(v)).filter(Boolean);
+  if (!wanted.length) return [];
+  const rows = await prisma.user.findMany({
+    where: { id: { in: wanted }, role: { not: 'Customer Portals (External)' } },
+    select: { id: true },
+  });
+  return rows.map((r: any) => r.id);
+}
+
 /**
- * One conversation, as THIS reader should see it: self-flagged bubbles and an
- * unread count derived from their own read position.
+ * One conversation, as THIS reader should see it: self-flagged bubbles, unread
+ * derived from their own read position, reactions and recall/edit carried on
+ * each message.
  */
 function serializeConversation(c: any, viewerId: string, readAt: number) {
-  const raw = Array.isArray(c.messages) ? c.messages : [];
+  const raw = Array.isArray(c.messages)
+    ? c.messages
+    : [];
   let unread = 0;
   const messages = raw.map((m: any) => {
     const at = m.at || m.time || '';
@@ -5066,10 +5180,15 @@ function serializeConversation(c: any, viewerId: string, readAt: number) {
       author: m.author || 'Unknown',
       authorId: m.authorId || null,
       role: m.role || 'Ops',
-      body: m.body || '',
+      // Live policy sweep: anything abusive that predates the filter is
+      // silenced here too — the record keeps its shape, the words are gone.
+      body: m.recalled ? '' : messageRejectedByPolicy(String(m.body || '')) ? '' : String(m.body || ''),
       at,
       time: at,
       self: mine,
+      reactions: Array.isArray(m.reactions) ? m.reactions : [],
+      editedAt: m.editedAt || null,
+      recalled: Boolean(m.recalled),
     };
   });
   return {
@@ -5079,32 +5198,35 @@ function serializeConversation(c: any, viewerId: string, readAt: number) {
     subtitle: c.subtitle,
     tripId: c.tripId || null,
     participants: Array.isArray(c.participants) ? c.participants : [],
+    memberIds: Array.isArray(c.memberIds) ? c.memberIds : [],
     lastAt: c.lastAt || (messages.length ? messages[messages.length - 1].at : ''),
     unread,
     messages,
   };
 }
 
-/** May this viewer read/write this conversation? Staff: yes. Partner: own company only. */
-async function canAccessConversation(req: any, convo: any): Promise<boolean> {
-  if (!isPartnerRequest(req)) return true;
-  if (!convo?.tripId) return false;
-  const trip = await prisma.trip.findUnique({
-    where: { id: convo.tripId },
-    select: { customer: true },
+/** Shared helper: the sender of a message becomes its first reader. */
+async function markSelfRead(userId: string, conversationId: string, at: Date) {
+  await prisma.conversationRead.upsert({
+    where: { userId_conversationId: { userId, conversationId } },
+    update: { lastReadAt: at },
+    create: { userId, conversationId, lastReadAt: at },
   });
-  if (!trip) return false;
-  return samePartnerCompany(trip.customer, await partnerCompanyOf(req));
 }
 
 app.get('/api/conversations', authenticate, async (req: any, res) => {
   try {
     await ensureDispatchThreads();
     const all = await prisma.conversation.findMany({ orderBy: { updatedAt: 'desc' } });
-    let visible = all;
+    // A chat exists from its first message on — empty threads are invisible
+    // to every reader (they reappear the instant somebody writes in them).
+    const audible = all.filter((c: any) => !isEmptyThread(c));
+    let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = all.map((c: any) => c.tripId).filter(Boolean);
+      const companyKey = company.toLowerCase();
+      const uid = String(req.user.id);
+      const tripIds = audible.filter((c: any) => c.tripId).map((c: any) => c.tripId);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5114,7 +5236,25 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
+      // Partners see: their company's dispatch threads, plus the partner chat
+      // staff opened with THEIR company (member of it, message present).
+      visible = audible.filter(
+        (c: any) =>
+          (c.tripId && mine.has(c.tripId)) ||
+          (c.kind === 'partner' &&
+            Array.isArray(c.memberIds) &&
+            c.memberIds.map(String).includes(uid)),
+      );
+      void companyKey;
+    } else {
+      // Staff see trip threads (minus dead empty closed ones), plus the DMs
+      // and groups they belong to.
+      const uid = String(req.user.id);
+      visible = audible.filter(
+        (c: any) =>
+          c.tripId ||
+          (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
+      );
     }
     const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
     res.json(visible.map((c: any) => serializeConversation(c, req.user.id, read.get(c.id) || 0)));
@@ -5126,11 +5266,14 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
 /** Sidebar badge: how many messages are waiting for THIS user. */
 app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   try {
+    await ensureDispatchThreads();
     const all = await prisma.conversation.findMany();
-    let visible = all;
+    const audible = all.filter((c: any) => !isEmptyThread(c));
+    let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
-      const tripIds = all.map((c: any) => c.tripId).filter(Boolean);
+      const uid = String(req.user.id);
+      const tripIds = audible.filter((c: any) => c.tripId).map((c: any) => c.tripId);
       const trips = tripIds.length
         ? await prisma.trip.findMany({
             where: { id: { in: tripIds } },
@@ -5140,15 +5283,29 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
       const mine = new Set(
         trips.filter((t: any) => samePartnerCompany(t.customer, company)).map((t: any) => t.id),
       );
-      visible = all.filter((c: any) => c.tripId && mine.has(c.tripId));
-    }
-    const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
-    let count = 0;
+      // Same rule as the list: own dispatch threads plus their company's chat.
+      visible = audible.filter(
+        (c: any) =>
+          (c.tripId && mine.has(c.tripId)) ||
+          (c.kind === 'partner' &&
+            Array.isArray(c.memberIds) &&
+            c.memberIds.map(String).includes(uid)),
+      );
+    } else {
+      const uid = String(req.user.id);
+      visible = audible.filter(
+        (c: any) =>
+          c.tripId ||
+          (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
+      );
+    }      const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
+      let count = 0;
     for (const c of visible) {
       const raw = Array.isArray(c.messages) ? c.messages : [];
       const readAt = read.get(c.id) || 0;
       for (const m of raw) {
         if (m.authorId === req.user.id) continue;
+        if (m.recalled) continue;
         if (messageTime(m) > readAt) count += 1;
       }
     }
@@ -5158,57 +5315,292 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
   }
 });
 
+/**
+ * START A NEW CONVERSATION — direct message or department group.
+ *
+ * The Transport Manager picks colleagues from the staff directory; a DM to one
+ * person reuses the thread that already exists between the two (never a second
+ * inbox for the same pair). Groups carry every picked member. Only staff can
+ * create these; partners stay on their dispatch threads.
+ */
 app.post('/api/conversations', authenticate, async (req: any, res) => {
   try {
-    const created = await prisma.conversation.create({
+    if (isPartnerRequest(req)) {
+      return res.status(403).json({ error: 'Partners chat on their dispatch threads only' });
+    }
+    const kind = ['direct', 'group', 'partner'].includes(String(req.body?.kind))
+      ? String(req.body.kind)
+      : 'direct';
+    // PARTNER CHAT — pick a partner company; a thread opens with every staff
+    // contact behind that partner's portal as members (the partner accounts
+    // see it on their own sidebar once the first message lands).
+    if (kind === 'partner') {
+      const companyKey = String(req.body?.partnerName || req.body?.partnerId || '').trim().toLowerCase();
+      if (!companyKey) return res.status(400).json({ error: 'Name the partner company' });
+      const partnerUsers = await prisma.user.findMany({
+        where: { status: 'Active', role: 'Customer Portals (External)' },
+        select: { id: true, partnerCompanyName: true, email: true, role: true },
+      });
+      const memberIds = partnerUsers
+        .filter((u) => {
+          const company = String(u.partnerCompanyName || partnerCompanyFromEmailFallback(u.email, u.role) || '').trim().toLowerCase();
+          return company === companyKey;
+        })
+        .map((u) => u.id);
+      if (!memberIds.length) {
+        return res.status(400).json({ error: 'That partner has no active portal account to chat with yet' });
+      }
+      // Reuse the existing partner-company thread (one thread per partner).
+      const allPartnerThreads = await prisma.conversation.findMany({ where: { kind: 'partner', tripId: null } });
+      for (const c of allPartnerThreads) {
+        const ids = Array.isArray(c.memberIds) ? c.memberIds.map(String) : [];
+        if (memberIds.every((m) => ids.includes(m))) {
+          const read = await readMapFor(req.user.id, [c.id]);
+          return res.json(serializeConversation(c, req.user.id, read.get(c.id) || 0));
+        }
+      }
+      const companyDisplay = String(req.body?.partnerName || req.body?.partnerId || '').trim();
+      const created = await prisma.conversation.create({
+        data: {
+          kind: 'partner',
+          name: companyDisplay,
+          subtitle: 'Partner chat',
+          tripId: null,
+          participants: ['Partner', req.user?.role || 'Ops'],
+          memberIds: Array.from(new Set([String(req.user.id), ...memberIds])),
+          messages: [],
+          unread: 0,
+          lastAt: '',
+        },
+      });
+      return res.json(serializeConversation(created, req.user.id, 0));
+    }
+    // DISPATCH CHAT — open the dispatch thread directly (it already exists);
+    // reusing means there is never a second thread for one dispatch.
+    if (String(req.body?.tripId || '').trim()) {
+      const tripId = String(req.body.tripId).trim();
+      const existingConvo = await prisma.conversation.findFirst({ where: { tripId } });
+      if (existingConvo) {
+        const read = await readMapFor(req.user.id, [existingConvo.id]);
+        return res.json(serializeConversation(existingConvo, req.user.id, read.get(existingConvo.id) || 0));
+      }
+      return res.status(404).json({ error: 'That dispatch has no chat thread yet' });
+    }
+    const members = await chatMemberIds(req.body?.memberIds);
+    const me = String(req.user.id);
+    const allMembers = Array.from(new Set([me, ...members]));
+
+    if (kind === 'direct') {
+      const other = allMembers.filter((id) => id !== me);
+      if (other.length !== 1) {
+        return res.status(400).json({ error: 'A direct message needs exactly one colleague' });
+      }
+      // Reuse the DM thread that already exists between this exact pair.
+      const existing = await prisma.conversation.findFirst({
+        where: { kind: 'direct', tripId: null },
+      });
+      for (const c of (await prisma.conversation.findMany({ where: { kind: 'direct', tripId: null } }))) {
+        const ids = Array.isArray(c.memberIds) ? c.memberIds.map(String) : [];
+        if (ids.length === 2 && ids.includes(me) && ids.includes(other[0]!)) {
+          const read = await readMapFor(me, [c.id]);
+          return res.json(serializeConversation(c, me, read.get(c.id) || 0));
+        }
+      }
+    }
+
+    const name = String(req.body?.name || '').trim();
+    if (kind === 'group' && !name) {
+      return res.status(400).json({ error: 'A group needs a name' });
+    }
+
+    const convo = await prisma.conversation.create({
       data: {
-        kind: req.body.kind || 'direct',
-        name: req.body.name,
-        subtitle: req.body.subtitle || '',
-        tripId: req.body.tripId || null,
-        participants: req.body.participants || [],
-        messages: req.body.messages || [],
+        kind,
+        name: name || 'Direct message',
+        subtitle: kind === 'group' ? `${allMembers.length} members` : '',
+        tripId: null,
+        participants: [req.user?.role || 'Ops'],
+        memberIds: allMembers,
+        messages: [],
         unread: 0,
         lastAt: '',
       },
     });
-    res.json(serializeConversation(created, req.user.id, 0));
+    res.json(serializeConversation(convo, me, 0));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
+/**
+ * SEND — into any thread the caller may write to. Trip threads are open to all
+ * staff (that is the dispatch's room); DMs and groups only to their members.
+ */
 app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) => {
-  const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
-  if (!convo) return res.status(404).json({ error: 'Not found' });
-  if (!(await canAccessConversation(req, convo))) {
-    return res.status(403).json({ error: 'This conversation belongs to another company' });
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const isStaff = !isPartnerRequest(req);
+    if (isStaff && !convo.tripId) {
+      const uid = String(req.user.id);
+      const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+      if (!memberIds.includes(uid)) {
+        return res.status(403).json({ error: 'You are not part of this conversation' });
+      }
+    }
+    const body = String(req.body?.body || '').trim();
+    if (!body) return res.status(400).json({ error: 'Message body is required' });
+    // Language policy: refuse abuse before it can ever reach the thread.
+    const rejected = messageRejectedByPolicy(body);
+    if (rejected) return res.status(400).json({ error: rejected });
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const at = new Date().toISOString();
+    messages.push({
+      id: 'm' + (messages.length + 1) + '-' + Date.now().toString(36),
+      author: req.user?.name || req.user?.email || 'Unknown',
+      authorId: req.user?.id || null,
+      role: isPartnerRequest(req) ? 'Partner' : req.user?.role || 'Ops',
+      body,
+      at,
+      reactions: [],
+    });
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages, lastAt: at },
+    });
+    // The sender has by definition read their own thread up to this message.
+    await markSelfRead(req.user.id, convo.id, new Date(at));
+    // NOTIFY — everyone else in the thread learns work came in. Trip threads
+    // reach staff through the role audience (that is how every dispatch alert
+    // already travels); DMs and groups file a member-targeted row:
+    // `dismissedBy` carries user ids, so the feed is scoped per person.
+    // Best-effort: the message has already delivered either way.
+    void (async () => {
+      try {
+        if (convo.tripId) {
+          await notify(
+            'Messages',
+            'New Message in Dispatch Thread',
+            `${req.user?.name || 'A colleague'} wrote in ${convo.name || 'the dispatch thread'}: "${body.slice(0, 90)}"`,
+            'info',
+            'Transport Manager,Fleet Operations,Tracking,Security,Lubricant,Engineering,Parts & Store,Accounts,HR,Driver,Fleet Field Ops,Head of Engineering',
+            { module: 'Fleet Operations', eventKey: `chat.msg.${convo.id}`, refId: convo.tripId, refLabel: convo.name },
+          );
+        } else {
+          const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+          const others = memberIds.filter((id: string) => id !== String(req.user.id));
+          if (!others.length) return;
+          // `audience` accepts real user ids too (the reader filter matches
+          // against the whole comma list), so each member gets one row and
+          // nobody outside the thread does.
+          const sender = firstName(String(req.user?.name || req.user?.email || 'A colleague'));
+          await notify(
+            'Messages',
+            convo.kind === 'group' ? `${sender} in ${convo.name}` : `New message from ${sender}`,
+            body.slice(0, 90),
+            'info',
+            others.join(','),
+            { module: 'Fleet Operations', eventKey: `chat.msg.${convo.id}`, refId: convo.id, refLabel: convo.name },
+          );
+        }
+      } catch {
+        /* notification is best-effort; the message itself already delivered */
+      }
+    })();
+    res.json(serializeConversation(updated, req.user.id, new Date(at).getTime()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
-  const body = String(req.body?.body || '').trim();
-  if (!body) return res.status(400).json({ error: 'Message body is required' });
-  const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
-  const at = new Date().toISOString();
-  messages.push({
-    id: 'm' + (messages.length + 1) + '-' + Date.now().toString(36),
-    author: req.user?.name || req.user?.email || 'Unknown',
-    authorId: req.user?.id || null,
-    role: isPartnerRequest(req) ? 'Partner' : req.user?.role || 'Ops',
-    body,
-    at,
-  });
-  const updated = await prisma.conversation.update({
-    where: { id: convo.id },
-    data: { messages, lastAt: at },
-  });
-  // The sender has by definition read their own thread up to this message.
-  await prisma.conversationRead.upsert({
-    where: { userId_conversationId: { userId: req.user.id, conversationId: convo.id } },
-    update: { lastReadAt: new Date(at) },
-    create: { userId: req.user.id, conversationId: convo.id, lastReadAt: new Date(at) },
-  });
-  res.json(serializeConversation(updated, req.user.id, new Date(at).getTime()));
 });
 
+/**
+ * EDIT or RECALL a message — the author's own words, their own correction.
+ * A recalled message keeps its slot in the thread (so replies still make sense)
+ * but its body is replaced by a recall marker and stops counting as unread.
+ */
+app.patch('/api/conversations/:id/messages/:messageId', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const idx = messages.findIndex((m: any) => m.id === req.params.messageId);
+    if (idx === -1) return res.status(404).json({ error: 'Message not found' });
+    const m = messages[idx]!;
+    if (String(m.authorId || '') !== String(req.user.id)) {
+      return res.status(403).json({ error: 'You can only change your own messages' });
+    }
+    if (req.body?.recall) {
+      m.recalled = true;
+      m.body = '';
+      delete m.editedAt;
+    } else {
+      const next = String(req.body?.body || '').trim();
+      if (!next) return res.status(400).json({ error: 'Message body is required' });
+      m.body = next;
+      m.editedAt = new Date().toISOString();
+    }
+    messages[idx] = m;
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages },
+    });
+    res.json(serializeConversation(updated, req.user.id, Date.now()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * REACT to a message — one emoji per person, toggled by re-sending it. Any
+ * reader of the thread may react; the reaction is stamped with their name so
+ * the bubble can say who felt what.
+ */
+app.post('/api/conversations/:id/messages/:messageId/reactions', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const emoji = String(req.body?.emoji || '').trim();
+    if (!emoji) return res.status(400).json({ error: 'Emoji is required' });
+    const messages = Array.isArray(convo.messages) ? [...(convo.messages as any[])] : [];
+    const idx = messages.findIndex((m: any) => m.id === req.params.messageId);
+    if (idx === -1) return res.status(404).json({ error: 'Message not found' });
+    if (messages[idx]!.recalled) return res.status(400).json({ error: 'Message was recalled' });
+    const m = messages[idx]!;
+    const reactions: any[] = Array.isArray(m.reactions) ? [...m.reactions] : [];
+    const me = String(req.user.id);
+    const existingIdx = reactions.findIndex(
+      (r: any) => String(r.userId) === me && r.emoji === emoji,
+    );
+    if (existingIdx !== -1) {
+      reactions.splice(existingIdx, 1); // toggle off
+    } else {
+      // One emoji per person: replace any other reaction they had on this message.
+      const mineIdx = reactions.findIndex((r: any) => String(r.userId) === me);
+      if (mineIdx !== -1) reactions.splice(mineIdx, 1);
+      reactions.push({ emoji, userId: me, name: req.user?.name || 'Unknown' });
+    }
+    m.reactions = reactions;
+    messages[idx] = m;
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { messages },
+    });
+    res.json(serializeConversation(updated, req.user.id, Date.now()));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Mark read up to now (opening the thread). */
 app.patch('/api/conversations/:id', authenticate, async (req: any, res) => {
   const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
   if (!convo) return res.status(404).json({ error: 'Not found' });
@@ -5224,6 +5616,272 @@ app.patch('/api/conversations/:id', authenticate, async (req: any, res) => {
     create: { userId: req.user.id, conversationId: convo.id, lastReadAt: readAt },
   });
   res.json({ ok: true });
+});
+
+/**
+ * GROUP MEMBERSHIP — view, add and remove the people in a DM/group thread.
+ * Only existing members may change the roster. Removing someone never deletes
+ * history: their past messages stay, they just stop receiving new ones (and
+ * the thread leaves their list).
+ */
+app.get('/api/conversations/:id/members', authenticate, async (req: any, res) => {
+  const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+  if (!convo) return res.status(404).json({ error: 'Not found' });
+  if (!(await canAccessConversation(req, convo))) {
+    return res.status(403).json({ error: 'This conversation belongs to another company' });
+  }
+  const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+  const rows = ids.length
+    ? await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, email: true, role: true, roles: true, lastSeen: true },
+      })
+    : [];
+  res.json(rows.map((u: any) => {
+    const extra = String(u.roles || '').split(',').map((r: string) => r.trim()).filter(Boolean);
+    return {
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      initials: String(u.name || '?').split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase(),
+      online: u.lastSeen ? Date.now() - new Date(u.lastSeen as any).getTime() < 90_000 : false,
+    };
+  }));
+});
+
+app.post('/api/conversations/:id/members', authenticate, async (req: any, res) => {
+  try {
+    if (isPartnerRequest(req)) return res.status(403).json({ error: 'Partners do not manage group rosters' });
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (convo.tripId) return res.status(400).json({ error: 'A dispatch thread carries its own participants' });
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    if (!ids.includes(String(req.user.id))) {
+      return res.status(403).json({ error: 'Only members of this conversation can add people' });
+    }
+    const additions = await chatMemberIds(Array.isArray(req.body?.memberIds) ? req.body.memberIds : [req.body?.memberId].filter(Boolean));
+    if (!additions.length) return res.status(400).json({ error: 'Name the colleagues to add' });
+    const next = Array.from(new Set([...ids, ...additions]));
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { memberIds: next, subtitle: `${next.length} members` },
+    });
+    const read = await readMapFor(req.user.id, [convo.id]);
+    res.json(serializeConversation(updated, req.user.id, read.get(convo.id) || 0));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/conversations/:id/members/:memberId', authenticate, async (req: any, res) => {
+  try {
+    if (isPartnerRequest(req)) return res.status(403).json({ error: 'Partners do not manage group rosters' });
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (convo.tripId) return res.status(400).json({ error: 'A dispatch thread carries its own participants' });
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    if (!ids.includes(String(req.user.id))) {
+      return res.status(403).json({ error: 'Only members of this conversation can remove people' });
+    }
+    if (req.params.memberId === String(req.user.id)) {
+      return res.status(400).json({ error: 'Leaving a group is not available yet — ask another member to remove you' });
+    }
+    const next = ids.filter((id: string) => id !== req.params.memberId);
+    if (next.length === ids.length) return res.status(404).json({ error: 'That person is not in this group' });
+    if (convo.kind === 'direct' && next.length < 2) {
+      return res.status(400).json({ error: 'A direct message keeps its two people' });
+    }
+    const updated = await prisma.conversation.update({
+      where: { id: convo.id },
+      data: { memberIds: next, subtitle: convo.kind === 'group' ? `${next.length} members` : convo.subtitle },
+    });
+    const read = await readMapFor(req.user.id, [convo.id]);
+    res.json(serializeConversation(updated, req.user.id, read.get(convo.id) || 0));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * READ RECEIPTS — who has SEEN this thread up to when. Returns one entry per
+ * member with the time they last read through; the client stamps the check
+ * marks under my messages accordingly (seen when the LAST other member's
+ * read position passes the message's time).
+ */
+app.get('/api/conversations/:id/receipts', authenticate, async (req: any, res) => {
+  try {
+    const convo = await prisma.conversation.findUnique({ where: { id: req.params.id } });
+    if (!convo) return res.status(404).json({ error: 'Not found' });
+    if (!(await canAccessConversation(req, convo))) {
+      return res.status(403).json({ error: 'This conversation belongs to another company' });
+    }
+    const ids: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
+    const participants: string[] = convo.tripId || !ids.length
+      ? [] // trip threads keep the read positions private to the sender
+      : ids;
+    if (!participants.length) return res.json([]);
+    const rows = await prisma.conversationRead.findMany({
+      where: { conversationId: convo.id, userId: { in: participants } },
+    });
+    const users = await prisma.user.findMany({
+      where: { id: { in: participants } },
+      select: { id: true, name: true },
+    });
+    const names = new Map(users.map((u: any) => [u.id, u.name]));
+    const seen = new Map(rows.map((r: any) => [r.userId, new Date(r.lastReadAt as any).toISOString()]));
+    res.json(participants
+      .filter((id) => id !== String(req.user.id))
+      .map((id) => ({
+        userId: id,
+        name: names.get(id) || 'Member',
+        lastReadAt: seen.get(id) || null,
+      })));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * PRESENCE — a lightweight heartbeat from every signed-in desk. Stays last-seen
+ * in the User row (no new table), so the directory can show who is online now
+ * versus hours ago, without any extra infrastructure.
+ */
+app.post('/api/chat/presence', authenticate, async (req: any, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { lastSeen: new Date() },
+    });
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
+/**
+ * CHAT TARGETS — what the New Chat picker offers, in one read:
+ *   colleagues  — staff directory (departments for the grouped menu)
+ *   partners    — partner companies and the staff users behind their portals
+ *   dispatches  — open (not finished) dispatches, so a chat can be started
+ *                 straight onto the dispatch someone is calling about
+ * Starters POST /api/conversations with the same shapes as before — a partner
+ * target reseolves to everyone in that company's portal as members.
+ */
+app.get('/api/chat/targets', authenticate, async (req: any, res) => {
+  try {
+    const [everyone, companies, trips] = await Promise.all([
+      chatDirectory(),
+      partnerCompanies(),
+      prisma.trip.findMany({
+        where: { status: { notIn: ['Completed', 'Stopped', 'Requested', 'Draft', 'Approved', 'Awaiting Approval'] } },
+        select: { id: true, customer: true, dropoff: true, truckReg: true, driverName: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 40,
+      }),
+    ]);
+    const now = Date.now();
+    const seen = await prisma.user.findMany({
+      where: { id: { in: everyone.map((u: any) => u.id) } },
+      select: { id: true, lastSeen: true, typingIn: true, typingAt: true, partnerCompanyName: true },
+    });
+    const meta = new Map(seen.map((s: any) => [s.id, s]));
+    const ONLINE_MS = 90_000;
+    const live = everyone.map((u: any) => {
+      const m = meta.get(u.id);
+      const last = m?.lastSeen ? new Date(m.lastSeen as any).getTime() : 0;
+      const typingAt = m?.typingAt ? new Date(m.typingAt as any).getTime() : 0;
+      return {
+        ...u,
+        online: now - last < ONLINE_MS,
+        lastSeenAt: m?.lastSeen ? new Date(m.lastSeen as any).toISOString() : null,
+        typingIn: now - typingAt < 8_000 ? String(m?.typingIn || '') : '',
+        partnerCompanyName: m?.partnerCompanyName || null,
+      };
+    });
+    // Partner portals as companies (grouped), with their member ids.
+    const partnerUsers = live.filter((u: any) => u.roles.includes('Customer Portals (External)'));
+    void partnerUsers;
+    const byCompany = new Map<string, { id: string; name: string; memberIds: string[] }>();
+    const partnerUserRows = await prisma.user.findMany({
+      where: { status: 'Active', role: 'Customer Portals (External)' },
+      select: { id: true, name: true, partnerCompanyName: true, email: true, role: true },
+    });
+    for (const u of partnerUserRows) {
+      const company = String(u.partnerCompanyName || partnerCompanyFromEmailFallback(u.email, u.role) || '').trim();
+      if (!company) continue;
+      const key = company.toLowerCase();
+      const row = byCompany.get(key) || { id: key, name: company, memberIds: [] };
+      row.memberIds.push(u.id);
+      byCompany.set(key, row);
+    }
+    // Fill in the known companies (from dispatch history) even when no portal account is live yet.
+    for (const c of companies) {
+      const key = c.company.toLowerCase();
+      if (!byCompany.has(key)) byCompany.set(key, { id: key, name: c.company, memberIds: [] });
+    }
+    res.json({
+      colleagues: live.filter((u: any) => !u.roles.includes('Customer Portals (External)')),
+      partners: Array.from(byCompany.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      dispatches: trips.map((t: any) => ({
+        id: t.id,
+        tripId: t.id,
+        label: `${t.customer || 'Petroline'} · ${t.dropoff || ''}`.trim(),
+        truck: t.truckReg || '',
+        driver: t.driverName || '',
+      })),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * TYPING — a short-lived signal, also carried on the User row. It is read with
+ * presence, and its timestamp is the only truth: anything older than a few
+ * seconds is simply nobody typing anymore.
+ */
+app.post('/api/chat/typing', authenticate, async (req: any, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        lastSeen: new Date(),
+        typingIn: String(req.body?.conversationId || ''),
+        typingAt: new Date(),
+      },
+    });
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
+app.get('/api/chat/directory', authenticate, async (req: any, res) => {
+  try {
+    const everyone = await chatDirectory();
+    const now = Date.now();
+    const seen = await prisma.user.findMany({
+      where: { id: { in: everyone.map((u: any) => u.id) } },
+      select: { id: true, lastSeen: true, typingIn: true, typingAt: true },
+    });
+    const meta = new Map(seen.map((s: any) => [s.id, s]));
+    res.json(
+      everyone.map((u: any) => {
+        const m = meta.get(u.id);
+        const last = m?.lastSeen ? new Date(m.lastSeen as any).getTime() : 0;
+        const typingAt = m?.typingAt ? new Date(m.typingAt as any).getTime() : 0;
+        const ONLINE_MS = 90_000; // heartbeat every 45s ⇒ online within 90
+        return {
+          ...u,
+          online: now - last < ONLINE_MS,
+          lastSeenAt: m?.lastSeen ? new Date(m.lastSeen as any).toISOString() : null,
+          typingIn: now - typingAt < 8_000 ? String(m?.typingIn || '') : '',
+        };
+      }),
+    );
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // --- AUDIT / LOGIN REPORTS ---
