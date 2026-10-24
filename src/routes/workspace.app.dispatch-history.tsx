@@ -145,20 +145,51 @@ function StatusPill({ status }: { status: DisplayStatus }) {
   );
 }
 
-function formatHistoryDate(trip: Trip) {
-  const raw = trip.scheduledDate?.trim();
-  if (!raw) return "";
+function parseDate(raw?: string | null): Date | null {
+  if (!raw || !raw.trim()) return null;
   const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  }
-  return raw;
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function stampDate(parsed: Date | null): string {
+  return parsed
+    ? parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+}
+
+/**
+ * The date this history row is dated by: the date the dispatch actually
+ * HAPPENED — the gate departure when the trip has left the yard — and the
+ * planned date the request carried on rows that have not left yet. The column
+ * used to print only `scheduledDate` (the day the request was raised/plan was
+ * written), so dispatches done today sat under days-old request dates and the
+ * dispatch history did not read as dispatch history.
+ */
+function formatHistoryDate(trip: Trip) {
+  return (
+    stampDate(parseDate(trip.dispatchedAt)) ||
+    stampDate(parseDate(trip.scheduledDate)) ||
+    stampDate(parseDate(trip.createdAt))
+  );
+}
+
+/**
+ * The request date as a second line under the dispatch date — shown only when
+ * a dispatch date exists and differs, so "dispatched today under an old
+ * request" reads both dates at once instead of hinting at one.
+ */
+function requestedDateLine(trip: Trip): string | undefined {
+  if (!parseDate(trip.dispatchedAt)) return undefined;
+  const dispatched = stampDate(parseDate(trip.dispatchedAt));
+  const requested = stampDate(parseDate(trip.createdAt));
+  return requested && requested !== dispatched ? `Requested ${requested}` : undefined;
 }
 
 /** Sortable timestamp of the date this page shows, 0 when unreadable. */
 function dateValue(trip: Trip) {
-  const parsed = Date.parse(trip.scheduledDate ?? "");
-  return Number.isNaN(parsed) ? 0 : parsed;
+  const parsed =
+    parseDate(trip.dispatchedAt) ?? parseDate(trip.scheduledDate) ?? parseDate(trip.createdAt);
+  return parsed ? parsed.getTime() : 0;
 }
 
 function companyName(trip: Trip) {
@@ -737,7 +768,11 @@ function DispatchHistoryPage() {
   const filteredTrips = useMemo(() => {
     const rows = trips.filter((t) => {
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
-      if (!inWindow(t.createdAt, range)) return false;
+      // The window answers the DATE THE PAGE SHOWS: a row matches when it was
+      // dispatched (or departed) in the window, OR raised in it — so a
+      // dispatch sent today under a Sept request is found by "Today" too.
+      if (!inWindow(t.createdAt, range) && !(t.dispatchedAt && inWindow(t.dispatchedAt, range)))
+        return false;
       // The shared matcher, so what is typed finds what is on screen: the
       // dispatch id as shown, every column's text, the date as displayed, and
       // the truck/driver numbers however they are punctuated.
@@ -765,13 +800,14 @@ function DispatchHistoryPage() {
 
   const exportCSV = () => {
     const header =
-      "Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status,Driver,Driver ID,Driver Phone";
+      "Dispatch Date,Request Date,Company,Customer,Product,Truck Head,Body Type,Destination,Dispatch ID,Status,Driver,Driver ID,Driver Phone";
     const csv = filteredTrips
       .map((t) => {
         const driver = driverFor(t);
         const who = displayDriverAssigned(driver, t.driverName);
         return csvRow([
           formatHistoryDate(t),
+          stampDate(parseDate(t.createdAt)),
           companyName(t),
           t.customerConsignee ?? "",
           t.cargo,
@@ -881,7 +917,7 @@ function DispatchHistoryPage() {
           {/* This column is the body the load rides in (Flat, Flatbed Tail, Side
               Guide) — calling it "Head Type" made operators read it as the cab. */}
           {[
-            "Date",
+            "Dispatch Date",
             "Company",
             "Customer",
             "Product",
@@ -908,10 +944,15 @@ function DispatchHistoryPage() {
                 className="flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 text-left shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[14px] font-semibold capitalize tracking-[0.4px] text-[#303D50]">
                     {formatHistoryDate(trip) || "—"}
                   </span>
-                  <StatusPill status={status} />
+                  {requestedDateLine(trip) ? (
+                    <span className="text-[10px] text-[#9CA3AF]">{requestedDateLine(trip)}</span>
+                  ) : null}
+                </div>
+                <StatusPill status={status} />
                 </div>
                 <p className="text-[16px] font-semibold tracking-[0.4px] text-[#344256]">
                   {companyName(trip) || "—"}
@@ -960,9 +1001,16 @@ function DispatchHistoryPage() {
                 onClick={() => openTrip(trip)}
                 className="grid w-full grid-cols-[minmax(100px,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(96px,0.8fr)_auto] items-center gap-x-4 border-b border-[#E2E5E9] py-2.5 text-left last:border-b-0"
               >
-                <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">
-                  {formatHistoryDate(trip)}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="truncate text-[14px] font-semibold capitalize tracking-[0.4px] text-[#5C6470]">
+                    {formatHistoryDate(trip)}
+                  </span>
+                  {requestedDateLine(trip) ? (
+                    <span className="truncate text-[10px] text-[#9CA3AF]">
+                      {requestedDateLine(trip)}
+                    </span>
+                  ) : null}
+                </div>
                 <span className="truncate text-[14px] capitalize tracking-[0.4px] text-[#5C6470]">
                   {companyName(trip)}
                 </span>
