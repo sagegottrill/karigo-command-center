@@ -874,21 +874,21 @@ export function buildSecurityOversight(
  * does not have.
  */
 /**
- * The ledger names the account that actually signed the movement — truth
- * first (24 Oct 2026). The old wording showed system bookkeeping stamps
- * ("Reconciled … — stale returning dispatch", "Petroline Security (self-heal)")
- * and unsigned stamps as the guard "Petroline Security", an account that does
- * not exist on the platform — exactly the phantom the front office caught
- * closing trucks by itself. Now an unsigned movement reads "Unsigned
- * (pre-ledger)", a system stamp reads "System (no guard signed)" and is NOT
- * counted as a guard signature, and every real account name passes through.
+ * The ledger signs bookkeeping the way the front office reads it — S.1 Petroline
+ * (24 Oct 2026, owner instruction). The old wording showed system bookkeeping
+ * stamps ("Reconciled …", "Petroline Security (self-heal)", "System (no guard
+ * signed)"), phantom guard names and "Unsigned (pre-ledger)" — every variation
+ * confused the yard. A system stamp or an unsigned movement now reads the
+ * station signature "S.1 Petroline" and is still NOT counted as a guard
+ * signature (`signed: false` keeps the ledger's own accounting honest), and
+ * every real account name passes through.
  */
-const GUARD_SYSTEM_STAMP = /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i;
+const GUARD_SYSTEM_STAMP = /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b|^security$/i;
 function guardDisplayName(raw: string | null | undefined): { name: string; signed: boolean } {
   const s = String(raw ?? "").trim();
-  if (!s) return { name: "Unsigned (pre-ledger)", signed: false };
+  if (!s) return { name: "S.1 Petroline", signed: false };
   if (/^petroline security$/i.test(s) || GUARD_SYSTEM_STAMP.test(s)) {
-    return { name: "System (no guard signed)", signed: false };
+    return { name: "S.1 Petroline", signed: false };
   }
   return { name: s, signed: true };
 }

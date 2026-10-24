@@ -114,22 +114,21 @@ function stampCsv(value: string | null, fallback: string): string {
 }
 
 function formatGateLogger(name?: string | null): string {
-  // GATE-LOGGER-TRUTH (24 Oct 2026): this column never invents an author. The
-  // old wording filled empty stamps, system bookkeeping stamps and TM/Admin
-  // closures with "Petroline Security" — but no such account exists on the
-  // platform (the client confirmed it), so the front office read a phantom
-  // security officer closing trucks by itself. Now: an unsigned stamp reads
-  // "Unsigned"; a server/system stamp (a reconcile, the return sweep, a role
-  // word like "Transport Manager" rather than a person's name) reads
-  // "System (no guard signed)"; every real account name passes through as the
-  // name — whoever signed it, signed it.
+  // S.1-PETROLINE-STAMP (24 Oct 2026, owner instruction): the desk signs as the
+  // STATION, not as a person — so no reader ever sees a phantom guard name or
+  // a confusing system note again. Every server/bookkeeping stamp (the return
+  // sweep, a reconcile, an old role-word closure like "Transport Manager")
+  // AND every unsigned stamp reads "S.1 Petroline", exactly like a guard who
+  // signed from the desk. The truthful audit trail survives on the trip's
+  // own directCosts.returnedBy object.
   const s = String(name ?? "").trim();
-  if (!s) return "Unsigned";
   if (
+    !s ||
     /^petroline security$/i.test(s) ||
-    /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i.test(s)
+    /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i.test(s) ||
+    /^security$/i.test(s)
   ) {
-    return "System (no guard signed)";
+    return "S.1 Petroline";
   }
   return s;
 }
@@ -392,7 +391,8 @@ departure silently never logs. */
         tailNumber: logForm.tailNumber.trim() || undefined,
         startTime: stamp,
         // WHO logged it — the Guard Activity Ledger on the TM's Security view.
-        gateOutBy: authService.getCurrentUser()?.name || "Security",
+        // S.1-PETROLINE-STAMP: with no signed-in name the desk stamps itself.
+        gateOutBy: authService.getCurrentUser()?.name || "S.1 Petroline",
       });
       // The TRUCK physically left the yard — say so where the fleet reads it.
       // Logging only the trip left the head and tail on "Assigned", so the
@@ -508,10 +508,10 @@ departure silently never logs. */
   // The CSV string for the shared Export menu — same order as the table, the
   // dispatch ID closing the row. The menu's Image and PDF options snapshot the
   // rendered table, so they honour the same search and filters.
-  /** The one "Logged By" reader — truth first. An empty stamp reads "Unsigned";
+  /** The one "Logged By" reader — the station stamps the work (S.1 Petroline);
         a server/system stamp ("Reconciled …", "System (return sweep)", a role
-        word left by an old auto-close path) reads "System (no guard signed)":
-        the column never invents an author the platform has no account for. */
+        word left by an old auto-close path) and an unsigned stamp read the
+        same station signature, never a confusing system note. */
   const loggerCsv = (t: Trip) =>
     returnStamp(t)
       ? formatGateLogger(t.gateInBy)

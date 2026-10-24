@@ -443,6 +443,10 @@ if (typeof app !== "undefined" && app) {
     "/api/auth/forgot-password",
     "/api/auth/reset-password",
     "/api/users/me/password",
+    // AUTHSETUP:RATELIMITED — the bootstrap endpoint is unauthenticated by
+    // design (it creates the first admin), so it needs the same attempt
+    // throttle as every other credential-writing route.
+    "/api/auth/setup",
   ];
   const __rlWrapped = new Set();
   for (const p of __credPaths) {
@@ -1015,6 +1019,13 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   const completingNow = data.status === 'Completed' && before && before.status !== 'Completed';
   if (completingNow) {
     data.gateInBy = gateActor;
+    // RETURN-STAMP-ETA: the same rule the gate account path applies below — a
+    // completed run must always carry its own return moment. A Transport
+    // Manager (or Tracking) closing a run through the dispatch screen stamped
+    // gateInBy but left eta null, so the dispatch history screens showed a
+    // return with the name and no date+time (the "Completed but the return
+    // went blank" rows the live probe found, 24 Oct 2026).
+    if (!String((before as any).eta || data.eta || '').trim()) data.eta = data.eta || autoStamp(new Date());
     const dcAudit =
       data.directCosts && typeof data.directCosts === 'object'
         ? { ...(data.directCosts as any) }
@@ -1768,14 +1779,15 @@ async function sweepReturnedTrucks(): Promise<number> {
     for (const t of open) {
       if (!truckKeysOf(t).some((k) =>
         Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
-      // DORMANT-ONLY: a dispatch the lifecycle touched inside the window is
-      // live work, whatever the registry word says. V5B (24 Oct 2026): the
-      // born check alone left a hole the front office caught — long-raised
-      // requests approved and departed TODAY have no checkpoints yet, so the
-      // sweep still closed them at one identical timestamp and stamped a fake
-      // guard name. updatedAt is the trip's last lifecycle write (re-approval
-      // edit, approval, assignment, departure); a record no path has written
-      // to in 12 hours is the only kind the sweep may close.
+      // DORMANT-ONLY (V5B, 24 Oct 2026): a dispatch the lifecycle touched
+      // inside the window is live work, whatever the registry word says.
+      // The born check alone left a hole the front office caught — long
+      // raised requests approved and departed TODAY have no checkpoints
+      // yet, so the sweep still closed them at one identical timestamp and
+      // stamped a fake guard name. updatedAt is the trip's last lifecycle
+      // write (re-approval edit, approval, assignment, departure); a
+      // record no path has written to in 12 hours is the only kind the
+      // sweep may close.
       const born = new Date(t.createdAt || 0).getTime();
       const touched = new Date(t.updatedAt || '').getTime();
       if (!isNaN(born) && now - born < ACTIVE_WINDOW_MS) continue;
@@ -1806,11 +1818,12 @@ async function sweepReturnedTrucks(): Promise<number> {
           data: {
             status: 'Completed',
             eta: trip.eta || autoStamp(new Date()),
-            // TRUTHFUL-RETURN-NAME (24 Oct 2026): the sweep is bookkeeping, not
-            // a signature — the stamp must never name a guard that did not sign:
-            // "Petroline Security" is not an account on this platform, and the
-            // front office reads it as a security officer closing trucks.
-            gateInBy: trip.gateInBy || 'System (return sweep)',
+            // S.1-PETROLINE-STAMP (24 Oct 2026, owner instruction): the desk stamp
+            // is the STATION, never a person — the front office must never read
+            // a phantom guard or a confusing system note. The truthful audit
+            // stays on the record's directCosts.returnedBy object; the readable
+            // stamp reads the desk:
+            gateInBy: trip.gateInBy || 'S.1 Petroline',
             directCosts: dc,
           },
         });
@@ -2288,9 +2301,18 @@ app.get('/api/tracking/:tripId', authenticate, async (req, res) => {
   res.json(checkpoints);
 });
 
-app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading'), async (req, res) => {
+app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading', 'Partner Loader'), async (req, res) => {
   const { tripId, location, leg } = req.body;
   if (!tripId || !location || !leg) return res.status(400).json({ error: 'Missing required fields' });
+  // LOADER-CHECKPOINT: a Partner Loader confirms collection at its own site —
+  // the Loading leg only. Every other leg stays with the staff roles above.
+  {
+    const held: string[] = Array.isArray((req as any).user?.roles) ? (req as any).user.roles : [String((req as any).user?.role || '')];
+    const staff = ['Platform Admin', 'Transport Manager', 'Fleet Operations', 'Security', 'Tracking', 'Loading'].some((r) => held.includes(r));
+    if (!staff && String(leg).trim().toLowerCase() !== 'loading') {
+      return res.status(403).json({ error: 'A loading site can only confirm loading.' });
+    }
+  }
   // TRACKING CANNOT CLOSE THE TRIP (Fortune/Daniel, 21 Oct 2026): a "Return"
   // leg flipped the dispatch to Returning — the gate log then read the truck
   // as already home and Security lost the track while it was still on the
@@ -2425,7 +2447,6 @@ app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transpor
     if (data.cabId !== undefined || data.capNumber !== undefined) {
       const cap = String(data.cabId ?? data.capNumber ?? '').trim();
       if (!cap || truckCapKey(cap) === truckCapKey(data.registration ?? '')) {
-        // resolve the row's own plate first so the blank-plate case is rejected.
         const row = await prisma.truck.findUnique({ where: { id: req.params.id }, select: { registration: true } });
         const refPlate = String(row?.registration ?? '').trim();
         if (!refPlate && !data.registration) return res.status(400).json({ error: 'A truck with no plate cannot be saved — add the plate number.' });
@@ -2929,8 +2950,21 @@ app.post('/api/inventory/import', authenticate, authorize('Platform Admin', 'Tra
 app.get('/api/inventory-requisitions', authenticate, async (_req, res) => {
   res.json(await prisma.inventoryRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/inventory-requisitions', authenticate, async (req, res) => {
-  res.json(await prisma.inventoryRequisition.create({ data: req.body }));
+app.post('/api/inventory-requisitions', authenticate, async (req: any, res) => {
+  // REQUISITION-CREATE-WHITELIST: only the ticket's own fields are writable at
+  // raise time. Passing req.body straight through let any caller fabricate the
+  // audit columns the chain is supposed to write — handoffAt, signature,
+  // pickedBy, reviewedBy, a forged status — from a raw unauthorised POST.
+  const REQ_FIELDS = ['workOrder', 'truckReg', 'mechanic', 'part', 'itemId', 'quantity', 'reason', 'unitCost', 'decisionNote', 'requestGroup', 'description', 'targetType'];
+  const body = req.body || {};
+  const data: any = {};
+  for (const key of REQ_FIELDS) if (body[key] !== undefined) data[key] = body[key];
+  for (const required of ['workOrder', 'truckReg', 'mechanic', 'part', 'quantity', 'reason']) {
+    if (data[required] === undefined || data[required] === null || String(data[required]).trim() === '') {
+      return res.status(400).json({ error: `${required} is required to raise a requisition.` });
+    }
+  }
+  res.json(await prisma.inventoryRequisition.create({ data }));
 });
 app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
   // REQUISITION-EDIT-WHITELIST: the screens edit the ticket's own words — the
@@ -3365,8 +3399,20 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
 app.get('/api/fuel', authenticate, async (_req, res) => {
   res.json(await prisma.fuelRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/fuel', authenticate, async (req, res) => {
-  res.json(await prisma.fuelRequisition.create({ data: req.body }));
+app.post('/api/fuel', authenticate, async (req: any, res) => {
+  // FUEL-CREATE-WHITELIST: the requisition's own lines only. Raw passthrough
+  // let any signed-in caller invent approved litrages, costs or dates from
+  // fields the client never sent.
+  const FUEL_FIELDS = ['tripId', 'truckReg', 'driverName', 'requiredLitres', 'approvedLitres', 'expectedConsumption', 'standardEfficiency', 'odometer', 'cost', 'date'];
+  const body = req.body || {};
+  const data: any = {};
+  for (const key of FUEL_FIELDS) if (body[key] !== undefined) data[key] = body[key];
+  for (const required of ['tripId', 'truckReg', 'driverName']) {
+    if (data[required] === undefined || data[required] === null || String(data[required]).trim() === '') {
+      return res.status(400).json({ error: `${required} is required to raise a fuel requisition.` });
+    }
+  }
+  res.json(await prisma.fuelRequisition.create({ data }));
 });
 app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Accounts', 'Accountant'), async (req, res) => {
   // Every approval is ONE expense: PATCH is also called to correct a field or

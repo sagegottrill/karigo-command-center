@@ -1807,11 +1807,11 @@ async function sweepReturnedTrucks(): Promise<number> {
           data: {
             status: 'Completed',
             eta: trip.eta || autoStamp(new Date()),
-            // TRUTHFUL-RETURN-NAME (24 Oct 2026): the sweep is bookkeeping, not
-            // a signature — the stamp must never name a guard that did not
-            // sign: "Petroline Security" is not an account on this platform,
-            // and the front office reads it as a security officer closing trucks.
-            gateInBy: trip.gateInBy || 'System (return sweep)',
+            // S.1-PETROLINE-STAMP (24 Oct 2026, owner instruction): the desk
+            // stamp is the STATION, never a person — the front office must never
+            // read a phantom guard or a confusing system note. The truthful audit
+            // stays on directCosts.returnedBy.
+            gateInBy: trip.gateInBy || 'S.1 Petroline',
             directCosts: dc,
           },
         });
