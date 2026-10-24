@@ -1768,10 +1768,18 @@ async function sweepReturnedTrucks(): Promise<number> {
     for (const t of open) {
       if (!truckKeysOf(t).some((k) =>
         Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
-      // DORMANT-ONLY: a dispatch a department is still logging against — or one
-      // raised within the window — is live work, whatever the registry word says.
+      // DORMANT-ONLY: a dispatch the lifecycle touched inside the window is
+      // live work, whatever the registry word says. V5B (24 Oct 2026): the
+      // born check alone left a hole the front office caught — long-raised
+      // requests approved and departed TODAY have no checkpoints yet, so the
+      // sweep still closed them at one identical timestamp and stamped a fake
+      // guard name. updatedAt is the trip's last lifecycle write (re-approval
+      // edit, approval, assignment, departure); a record no path has written
+      // to in 12 hours is the only kind the sweep may close.
       const born = new Date(t.createdAt || 0).getTime();
+      const touched = new Date(t.updatedAt || '').getTime();
       if (!isNaN(born) && now - born < ACTIVE_WINDOW_MS) continue;
+      if (!isNaN(touched) && now - touched < ACTIVE_WINDOW_MS) continue;
       const lastCp = await prisma.trackingCheckpoint.findFirst({
         where: { tripId: t.id },
         orderBy: { at: 'desc' },
@@ -1798,7 +1806,11 @@ async function sweepReturnedTrucks(): Promise<number> {
           data: {
             status: 'Completed',
             eta: trip.eta || autoStamp(new Date()),
-            gateInBy: trip.gateInBy || 'Petroline Security (self-heal)',
+            // TRUTHFUL-RETURN-NAME (24 Oct 2026): the sweep is bookkeeping, not
+            // a signature — the stamp must never name a guard that did not sign:
+            // "Petroline Security" is not an account on this platform, and the
+            // front office reads it as a security officer closing trucks.
+            gateInBy: trip.gateInBy || 'System (return sweep)',
             directCosts: dc,
           },
         });

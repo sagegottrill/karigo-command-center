@@ -874,18 +874,22 @@ export function buildSecurityOversight(
  * does not have.
  */
 /**
- * The ledger names a PERSON, or the one department the meeting agreed owns the
- * gate — Security. Raw system stamps ("Reconciled … — stale returning
- * dispatch", "Auto-reconciled (departure predates the gate log)", "Petroline
- * Security (self-heal)") are reconciliation bookkeeping, not signatures: they
- * never appear as the actor, so the Transport Manager auditing the board sees
- * the department that works the gate, not system narration.
+ * The ledger names the account that actually signed the movement — truth
+ * first (24 Oct 2026). The old wording showed system bookkeeping stamps
+ * ("Reconciled … — stale returning dispatch", "Petroline Security (self-heal)")
+ * and unsigned stamps as the guard "Petroline Security", an account that does
+ * not exist on the platform — exactly the phantom the front office caught
+ * closing trucks by itself. Now an unsigned movement reads "Unsigned
+ * (pre-ledger)", a system stamp reads "System (no guard signed)" and is NOT
+ * counted as a guard signature, and every real account name passes through.
  */
-const GUARD_SYSTEM_STAMP = /reconcil|superseded|self-heal|departure predates|stale|transport manager|platform admin|admin\b/i;
+const GUARD_SYSTEM_STAMP = /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i;
 function guardDisplayName(raw: string | null | undefined): { name: string; signed: boolean } {
   const s = String(raw ?? "").trim();
-  if (!s) return { name: "Petroline Security (pre-ledger)", signed: false };
-  if (GUARD_SYSTEM_STAMP.test(s)) return { name: "Petroline Security", signed: true };
+  if (!s) return { name: "Unsigned (pre-ledger)", signed: false };
+  if (/^petroline security$/i.test(s) || GUARD_SYSTEM_STAMP.test(s)) {
+    return { name: "System (no guard signed)", signed: false };
+  }
   return { name: s, signed: true };
 }
 

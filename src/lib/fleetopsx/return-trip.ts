@@ -35,23 +35,27 @@ export function returnStampNow(): string {
 }
 
 export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean }> {
-  // WHO logged the return — the Gate Security account that stamped it, carried
-  // onto the Guard Activity Ledger the Transport Manager audits.
+  // WHO logged the return — the signed-in account that pressed the button,
+  // carried onto the guard ledger verbatim (24 Oct 2026). The old code refused
+  // Traffic/Manager names and invented "Petroline Security" instead, an account
+  // that does not exist on the platform — the phantom sign-off the front office
+  // caught. If no name is available, no stamp is sent and the server names the
+  // acting account (or leaves the closure unsigned, truthfully).
   const gateInBy = (() => {
     try {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("fleetopsx_user_name");
-        if (stored && stored.trim() && !/transport manager|platform admin|admin/i.test(stored)) return stored.trim();
+        if (stored && stored.trim()) return stored.trim();
       }
     } catch {
       // ignore
     }
-    return "Petroline Security";
+    return undefined;
   })();
   await tripService.update(trip.id, {
     status: "Completed",
     eta: returnStampNow(),
-    gateInBy,
+    ...(gateInBy ? { gateInBy } : {}),
   });
 
   // The plate as every screen reads it (roster-resolved), normalised for matching

@@ -114,18 +114,22 @@ function stampCsv(value: string | null, fallback: string): string {
 }
 
 function formatGateLogger(name?: string | null): string {
-  if (!name) return "Petroline Security";
-  const s = String(name).trim();
-  // GATE-LOGGER-WORDING: the "Logged By" column names a PERSON, or the one
-  // department the meeting agreed owns the gate — Security. System stamps from
-  // reconciles/self-heals ("Reconciled 2026-10-13 — stale returning dispatch",
-  // "Auto-reconciled (departure predates the gate log)") are bookkeeping, not
-  // signatures, and never appear: the movement still belongs to the gate house.
+  // GATE-LOGGER-TRUTH (24 Oct 2026): this column never invents an author. The
+  // old wording filled empty stamps, system bookkeeping stamps and TM/Admin
+  // closures with "Petroline Security" — but no such account exists on the
+  // platform (the client confirmed it), so the front office read a phantom
+  // security officer closing trucks by itself. Now: an unsigned stamp reads
+  // "Unsigned"; a server/system stamp (a reconcile, the return sweep, a role
+  // word like "Transport Manager" rather than a person's name) reads
+  // "System (no guard signed)"; every real account name passes through as the
+  // name — whoever signed it, signed it.
+  const s = String(name ?? "").trim();
+  if (!s) return "Unsigned";
   if (
-    !s ||
-    /reconcil|superseded|self-heal|auto-reconcil|departure predates|stale|transport manager|platform admin|admin\b/i.test(s)
+    /^petroline security$/i.test(s) ||
+    /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i.test(s)
   ) {
-    return "Petroline Security";
+    return "System (no guard signed)";
   }
   return s;
 }
@@ -504,11 +508,10 @@ departure silently never logs. */
   // The CSV string for the shared Export menu — same order as the table, the
   // dispatch ID closing the row. The menu's Image and PDF options snapshot the
   // rendered table, so they honour the same search and filters.
-  /** The one "Logged By" reader — person first, department fallback. Raw
-        system stamps ("Reconciled … — stale returning dispatch", "Auto-reconciled
-        (departure predates the gate log)") are reconciliation bookkeeping, not
-        signatures: the gate house owns those movements, so the column must show
-        the department that works the gate, never narrate system history. */
+  /** The one "Logged By" reader — truth first. An empty stamp reads "Unsigned";
+        a server/system stamp ("Reconciled …", "System (return sweep)", a role
+        word left by an old auto-close path) reads "System (no guard signed)":
+        the column never invents an author the platform has no account for. */
   const loggerCsv = (t: Trip) =>
     returnStamp(t)
       ? formatGateLogger(t.gateInBy)
