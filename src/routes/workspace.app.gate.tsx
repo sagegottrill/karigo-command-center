@@ -125,7 +125,13 @@ function formatGateLogger(name?: string | null): string {
   if (
     !s ||
     /^petroline security$/i.test(s) ||
-    /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i.test(s) ||
+    // The gate@petroline.ng account was renamed "Petroline Gate (legacy)" by
+    // a one-off script (24 Oct) — a station word, never a guard's name, so it
+    // reads as the station too instead of leaking the raw string to the desk.
+    /petroline gate|\(legacy\)/i.test(s) ||
+    /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b/i.test(
+      s,
+    ) ||
     /^security$/i.test(s)
   ) {
     return "S.1 Petroline";
@@ -877,19 +883,18 @@ departure silently never logs. */
                       </p>
                     );
                   }
-                  {/*
-                   * CONFIRM-BEFORE-CLOSE (meeting: someone trigged return while
-                   * the truck was still outside) — the click opens the confirm
-                   * step instead of closing anything. The operator must tick that
-                   * the truck is physically at the gate before the destructive
-                   * action fires, so one stray click can no longer strand a
-                   * driver or send the wrong assets to Check Up.
-                   */}
+                  {
+                    /*
+                     * CONFIRM-BEFORE-CLOSE (meeting: someone trigged return while
+                     * the truck was still outside) — the click opens the confirm
+                     * step instead of closing anything. The operator must tick that
+                     * the truck is physically at the gate before the destructive
+                     * action fires, so one stray click can no longer strand a
+                     * driver or send the wrong assets to Check Up.
+                     */
+                  }
                   return list.slice(0, 60).map((t) => (
-                    <div
-                      key={t.id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5"
-                    >
+                    <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                       <button
                         type="button"
                         disabled={returnTruckBusy !== null}

@@ -170,7 +170,13 @@ export type EngineeringOversight = {
     promised: number;
     /** Open jobs with no date at all — the gap no estimate can be read from. */
     missing: number;
-    next: { truck: string; label: string; date: string; days: number | null; tone: DeptTone } | null;
+    next: {
+      truck: string;
+      label: string;
+      date: string;
+      days: number | null;
+      tone: DeptTone;
+    } | null;
     overdue: { count: number; worstDays: number; list: EngJob[] };
     list: EngJob[];
   };
@@ -251,7 +257,15 @@ export type SecurityOversight = {
     returns: number;
     /** Stamps with no actor on them — the pre-ledger backlog. */
     unsigned: number;
-    list: { id: string; label: string; truck: string; driver: string; guard: string; action: "Logged Out" | "Logged In"; at: string | null }[];
+    list: {
+      id: string;
+      label: string;
+      truck: string;
+      driver: string;
+      guard: string;
+      action: "Logged Out" | "Logged In";
+      at: string | null;
+    }[];
   };
 };
 
@@ -395,8 +409,7 @@ export function buildEngineeringOversight(
   const openOrders = orders.filter(isOpenJob);
 
   /** Age of an open job: from the moment the workshop actually began, if known. */
-  const openJobDays = (order: WorkOrder) =>
-    daysBetween(order.startedAt || order.reportedAt, now);
+  const openJobDays = (order: WorkOrder) => daysBetween(order.startedAt || order.reportedAt, now);
 
   const openList = openOrders
     .map((o) => readJob(o, openJobDays(o)))
@@ -404,7 +417,9 @@ export function buildEngineeringOversight(
 
   const spendList = orders
     .filter((o) => o.status !== "Cancelled" && inPeriod(jobMoment(o), range))
-    .map((o) => readJob(o, daysBetween(o.startedAt || o.reportedAt, new Date(o.completedAt || now))))
+    .map((o) =>
+      readJob(o, daysBetween(o.startedAt || o.reportedAt, new Date(o.completedAt || now))),
+    )
     .sort((a, b) => b.cost - a.cost);
 
   const partsQueue = openOrders.filter((o) => o.status === "Awaiting Parts");
@@ -587,7 +602,9 @@ export function buildEngineeringOversight(
 
   /** Oldest first: a request queue is worked in the order it was raised. */
   const pendingReqs = requisitions
-    .filter((request) => request.status === "Pending" || request.status === "Awaiting Admin Approval")
+    .filter(
+      (request) => request.status === "Pending" || request.status === "Awaiting Admin Approval",
+    )
     .map(readRequest)
     .sort((a, b) => (a.requestedAt < b.requestedAt ? -1 : a.requestedAt > b.requestedAt ? 1 : 0));
 
@@ -682,12 +699,19 @@ export function buildEngineeringOversight(
             label: nextPromise.truck,
             date: nextPromise.estimatedReadyAt,
             days: nextPromise.rtsDays,
-            tone: (nextPromise.rtsDays ?? 0) < 0 ? "red" : (nextPromise.rtsDays ?? 0) <= 1 ? "amber" : "green",
+            tone:
+              (nextPromise.rtsDays ?? 0) < 0
+                ? "red"
+                : (nextPromise.rtsDays ?? 0) <= 1
+                  ? "amber"
+                  : "green",
           }
         : null,
       overdue: {
         count: lateList.length,
-        worstDays: lateList.length ? Math.abs(Math.min(...lateList.map((job) => job.rtsDays ?? 0))) : 0,
+        worstDays: lateList.length
+          ? Math.abs(Math.min(...lateList.map((job) => job.rtsDays ?? 0)))
+          : 0,
         list: lateList,
       },
       list: rtsList,
@@ -796,7 +820,11 @@ export function buildSecurityOversight(
   const outRows = outList
     .map((t) => ({
       ...t,
-      tone: (t.overdueHours ? "red" : t.hoursOut && t.hoursOut > 96 ? "amber" : "purple") as DeptTone,
+      tone: (t.overdueHours
+        ? "red"
+        : t.hoursOut && t.hoursOut > 96
+          ? "amber"
+          : "purple") as DeptTone,
     }))
     .sort((a, b) => (b.hoursOut ?? 0) - (a.hoursOut ?? 0));
 
@@ -861,7 +889,11 @@ export function buildSecurityOversight(
       measured: measured.length,
       list: measured,
     },
-    movements: { departures: departureTrips.length, returns: returnTrips.length, list: movementList },
+    movements: {
+      departures: departureTrips.length,
+      returns: returnTrips.length,
+      list: movementList,
+    },
     guardLedger: buildGuardLedger(movementList),
   };
 }
@@ -883,11 +915,18 @@ export function buildSecurityOversight(
  * signature (`signed: false` keeps the ledger's own accounting honest), and
  * every real account name passes through.
  */
-const GUARD_SYSTEM_STAMP = /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b|^security$/i;
+const GUARD_SYSTEM_STAMP =
+  /reconcil|supersed|self-heal|return sweep|departure predates|stale|transport manager|platform admin|\badmin\b|^security$/i;
 function guardDisplayName(raw: string | null | undefined): { name: string; signed: boolean } {
   const s = String(raw ?? "").trim();
   if (!s) return { name: "S.1 Petroline", signed: false };
-  if (/^petroline security$/i.test(s) || GUARD_SYSTEM_STAMP.test(s)) {
+  // The gate@petroline.ng account was renamed "Petroline Gate (legacy)" by a
+  // one-off script (24 Oct) — a station word, so it signs as the station.
+  if (
+    /^petroline security$/i.test(s) ||
+    /petroline gate|\(legacy\)/i.test(s) ||
+    GUARD_SYSTEM_STAMP.test(s)
+  ) {
     return { name: "S.1 Petroline", signed: false };
   }
   return { name: s, signed: true };
