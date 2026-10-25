@@ -105,7 +105,13 @@ function isDispatchRequest(trip: Trip) {
  * carry.
  */
 type FleetStatus =
-  "Awaiting Approval" | "Approved" | "Scheduled" | "In Transit" | "Completed" | "Declined";
+  | "Awaiting Approval"
+  | "Approved"
+  | "Sent Back"
+  | "Scheduled"
+  | "In Transit"
+  | "Completed"
+  | "Declined";
 
 /**
  * What the red filter offers, in the order the work arrives: the dispatch sitting
@@ -120,6 +126,7 @@ const STATUS_FILTERS: Array<"All" | FleetStatus> = [
   "All",
   "Awaiting Approval",
   "Approved",
+  "Sent Back",
   "Scheduled",
   "In Transit",
   "Completed",
@@ -127,6 +134,13 @@ const STATUS_FILTERS: Array<"All" | FleetStatus> = [
 ];
 
 function fleetStatusOf(trip: Trip): FleetStatus {
+  // A dispatch the Transport Manager sent back to Fleet Ops is not sitting in
+  // the approved queue: the send-back wipes the truck, driver and costs (NOT
+  // NULL columns → "") and hands the config back for re-assignment. Presenting
+  // such a row as a green "Approved" with empty Driver / Truck Head cells read
+  // as a broken approval — it is a SENT-BACK row, and the reason travels with
+  // it (e.g. "CANCELL BY CUSTOMER").
+  if (trip.status === "Approved" && trip.sendBackReason?.trim()) return "Sent Back";
   if (trip.status === "Stopped") return "Declined";
   if (trip.status === "Approved for Dispatch") return "Approved";
   // The truck has left: one word for the whole on-road stretch, so the row reads
@@ -147,6 +161,7 @@ function fleetStatusOf(trip: Trip): FleetStatus {
 const FLEET_QUEUE_RANK: Record<string, number> = {
   "Awaiting Approval": 0,
   Approved: 1,
+  "Sent Back": 1,
   Scheduled: 2,
   "In Transit": 3,
   Completed: 4,
@@ -166,17 +181,22 @@ const STATUS_HINT: Record<FleetStatus, string> = {
   "Awaiting Approval":
     "Fleet Ops has configured this dispatch — approve it to put the truck on the road.",
   Approved: "Approved and waiting on Fleet Ops to schedule the truck.",
+  "Sent Back":
+    "The Transport Manager sent this dispatch back to Fleet Ops — open details for the reason.",
   Scheduled: "Approved and scheduled — the truck is on the dispatch board.",
   "In Transit": "The truck is out of the yard and moving — see it on Tracking Operations.",
   Completed: "Delivered — the dispatch is closed.",
   Declined: "Rejected by the Transport Manager.",
 };
 
-function StatusPill({ status }: { status: FleetStatus }) {
+function StatusPill({ status, note }: { status: FleetStatus; note?: string }) {
   const cls =
     status === "Declined"
       ? "bg-[#ED351D] text-white"
-      : status === "Approved"
+      : // Sent back is Fleet Ops work again — dark, not the green of approval.
+        status === "Sent Back"
+        ? "bg-[#141A1F] text-white"
+        : status === "Approved"
         ? "bg-[#34C759] text-white"
         : status === "Completed"
           ? "bg-[#007AFF] text-white"
@@ -188,7 +208,11 @@ function StatusPill({ status }: { status: FleetStatus }) {
                 "bg-[#FC0] text-[#1B2432]";
   return (
     <span
-      title={STATUS_HINT[status] || status}
+      title={
+        note
+          ? `${STATUS_HINT[status] || status} — Reason: ${note}`
+          : STATUS_HINT[status] || status
+      }
       className={cn(
         // nowrap: a two-line pill inside a 22px-high chip read as a broken cell.
         "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
@@ -224,7 +248,7 @@ function headLabel(trip: Trip, heads: TruckHead[]) {
   const cap = displayCapFromTrip(trip, head);
   const plate = displayPlateFromTrip(trip, head);
   if (cap && plate) return `${cap} (${plate})`;
-  return cap || plate || "";
+  return cap || plate || "—";
 }
 
 /** What the partner asked for — the requested/head type. tailType is only a
@@ -397,15 +421,18 @@ function FleetDispatchRequests() {
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
+        // Sent-back rows carry no live approval — the sheet must not print the
+        // stale timestamp under Date Approved either.
+        const sentBack = fleetStatusOf(t) === "Sent Back";
         return csvRow([
           formatDateTimeStamp(t.createdAt),
           t.customerConsignee ?? "",
-          t.driverName || driver?.name || "",
+          t.driverName || driver?.name || "—",
           headLabel(t, heads),
           fleetTruckTypeOf(t),
           tripLoadingSites(t).join(", ") || "",
           t.dropoff,
-          formatDateTimeStamp(t.dispatchedAt),
+          sentBack ? "—" : formatDateTimeStamp(t.dispatchedAt),
           t.estimatedDate ? formatTableDate(t.estimatedDate) : "",
           formatTripDuration(t.estimatedDays) || "",
           fleetStatusOf(t),
@@ -736,13 +763,30 @@ function FleetDispatchRequests() {
                   </div>
                 </div>
                 <MetaRow label="Customer:" value={trip.customerConsignee || ""} />
-                <MetaRow label="Driver:" value={trip.driverName || driver?.name || ""} />
+                {/* A sent-back dispatch waits on Fleet Ops with an empty roster —
+                    the cell still has to say so, not hand back a blank. */}
+                <MetaRow
+                  label="Driver:"
+                  value={trip.driverName || driver?.name || "—"}
+                />
                 <MetaRow label="Head No:" value={headLabel(trip, heads)} accent />
+                {fleetStatusOf(trip) === "Sent Back" && trip.sendBackReason ? (
+                  <MetaRow label="Sent Back:" value={trip.sendBackReason} />
+                ) : null}
                 <MetaRow label="Truck Type:" value={fleetTruckTypeOf(trip)} />
                 <MetaRow label="Loading Point:" value={tripLoadingSites(trip).join(", ") || "—"} />
                 <MetaRow label="Phone No:" value={driver?.phone || ""} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow label="Date Approved:" value={formatDateTimeStamp(trip.dispatchedAt)} />
+                {/* Same rule as the desktop cell: once the dispatch has been sent
+                    back there is no live approval to point at. */}
+                <MetaRow
+                  label="Date Approved:"
+                  value={
+                    fleetStatusOf(trip) === "Sent Back"
+                      ? "—"
+                      : formatDateTimeStamp(trip.dispatchedAt)
+                  }
+                />
                 <MetaRow
                   label="Estimated Time of Return:"
                   value={trip.estimatedDate ? formatTableDate(trip.estimatedDate) : ""}
@@ -909,7 +953,7 @@ function FleetDispatchRequests() {
                       {trip.customerConsignee || "—"}
                     </span>
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
-                      {trip.driverName || driver?.name}
+                      {trip.driverName || driver?.name || "—"}
                     </span>
                     <span className="truncate text-[12px] text-[#627084]">
                       {headLabel(trip, heads)}
@@ -923,7 +967,11 @@ function FleetDispatchRequests() {
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.dropoff}
                     </span>
-                    <DateCell value={trip.dispatchedAt} />
+                    {/* Once the TM has sent a dispatch back, there is no live
+                        approval — the old timestamp must not keep talking. */}
+                    <DateCell
+                      value={fleetStatusOf(trip) === "Sent Back" ? null : trip.dispatchedAt}
+                    />
                     <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
                       {formatTripDuration(trip.estimatedDays) ? (
@@ -933,7 +981,10 @@ function FleetDispatchRequests() {
                       ) : null}
                     </span>
                     <span>
-                      <StatusPill status={fleetStatusOf(trip)} />
+                      <StatusPill
+                        status={fleetStatusOf(trip)}
+                        note={trip.sendBackReason?.trim() || undefined}
+                      />
                     </span>
                     <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
                       {dispatchId(trip)}
