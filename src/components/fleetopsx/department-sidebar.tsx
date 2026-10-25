@@ -20,6 +20,14 @@ import {
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/fleetopsx/services";
 import { hardLogout } from "@/lib/fleetopsx/session";
+import { isActiveRoute } from "./department-nav-route";
+import {
+  STORE_HOME,
+  STORE_ISSUE_HISTORY,
+  STORE_PARTS_REQUEST,
+  STORE_PROCUREMENT,
+  STORE_PAGES,
+} from "@/lib/fleetopsx/store-routes";
 import { cn } from "@/lib/utils";
 import { Route as RootRoute } from "../../routes/__root";
 import { useLiveBadges } from "@/lib/fleetopsx/use-live-badges";
@@ -151,12 +159,16 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
   parts: {
     heading: "STORE INVENTORY",
     title: "Store and Parts Inventory Portal",
-    subtitle: "Manage the lifecycle of every inventory item within the company to maintain data integrity.",
+    subtitle:
+      "Manage the lifecycle of every inventory item within the company to maintain data integrity.",
     items: [
-      { label: "Parts Request", to: "/workspace/app/store/parts-request", icon: List },
-      { label: "Store Inventory", to: "/workspace/app/store", icon: Package },
-      { label: "Procurement Request", to: "/workspace/app/store/procurement", icon: ListTree },
-      { label: "Issue History", to: "/workspace/app/store/issue-history", icon: History },
+      // The store pages' addresses come from [store-routes.ts] — the one
+      // registry the nav, the role landings and the unit check share. Labels
+      // in the rail's approved order: the request queue first, then the shelf.
+      { label: "Parts Request", to: STORE_PARTS_REQUEST, icon: List },
+      { label: "Store Inventory", to: STORE_HOME, icon: Package },
+      { label: "Procurement Request", to: STORE_PROCUREMENT, icon: ListTree },
+      { label: "Issue History", to: STORE_ISSUE_HISTORY, icon: History },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
     ],
   },
@@ -171,7 +183,8 @@ const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   hr: /^(hr|hr & personnel|hr and personnel|personnel)$/i,
   // The ENGINEERING MANAGER rides the same department shell — his one seat on
   // the board is the HOE review desk, but the chrome around it is this too.
-  engineering: /^(engineering( manager)?|head of engineering|engineering and maintenance|engineering & maintenance)$/i,
+  engineering:
+    /^(engineering( manager)?|head of engineering|engineering and maintenance|engineering & maintenance)$/i,
   // The STOREHOUSE desk: Inventory, its head, and the floor attendants.
   inventory:
     /^(inventory|head of inventory|store floor attendant|inventory & store|inventory manager)$/i,
@@ -231,10 +244,6 @@ export function shouldUseAccountsShell(roles: string[]) {
   return shouldUseDepartmentShell(roles, "accounts");
 }
 
-function isPathActive(pathname: string, to: string) {
-  return pathname === to || pathname.startsWith(`${to}/`);
-}
-
 function useBadges() {
   const { unreadNotifications, unreadMessages } = useLiveBadges();
   return { unreadNotifications, unreadMessages };
@@ -251,6 +260,7 @@ export function DepartmentSidebar({
 }) {
   const portal = DEPARTMENTS[department];
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const itemTos = portal.items.map((i) => i.to);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -307,7 +317,7 @@ export function DepartmentSidebar({
               </span>
             )}
             {portal.items.map((item) => {
-              const active = isPathActive(pathname, item.to);
+              const active = isActiveRoute(pathname, item.to, itemTos);
               const Icon = item.icon;
               // Only the Inbox items carry a count — a badge on "Staff Records"
               // advertised unread notifications and told the reader nothing.
@@ -323,6 +333,7 @@ export function DepartmentSidebar({
                   key={item.to}
                   to={item.to}
                   title={collapsed ? item.label : undefined}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex h-8 items-center gap-2 overflow-hidden rounded p-2",
                     collapsed ? "w-8 justify-center" : "w-full",
@@ -418,16 +429,18 @@ export function DepartmentTabs({ department }: { department: DepartmentKey }) {
     (item) => !item.to.includes("/notifications") && !item.to.includes("/messages"),
   );
   if (modules.length < 2) return null;
+  const moduleTos = modules.map((i) => i.to);
 
   return (
     <div className="flex w-full items-center gap-1 overflow-x-auto border-b border-[#E2E5E9] bg-white px-5 max-md:px-2">
       {modules.map((item) => {
-        const active = isPathActive(pathname, item.to);
+        const active = isActiveRoute(pathname, item.to, moduleTos);
         const Icon = item.icon;
         return (
           <Link
             key={item.to}
             to={item.to}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "flex h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-[14px] tracking-[0.4px] transition-colors",
               active
@@ -491,11 +504,12 @@ export function DepartmentMobileNav({ department }: { department: DepartmentKey 
   const portal = DEPARTMENTS[department];
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { unreadNotifications, unreadMessages } = useBadges();
+  const portalItemsTos = portal.items.map((i) => i.to);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[74px] items-stretch bg-[#1B2432] px-5 py-1 shadow-[0px_4px_4px_rgba(0,0,0,0.15),0px_1px_1.5px_rgba(0,0,0,0.3)] md:hidden">
       {portal.items.map((item) => {
-        const active = isPathActive(pathname, item.to);
+        const active = isActiveRoute(pathname, item.to, portalItemsTos);
         const Icon = item.icon;
         const isMessages = item.to.includes("messages");
         const isNotifications = item.to.includes("notifications");
@@ -505,6 +519,7 @@ export function DepartmentMobileNav({ department }: { department: DepartmentKey 
           <Link
             key={item.to}
             to={item.to}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "relative flex flex-1 flex-col items-center justify-center gap-1 px-0.5",
               active ? "border-b-[5px] border-white text-white" : "text-white/70",

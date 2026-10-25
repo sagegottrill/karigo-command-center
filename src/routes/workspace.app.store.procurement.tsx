@@ -3,7 +3,6 @@ import { ListTree } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { RequestProcurementModal } from "@/components/fleetopsx/store-request-procurement";
 import {
   CardShell,
@@ -13,6 +12,7 @@ import {
   SearchField,
   STORE_TAB_LABEL,
   StatusPill,
+  StorePageShell,
   classOfItem,
   classOfPo,
   csvOf,
@@ -90,7 +90,9 @@ function ProcurementRequestsPage() {
           inventoryService.list().catch(() => [] as InventoryItem[]),
         ]);
         if (!alive) return;
-        const rows = (Array.isArray(poRes) ? poRes : ((poRes as { data?: unknown[] })?.data ?? [])) as PoRow[];
+        const rows = (
+          Array.isArray(poRes) ? poRes : ((poRes as { data?: unknown[] })?.data ?? [])
+        ) as PoRow[];
         // Fuel-tank restocks bill under the Lubricant module's own desk — the
         // store's request ledger carries the parts buys.
         setPos(rows.filter((r) => r.kind !== "Fuel"));
@@ -115,7 +117,9 @@ function ProcurementRequestsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return familyPos;
-    return familyPos.filter((po) => `${po.partName} ${po.vendor ?? ""} ${dateOf(po.date)}`.toLowerCase().includes(q));
+    return familyPos.filter((po) =>
+      `${po.partName} ${po.vendor ?? ""} ${dateOf(po.date)}`.toLowerCase().includes(q),
+    );
   }, [familyPos, query]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -137,7 +141,17 @@ function ProcurementRequestsPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [
-      ["Request Date", "Reference", "Family", "Part Number", "Part Name", "Quantity", "Total Price", "Status", "Vendor"],
+      [
+        "Request Date",
+        "Reference",
+        "Family",
+        "Part Number",
+        "Part Name",
+        "Quantity",
+        "Total Price",
+        "Status",
+        "Vendor",
+      ],
       ...filtered.flatMap((po) =>
         linesOf(po).map((l) => [
           dateOf(po.date),
@@ -160,7 +174,9 @@ function ProcurementRequestsPage() {
       await procurementService.markProcured(po.id);
       toast.success("Delivery received — mark the shelf restock from the Store Inventory card.");
       const refreshed = (await procurementService.list()) as PoRow[];
-      const rows = (Array.isArray(refreshed) ? refreshed : ((refreshed as { data?: unknown[] })?.data ?? [])) as PoRow[];
+      const rows = (
+        Array.isArray(refreshed) ? refreshed : ((refreshed as { data?: unknown[] })?.data ?? [])
+      ) as PoRow[];
       setPos(rows.filter((r) => r.kind !== "Fuel"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not mark it procured.");
@@ -169,74 +185,71 @@ function ProcurementRequestsPage() {
 
   return (
     <>
-      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
-          a page must not paint its own second rail beside it. */}
-      <div className="w-full bg-[#F7F8FA] pb-4">
-        <DepartmentTabs department="parts" />
-        <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">Procurement Order</h1>
-              <p className="mt-1 max-w-[560px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
-                Request for purchase requisition to procurements — track each buy to the day the shelf takes it.
-              </p>
+      <StorePageShell
+        title="Procurement Order"
+        subtitle="Request for purchase requisition to procurements — track each buy to the day the shelf takes it."
+        actions={
+          <button
+            type="button"
+            onClick={() => setRaiseOpen(true)}
+            className="h-[40px] rounded-[8px] bg-[#1B2432] px-4 text-[13.5px] font-medium text-white hover:bg-[#2A3849]"
+          >
+            Request Procurement
+          </button>
+        }
+      >
+        <CardShell className="px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Procurement Requests
+              </h2>
+              <CountBadge value={filtered.length} />
             </div>
-            <button
-              type="button"
-              onClick={() => setRaiseOpen(true)}
-              className="h-[40px] rounded-[8px] bg-[#1B2432] px-4 text-[13.5px] font-medium text-white hover:bg-[#2A3849]"
-            >
-              Request Procurement
-            </button>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+              <FamilyTabs active={tab} onSelect={setTab} />
+              <SearchField value={query} onChange={setQuery} />
+            </div>
           </div>
 
-          <CardShell className="mt-5 px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Procurement Requests
-                </h2>
-                <CountBadge value={filtered.length} />
-              </div>
-              <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-                <FamilyTabs active={tab} onSelect={setTab} />
-                <SearchField value={query} onChange={setQuery} />
-              </div>
+          {loading ? (
+            <FigmaLoadingState label="Loading the buys…" />
+          ) : filtered.length === 0 ? (
+            <div className="py-10">
+              <FigmaEmptyState
+                title="No procurement request on this family"
+                body="Raise the first buy with Request Procurement — the store names the line and the quantity; the Transport Manager authorises the spend."
+              />
             </div>
-
-            {loading ? (
-              <FigmaLoadingState label="Loading the buys…" />
-            ) : filtered.length === 0 ? (
-              <div className="py-10">
-                <FigmaEmptyState
-                  title="No procurement request on this family"
-                  body="Raise the first buy with Request Procurement — the store names the line and the quantity; the Transport Manager authorises the spend."
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {pageRows.map((po) => (
+                <PoCard
+                  key={po.id}
+                  po={po}
+                  lines={linesOf(po)}
+                  items={items}
+                  onProcured={() => markProcured(po)}
                 />
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {pageRows.map((po) => (
-                  <PoCard key={po.id} po={po} lines={linesOf(po)} items={items} onProcured={() => markProcured(po)} />
-                ))}
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {!loading && filtered.length > 0 && (
-              <div className="mt-4 -mx-5">
-                <PagerFooter
-                  shownFrom={safePage * PAGE_SIZE + 1}
-                  shownTo={Math.min(filtered.length, (safePage + 1) * PAGE_SIZE)}
-                  total={filtered.length}
-                  page={safePage}
-                  pageCount={pageCount}
-                  onPage={setPage}
-                  onExport={exportCsv}
-                />
-              </div>
-            )}
-          </CardShell>
-        </div>
-      </div>
+          {!loading && filtered.length > 0 && (
+            <div className="mt-4 -mx-5">
+              <PagerFooter
+                shownFrom={safePage * PAGE_SIZE + 1}
+                shownTo={Math.min(filtered.length, (safePage + 1) * PAGE_SIZE)}
+                total={filtered.length}
+                page={safePage}
+                pageCount={pageCount}
+                onPage={setPage}
+                onExport={exportCsv}
+              />
+            </div>
+          )}
+        </CardShell>
+      </StorePageShell>
 
       {raiseOpen && (
         <RequestProcurementModal
@@ -246,7 +259,11 @@ function ProcurementRequestsPage() {
             setRaiseOpen(false);
             toast.success("The buy is on its sheet below.");
             const refreshed = (await procurementService.list()) as PoRow[];
-            const rows = (Array.isArray(refreshed) ? refreshed : ((refreshed as { data?: unknown[] })?.data ?? [])) as PoRow[];
+            const rows = (
+              Array.isArray(refreshed)
+                ? refreshed
+                : ((refreshed as { data?: unknown[] })?.data ?? [])
+            ) as PoRow[];
             setPos(rows.filter((r) => r.kind !== "Fuel"));
           }}
         />
@@ -296,7 +313,9 @@ function PoCard({
           )}
         </div>
       </div>
-      <p className="mt-1 text-[12px] text-[#5C6470]">{po.vendor ? `From: ${po.vendor}` : "Requested by: Store desk"}</p>
+      <p className="mt-1 text-[12px] text-[#5C6470]">
+        {po.vendor ? `From: ${po.vendor}` : "Requested by: Store desk"}
+      </p>
 
       <div className="mt-2 flex-1 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
         <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] font-medium text-[#5C6470]">
@@ -312,7 +331,9 @@ function PoCard({
                 <span className="grid h-[24px] min-w-[26px] place-items-center rounded-[6px] border border-[#E2E5E9] px-1.5 text-[11.5px] font-semibold text-[#1B2432]">
                   {l.quantity}
                 </span>
-                <span className="text-[11.5px] font-semibold text-[#1B2432]">{formatNairaFull(l.price)}</span>
+                <span className="text-[11.5px] font-semibold text-[#1B2432]">
+                  {formatNairaFull(l.price)}
+                </span>
               </div>
             </div>
           </div>

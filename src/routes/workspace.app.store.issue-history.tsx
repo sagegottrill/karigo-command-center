@@ -3,7 +3,6 @@ import { History, Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import {
   CardShell,
   CountBadge,
@@ -12,6 +11,7 @@ import {
   ModalShell,
   PagerFooter,
   SearchField,
+  StorePageShell,
   classOfItem,
   csvOf,
   dateOf,
@@ -103,7 +103,9 @@ function IssueHistoryPage() {
       const tabOf = lines
         .map((l) => {
           const item = itemBySku.get(l.sku);
-          return item ? classOfItem(item) : classOfItem({ sku: l.sku, name: l.itemName, category: "" });
+          return item
+            ? classOfItem(item)
+            : classOfItem({ sku: l.sku, name: l.itemName, category: "" });
         })
         .find(Boolean);
       cards.push({
@@ -136,7 +138,16 @@ function IssueHistoryPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [
-      ["Issue Date", "Truck", "Issued By", "Family", "Part Number", "Part Name", "Quantity", "Reference"],
+      [
+        "Issue Date",
+        "Truck",
+        "Issued By",
+        "Family",
+        "Part Number",
+        "Part Name",
+        "Quantity",
+        "Reference",
+      ],
       ...filtered.flatMap((c) =>
         c.lines.map((l) => [
           c.date,
@@ -155,61 +166,56 @@ function IssueHistoryPage() {
 
   return (
     <>
-      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
-          a page must not paint its own second rail beside it. */}
-      <div className="w-full bg-[#F7F8FA] pb-4">
-        <DepartmentTabs department="parts" />
-        <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
-          <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">Requests Issue History</h1>
-          <p className="mt-1 max-w-[600px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
-            Every part the store floor dispensed — the day it left the shelf and the truck that took it.
-          </p>
-
-          <CardShell className="mt-5 px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Issue Record</h2>
-                <CountBadge value={filtered.length} />
-              </div>
-              <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-                <FamilyTabs active={tab} onSelect={setTab} />
-                <SearchField value={query} onChange={setQuery} />
-              </div>
+      <StorePageShell
+        title="Requests Issue History"
+        subtitle="Every part the store floor dispensed — the day it left the shelf and the truck that took it."
+      >
+        <CardShell className="px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">
+                Issue Record
+              </h2>
+              <CountBadge value={filtered.length} />
             </div>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+              <FamilyTabs active={tab} onSelect={setTab} />
+              <SearchField value={query} onChange={setQuery} />
+            </div>
+          </div>
 
-            {loading ? (
-              <FigmaLoadingState label="Loading the dispense ledger…" />
-            ) : filtered.length === 0 ? (
-              <div className="py-10">
-                <FigmaEmptyState
-                  title="Nothing issued yet on this family"
-                  body="Units appear here the moment Complete Handoff signs them out on the request queue — the record is written by the handoff itself."
-                />
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {pageRows.map((card) => (
-                  <IssueCardView key={card.key} card={card} onPrint={() => setReportFor(card)} />
-                ))}
-              </div>
-            )}
+          {loading ? (
+            <FigmaLoadingState label="Loading the dispense ledger…" />
+          ) : filtered.length === 0 ? (
+            <div className="py-10">
+              <FigmaEmptyState
+                title="Nothing issued yet on this family"
+                body="Units appear here the moment Complete Handoff signs them out on the request queue — the record is written by the handoff itself."
+              />
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {pageRows.map((card) => (
+                <IssueCardView key={card.key} card={card} onPrint={() => setReportFor(card)} />
+              ))}
+            </div>
+          )}
 
-            {!loading && filtered.length > 0 && (
-              <div className="mt-4 -mx-5">
-                <PagerFooter
-                  shownFrom={safePage * PAGE_SIZE + 1}
-                  shownTo={Math.min(filtered.length, (safePage + 1) * PAGE_SIZE)}
-                  total={filtered.length}
-                  page={safePage}
-                  pageCount={pageCount}
-                  onPage={setPage}
-                  onExport={exportCsv}
-                />
-              </div>
-            )}
-          </CardShell>
-        </div>
-      </div>
+          {!loading && filtered.length > 0 && (
+            <div className="mt-4 -mx-5">
+              <PagerFooter
+                shownFrom={safePage * PAGE_SIZE + 1}
+                shownTo={Math.min(filtered.length, (safePage + 1) * PAGE_SIZE)}
+                total={filtered.length}
+                page={safePage}
+                pageCount={pageCount}
+                onPage={setPage}
+                onExport={exportCsv}
+              />
+            </div>
+          )}
+        </CardShell>
+      </StorePageShell>
 
       {reportFor && <IssueReportModal card={reportFor} onClose={() => setReportFor(null)} />}
     </>
@@ -240,7 +246,10 @@ function IssueCardView({ card, onPrint }: { card: IssueCard; onPrint: () => void
           <span>Quantity</span>
         </div>
         {card.lines.map((l) => (
-          <div key={l.id} className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-1.5">
+          <div
+            key={l.id}
+            className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-1.5"
+          >
             <div className="min-w-0">
               <p className="truncate text-[12px] font-semibold text-[#1B2432]">{l.sku}</p>
               <p className="line-clamp-2 text-[11px] text-[#5C6470]">{l.itemName}</p>
@@ -282,7 +291,9 @@ function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => v
 
       <div className="issue-print-sheet hidden">
         <div style={{ borderBottom: "2px solid #1b2432", paddingBottom: 8, marginBottom: 16 }}>
-          <p style={{ fontWeight: 700, fontSize: 16 }}>Petroline Transport Ltd — Parts Issue Report</p>
+          <p style={{ fontWeight: 700, fontSize: 16 }}>
+            Petroline Transport Ltd — Parts Issue Report
+          </p>
           <p style={{ fontSize: 12 }}>Store and Parts Inventory Portal</p>
         </div>
         <p style={{ fontSize: 13, fontWeight: 600 }}>{card.key}</p>
@@ -290,7 +301,9 @@ function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => v
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr>
-              <th style={{ border: "1px solid #1b2432", padding: 6, textAlign: "left" }}>Parts Requested</th>
+              <th style={{ border: "1px solid #1b2432", padding: 6, textAlign: "left" }}>
+                Parts Requested
+              </th>
               <th style={{ border: "1px solid #1b2432", padding: 6, width: 100 }}>Quantity</th>
             </tr>
           </thead>
@@ -322,7 +335,9 @@ function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => v
       >
         <div className="rounded-[8px] bg-[#F7F8FA] px-4 py-3">
           <p className="text-[13px] font-semibold text-[#1B2432]">{card.key}</p>
-          <p className="mt-0.5 text-[12px] text-[#5C6470]">Requested by: {card.requestedBy || "—"}</p>
+          <p className="mt-0.5 text-[12px] text-[#5C6470]">
+            Requested by: {card.requestedBy || "—"}
+          </p>
         </div>
 
         <div className="mt-3 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
@@ -331,7 +346,10 @@ function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => v
             <span>Quantity</span>
           </div>
           {card.lines.map((l) => (
-            <div key={l.id} className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-2">
+            <div
+              key={l.id}
+              className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-2"
+            >
               <div className="min-w-0">
                 <p className={cn("text-[12.5px] font-semibold text-[#1B2432]")}>{l.sku}</p>
                 <p className="line-clamp-2 text-[11px] text-[#5C6470]">{l.itemName}</p>

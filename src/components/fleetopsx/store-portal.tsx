@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Search, ChevronDown, Download } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
+import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,6 +14,57 @@ import { cn } from "@/lib/utils";
  * Export CVS button. Kept here ONCE so a tweak lands on all five pages, the
  * way the design intends.
  */
+
+/* ------------------------------------------------------------ page shell */
+
+/**
+ * The ONE page frame every store page mounts into.
+ *
+ * Before this shell existed, each of the four pages hand-rolled the same
+ * wrapper (grey canvas, the department tab strip, headline, subtitle, action
+ * row) — and hand-rolled copies are exactly how a page ends up "using half the
+ * page" while its neighbours use all of it. The shell is the single place the
+ * frame is defined: pass the headline words and the right-hand actions, mount
+ * the content, and every page lands on the same full-width skeleton.
+ *
+ * It renders no sidebar and no header of its own — the app shell
+ * ([workspace.app.tsx]) owns those; this is the page CONTENT frame only.
+ */
+export function StorePageShell({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  /** The h1 headline — exactly as the approved frame words it. */
+  title: string;
+  /** The uppercase one-liner under the headline. */
+  subtitle: string;
+  /** Right-hand action buttons; omitted when the page is report-only. */
+  actions?: ReactNode;
+  /** The page's cards/tables, mounted under the headline block. */
+  children: ReactNode;
+}) {
+  return (
+    <div className="w-full bg-[#F7F8FA] pb-4">
+      <DepartmentTabs department="parts" />
+      <div className="w-full px-4 pt-6 pb-2 md:px-[30px]">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="min-w-[280px]">
+            <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">{title}</h1>
+            <p className="mt-1 max-w-[520px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
+              {subtitle}
+            </p>
+          </div>
+          {actions ? (
+            <div className="flex flex-wrap items-center justify-end gap-3">{actions}</div>
+          ) : null}
+        </div>
+        <div className="mt-5">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------ classification */
 
@@ -96,7 +148,13 @@ export function StockChip({ status }: { status: string }) {
 }
 
 /** The filled status pill a request/PO card header carries. */
-export function StatusPill({ label, tone }: { label: string; tone: "amber" | "green" | "red" | "blue" }) {
+export function StatusPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "amber" | "green" | "red" | "blue";
+}) {
   const tones = {
     amber: "bg-[#F99E1F] text-white",
     green: "bg-[#34C759] text-white",
@@ -104,7 +162,12 @@ export function StatusPill({ label, tone }: { label: string; tone: "amber" | "gr
     blue: "bg-[#2F6BD8] text-white",
   } as const;
   return (
-    <span className={cn("inline-flex items-center rounded-[6px] px-2.5 py-1 text-[12px] font-medium leading-4", tones[tone])}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-[6px] px-2.5 py-1 text-[12px] font-medium leading-4",
+        tones[tone],
+      )}
+    >
       {label}
     </span>
   );
@@ -122,7 +185,12 @@ export function CountBadge({ value }: { value: number | string }) {
 
 export function CardShell({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-[16px] border border-[#E2E5E9] bg-white shadow-[0px_1px_2px_rgba(27,36,50,0.06)]", className)}>
+    <div
+      className={cn(
+        "rounded-[16px] border border-[#E2E5E9] bg-white shadow-[0px_1px_2px_rgba(27,36,50,0.06)]",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -140,7 +208,12 @@ export function FamilyTabs({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-1 rounded-[10px] border border-[#E2E5E9] bg-[#F7F8FA] p-1", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-1 rounded-[10px] border border-[#E2E5E9] bg-[#F7F8FA] p-1",
+        className,
+      )}
+    >
       {STORE_TABS.map((tab) => (
         <button
           key={tab}
@@ -148,7 +221,9 @@ export function FamilyTabs({
           onClick={() => onSelect(tab)}
           className={cn(
             "h-[34px] rounded bg-transparent px-3.5 text-[13.5px] leading-none transition-colors",
-            active === tab ? "bg-white font-medium text-[#ED351D] shadow-[0px_1px_2px_rgba(27,36,50,0.08)]" : "text-[#5C6470] hover:text-[#1B2432]",
+            active === tab
+              ? "bg-white font-medium text-[#ED351D] shadow-[0px_1px_2px_rgba(27,36,50,0.08)]"
+              : "text-[#5C6470] hover:text-[#1B2432]",
           )}
         >
           {STORE_TAB_LABEL[tab]}
@@ -354,13 +429,19 @@ export function ModalShell({
             <h3 className="text-[16px] font-semibold text-white">{title}</h3>
             {subtitle && <p className="mt-0.5 text-[12.5px] text-white/70">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-white/70 hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-white/70 hover:text-white"
+          >
             ✕
           </button>
         </div>
         <div className="max-h-[calc(100vh-260px)] overflow-y-auto px-5 py-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-between border-t border-[#E2E5E9] px-5 py-4">{footer}</div>
+          <div className="flex items-center justify-between border-t border-[#E2E5E9] px-5 py-4">
+            {footer}
+          </div>
         )}
       </div>
     </div>
@@ -407,7 +488,11 @@ export function ModalActions({
 }) {
   return (
     <div className="flex items-center justify-between border-t border-[#E2E5E9] px-5 py-4">
-      <button type="button" onClick={onCancel} className="text-[14px] text-[#5C6470] hover:text-[#1B2432]">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="text-[14px] text-[#5C6470] hover:text-[#1B2432]"
+      >
         {cancel}
       </button>
       <button

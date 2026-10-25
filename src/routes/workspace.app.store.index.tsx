@@ -1,10 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronDown, FileSpreadsheet, Package, Upload } from "lucide-react";
+import { ChevronDown, FileSpreadsheet, Package, Plus, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { RequestProcurementModal } from "@/components/fleetopsx/store-request-procurement";
 import {
   CardShell,
@@ -17,6 +16,7 @@ import {
   PagerFooter,
   STORE_TAB_LABEL,
   StockChip,
+  StorePageShell,
   classOfItem,
   csvOf,
   inputClass,
@@ -24,11 +24,7 @@ import {
 } from "@/components/fleetopsx/store-portal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
-import {
-  authService,
-  formatNairaFull,
-  inventoryService,
-} from "@/lib/fleetopsx/services";
+import { authService, formatNairaFull, inventoryService } from "@/lib/fleetopsx/services";
 import type { InventoryItem, ProcurementRequest } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +70,23 @@ function matchesStock(item: InventoryItem, option: string) {
 
 /** The categories the manual-import form offers per family (design §import). */
 const IMPORT_CATEGORIES: Record<StoreTab, string[]> = {
-  parts: ["Brake", "Engine & Injection", "Suspension", "Electrical", "Body & Chassis", "Transmission", "General"],
-  lubricants: ["Engine Oil", "Gear Oil & Transmission", "Grease", "Hydraulic Fluid", "Coolant", "Fuel"],
+  parts: [
+    "Brake",
+    "Engine & Injection",
+    "Suspension",
+    "Electrical",
+    "Body & Chassis",
+    "Transmission",
+    "General",
+  ],
+  lubricants: [
+    "Engine Oil",
+    "Gear Oil & Transmission",
+    "Grease",
+    "Hydraulic Fluid",
+    "Coolant",
+    "Fuel",
+  ],
   tyres: ["Tyre", "Rim", "Tube & Flap"],
 };
 
@@ -91,12 +102,10 @@ function StoreInventoryPage() {
   const [category, setCategory] = useState("All Categories");
   const [stockLevel, setStockLevel] = useState<string>(STOCK_OPTIONS[0] ?? "All Stock Levels");
   const [page, setPage] = useState(0);
-  const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [fileOpen, setFileOpen] = useState(false);
   const [restockFor, setRestockFor] = useState<InventoryItem | null>(null);
   const [procurementOpen, setProcurementOpen] = useState(false);
-  const importRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,15 +124,6 @@ function StoreInventoryPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (!importMenuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (importRef.current && !importRef.current.contains(e.target as Node)) setImportMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [importMenuOpen]);
-
   // Reset the category filter when the family changes — a Brake category is
   // meaningless on the Lubricants tab.
   useEffect(() => setCategory("All Categories"), [tab]);
@@ -131,7 +131,8 @@ function StoreInventoryPage() {
   /** The family's own category list, straight from the shelf. */
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const item of items) if (classOfItem(item) === tab && item.category) set.add(item.category);
+    for (const item of items)
+      if (classOfItem(item) === tab && item.category) set.add(item.category);
     return ["All Categories", ...Array.from(set).sort()];
   }, [items, tab]);
 
@@ -169,56 +170,35 @@ function StoreInventoryPage() {
 
   return (
     <>
-      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
-          a page must not paint its own second rail beside it. */}
-      <div className="w-full bg-[#F7F8FA] pb-4">
-        <DepartmentTabs department="parts" />
-        {/* The portal headline, verbatim from the approved frame */}
-        <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
-          <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">Store Inventory</h1>
-          <p className="mt-1 max-w-[520px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
-            Upload and monitor stock level and unit pricing of spare parts, lubricants, tires and rims.
-          </p>
-
-          <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-            <div className="relative" ref={importRef}>
-              <button
-                type="button"
-                onClick={() => setImportMenuOpen((v) => !v)}
-                className="flex h-[40px] items-center gap-2 rounded-[8px] bg-[#1B2432] px-4 text-[13.5px] font-medium text-white hover:bg-[#2A3849]"
-              >
-                <Upload className="size-4" />
-                Import Inventory
-              </button>
-              {importMenuOpen && (
-                <div className="absolute right-0 top-[46px] z-30 w-[280px] overflow-hidden rounded-[8px] border border-[#E2E5E9] bg-white shadow-[0px_8px_24px_rgba(27,36,50,0.18)]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImportMenuOpen(false);
-                      setManualOpen(true);
-                    }}
-                    className="block w-full bg-[#ED351D] px-4 py-2.5 text-left text-[13.5px] font-medium text-white"
-                  >
-                    Manually Import Inventory
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImportMenuOpen(false);
-                      setFileOpen(true);
-                    }}
-                    className="block w-full px-4 py-2.5 text-left text-[13.5px] text-[#1B2432] hover:bg-[#FDF2F1] hover:text-[#ED351D]"
-                  >
-                    Import Inventory from File
-                  </button>
-                </div>
-              )}
-            </div>
+      <StorePageShell
+        title="Store Inventory"
+        subtitle="Upload and monitor stock level and unit pricing of spare parts, lubricants, tires and rims."
+        actions={
+          <>
+            {/* The shelf's two ways in, side by side — no hidden menu: the daily
+                way to add a line, and the file way to fill the shelf in bulk. */}
+            <button
+              type="button"
+              onClick={() => setManualOpen(true)}
+              className="flex h-[40px] items-center gap-2 rounded-[8px] bg-[#1B2432] px-4 text-[13.5px] font-medium text-white hover:bg-[#2A3849]"
+            >
+              <Plus className="size-4" />
+              Add Inventory
+            </button>
+            <button
+              type="button"
+              onClick={() => setFileOpen(true)}
+              className="flex h-[40px] items-center gap-2 rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[13.5px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
+            >
+              <Upload className="size-4" />
+              Bulk Import From File
+            </button>
             <button
               type="button"
               onClick={() =>
-                document.getElementById("store-inventory-listing")?.scrollIntoView({ behavior: "smooth" })
+                document
+                  .getElementById("store-inventory-listing")
+                  ?.scrollIntoView({ behavior: "smooth" })
               }
               className="h-[40px] rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[13.5px] text-[#9AA2AC]"
             >
@@ -231,9 +211,10 @@ function StoreInventoryPage() {
             >
               Request Procurement
             </button>
-          </div>
-
-          <div id="store-inventory-listing">
+          </>
+        }
+      >
+        <div id="store-inventory-listing">
           <CardShell className="px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -269,22 +250,22 @@ function StoreInventoryPage() {
                   title="No stock on this family yet"
                   body={
                     items.length === 0
-                      ? "Import the store's ledger to fill the shelf — manually or from the inventory file."
-                      : "Nothing matches this family and filter. Loosen the filters or import the line."
+                      ? "The shelf is empty — Add Inventory puts the first line on it, and Bulk Import From File fills it from the ledger."
+                      : "Nothing matches this family and filter. Loosen the filters, or add the line with Add Inventory."
                   }
                   action={
                     <button
                       type="button"
-                      onClick={() => setFileOpen(true)}
+                      onClick={() => setManualOpen(true)}
                       className="h-[38px] rounded-[8px] bg-[#1B2432] px-4 text-[13.5px] font-medium text-white hover:bg-[#2A3849]"
                     >
-                      Import Inventory
+                      Add Inventory
                     </button>
                   }
                 />
               </div>
             ) : (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {pageRows.map((item) => (
                   <InventoryCard key={item.id} item={item} onRestock={() => setRestockFor(item)} />
                 ))}
@@ -305,9 +286,8 @@ function StoreInventoryPage() {
               </div>
             )}
           </CardShell>
-          </div>
         </div>
-      </div>
+      </StorePageShell>
 
       {manualOpen && (
         <ManuallyImportInventoryModal
@@ -370,7 +350,9 @@ function InventoryCard({ item, onRestock }: { item: InventoryItem; onRestock: ()
     >
       <div className="rounded-[8px] bg-[#F7F8FA] p-3">
         <div className="flex items-center gap-2">
-          <span className="text-[12.5px] font-semibold tracking-[0.4px] text-[#1B2432]">{item.sku}</span>
+          <span className="text-[12.5px] font-semibold tracking-[0.4px] text-[#1B2432]">
+            {item.sku}
+          </span>
           <span className="inline-flex items-center rounded-[6px] border border-[#E2E5E9] bg-white px-1.5 py-[2px] text-[10.5px] font-medium uppercase leading-none text-[#5C6470]">
             {item.category}
           </span>
@@ -387,7 +369,9 @@ function InventoryCard({ item, onRestock }: { item: InventoryItem; onRestock: ()
             {item.stock}
           </span>
           <StockChip status={out ? "Out of Stock" : low ? "Low Stock" : "In Stock"} />
-          <span className="text-[12.5px] font-semibold text-[#1B2432]">{formatNairaFull(item.unitCost ?? 0)}</span>
+          <span className="text-[12.5px] font-semibold text-[#1B2432]">
+            {formatNairaFull(item.unitCost ?? 0)}
+          </span>
         </div>
       </div>
     </button>
@@ -439,7 +423,7 @@ function ManuallyImportInventoryModal({
 
   return (
     <ModalShell
-      title="Manually Import Inventory"
+      title="Add Inventory"
       subtitle="Step-by-step upload of inventory list"
       onClose={onClose}
     >
@@ -449,7 +433,9 @@ function ManuallyImportInventoryModal({
             key={t}
             className={cn(
               "flex h-[38px] cursor-pointer items-center gap-2 rounded-[8px] border px-3.5 text-[13px]",
-              tab === t ? "border-[#E2E5E9] bg-white shadow-[0px_1px_2px_rgba(27,36,50,0.08)]" : "border-[#E9ECF0] bg-white text-[#5C6470]",
+              tab === t
+                ? "border-[#E2E5E9] bg-white shadow-[0px_1px_2px_rgba(27,36,50,0.08)]"
+                : "border-[#E9ECF0] bg-white text-[#5C6470]",
             )}
           >
             <input
@@ -466,13 +452,23 @@ function ManuallyImportInventoryModal({
 
       <div className="mt-4 space-y-3.5">
         <ModalField label="Part Number:" required>
-          <input className={inputClass} value={partNumber} onChange={(e) => setPartNumber(e.target.value)} />
+          <input
+            className={inputClass}
+            value={partNumber}
+            onChange={(e) => setPartNumber(e.target.value)}
+          />
         </ModalField>
         <ModalField label="Part Name:" required>
-          <input className={inputClass} value={partName} onChange={(e) => setPartName(e.target.value)} />
+          <input
+            className={inputClass}
+            value={partName}
+            onChange={(e) => setPartName(e.target.value)}
+          />
         </ModalField>
         <div>
-          <label className="mb-1.5 block text-[13.5px] font-medium text-[#1B2432]">Select Category</label>
+          <label className="mb-1.5 block text-[13.5px] font-medium text-[#1B2432]">
+            Select Category
+          </label>
           <div className="relative">
             <select
               value={category}
@@ -514,7 +510,12 @@ function ManuallyImportInventoryModal({
         </div>
       </div>
 
-      <ModalActions onCancel={onClose} submitLabel="Save and Upload to List" busy={busy} onAction={submit} />
+      <ModalActions
+        onCancel={onClose}
+        submitLabel="Save and Upload to List"
+        busy={busy}
+        onAction={submit}
+      />
     </ModalShell>
   );
 }
@@ -593,7 +594,9 @@ function ImportInventoryFromFileModal({
         updated += Number((res as { updated?: number }).updated ?? 0);
       }
       if (created + updated === 0) {
-        toast.error("No readable rows found. The sheet needs 'Part Number', 'Part Name', 'Category', 'Unit Quantity' and 'Unit Cost' columns.");
+        toast.error(
+          "No readable rows found. The sheet needs 'Part Number', 'Part Name', 'Category', 'Unit Quantity' and 'Unit Cost' columns.",
+        );
         setBusy(false);
         return;
       }
@@ -653,11 +656,16 @@ function ImportInventoryFromFileModal({
             e.target.value = "";
           }}
         />
-        <p className="text-[12.5px] text-[#5C6470]">Only support .XLS .PDF format (max. size 50mb)</p>
+        <p className="text-[12.5px] text-[#5C6470]">
+          Only support .XLS .PDF format (max. size 50mb)
+        </p>
       </div>
 
       {files.map((f, idx) => (
-        <div key={`${f.name}-${idx}`} className="mt-3 flex items-center gap-3 rounded-[8px] border border-[#E2E5E9] px-4 py-3">
+        <div
+          key={`${f.name}-${idx}`}
+          className="mt-3 flex items-center gap-3 rounded-[8px] border border-[#E2E5E9] px-4 py-3"
+        >
           <FileSpreadsheet className="size-5 shrink-0 text-[#5C6470]" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] text-[#1B2432]">{f.name}</p>
@@ -676,7 +684,12 @@ function ImportInventoryFromFileModal({
       ))}
 
       <div className="mt-4">
-        <ModalActions onCancel={onClose} submitLabel="Confirm Upload" busy={busy} onAction={confirm} />
+        <ModalActions
+          onCancel={onClose}
+          submitLabel="Confirm Upload"
+          busy={busy}
+          onAction={confirm}
+        />
       </div>
     </ModalShell>
   );
@@ -758,7 +771,11 @@ function RestockPartInventoryModal({
             />
           </ModalField>
           <ModalField label="Unit Cost:" required>
-            <input className={inputClass} value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+            <input
+              className={inputClass}
+              value={unitCost}
+              onChange={(e) => setUnitCost(e.target.value)}
+            />
           </ModalField>
         </div>
         <div className="rounded-[8px] bg-[#EAF7F3] px-4 py-3">
@@ -783,9 +800,13 @@ function RestockPartInventoryModal({
       </div>
 
       <div className="mt-4">
-        <ModalActions onCancel={onClose} submitLabel="Confirm Restock" busy={busy} onAction={confirm} />
+        <ModalActions
+          onCancel={onClose}
+          submitLabel="Confirm Restock"
+          busy={busy}
+          onAction={confirm}
+        />
       </div>
     </ModalShell>
   );
 }
-

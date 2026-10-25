@@ -5,6 +5,8 @@
  * and the /workspace/app landing redirect so every role always enters on its
  * own portal home instead of a shared manager overview.
  */
+import { STORE_HOME } from "./store-routes";
+
 const ROLE_HOME: Record<string, string> = {
   "Platform Admin": "/workspace/app",
   "Transport Manager": "/workspace/app",
@@ -45,15 +47,17 @@ const ROLE_HOME: Record<string, string> = {
   "Fuel Manager": "/workspace/app",
   // PROCUREMENT's lane is the store loop (PRD §5): the buying desk opens on
   // the store's own portal — the approved Store and Parts Inventory module —
-  // and lands on the shelf (the portal's second, working page).
-  Procurement: "/workspace/app/store",
+  // and lands on the shelf (the portal's second, working page). The landing
+  // comes from [store-routes.ts], the same registry the nav links read, so a
+  // page move takes every entry point at once.
+  Procurement: STORE_HOME,
   // The store is its own department — a store login must land on the store's
   // own desk, not the Transport Manager's overview (it used to fall through to
   // the admin dashboard with the manager's chrome).
   Inventory: "/workspace/app/inventory-desk",
   "Head of Inventory": "/workspace/app/inventory-desk",
   "Store Floor Attendant": "/workspace/app/inventory-desk",
-  "Parts & Store": "/workspace/app/store",
+  "Parts & Store": STORE_HOME,
   "Customer Portals (External)": "/workspace/customer-portal/dashboard",
 };
 
