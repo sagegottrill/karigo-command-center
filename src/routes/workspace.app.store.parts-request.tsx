@@ -3,7 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentSidebar, DepartmentMobileNav, DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
+import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import {
   CardShell,
@@ -48,6 +48,17 @@ export const Route = createFileRoute("/workspace/app/store/parts-request")({
 });
 
 const PAGE_SIZE = 9;
+
+/** A raw API id must never reach the customer's eye: a legacy row without an
+    engineering group prints its UUID here, which is not a ticket number. */
+const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function ticketIdOf(key: string): string {
+  const k = (key || "").trim();
+  if (!k) return "—";
+  if (!UUID_RX.test(k)) return k;
+  return `PRT-${k.replace(/[^0-9a-zA-Z]/g, "").toUpperCase().slice(-5).padStart(5, "0")}`;
+}
 
 /** The statuses the store's approved queue reads — never the TM's queue. */
 const QUEUE_STATUSES = ["Awaiting Pickup", "Awaiting Procurement"] as const;
@@ -151,7 +162,7 @@ function PartsRequestPage() {
     const q = query.trim().toLowerCase();
     if (!q) return familyCards;
     return familyCards.filter((c) =>
-      `${c.key} ${c.requestedBy} ${c.description} ${c.lines.map((l) => l.part).join(" ")}`
+      `${ticketIdOf(c.key)} ${c.requestedBy} ${c.description} ${c.lines.map((l) => l.part).join(" ")}`
         .toLowerCase()
         .includes(q),
     );
@@ -183,9 +194,9 @@ function PartsRequestPage() {
 
   return (
     <>
-      <DepartmentSidebar department="parts" collapsed={false} onToggle={() => {}} />
-      <DepartmentMobileNav department="parts" />
-      <main className="min-h-screen flex-1 bg-[#F7F8FA] pb-4">
+      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
+          a page must not paint its own second rail beside it. */}
+      <div className="w-full bg-[#F7F8FA] pb-4">
         <DepartmentTabs department="parts" />
         <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
           <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">Parts Request</h1>
@@ -239,7 +250,7 @@ function PartsRequestPage() {
             )}
           </CardShell>
         </div>
-      </main>
+      </div>
 
       {issueFor && (
         <IssuePartsModal
@@ -270,7 +281,7 @@ function RequestCardView({ card, onIssue }: { card: RequestCard; onIssue: () => 
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12.5px] font-semibold tracking-[0.4px] text-[#1B2432]">
-          {dateOf(card.date)} • {card.key}
+          {dateOf(card.date)} • {ticketIdOf(card.key)}
         </p>
         <div className="flex items-center gap-1.5">
           <StatusPill label={pill.label} tone={pill.tone} />
@@ -362,7 +373,7 @@ function IssuePartsModal({
   return (
     <ModalShell
       title="Issue Part Request"
-      subtitle={`${dateOf(card.date)} • ${card.key}`}
+      subtitle={`${dateOf(card.date)} • ${ticketIdOf(card.key)}`}
       onClose={onClose}
       width="max-w-[560px]"
     >

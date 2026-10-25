@@ -3,7 +3,7 @@ import { ListTree } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentSidebar, DepartmentMobileNav, DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
+import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import { RequestProcurementModal } from "@/components/fleetopsx/store-request-procurement";
 import {
   CardShell,
@@ -169,9 +169,9 @@ function ProcurementRequestsPage() {
 
   return (
     <>
-      <DepartmentSidebar department="parts" collapsed={false} onToggle={() => {}} />
-      <DepartmentMobileNav department="parts" />
-      <main className="min-h-screen flex-1 bg-[#F7F8FA] pb-4">
+      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
+          a page must not paint its own second rail beside it. */}
+      <div className="w-full bg-[#F7F8FA] pb-4">
         <DepartmentTabs department="parts" />
         <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -236,7 +236,7 @@ function ProcurementRequestsPage() {
             )}
           </CardShell>
         </div>
-      </main>
+      </div>
 
       {raiseOpen && (
         <RequestProcurementModal

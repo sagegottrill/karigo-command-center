@@ -3,7 +3,7 @@ import { History, Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
-import { DepartmentSidebar, DepartmentMobileNav, DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
+import { DepartmentTabs } from "@/components/fleetopsx/department-sidebar";
 import {
   CardShell,
   CountBadge,
@@ -155,9 +155,9 @@ function IssueHistoryPage() {
 
   return (
     <>
-      <DepartmentSidebar department="parts" collapsed={false} onToggle={() => {}} />
-      <DepartmentMobileNav department="parts" />
-      <main className="min-h-screen flex-1 bg-[#F7F8FA] pb-4">
+      {/* The shell (workspace.app.tsx) owns the sidebar, header and mobile nav —
+          a page must not paint its own second rail beside it. */}
+      <div className="w-full bg-[#F7F8FA] pb-4">
         <DepartmentTabs department="parts" />
         <div className="mx-auto w-full max-w-[1160px] px-5 pt-6 max-md:px-3">
           <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">Requests Issue History</h1>
@@ -209,7 +209,7 @@ function IssueHistoryPage() {
             )}
           </CardShell>
         </div>
-      </main>
+      </div>
 
       {reportFor && <IssueReportModal card={reportFor} onClose={() => setReportFor(null)} />}
     </>
