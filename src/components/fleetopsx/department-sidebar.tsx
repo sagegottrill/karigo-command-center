@@ -1,7 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
+  History,
   LayoutGrid,
+  List,
+  ListTree,
   LogOut,
   MessageSquare,
   MoreVertical,
@@ -139,21 +142,22 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
-  // The STORE DEPARTMENT as its own portal: the Parts & Store board IS the
-  // department's working page — catalog, purchases, requisitions, movements.
-  // "Part Inventory" points HERE, not at /part-inventory: that route is the
-  // Transport Manager's authorisation desk (Reject / Approve procurement) and
-  // its guard rejects store roles — the first link of this portal used to be
-  // an Unauthorized Access dead end for exactly the people it was shown to.
+  // The STORE DEPARTMENT as ITS OWN approved portal (Figma · Store Module, 25
+  // Oct 2026): five pages, one name — "Store and Parts Inventory Portal". The
+  // old combined Parts & Store board is gone for this department: the store
+  // now works Parts Request (approved engineering tickets), Store Inventory
+  // (the shelf, stock and unit pricing), Procurement Request (the buys it
+  // raises), Issue History (the dispense record) and the Notification center.
   parts: {
-    heading: "PARTS & INVENTORY",
-    title: "Parts & Inventory Portal",
-    subtitle: "The store's catalog, purchases and requisitions",
+    heading: "STORE INVENTORY",
+    title: "Store and Parts Inventory Portal",
+    subtitle: "Manage the lifecycle of every inventory item within the company to maintain data integrity.",
     items: [
-      { label: "Part Inventory", to: "/workspace/app/parts", icon: PackageSearch },
-      { label: "Inventory Desk", to: "/workspace/app/inventory-desk", icon: PackageCheck },
+      { label: "Parts Request", to: "/workspace/app/store/parts-request", icon: List },
+      { label: "Store Inventory", to: "/workspace/app/store", icon: Package },
+      { label: "Procurement Request", to: "/workspace/app/store/procurement", icon: ListTree },
+      { label: "Issue History", to: "/workspace/app/store/issue-history", icon: History },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
-      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
 };

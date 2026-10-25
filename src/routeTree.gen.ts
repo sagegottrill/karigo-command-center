@@ -66,6 +66,10 @@ import { Route as WorkspaceCustomerPortalAuthRouteImport } from './routes/worksp
 import { Route as WorkspaceCustomerPortalLoginRouteImport } from './routes/workspace.customer-portal.login'
 import { Route as WorkspaceAppActiveDispatchIndexRouteImport } from './routes/workspace.app.active-dispatch.index'
 import { Route as WorkspaceAppActiveDispatchDispatchIdRouteImport } from './routes/workspace.app.active-dispatch.$dispatchId'
+import { Route as WorkspaceAppStoreIndexRouteImport } from './routes/workspace.app.store.index'
+import { Route as WorkspaceAppStoreIssueHistoryRouteImport } from './routes/workspace.app.store.issue-history'
+import { Route as WorkspaceAppStorePartsRequestRouteImport } from './routes/workspace.app.store.parts-request'
+import { Route as WorkspaceAppStoreProcurementRouteImport } from './routes/workspace.app.store.procurement'
 import { Route as WorkspaceCustomerPortalAuthRequestIdRouteImport } from './routes/workspace.customer-portal._auth.$requestId'
 import { Route as WorkspaceCustomerPortalAuthDashboardRouteImport } from './routes/workspace.customer-portal._auth.dashboard'
 import { Route as WorkspaceCustomerPortalAuthLoadingSiteRouteImport } from './routes/workspace.customer-portal._auth.loading-site'
@@ -383,6 +387,29 @@ const WorkspaceAppActiveDispatchDispatchIdRoute =
     path: '/$dispatchId',
     getParentRoute: () => WorkspaceAppActiveDispatchRoute,
   } as any)
+const WorkspaceAppStoreIndexRoute = WorkspaceAppStoreIndexRouteImport.update({
+  id: '/store/',
+  path: '/store/',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppStoreIssueHistoryRoute =
+  WorkspaceAppStoreIssueHistoryRouteImport.update({
+    id: '/store/issue-history',
+    path: '/store/issue-history',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppStorePartsRequestRoute =
+  WorkspaceAppStorePartsRequestRouteImport.update({
+    id: '/store/parts-request',
+    path: '/store/parts-request',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
+const WorkspaceAppStoreProcurementRoute =
+  WorkspaceAppStoreProcurementRouteImport.update({
+    id: '/store/procurement',
+    path: '/store/procurement',
+    getParentRoute: () => WorkspaceAppRoute,
+  } as any)
 const WorkspaceCustomerPortalAuthRequestIdRoute =
   WorkspaceCustomerPortalAuthRequestIdRouteImport.update({
     id: '/$requestId',
@@ -470,12 +497,16 @@ export interface FileRoutesByFullPath {
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
+  '/workspace/app/store/issue-history': typeof WorkspaceAppStoreIssueHistoryRoute
+  '/workspace/app/store/parts-request': typeof WorkspaceAppStorePartsRequestRoute
+  '/workspace/app/store/procurement': typeof WorkspaceAppStoreProcurementRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
+  '/workspace/app/store/': typeof WorkspaceAppStoreIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -530,12 +561,16 @@ export interface FileRoutesByTo {
   '/workspace/customer-portal/login': typeof WorkspaceCustomerPortalLoginRoute
   '/workspace/app': typeof WorkspaceAppIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
+  '/workspace/app/store/issue-history': typeof WorkspaceAppStoreIssueHistoryRoute
+  '/workspace/app/store/parts-request': typeof WorkspaceAppStorePartsRequestRoute
+  '/workspace/app/store/procurement': typeof WorkspaceAppStoreProcurementRoute
   '/workspace/customer-portal/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch': typeof WorkspaceAppActiveDispatchIndexRoute
+  '/workspace/app/store': typeof WorkspaceAppStoreIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -595,12 +630,16 @@ export interface FileRoutesById {
   '/workspace/app/': typeof WorkspaceAppIndexRoute
   '/workspace/customer-portal/': typeof WorkspaceCustomerPortalIndexRoute
   '/workspace/app/active-dispatch/$dispatchId': typeof WorkspaceAppActiveDispatchDispatchIdRoute
+  '/workspace/app/store/issue-history': typeof WorkspaceAppStoreIssueHistoryRoute
+  '/workspace/app/store/parts-request': typeof WorkspaceAppStorePartsRequestRoute
+  '/workspace/app/store/procurement': typeof WorkspaceAppStoreProcurementRoute
   '/workspace/customer-portal/_auth/$requestId': typeof WorkspaceCustomerPortalAuthRequestIdRoute
   '/workspace/customer-portal/_auth/dashboard': typeof WorkspaceCustomerPortalAuthDashboardRoute
   '/workspace/customer-portal/_auth/loading-site': typeof WorkspaceCustomerPortalAuthLoadingSiteRoute
   '/workspace/customer-portal/_auth/notifications': typeof WorkspaceCustomerPortalAuthNotificationsRoute
   '/workspace/customer-portal/_auth/request': typeof WorkspaceCustomerPortalAuthRequestRoute
   '/workspace/app/active-dispatch/': typeof WorkspaceAppActiveDispatchIndexRoute
+  '/workspace/app/store/': typeof WorkspaceAppStoreIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -660,12 +699,16 @@ export interface FileRouteTypes {
     | '/workspace/app/'
     | '/workspace/customer-portal/'
     | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/store/issue-history'
+    | '/workspace/app/store/parts-request'
+    | '/workspace/app/store/procurement'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
     | '/workspace/customer-portal/loading-site'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch/'
+    | '/workspace/app/store/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -720,12 +763,16 @@ export interface FileRouteTypes {
     | '/workspace/customer-portal/login'
     | '/workspace/app'
     | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/store/issue-history'
+    | '/workspace/app/store/parts-request'
+    | '/workspace/app/store/procurement'
     | '/workspace/customer-portal/$requestId'
     | '/workspace/customer-portal/dashboard'
     | '/workspace/customer-portal/loading-site'
     | '/workspace/customer-portal/notifications'
     | '/workspace/customer-portal/request'
     | '/workspace/app/active-dispatch'
+    | '/workspace/app/store'
   id:
     | '__root__'
     | '/'
@@ -784,12 +831,16 @@ export interface FileRouteTypes {
     | '/workspace/app/'
     | '/workspace/customer-portal/'
     | '/workspace/app/active-dispatch/$dispatchId'
+    | '/workspace/app/store/issue-history'
+    | '/workspace/app/store/parts-request'
+    | '/workspace/app/store/procurement'
     | '/workspace/customer-portal/_auth/$requestId'
     | '/workspace/customer-portal/_auth/dashboard'
     | '/workspace/customer-portal/_auth/loading-site'
     | '/workspace/customer-portal/_auth/notifications'
     | '/workspace/customer-portal/_auth/request'
     | '/workspace/app/active-dispatch/'
+    | '/workspace/app/store/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1202,6 +1253,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppActiveDispatchDispatchIdRouteImport
       parentRoute: typeof WorkspaceAppActiveDispatchRoute
     }
+    '/workspace/app/store/': {
+      id: '/workspace/app/store/'
+      path: '/store'
+      fullPath: '/workspace/app/store/'
+      preLoaderRoute: typeof WorkspaceAppStoreIndexRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/store/issue-history': {
+      id: '/workspace/app/store/issue-history'
+      path: '/store/issue-history'
+      fullPath: '/workspace/app/store/issue-history'
+      preLoaderRoute: typeof WorkspaceAppStoreIssueHistoryRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/store/parts-request': {
+      id: '/workspace/app/store/parts-request'
+      path: '/store/parts-request'
+      fullPath: '/workspace/app/store/parts-request'
+      preLoaderRoute: typeof WorkspaceAppStorePartsRequestRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/store/procurement': {
+      id: '/workspace/app/store/procurement'
+      path: '/store/procurement'
+      fullPath: '/workspace/app/store/procurement'
+      preLoaderRoute: typeof WorkspaceAppStoreProcurementRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/customer-portal/_auth/$requestId': {
       id: '/workspace/customer-portal/_auth/$requestId'
       path: '/$requestId'
@@ -1299,6 +1378,10 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppTruckAvailabilityRoute: typeof WorkspaceAppTruckAvailabilityRoute
   WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
   WorkspaceAppIndexRoute: typeof WorkspaceAppIndexRoute
+  WorkspaceAppStoreIssueHistoryRoute: typeof WorkspaceAppStoreIssueHistoryRoute
+  WorkspaceAppStorePartsRequestRoute: typeof WorkspaceAppStorePartsRequestRoute
+  WorkspaceAppStoreProcurementRoute: typeof WorkspaceAppStoreProcurementRoute
+  WorkspaceAppStoreIndexRoute: typeof WorkspaceAppStoreIndexRoute
 }
 
 const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
@@ -1344,6 +1427,10 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppTruckAvailabilityRoute: WorkspaceAppTruckAvailabilityRoute,
   WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,
   WorkspaceAppIndexRoute: WorkspaceAppIndexRoute,
+  WorkspaceAppStoreIssueHistoryRoute: WorkspaceAppStoreIssueHistoryRoute,
+  WorkspaceAppStorePartsRequestRoute: WorkspaceAppStorePartsRequestRoute,
+  WorkspaceAppStoreProcurementRoute: WorkspaceAppStoreProcurementRoute,
+  WorkspaceAppStoreIndexRoute: WorkspaceAppStoreIndexRoute,
 }
 
 const WorkspaceAppRouteWithChildren = WorkspaceAppRoute._addFileChildren(

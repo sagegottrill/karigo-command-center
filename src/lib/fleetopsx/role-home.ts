@@ -43,17 +43,17 @@ const ROLE_HOME: Record<string, string> = {
   // Roles without a dedicated Figma portal home stay on the Central Dashboard.
   Diesel: "/workspace/app",
   "Fuel Manager": "/workspace/app",
-  // PROCUREMENT's lane is the store loop (PRD §5): the buying desk opens on the
-  // store ledger it restocks, not on the manager's overview — which is where it
-  // fell through to in the manager's chrome.
-  Procurement: "/workspace/app/parts",
+  // PROCUREMENT's lane is the store loop (PRD §5): the buying desk opens on
+  // the store's own portal — the approved Store and Parts Inventory module —
+  // and lands on the shelf (the portal's second, working page).
+  Procurement: "/workspace/app/store",
   // The store is its own department — a store login must land on the store's
   // own desk, not the Transport Manager's overview (it used to fall through to
   // the admin dashboard with the manager's chrome).
   Inventory: "/workspace/app/inventory-desk",
   "Head of Inventory": "/workspace/app/inventory-desk",
   "Store Floor Attendant": "/workspace/app/inventory-desk",
-  "Parts & Store": "/workspace/app/parts",
+  "Parts & Store": "/workspace/app/store",
   "Customer Portals (External)": "/workspace/customer-portal/dashboard",
 };
 
