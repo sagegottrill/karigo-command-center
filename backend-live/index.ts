@@ -1062,6 +1062,41 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       if (!String(before.eta || '').trim()) data.eta = data.eta || autoStamp(new Date());
     }
   }
+  // ONE-TERRITORY GUARD (Fortune/Adyems, 26 Oct 2026): one truck, one open
+  // dispatch — full stop. The legacy auto-flip built SCHEDULED SIBLINGS on its
+  // own, and a re-approval could double-book a rig that already carries a load.
+  // Any move that schedules a truck in gets checked against the fleet's
+  // dispatch truth first: if another open dispatch names the same truck (exact
+  // cap/plate tokens, the GATERETURN:V5 doctrine), the scheduling is refused
+  // with the blocking dispatch named, and the Transport Manager resolves it —
+  // return the old load or reassign — instead of the gate discovering two
+  // drivers drawn to the same rig at 06:00.
+  if (data.status === 'Scheduled' && before) {
+    const ownReg = String(data.truckReg ?? before.truckReg ?? '').trim();
+    if (ownReg) {
+      const ownKeys = truckKeysOf({ truckReg: ownReg, tailNumber: String(data.tailNumber ?? before.tailNumber ?? '') });
+      const openSiblings = await prisma.trip.findMany({
+        where: {
+          id: { not: before.id },
+          status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+        },
+        select: { id: true, truckReg: true, driverName: true, status: true, tailNumber: true },
+      });
+      const clash = openSiblings.filter((t) => truckKeysOf(t).some((k) => ownKeys.includes(k)));
+      if (clash.length) {
+        const listing = clash
+          .map((t) => dispatchRef(t.id) + ' (' + t.status + (t.driverName ? ' · ' + t.driverName : '') + ', ' + String(t.truckReg) + ')')
+          .join('; ');
+        return res.status(409).json({
+          error:
+            clash.length === 1
+              ? 'This truck already carries an open dispatch — ' + listing + '. Close or reassign that dispatch before scheduling another on the same truck.'
+              : clash.length + ' open dispatches already name this truck — ' + listing + '. Close or reassign them before scheduling another on the same truck.',
+          conflict: clash.map((t) => t.id),
+        });
+      }
+    }
+  }
   // SECURITY NO-SHOW OVERRIDE — the gate refuses a truck the TM released when
   // the physical asset/crew is wrong or absent: the dispatch goes to Stopped,
   // the release stamps are cleared, and the TM is told to re-approve.

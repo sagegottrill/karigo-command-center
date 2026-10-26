@@ -1062,6 +1062,41 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       if (!String(before.eta || '').trim()) data.eta = data.eta || autoStamp(new Date());
     }
   }
+  // ONE-TERRITORY GUARD (Fortune/Adyems, 26 Oct 2026): one truck, one open
+  // dispatch — full stop. The legacy auto-flip built SCHEDULED SIBLINGS on its
+  // own, and a re-approval could double-book a rig that already carries a load.
+  // Any move that schedules a truck in gets checked against the fleet's
+  // dispatch truth first: if another open dispatch names the same truck (exact
+  // cap/plate tokens, the GATERETURN:V5 doctrine), the scheduling is refused
+  // with the blocking dispatch named, and the Transport Manager resolves it —
+  // return the old load or reassign — instead of the gate discovering two
+  // drivers drawn to the same rig at 06:00.
+  if (data.status === 'Scheduled' && before) {
+    const ownReg = String(data.truckReg ?? before.truckReg ?? '').trim();
+    if (ownReg) {
+      const ownKeys = truckKeysOf({ truckReg: ownReg, tailNumber: String(data.tailNumber ?? before.tailNumber ?? '') });
+      const openSiblings = await prisma.trip.findMany({
+        where: {
+          id: { not: before.id },
+          status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+        },
+        select: { id: true, truckReg: true, driverName: true, status: true, tailNumber: true },
+      });
+      const clash = openSiblings.filter((t) => truckKeysOf(t).some((k) => ownKeys.includes(k)));
+      if (clash.length) {
+        const listing = clash
+          .map((t) => dispatchRef(t.id) + ' (' + t.status + (t.driverName ? ' · ' + t.driverName : '') + ', ' + String(t.truckReg) + ')')
+          .join('; ');
+        return res.status(409).json({
+          error:
+            clash.length === 1
+              ? 'This truck already carries an open dispatch — ' + listing + '. Close or reassign that dispatch before scheduling another on the same truck.'
+              : clash.length + ' open dispatches already name this truck — ' + listing + '. Close or reassign them before scheduling another on the same truck.',
+          conflict: clash.map((t) => t.id),
+        });
+      }
+    }
+  }
   // SECURITY NO-SHOW OVERRIDE — the gate refuses a truck the TM released when
   // the physical asset/crew is wrong or absent: the dispatch goes to Stopped,
   // the release stamps are cleared, and the TM is told to re-approve.
@@ -1401,9 +1436,21 @@ app.post('/api/gate/backfill', authenticate, authorize('Security', 'Platform Adm
 const TRUCK_KEY = (v: any) => String(v || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
 
 function truckKeysOf(trip: any): string[] {
-  return [trip?.truckReg, trip?.tailNumber]
-    .map((v) => TRUCK_KEY(v))
-    .filter((k: string) => k.length > 2);
+  // "P062 (GGE98YK)" is TWO keys, not one combined: the cap AND the plate, and
+  // either must match EXACTLY (GATERETURN:V5). A string match against the join
+  // ("P062GGE98YK".includes(key)) is how one truck's plate closed other
+  // trucks' dispatches. So the field is split into its whole tokens; the
+  // joined key is kept as well — under EQUALITY only, never containment.
+  const out = new Set<string>();
+  for (const v of [trip?.truckReg, trip?.tailNumber]) {
+    const whole = TRUCK_KEY(v);
+    if (whole.length > 2) out.add(whole);
+    for (const token of String(v || '').split(/[^0-9a-zA-Z]+/)) {
+      const k = TRUCK_KEY(token);
+      if (k && k.length > 2) out.add(k);
+    }
+  }
+  return Array.from(out);
 }
 
 function truckMatches(truck: any, keys: string[]): boolean {
@@ -1520,21 +1567,26 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     const matchKeys = truck ? [...tokens, key, ...ownKeys(truck)] : [...tokens, key];
 
     // Any dispatch still naming this truck is over — the truck is at the gate.
-    // Matching is on whole tokens; substring containment is kept ONLY for
-    // tokens of SAFE_MIN_KEY characters or more, so one bad key can never
-    // sweep every tail in a family (B0xx/B1xxx all share prefixes again).
+    // RETURN-ONLY-MOVING (Fortune/Adyems, 26 Oct 2026): a SCHEDULED trip never
+    // left the yard — a plate typed at the gate completed unstarted dispatches
+    // and handed trucks to Diesel without the fuel ever being drawn (the
+    // ticketed "auto-returns" at 10:39). Only a dispatch the gate itself sent
+    // out (En Route and beyond) can be closed by a return; a Scheduled trip is
+    // called back or reassigned, never Completed from here.
     const open = await prisma.trip.findMany({
       where: {
-        status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+        status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
       },
     });
+    // GATERETURN:V5 (Fortune/Adyems, 26 Oct 2026) — EXACT match ONLY. The old
+    // containment arm ("k.includes(m)" for 4+ char keys) is what made a plate
+    // typed at the gate close OTHER trucks' dispatches: plate families share
+    // long prefixes (GGE102/GGE107, B1001/B1006). A return closes the
+    // dispatches THIS truck row (cap + plate, both resolved above) owns —
+    // nothing else.
     const stillOpen = open.filter((t) => {
       const keys = truckKeysOf(t);
-      return keys.some((k) =>
-        matchKeys.some((m) =>
-          m === k ||
-          (m.length >= SAFE_MIN_KEY && k.includes(m)) ||
-          (k.length >= SAFE_MIN_KEY && m.includes(k))));
+      return keys.some((k) => matchKeys.includes(k));
     });
     if (stillOpen.length > 3) {
       // FLEET-GUARD (B4): several open dispatches on the SAME truck are
@@ -1770,15 +1822,19 @@ async function sweepReturnedTrucks(): Promise<number> {
       }
     }
     if (homeKeys.size === 0) return 0;
+    // SWEEP-ONLY-MOVING (Fortune/Adyems, 26 Oct 2026): a Scheduled trip is
+    // unstarted work — the sweep used to complete Scheduled dispatches whose
+    // truck row happened to sit in Check Up (engineering parks healthy trucks
+    // there mid-flow), which is the "truck auto-returned out of Diesel" ticket.
     const open = await prisma.trip.findMany({
-      where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+      where: { status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
     });
     const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours of tracked life
     const now = Date.now();
     const doomed = [];
     for (const t of open) {
       if (!truckKeysOf(t).some((k) =>
-        Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
+        Array.from(homeKeys).some((h) => k === h))) continue; // EXACT match — a plate's suffix never owns another truck's load
       // DORMANT-ONLY (V5B, 24 Oct 2026): a dispatch the lifecycle touched
       // inside the window is live work, whatever the registry word says.
       // The born check alone left a hole the front office caught — long
@@ -2355,6 +2411,19 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
   try {
     const trip = await prisma.trip.findUnique({ where: { id: tripId } });
     if (trip) {
+      // GATE-FIRST DEPARTURE (Fortune/Adyems, 26 Oct 2026): a checkpoint must
+      // NOT dispatch a truck. On a SCHEDULED trip — approved but never logged
+      // out by Security — a tracking leg used to write the departure stamp,
+      // advance the trip to Loaded/En Route and mark the head and tail Out of
+      // Yard. That is exactly the trucks the gate log showed "automatically
+      // dispatched" (046, 116, 078, 093…) without the gate having done
+      // anything. A checkpoint recorded while the truck is still undispatched
+      // is stored and announced, and NOTHING in this block is moved: the
+      // first movement of a load belongs to Security's Log Out. Once the gate
+      // has stamped a departure the convoy keeps logging legs as before —
+      // those trips are already moving.
+      const undispatched = String(trip.status || '').trim() === 'Scheduled';
+      if (!undispatched) {
       const data: Record<string, any> = {};
       if (!trip.startTime || !String(trip.startTime).trim()) {
         data.startTime = (checkpoint.at instanceof Date ? checkpoint.at : new Date()).toISOString();
@@ -2384,6 +2453,9 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
           void coupleTruckRegistry(movedTrip, 'out');
           void coupleTailRegistry(movedTrip, 'out');
         }
+      }
+      } else {
+        console.log('[tracking] checkpoint held — dispatch ' + dispatchRef(tripId) + ' is still Scheduled; Security has not logged its departure, so nothing was moved.');
       }
     }
   } catch (e: any) {
@@ -2579,11 +2651,25 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
      * truck and the duty word cannot free him. closeDispatches ends those stale
      * trips as Completed as he is released, so the roster and the dispatch list
      * tell one story instead of two.
+     *
+     * RELEASE-GUARD (Fortune/Adyems, 26 Oct 2026): the release used to fire on
+     * EVERY save that carried it — editing a man's phone number closed his live
+     * trips AND his unstarted Scheduled ones, handing trucks back to the yard
+     * before Security had ever logged a departure (trucks "auto-returned" out
+     * of Diesel & Gas). Two stops, matching the rule the mobile HR app always
+     * applied:
+     *   1. the release runs only when the save moves the man OUT of employment
+     *      (On Leave / Off Duty / Suspended). An Active save closes nothing.
+     *   2. a Scheduled dispatch is UNSTARTED work — no release may complete it.
+     *      It is reassigned or cancelled by the fleet desk, never closed
+     *      Completed here.
      */
     if (b.closeDispatches) {
-      const OPEN_TRIP_STATUSES: string[] = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
+      const OPEN_TRIP_STATUSES: string[] = ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
       const driver = await prisma.driver.findUnique({ where: { id: req.params.id } });
-      if (driver && driver.name) {
+      const nextStatus = String(data.status ?? driver?.status ?? '').trim();
+      const leavesEmployment = ['On Leave', 'Off Duty', 'Suspended'].includes(nextStatus);
+      if (driver && driver.name && leavesEmployment) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Transport Manager';
         const stuck = await prisma.trip.findMany({
           where: { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
