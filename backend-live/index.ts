@@ -3403,8 +3403,47 @@ app.post('/api/fuel-restock-orders', authenticate, authorize('Transport Manager'
 app.get('/api/procurement', authenticate, async (_req, res) => {
   res.json(await prisma.procurementRequest.findMany({ orderBy: { createdAt: 'desc' } }));
 });
+/*
+ * PROCUREMENT-INTAKE-HARDENED (26 Oct 2026): the raw `req.body` pass-through
+ * let a stale/cached client crash the route with a PrismaClientValidationError
+ * (the Oct 22 probe: a bare "2026-10-22" string is not a full ISO instant, and
+ * a payload without linkedId fails outright). The intake now whitelists the
+ * model's own columns, forces an integer quantity, normalizes a day-only date
+ * into a real instant, and falls back to a generated linkedId — the columns
+ * the store board and the ledger read.
+ */
 app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
-  res.json(await prisma.procurementRequest.create({ data: req.body }));
+  const b = req.body || {};
+  const data: any = {};
+  for (const key of ['partName', 'quantity', 'linkedId', 'truckReg', 'kind', 'unitPrice', 'vendor', 'status', 'requestedBy', 'note']) {
+    if (b[key] !== undefined && b[key] !== null) data[key] = b[key];
+  }
+  if (!String(data.partName ?? '').trim()) return res.status(400).json({ error: 'partName is required — what is being bought?' });
+  const qty = Math.trunc(Number(b.quantity));
+  if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'quantity must be a positive whole number' });
+  data.quantity = qty;
+  if (!String(data.linkedId ?? '').trim()) {
+    // The buying reference the board groups by — a generated PO tag when the
+    // client sent none, so the row is still one source of truth on its board.
+    data.linkedId = 'PO-' + Date.now().toString(36).toUpperCase();
+  }
+  if (b.date !== undefined) {
+    const raw = String(b.date ?? '').trim();
+    if (raw) {
+      // A cached mobile form sends a day string ("2026-10-22") — normalize to
+      // a real instant instead of letting Prisma throw "premature end of input".
+      const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T00:00:00.000Z' : raw);
+      if (isNaN(d.getTime())) return res.status(400).json({ error: 'date must be a date, e.g. 2026-10-22' });
+      data.date = d;
+    }
+    // An empty/absent date falls through to the column default (now()).
+  }
+  try {
+    res.json(await prisma.procurementRequest.create({ data }));
+  } catch (e: any) {
+    console.error('POST /api/procurement failed:', e?.message || e);
+    res.status(500).json({ error: e?.message || 'Could not raise the procurement request.' });
+  }
 });
 app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
   const before = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
