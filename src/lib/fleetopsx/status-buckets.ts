@@ -237,19 +237,23 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
 /**
  * The PARTNER's own default order for their dashboard list.
  *
- * A big partner (Saba runs dozens of orders a day) used to scroll through pages
- * of Seen/Completed rows to find the truck that is on the road right now.
- * Their priorities are the mirror of the TM's: a request SENT BACK for
- * correction is the loudest thing (they must fix and resend it), then the
- * trucks moving now (In transit), then scheduled work, then what is still
- * waiting on Petroline, and only then what is over.
+ * The OWNER's order (26 Oct 2026, after Sabar Stein reached out): what is
+ * still WAITING ON PETROLINE leads — Pending first, then Seen — and only
+ * after that what is already moving. The earlier mirror-of-the-TM's order
+ * (In transit above Pending) was built for truck-spotting on the road, but
+ * the front desk reads the page as a work queue: the request that has not
+ * been acted on yet is what they came to see. Returned (sent back for
+ * correction) still sits above everything the partner did not cause, but
+ * under the two statuses the owner named first. A big partner (Saba runs
+ * dozens of orders a day) reads the top of the list and knows immediately
+ * which of their requests still needs an answer.
  */
 export const PARTNER_PORTAL_RANK: Record<PartnerUiStatus, number> = {
-  Returned: 0,
-  "In transit": 1,
-  Scheduled: 2,
-  Seen: 3,
-  Pending: 4,
+  Pending: 0,
+  Seen: 1,
+  Returned: 2,
+  "In transit": 3,
+  Scheduled: 4,
   Completed: 5,
   Declined: 6,
 };
