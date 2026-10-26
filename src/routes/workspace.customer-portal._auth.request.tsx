@@ -176,7 +176,7 @@ function PartnerNewRequest() {
         {tally ? (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-[10px] border border-[#E2E5E9] bg-white px-4 py-3 text-[13px] tracking-[0.4px] text-[#1B2432]">
             <span>
-              <strong className="font-semibold">{tally.total}</strong> request{tally.total === 1 ? "" : "s"} sent
+              <strong className="font-semibold">{tally.total.toLocaleString("en-NG")}</strong> request{tally.total === 1 ? "" : "s"} sent
             </span>
             <span className="text-[#34C759]">
               <strong className="font-semibold">{tally.approved}</strong> approved

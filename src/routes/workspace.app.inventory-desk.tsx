@@ -381,7 +381,7 @@ function InventoryDesk() {
                   <div className="flex min-w-[220px] flex-col gap-0.5">
                     <span className="flex items-center gap-2 text-[15px] font-medium text-[#1B2432]">
                       {ticket.part}
-                      <span className="text-[12px] text-[#5C6470]">×{ticket.quantity}</span>
+                      <span className="text-[12px] text-[#5C6470]">×{ticket.quantity.toLocaleString("en-NG")}</span>
                     </span>
                     <span className="text-[12px] text-[#5C6470]">{truckLine(ticket.truckReg)}</span>
                   </div>
@@ -527,7 +527,7 @@ function InventoryDesk() {
           >
             <div className="border-b border-[#E2E5E9] pb-3">
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
-                Handoff — {signing.part} ×{signing.quantity}
+                Handoff — {signing.part} ×{signing.quantity.toLocaleString("en-NG")}
               </h3>
               <p className="mt-1 text-[12px] text-[#5C6470]">
                 {truckLine(signing.truckReg)} · mechanic {signing.mechanic || "unassigned"}. On

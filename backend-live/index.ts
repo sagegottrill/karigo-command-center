@@ -1958,15 +1958,32 @@ app.post('/api/gate', authenticate, authorize('Security', 'Gate Security', 'Gate
 // saying "in the yard" while the gate had the truck on the road.
 if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
   try {
-    const plateKey = gatePlateKey(entry.truckReg);
+    // GATECYCLE:V2 (owner word, 26 Oct 2026) — the gate book is a HUMAN stamp:
+    // it moves exactly the truck Security typed, exactly the load it carries.
+    // The old matcher ran on substring containment ("GGE10" typed matched
+    // GGE102YK AND GGE107YE; B1001 matched B1006's trip) and a driver-name
+    // fallback that grabbed ANY open trip naming the man — the last of the
+    // "auto-something flipped it" family: a Departure stamped for one truck
+    // sent ANOTHER truck's Scheduled load to En Route with no gate log on it.
+    // Whole tokens, EXACT equality — the same rule /api/gate/return now runs.
+    const stampTokens = new Set(
+      String(entry.truckReg || '')
+        .split(/[^0-9a-zA-Z]+/)
+        .map((v) => TRUCK_KEY(v))
+        .filter((k) => k.length > 2),
+    );
+    const stampDriver = String(entry.driver || '').trim().toUpperCase();
     const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
     const candidates = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
-    const trip = candidates.find((t) => {
-      const tr = String(t.truckReg || '').toUpperCase();
-      const tail = String(t.tailNumber || '').toUpperCase();
-      return (plateKey && plateKey.length >= 4 && (tr.includes(plateKey) || tail.includes(plateKey))) ||
-        Boolean(entry.driver) && String(t.driverName || '').trim().toUpperCase() === String(entry.driver).trim().toUpperCase();
-    });
+    const trip = stampTokens.size
+      ? candidates.find((t) => truckKeysOf(t).some((k) => stampTokens.has(k))) || null
+      : // The driver-name fallback ONLY when the stamp ran without a readable
+        // truck — a guard names the truck first, so a plate in hand must never
+        // let a name sweep other trucks' dispatches.
+        (candidates.find((t) =>
+          Boolean(stampDriver) &&
+          String(t.driverName || '').trim().toUpperCase() === stampDriver,
+        ) || null);
     if (trip) {
       await prisma.trip.update({
         where: { id: trip.id },
@@ -1994,32 +2011,27 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
        * falling back to the driver's name: the gate reads both off the windscreen,
        * and either is enough to end the cycle that man and machine are on.
        */
-      const OPEN_TRIP_STATUSES: string[] = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
-      const plate = String(entry.truckReg || '').trim().toUpperCase();
-      const plateKey = plate.split(/[\s/]+/)[0] || '';
+      // RETURN-ONLY-MOVING (the rule /api/gate/return got, applied to the gate
+      // book too, 26 Oct 2026): a Scheduled trip never left the yard and a
+      // Stopped one was DECLINED by the TM — a return stamp completes neither.
+      // Only loads the gate itself sent out can be ended here; the Scheduled
+      // dispatch is called back or reassigned, never Completed.
+      const OPEN_TRIP_STATUSES: string[] = ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
+      const returnTokens = new Set(
+        String(entry.truckReg || '')
+          .split(/[^0-9a-zA-Z]+/)
+          .map((v) => TRUCK_KEY(v))
+          .filter((k) => k.length > 2),
+      );
       const driverName = String(entry.driver || '').trim().toUpperCase();
       const openTrips = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
-      // RETURN-CLOSES-SIBLINGS (driver-duty fix): every open dispatch naming this
-      // truck — or the guard-read driver on THIS truck's dispatches — ends
-      // together. Plate match first: a driver's name may sit on several open
-      // dispatches, and only the ones carrying THIS TRUCK belong to the return
-      // (the man cannot drive two trucks at once; anything else naming him is a
-      // duplicate or a data-entry artefact — closing a second truck's live run
-      // wholesale made dispatches vanish from boards no gate action touched).
       const matches = openTrips.filter((t: any) => {
-        const tr = String(t.truckReg || '').toUpperCase();
-        const trKey = tr.split(/[\s/]+/)[0] || '';
-        const tail = String(t.tailNumber || '').toUpperCase();
-        if (plate && (tr === plate || tail === plate || (plateKey && trKey === plateKey) || (plateKey && trKey && tr.includes(plateKey)))) {
-          return true;
-        }
-        // Driver-name fallback ONLY when the stamp ran without a readable plate
-        // — the guard names the truck first at the barrier, so a plate in hand
-        // must never let the name sweep unrelated dispatches in.
-        if (!plate && Boolean(driverName) && String(t.driverName || '').trim().toUpperCase() === driverName) {
-          return true;
-        }
-        return false;
+        if (returnTokens.size && truckKeysOf(t).some((k) => returnTokens.has(k))) return true;
+        // Driver-name fallback ONLY when the stamp ran without a readable
+        // truck — the guard names the truck first at the barrier, so a plate
+        // in hand must never let the name sweep unrelated dispatches in.
+        return !returnTokens.size && Boolean(driverName) &&
+          String(t.driverName || '').trim().toUpperCase() === driverName;
       });
       const trip = matches[0] || null;
       if (trip) {
@@ -2077,20 +2089,17 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         // too (the availability boards read them): head and tail to Check Up,
         // exactly as the "Return a truck" quick action does.
         try {
-          const returnPlateKey = gatePlateKey(entry.truckReg);
-          if (returnPlateKey) {
+          if (returnTokens.size) {
             const trucks = await prisma.truck.findMany();
-            // GATERETURN:V2 — match the head by the FULL plate it stamped (the
-            // old strict === against the first-token key silently failed every
-            // registration holding a space, e.g. "E2E-TRK 2026"), and do not
-            // send it to Check Up while ANOTHER still-open dispatch names it.
-            const returnPlate = String(entry.truckReg || '').trim().toUpperCase();
-            const truckRow = trucks.find((t) => {
-              const reg = String(t.registration || '').toUpperCase();
-              const cab = String(t.cabId || '').toUpperCase();
-              return reg === returnPlate || reg === returnPlateKey || reg.startsWith(returnPlateKey + ' ') ||
-                cab === returnPlate || cab === returnPlateKey || cab.startsWith(returnPlateKey + ' ');
-            });
+            // GATERETURN:V5 exactness carried into the book: equality on whole
+            // tokens — a prefix never owns another truck's load.
+            const truckRow = trucks.find((t) =>
+              [t.registration, t.cabId]
+                .flatMap((v) => String(v || '').split(/[^0-9a-zA-Z]+/))
+                .map((w) => TRUCK_KEY(w))
+                .filter((k) => k.length > 2)
+                .some((k) => returnTokens.has(k)),
+            );
             let truckBusyElsewhere = false;
             if (truckRow) {
               const openTripsForTruck = await prisma.trip.findMany({

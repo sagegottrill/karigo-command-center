@@ -366,7 +366,7 @@ function InventoryCard({ item, onRestock }: { item: InventoryItem; onRestock: ()
         </div>
         <div className="mt-1.5 flex items-center justify-between">
           <span className="grid h-[30px] min-w-[64px] place-items-center rounded-[6px] border border-[#E2E5E9] px-2 text-[12.5px] font-semibold text-[#1B2432]">
-            {item.stock}
+            {item.stock.toLocaleString("en-NG")}
           </span>
           <StockChip status={out ? "Out of Stock" : low ? "Low Stock" : "In Stock"} />
           <span className="text-[12.5px] font-semibold text-[#1B2432]">
@@ -754,7 +754,7 @@ function RestockPartInventoryModal({
         <p className="mt-2 text-[13.5px] text-[#1B2432]">
           Current stock:&nbsp;
           <span className="inline-block rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-[2px] text-[12.5px] font-semibold">
-            {item.stock}
+            {item.stock.toLocaleString("en-NG")}
           </span>
         </p>
       </div>

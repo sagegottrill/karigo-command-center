@@ -52,7 +52,7 @@ function PartPicker({
             <option value="">Select a part…</option>
             {options.map((i) => (
               <option key={i.id} value={i.id}>
-                {i.name} — {i.stock} in stock
+                {i.name} — {i.stock.toLocaleString("en-NG")} in stock
               </option>
             ))}
           </select>
@@ -110,7 +110,7 @@ function PartPicker({
               className="grid grid-cols-[1fr_80px_44px] items-center border-t border-[#E2E5E9] px-3 py-2 text-[13px]"
             >
               <span className="truncate font-medium text-[#1B2432]">{l.part}</span>
-              <span className="text-right tabular-nums">{l.quantity}</span>
+              <span className="text-right tabular-nums">{l.quantity.toLocaleString("en-NG")}</span>
               <button
                 type="button"
                 aria-label={`Remove ${l.part}`}
@@ -512,7 +512,7 @@ export function InspectionReportCard({
               {parts.map((p) => (
                 <li key={p.id} className="flex items-center justify-between rounded border border-[#E2E5E9] px-2.5 py-1.5">
                   <span className="font-medium text-[#1B2432]">{p.part}</span>
-                  <span className="tabular-nums text-[#5C6470]">× {p.quantity}</span>
+                  <span className="tabular-nums text-[#5C6470]">× {p.quantity.toLocaleString("en-NG")}</span>
                 </li>
               ))}
             </ul>

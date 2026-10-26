@@ -642,7 +642,7 @@ function PartsAndStore() {
       });
       setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
       toast.success(
-        `${qty} × ${updated.name} received — stock now ${updated.stock}, priced at ${formatNairaFull(updated.unitCost)}.`,
+        `${qty.toLocaleString("en-NG")} × ${updated.name} received — stock now ${updated.stock.toLocaleString("en-NG")}, priced at ${formatNairaFull(updated.unitCost)}.`,
       );
       setPurchasing(null);
       setPurchaseDraft(null);
@@ -843,7 +843,7 @@ function PartsAndStore() {
                     </span>
                     <span className="min-w-[200px] flex-1">
                       <span className="block text-[14px] text-[#344256]">
-                        {request.part} × {request.quantity}
+                        {request.part} × {request.quantity.toLocaleString("en-NG")}
                       </span>
                       {request.reason ? (
                         <span className="block text-[11px] text-[#5C6470]">{request.reason}</span>
@@ -1867,7 +1867,7 @@ function PartsAndStore() {
                       >
                         {row.kind}
                       </span>
-                      <span className="font-semibold text-[#1B2432]">{row.quantity}</span>
+                      <span className="font-semibold text-[#1B2432]">{row.quantity.toLocaleString("en-NG")}</span>
                       <span className="text-[#5C6470]">
                         {row.unitCost === null ? "—" : formatNairaFull(row.unitCost)}
                       </span>

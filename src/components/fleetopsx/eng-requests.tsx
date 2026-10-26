@@ -164,7 +164,7 @@ function LinesEditor({
             <option value="">Select</option>
             {options.map((i) => (
               <option key={i.id} value={i.id}>
-                {i.name} — {i.stock} in stock
+                {i.name} — {i.stock.toLocaleString("en-NG")} in stock
               </option>
             ))}
           </select>
@@ -223,7 +223,7 @@ function LinesEditor({
               className="grid grid-cols-[1fr_90px_44px] items-center border-t border-[#E2E5E9] bg-white px-3 py-2 text-[13.5px]"
             >
               <span className="truncate text-[#344256]">{l.part}</span>
-              <span className="text-center tabular-nums text-[#344256]">{l.quantity}</span>
+              <span className="text-center tabular-nums text-[#344256]">{l.quantity.toLocaleString("en-NG")}</span>
               <button
                 type="button"
                 aria-label={`Remove ${l.part}`}
@@ -529,7 +529,7 @@ export function LubricantRequestDialog({
               <option value="">Select Oil Type</option>
               {oils.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name} — {o.stock} in stock
+                  {o.name} — {o.stock.toLocaleString("en-NG")} in stock
                 </option>
               ))}
             </select>
@@ -711,7 +711,7 @@ export function GroupReviewDialog({
                 >
                   <Minus className="size-3.5" />
                 </button>
-                <span className="text-[13px] font-semibold tabular-nums">{e.quantity}</span>
+                <span className="text-[13px] font-semibold tabular-nums">{e.quantity.toLocaleString("en-NG")}</span>
                 <button
                   type="button"
                   aria-label="Increase quantity"
@@ -1100,7 +1100,7 @@ export function RequestsBoard({
                           </span>
                         </span>
                         <span className="grid size-7 shrink-0 place-items-center rounded border border-[#E2E5E9] text-[13px] font-semibold tabular-nums">
-                          {l.quantity}
+                          {l.quantity.toLocaleString("en-NG")}
                         </span>
                       </div>
                     ))}

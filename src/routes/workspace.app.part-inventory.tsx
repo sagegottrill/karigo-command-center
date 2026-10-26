@@ -302,7 +302,7 @@ function PartInventoryPage() {
       <p>Raised ${String(order.date).slice(0, 10)} &middot; requested by ${order.vendor || "Inventory"}</p>
       <table><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Status</th></tr>
       <tr><td>${order.partName}${order.truckReg ? ` — ${order.truckReg}` : ""}</td>
-      <td>${order.quantity}</td><td>${order.unitPrice ? formatNairaFull(Number(order.unitPrice)) : "&mdash;"}</td><td>${order.status}</td></tr></table>
+      <td>${order.quantity.toLocaleString("en-NG")}</td><td>${order.unitPrice ? formatNairaFull(Number(order.unitPrice)) : "&mdash;"}</td><td>${order.status}</td></tr></table>
       <p><small>Transport Manager's review sheet &mdash; FleetOpsX</small></p>
       </body></html>`);
     win.document.close();
@@ -583,7 +583,7 @@ function PartInventoryPage() {
                             <span className="block text-[11.5px] text-[#8E95A1]">{order.truckReg || "\u2014"}</span>
                           </span>
                           <span className="grid h-7 place-items-center rounded border border-[#E2E5E9] bg-[#F1F2F4] text-[13px] font-semibold tabular-nums">
-                            {order.quantity}
+                            {order.quantity.toLocaleString("en-NG")}
                           </span>
                           <span className="text-right text-[13px] font-semibold text-[#1B2432]">
                             {unitPrice ? formatNairaFull(unitPrice) : "\u2014"}
@@ -782,7 +782,7 @@ function PartInventoryPage() {
                                 : "border-[#E2E5E9] text-[#1B2432]",
                           )}
                         >
-                          {item.stock}
+                          {item.stock.toLocaleString("en-NG")}
                         </span>
                       </span>
                       <span className="flex flex-col items-end gap-1">

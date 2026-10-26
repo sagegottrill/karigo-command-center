@@ -152,7 +152,7 @@ function LiveTrackingPage() {
           <div className="flex items-center gap-2.5">
             <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">Tracking Operations</h3>
             <span className="grid size-8 place-items-center rounded bg-[#ED351D] text-[14px] font-medium text-white">
-              {stats.total}
+              {stats.total.toLocaleString("en-NG")}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-5">
@@ -221,7 +221,7 @@ function StatCard({
     <div className="flex h-[105px] flex-col gap-2.5 rounded-lg bg-white p-[15px] shadow-[0px_4px_16px_-8px_rgba(12,12,13,0.1),0px_4px_4px_-4px_rgba(12,12,13,0.05)]">
       <p className="text-[14px] font-medium tracking-[0.4px] text-[#5C6470]">{label}</p>
       <p className="font-[Space_Grotesk,ui-sans-serif,system-ui] text-[36px] font-bold leading-9 text-[#1B2432]">
-        {value}
+        {value.toLocaleString("en-NG")}
       </p>
       {hint ? (
         <p className="text-[10px] font-medium" style={{ color: hintColor }}>

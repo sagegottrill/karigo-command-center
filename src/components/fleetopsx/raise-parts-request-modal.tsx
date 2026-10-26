@@ -184,7 +184,7 @@ export function RaisePartsRequestModal({
             </datalist>
             <span className="text-[11px] text-[#5C6470]">
               {matchedItem
-                ? `Stocked as ${matchedItem.sku} — ${matchedItem.stock} on the shelf, approving draws it down.`
+                ? `Stocked as ${matchedItem.sku} — ${matchedItem.stock.toLocaleString("en-NG")} on the shelf, approving draws it down.`
                 : "Not in the store — the request is recorded as one the store cannot cover."}
             </span>
           </label>
@@ -234,7 +234,7 @@ export function RaisePartsRequestModal({
           </div>
           {matchedItem && matchedItem.stock < (Number(quantity) || 0) ? (
             <span className="text-[11px] text-[#B26A00]">
-              The store holds {matchedItem.stock} — the Transport Manager will see this as short.
+              The store holds {matchedItem.stock.toLocaleString("en-NG")} — the Transport Manager will see this as short.
             </span>
           ) : null}
         </div>

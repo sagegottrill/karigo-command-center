@@ -281,7 +281,7 @@ export function ProcurementDashboard({ procurement }: DashboardProps) {
           pendingRequests.map((p) => (
             <div key={p.id} className="flex justify-between border-b border-[#E2E5E9] py-2 last:border-0">
               <span className="text-[14px]">
-                {p.partName} ({p.quantity})
+                {p.partName} ({p.quantity.toLocaleString("en-NG")})
               </span>
               <StatusBadge status={p.status} />
             </div>

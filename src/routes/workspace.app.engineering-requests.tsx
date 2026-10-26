@@ -1145,7 +1145,7 @@ function HoeReviewDesk({
                           {l.part}
                         </span>
                         <span className="grid h-7 w-16 place-items-center rounded border border-[#E2E5E9] bg-white text-[13px] font-semibold tabular-nums">
-                          {l.quantity}
+                          {l.quantity.toLocaleString("en-NG")}
                         </span>
                         <span className="text-right text-[13px] font-semibold tabular-nums text-[#1B2432]">
                           {stockOf(l.part) ?? "\u2014"}
@@ -1529,7 +1529,7 @@ function EngineeringRequestsBoard({
                           g.description,
                           g.lines.map((l) => [
                             l.part,
-                            `${l.quantity}`,
+                            `${l.quantity.toLocaleString("en-NG")}`,
                             String(stockOf(l.part) ?? "\u2014"),
                           ]),
                         )
@@ -1555,7 +1555,7 @@ function EngineeringRequestsBoard({
                           {l.part}
                         </span>
                         <span className="justify-self-center rounded-md border border-[#E2E5E9] px-2.5 py-0.5 text-[13px] font-medium tabular-nums text-[#344256]">
-                          {l.quantity}
+                          {l.quantity.toLocaleString("en-NG")}
                         </span>
                         <span className="text-right text-[13px] font-medium tabular-nums text-[#344256]">
                           {stockOf(l.part) ?? "\u2014"}

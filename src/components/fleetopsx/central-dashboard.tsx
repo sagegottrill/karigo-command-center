@@ -1445,10 +1445,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
       <DrillRow
         title={`${request.truck} • ${request.part}`}
         meta={[
-          `${request.quantity} × ${formatMoney(request.unitCost)}`,
+          `${request.quantity.toLocaleString("en-NG")} × ${formatMoney(request.unitCost)}`,
           request.defect || null,
           request.mechanic,
-          request.stock === null ? "not from the store" : `store ${request.stock}`,
+          request.stock === null ? "not from the store" : `store ${request.stock.toLocaleString("en-NG")}`,
           request.short ? "short — cannot be released" : null,
         ]
           .filter(Boolean)
@@ -1606,7 +1606,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           `<tr><td>${r.truck}</td><td>${r.defect || "—"}</td><td>${r.part}</td><td>${
             r.quantity
           }</td><td>${formatMoney(r.unitCost)}</td><td>${formatMoney(r.cost)}</td><td>${
-            r.stock === null ? "not from the store" : `store ${r.stock}${r.short ? " (short)" : ""}`
+            r.stock === null ? "not from the store" : `store ${r.stock.toLocaleString("en-NG")}${r.short ? " (short)" : ""}`
           }</td><td>${r.mechanic}</td></tr>`,
       )
       .join("");
@@ -1627,7 +1627,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const stockRows = eng.inventory.list
       .map(
         (a) =>
-          `<tr><td>${a.name}</td><td>${a.sku}</td><td>${a.stock}</td><td>${a.reorderLevel}</td><td>${
+          `<tr><td>${a.name}</td><td>${a.sku}</td><td>${a.stock.toLocaleString("en-NG")}</td><td>${a.reorderLevel.toLocaleString("en-NG")}</td><td>${
             a.waiting
           }</td><td>${a.status}</td></tr>`,
       )
@@ -1796,7 +1796,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         (m: MovementRow) =>
           `<tr><td>${formatTableDate(m.actedAt)}</td><td>${m.kind}</td><td>${m.item}</td><td>${
             m.sku
-          }</td><td>${m.quantity}</td><td>${
+          }</td><td>${m.quantity.toLocaleString("en-NG")}</td><td>${
             m.unitCost === null ? "—" : formatMoney(m.unitCost)
           }</td><td>${m.value === null ? "—" : formatMoney(m.value)}</td><td>${
             m.truckReg || m.vendor || "—"
@@ -1806,7 +1806,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const reorderRows = parts.reorder.list
       .map(
         (row) =>
-          `<tr><td>${row.item}</td><td>${row.sku}</td><td>${row.stock}</td><td>${
+          `<tr><td>${row.item}</td><td>${row.sku}</td><td>${row.stock.toLocaleString("en-NG")}</td><td>${
             row.reorderLevel
           }</td><td>${row.toBuy}</td><td>${formatMoney(row.estimatedCost)}</td><td>${
             row.supplier || "no supplier on file"
@@ -1816,7 +1816,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const unpricedRows = parts.valuation.unpricedLines
       .map(
         (line) =>
-          `<tr><td>${line.name}</td><td>${line.sku}</td><td>${line.stock}</td><td>${formatMoney(
+          `<tr><td>${line.name}</td><td>${line.sku}</td><td>${line.stock.toLocaleString("en-NG")}</td><td>${formatMoney(
             line.unitCost,
           )}</td><td>${formatMoney(line.value)}</td></tr>`,
       )
@@ -1824,7 +1824,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const vendorRows = parts.purchases.byVendor
       .map(
         (row) =>
-          `<tr><td>${row.vendor}</td><td>${row.units}</td><td>${row.lines}</td><td>${formatMoney(
+          `<tr><td>${row.vendor}</td><td>${row.units.toLocaleString("en-NG")}</td><td>${row.lines.toLocaleString("en-NG")}</td><td>${formatMoney(
             row.value,
           )}</td></tr>`,
       )
@@ -1832,7 +1832,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const truckRows = parts.consumption.byTruck
       .map(
         (row) =>
-          `<tr><td>${row.truck}</td><td>${row.units}</td><td>${formatMoney(row.value)}</td></tr>`,
+          `<tr><td>${row.truck}</td><td>${row.units.toLocaleString("en-NG")}</td><td>${formatMoney(row.value)}</td></tr>`,
       )
       .join("");
     printSheet(
@@ -1844,10 +1844,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
        <p><strong>Idle capital:</strong> ${formatMoney(parts.idle.value)} across ${
          parts.idle.lines
        } line(s) that issued nothing in this window</p>
-       <p><strong>Consumption:</strong> ${parts.consumption.units} unit(s) issued across ${
+       <p><strong>Consumption:</strong> ${parts.consumption.units.toLocaleString("en-NG")} unit(s) issued across ${
          parts.consumption.events
        } issue(s), worth ${formatMoney(parts.consumption.value)}</p>
-       <p><strong>Purchases:</strong> ${parts.purchases.units} unit(s) bought across ${
+       <p><strong>Purchases:</strong> ${parts.purchases.units.toLocaleString("en-NG")} unit(s) bought across ${
          parts.purchases.events
        } purchase(s), worth ${formatMoney(parts.purchases.value)}</p>
        <p><strong>Stock health:</strong> ${parts.health.ok} healthy · ${parts.health.low} low · ${
@@ -3128,7 +3128,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                             value:
                               request.stock === null
                                 ? "Not a store part"
-                                : `${request.stock} on the shelf${request.short ? " — short" : ""}`,
+                                : `${request.stock.toLocaleString("en-NG")} on the shelf${request.short ? " — short" : ""}`,
                           },
                           { label: "Mechanic", value: request.mechanic },
                           { label: "Raised", value: formatDateLines(request.requestedAt).date },
@@ -3335,7 +3335,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                           className="border-t border-[#E2E5E9] text-[#344256]"
                         >
                           <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.truck}</td>
-                          <td className="py-1.5 pr-3">{row.units}</td>
+                          <td className="py-1.5 pr-3">{row.units.toLocaleString("en-NG")}</td>
                           <td className="py-1.5 pr-3">{formatMoney(row.value)}</td>
                         </tr>
                       ))}
@@ -3369,7 +3369,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                           className="border-t border-[#E2E5E9] text-[#344256]"
                         >
                           <td className="py-1.5 pr-3 font-medium text-[#1B2432]">{row.vendor}</td>
-                          <td className="py-1.5 pr-3">{row.units}</td>
+                          <td className="py-1.5 pr-3">{row.units.toLocaleString("en-NG")}</td>
                           <td className="py-1.5 pr-3">{row.lines}</td>
                           <td className="py-1.5 pr-3">{formatMoney(row.value)}</td>
                         </tr>

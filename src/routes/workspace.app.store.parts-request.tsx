@@ -332,7 +332,7 @@ function RequestCardView({ card, onIssue }: { card: RequestCard; onIssue: () => 
               </p>
             </div>
             <span className="grid h-[24px] min-w-[28px] shrink-0 place-items-center rounded-[6px] border border-[#E2E5E9] px-1.5 text-[11.5px] font-semibold text-[#1B2432]">
-              {l.quantity}
+              {l.quantity.toLocaleString("en-NG")}
             </span>
           </div>
         ))}
@@ -411,7 +411,7 @@ function IssuePartsModal({
               <p className="text-[11px] text-[#5C6470]">{formatNairaFull(l.unitCost ?? 0)}</p>
             </div>
             <span className="grid h-[26px] min-w-[30px] place-items-center rounded-[6px] border border-[#E2E5E9] px-2 text-[12px] font-semibold text-[#1B2432]">
-              {l.quantity}
+              {l.quantity.toLocaleString("en-NG")}
             </span>
           </div>
         ))}

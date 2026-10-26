@@ -305,7 +305,7 @@ function LubricantReportPage() {
             {queueRows.map((ask) => (
               <div key={ask.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <span className="min-w-0 flex-1 text-[13.5px] text-[#344256]">
-                  {ask.request.quantity} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
+                  {ask.request.quantity.toLocaleString("en-NG")} {ask.request.fuelType === "Gas" ? "kg" : "L"} ·{" "}
                   {ask.customer || "—"} · {ask.dropoff || "—"}
                 </span>
                 <span className="shrink-0 rounded-full bg-[#F1F2F4] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">

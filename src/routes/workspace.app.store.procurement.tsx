@@ -329,7 +329,7 @@ function PoCard({
               <p className="line-clamp-2 pr-3 text-[11px] text-[#5C6470]">{l.name}</p>
               <div className="flex shrink-0 items-center gap-4">
                 <span className="grid h-[24px] min-w-[26px] place-items-center rounded-[6px] border border-[#E2E5E9] px-1.5 text-[11.5px] font-semibold text-[#1B2432]">
-                  {l.quantity}
+                  {l.quantity.toLocaleString("en-NG")}
                 </span>
                 <span className="text-[11.5px] font-semibold text-[#1B2432]">
                   {formatNairaFull(l.price)}
