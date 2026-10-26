@@ -370,6 +370,18 @@ function HrStaffDirectory() {
     const openDispatches = liveTripsFor(idEdit.driver, trips);
     let closeDispatches = forceClose;
     /*
+     * A RELEASE IS AN EXIT FROM THE FLEET (Fortune/Adyems, 26 Oct 2026).
+     *
+     * The question used to be raised on EVERY save of a driver with open
+     * dispatches — so editing a man's phone number could close his unstarted
+     * Scheduled trips, and trucks were freed before Security ever logged a
+     * departure. It is raised now only when the save moves the man OUT of
+     * employment — On Leave or Suspended — which is exactly the rule the
+     * mobile HR app always applied.
+     *
+     * Actively employed (Active) is the DEFAULT: a plain record edit never
+     * touches his dispatches, whatever the trip list says.
+     *
      * Asked in the app, NOT with window.confirm: a native dialog the browser
      * dismisses returns false, which made this save do nothing at all — the
      * reported "make available from HR does not work".
@@ -378,11 +390,12 @@ function HrStaffDirectory() {
      * trip list that failed to load can no longer turn the release into a
      * silent no-op that leaves the driver committed.
      */
-    if (!forceClose && driverHasOpenDispatches(idEdit.driver, trips)) {
+    const leavesEmployment = draft.status === "On Leave" || draft.status === "Suspended";
+    if (leavesEmployment && !forceClose && driverHasOpenDispatches(idEdit.driver, trips)) {
       setPendingFree({ driver: idEdit.driver, status: draft.status, openDispatches });
       return;
     }
-    if (forceClose) closeDispatches = true;
+    if (leavesEmployment && forceClose) closeDispatches = true;
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
       // Anything HR empties is sent as "" (never left out, which would silently

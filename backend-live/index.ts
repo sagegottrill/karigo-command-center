@@ -443,6 +443,10 @@ if (typeof app !== "undefined" && app) {
     "/api/auth/forgot-password",
     "/api/auth/reset-password",
     "/api/users/me/password",
+    // AUTHSETUP:RATELIMITED — the bootstrap endpoint is unauthenticated by
+    // design (it creates the first admin), so it needs the same attempt
+    // throttle as every other credential-writing route.
+    "/api/auth/setup",
   ];
   const __rlWrapped = new Set();
   for (const p of __credPaths) {
@@ -1015,6 +1019,13 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   const completingNow = data.status === 'Completed' && before && before.status !== 'Completed';
   if (completingNow) {
     data.gateInBy = gateActor;
+    // RETURN-STAMP-ETA: the same rule the gate account path applies below — a
+    // completed run must always carry its own return moment. A Transport
+    // Manager (or Tracking) closing a run through the dispatch screen stamped
+    // gateInBy but left eta null, so the dispatch history screens showed a
+    // return with the name and no date+time (the "Completed but the return
+    // went blank" rows the live probe found, 24 Oct 2026).
+    if (!String((before as any).eta || data.eta || '').trim()) data.eta = data.eta || autoStamp(new Date());
     const dcAudit =
       data.directCosts && typeof data.directCosts === 'object'
         ? { ...(data.directCosts as any) }
@@ -1390,9 +1401,21 @@ app.post('/api/gate/backfill', authenticate, authorize('Security', 'Platform Adm
 const TRUCK_KEY = (v: any) => String(v || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
 
 function truckKeysOf(trip: any): string[] {
-  return [trip?.truckReg, trip?.tailNumber]
-    .map((v) => TRUCK_KEY(v))
-    .filter((k: string) => k.length > 2);
+  // "P062 (GGE98YK)" is TWO keys, not one combined: the cap AND the plate, and
+  // either must match EXACTLY (GATERETURN:V5). A string match against the join
+  // ("P062GGE98YK".includes(key)) is how one truck's plate closed other
+  // trucks' dispatches. So the field is split into its whole tokens; the
+  // joined key is kept as well — under EQUALITY only, never containment.
+  const out = new Set<string>();
+  for (const v of [trip?.truckReg, trip?.tailNumber]) {
+    const whole = TRUCK_KEY(v);
+    if (whole.length > 2) out.add(whole);
+    for (const token of String(v || '').split(/[^0-9a-zA-Z]+/)) {
+      const k = TRUCK_KEY(token);
+      if (k && k.length > 2) out.add(k);
+    }
+  }
+  return Array.from(out);
 }
 
 function truckMatches(truck: any, keys: string[]): boolean {
@@ -1509,21 +1532,26 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     const matchKeys = truck ? [...tokens, key, ...ownKeys(truck)] : [...tokens, key];
 
     // Any dispatch still naming this truck is over — the truck is at the gate.
-    // Matching is on whole tokens; substring containment is kept ONLY for
-    // tokens of SAFE_MIN_KEY characters or more, so one bad key can never
-    // sweep every tail in a family (B0xx/B1xxx all share prefixes again).
+    // RETURN-ONLY-MOVING (Fortune/Adyems, 26 Oct 2026): a SCHEDULED trip never
+    // left the yard — a plate typed at the gate completed unstarted dispatches
+    // and handed trucks to Diesel without the fuel ever being drawn (the
+    // ticketed "auto-returns" at 10:39). Only a dispatch the gate itself sent
+    // out (En Route and beyond) can be closed by a return; a Scheduled trip is
+    // called back or reassigned, never Completed from here.
     const open = await prisma.trip.findMany({
       where: {
-        status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+        status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
       },
     });
+    // GATERETURN:V5 (Fortune/Adyems, 26 Oct 2026) — EXACT match ONLY. The old
+    // containment arm ("k.includes(m)" for 4+ char keys) is what made a plate
+    // typed at the gate close OTHER trucks' dispatches: plate families share
+    // long prefixes (GGE102/GGE107, B1001/B1006). A return closes the
+    // dispatches THIS truck row (cap + plate, both resolved above) owns —
+    // nothing else.
     const stillOpen = open.filter((t) => {
       const keys = truckKeysOf(t);
-      return keys.some((k) =>
-        matchKeys.some((m) =>
-          m === k ||
-          (m.length >= SAFE_MIN_KEY && k.includes(m)) ||
-          (k.length >= SAFE_MIN_KEY && m.includes(k))));
+      return keys.some((k) => matchKeys.includes(k));
     });
     if (stillOpen.length > 3) {
       // FLEET-GUARD (B4): several open dispatches on the SAME truck are
@@ -1759,15 +1787,19 @@ async function sweepReturnedTrucks(): Promise<number> {
       }
     }
     if (homeKeys.size === 0) return 0;
+    // SWEEP-ONLY-MOVING (Fortune/Adyems, 26 Oct 2026): a Scheduled trip is
+    // unstarted work — the sweep used to complete Scheduled dispatches whose
+    // truck row happened to sit in Check Up (engineering parks healthy trucks
+    // there mid-flow), which is the "truck auto-returned out of Diesel" ticket.
     const open = await prisma.trip.findMany({
-      where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+      where: { status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
     });
     const ACTIVE_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours of tracked life
     const now = Date.now();
     const doomed = [];
     for (const t of open) {
       if (!truckKeysOf(t).some((k) =>
-        Array.from(homeKeys).some((h) => k === h || k.includes(h) || h.includes(k)))) continue;
+        Array.from(homeKeys).some((h) => k === h))) continue; // EXACT match — a plate's suffix never owns another truck's load
       // DORMANT-ONLY (V5B, 24 Oct 2026): a dispatch the lifecycle touched
       // inside the window is live work, whatever the registry word says.
       // The born check alone left a hole the front office caught — long
@@ -1807,10 +1839,11 @@ async function sweepReturnedTrucks(): Promise<number> {
           data: {
             status: 'Completed',
             eta: trip.eta || autoStamp(new Date()),
-            // S.1-PETROLINE-STAMP (24 Oct 2026, owner instruction): the desk
-            // stamp is the STATION, never a person — the front office must never
-            // read a phantom guard or a confusing system note. The truthful audit
-            // stays on directCosts.returnedBy.
+            // S.1-PETROLINE-STAMP (24 Oct 2026, owner instruction): the desk stamp
+            // is the STATION, never a person — the front office must never read
+            // a phantom guard or a confusing system note. The truthful audit
+            // stays on the record's directCosts.returnedBy object; the readable
+            // stamp reads the desk:
             gateInBy: trip.gateInBy || 'S.1 Petroline',
             directCosts: dc,
           },
@@ -2334,6 +2367,19 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
   try {
     const trip = await prisma.trip.findUnique({ where: { id: tripId } });
     if (trip) {
+      // GATE-FIRST DEPARTURE (Fortune/Adyems, 26 Oct 2026): a checkpoint must
+      // NOT dispatch a truck. On a SCHEDULED trip — approved but never logged
+      // out by Security — a tracking leg used to write the departure stamp,
+      // advance the trip to Loaded/En Route and mark the head and tail Out of
+      // Yard. That is exactly the trucks the gate log showed "automatically
+      // dispatched" (046, 116, 078, 093…) without the gate having done
+      // anything. A checkpoint recorded while the truck is still undispatched
+      // is stored and announced, and NOTHING in this block is moved: the
+      // first movement of a load belongs to Security's Log Out. Once the gate
+      // has stamped a departure the convoy keeps logging legs as before —
+      // those trips are already moving.
+      const undispatched = String(trip.status || '').trim() === 'Scheduled';
+      if (!undispatched) {
       const data: Record<string, any> = {};
       if (!trip.startTime || !String(trip.startTime).trim()) {
         data.startTime = (checkpoint.at instanceof Date ? checkpoint.at : new Date()).toISOString();
@@ -2364,6 +2410,9 @@ app.post('/api/tracking', authenticate, authorize('Platform Admin', 'Transport M
           void coupleTailRegistry(movedTrip, 'out');
         }
       }
+      } else {
+        console.log('[tracking] checkpoint held — dispatch ' + dispatchRef(tripId) + ' is still Scheduled; Security has not logged its departure, so nothing was moved.');
+      }
     }
   } catch (e: any) {
     // A checkpoint must still be recorded even if the trip cannot be moved.
@@ -2387,9 +2436,36 @@ app.get('/api/trucks', authenticate, async (_req, res) => {
   res.json(await prisma.truck.findMany({ orderBy: { cabId: 'asc' } }));
 });
 // The cap number is UNIQUE: a duplicate is the operator's mistake, not a crash.
+// TRUCK-CAP-AUTO (24 Oct 2026): the cap number (cabId, "P0xx") is the identity
+// every board, gate log and assignment picker reads. Fleet adds new trucks with
+// nothing but a plate — or with the plate pasted into the cap field — and every
+// screen then showed the bare plate ("AAA395YP") where its neighbours read
+// "P0xx (PLATE)". The server now owns the cap: it trims what arrives, refuses a
+// truck with no plate, and AUTO-ISSUES the next free P-code whenever the cap
+// field is blank or merely repeats the plate, so a truck added by anyone in any
+// department carries a usable cap number from the moment it exists.
+const truckCapKey = (v: string) => String(v ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+async function nextFreeTruckCap(): Promise<string> {
+  const rows = await prisma.truck.findMany({ select: { cabId: true } });
+  let max = 0;
+  for (const r of rows) {
+    const m = /^P(\d+)$/i.exec(String(r.cabId || '').trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `P${max + 1}`;
+}
+
 app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   try {
-    res.json(await prisma.truck.create({ data: req.body }));
+    const data = { ...req.body };
+    delete data.id;
+    data.registration = String(data.registration ?? data.plate ?? '').trim();
+    if (!data.registration) return res.status(400).json({ error: 'The plate number is required — the cap alone does not identify the truck.' });
+    const cap = String(data.cabId ?? data.capNumber ?? '').trim();
+    data.cabId = !cap || truckCapKey(cap) === truckCapKey(data.registration) ? await nextFreeTruckCap() : cap;
+    delete data.capNumber;
+    delete data.plate;
+    res.json(await prisma.truck.create({ data }));
   } catch (e: any) {
     if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'A truck with this number already exists' });
     throw e;
@@ -2400,7 +2476,22 @@ app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Man
 // trip; the status is the one column the whole availability story hangs on.
 app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   try {
-    res.json(await prisma.truck.update({ where: { id: req.params.id }, data: req.body }));
+    const data = { ...req.body };
+    delete data.id;
+    // Same cap rule on edit: the cap can be trimmed, but never blanked out and
+    // never turned into the plate — the registry row keeps a real cap number.
+    if (data.registration !== undefined) data.registration = String(data.registration ?? '').trim();
+    if (data.cabId !== undefined || data.capNumber !== undefined) {
+      const cap = String(data.cabId ?? data.capNumber ?? '').trim();
+      if (!cap || truckCapKey(cap) === truckCapKey(data.registration ?? '')) {
+        const row = await prisma.truck.findUnique({ where: { id: req.params.id }, select: { registration: true } });
+        const refPlate = String(row?.registration ?? '').trim();
+        if (!refPlate && !data.registration) return res.status(400).json({ error: 'A truck with no plate cannot be saved — add the plate number.' });
+        data.cabId = await nextFreeTruckCap();
+      } else data.cabId = cap;
+      delete data.capNumber;
+    }
+    res.json(await prisma.truck.update({ where: { id: req.params.id }, data }));
   } catch (e: any) {
     if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'A truck with this number already exists' });
     if (String(e?.code) === 'P2025') return res.status(404).json({ error: 'Truck not found' });
@@ -2516,11 +2607,25 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
      * truck and the duty word cannot free him. closeDispatches ends those stale
      * trips as Completed as he is released, so the roster and the dispatch list
      * tell one story instead of two.
+     *
+     * RELEASE-GUARD (Fortune/Adyems, 26 Oct 2026): the release used to fire on
+     * EVERY save that carried it — editing a man's phone number closed his live
+     * trips AND his unstarted Scheduled ones, handing trucks back to the yard
+     * before Security had ever logged a departure (trucks "auto-returned" out
+     * of Diesel & Gas). Two stops, matching the rule the mobile HR app always
+     * applied:
+     *   1. the release runs only when the save moves the man OUT of employment
+     *      (On Leave / Off Duty / Suspended). An Active save closes nothing.
+     *   2. a Scheduled dispatch is UNSTARTED work — no release may complete it.
+     *      It is reassigned or cancelled by the fleet desk, never closed
+     *      Completed here.
      */
     if (b.closeDispatches) {
-      const OPEN_TRIP_STATUSES: string[] = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
+      const OPEN_TRIP_STATUSES: string[] = ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
       const driver = await prisma.driver.findUnique({ where: { id: req.params.id } });
-      if (driver && driver.name) {
+      const nextStatus = String(data.status ?? driver?.status ?? '').trim();
+      const leavesEmployment = ['On Leave', 'Off Duty', 'Suspended'].includes(nextStatus);
+      if (driver && driver.name && leavesEmployment) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Transport Manager';
         const stuck = await prisma.trip.findMany({
           where: { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
@@ -2896,8 +3001,21 @@ app.post('/api/inventory/import', authenticate, authorize('Platform Admin', 'Tra
 app.get('/api/inventory-requisitions', authenticate, async (_req, res) => {
   res.json(await prisma.inventoryRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/inventory-requisitions', authenticate, async (req, res) => {
-  res.json(await prisma.inventoryRequisition.create({ data: req.body }));
+app.post('/api/inventory-requisitions', authenticate, async (req: any, res) => {
+  // REQUISITION-CREATE-WHITELIST: only the ticket's own fields are writable at
+  // raise time. Passing req.body straight through let any caller fabricate the
+  // audit columns the chain is supposed to write — handoffAt, signature,
+  // pickedBy, reviewedBy, a forged status — from a raw unauthorised POST.
+  const REQ_FIELDS = ['workOrder', 'truckReg', 'mechanic', 'part', 'itemId', 'quantity', 'reason', 'unitCost', 'decisionNote', 'requestGroup', 'description', 'targetType'];
+  const body = req.body || {};
+  const data: any = {};
+  for (const key of REQ_FIELDS) if (body[key] !== undefined) data[key] = body[key];
+  for (const required of ['workOrder', 'truckReg', 'mechanic', 'part', 'quantity', 'reason']) {
+    if (data[required] === undefined || data[required] === null || String(data[required]).trim() === '') {
+      return res.status(400).json({ error: `${required} is required to raise a requisition.` });
+    }
+  }
+  res.json(await prisma.inventoryRequisition.create({ data }));
 });
 app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
   // REQUISITION-EDIT-WHITELIST: the screens edit the ticket's own words — the
@@ -3332,8 +3450,20 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
 app.get('/api/fuel', authenticate, async (_req, res) => {
   res.json(await prisma.fuelRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/fuel', authenticate, async (req, res) => {
-  res.json(await prisma.fuelRequisition.create({ data: req.body }));
+app.post('/api/fuel', authenticate, async (req: any, res) => {
+  // FUEL-CREATE-WHITELIST: the requisition's own lines only. Raw passthrough
+  // let any signed-in caller invent approved litrages, costs or dates from
+  // fields the client never sent.
+  const FUEL_FIELDS = ['tripId', 'truckReg', 'driverName', 'requiredLitres', 'approvedLitres', 'expectedConsumption', 'standardEfficiency', 'odometer', 'cost', 'date'];
+  const body = req.body || {};
+  const data: any = {};
+  for (const key of FUEL_FIELDS) if (body[key] !== undefined) data[key] = body[key];
+  for (const required of ['tripId', 'truckReg', 'driverName']) {
+    if (data[required] === undefined || data[required] === null || String(data[required]).trim() === '') {
+      return res.status(400).json({ error: `${required} is required to raise a fuel requisition.` });
+    }
+  }
+  res.json(await prisma.fuelRequisition.create({ data }));
 });
 app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Accounts', 'Accountant'), async (req, res) => {
   // Every approval is ONE expense: PATCH is also called to correct a field or
