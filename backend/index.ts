@@ -1593,6 +1593,29 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
       // expected (re-baked siblings), but matching most of the fleet is a bug.
       return res.status(409).json({ error: stillOpen.length + ' dispatches matched "' + raw + '" — too many to close on one return. Type the exact cap number or plate.' });
     }
+    // OPEN-BOOK-BUSY (Daniel, 27 Oct 2026) — gate-book rule carried to the
+    // truck endpoint: a truck still BOOKED on an open dispatch that this
+    // return does NOT close (a Scheduled load waiting on it) is not free to
+    // go to engineering. The booking owns the truck's word. Its authority is
+    // the same exact token match the closure above runs (GATERETURN:V5).
+    const openAny = await prisma.trip.findMany({
+      where: { status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+      select: { id: true, truckReg: true, tailNumber: true },
+    });
+    const closedIds = new Set(stillOpen.map((t) => String(t.id)));
+    const stillBookedTruck = openAny.some(
+      (t2) => !closedIds.has(String(t2.id)) && truckKeysOf(t2).some((k) => matchKeys.includes(k)),
+    );
+    // And the booking's OWN tail: a Scheduled dispatch waiting on a body
+    // keeps that body too — the return may not stamp Check Up over a booking.
+    const stillBookedTailKeys = new Set<string>();
+    for (const t2 of openAny) {
+      if (closedIds.has(String(t2.id))) continue;
+      for (const v of [t2.tailNumber, String(t2.truckReg || '').split('/')[1]]) {
+        const k = TRUCK_KEY(v);
+        if (k.length > 2) stillBookedTailKeys.add(k);
+      }
+    }
 
     let closed = 0;
     const freed: string[] = [];
@@ -1623,7 +1646,10 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
         const tk = TRUCK_KEY(tailCode);
         const tails = await prisma.tail.findMany();
         const tailRow = tails.find((t) => TRUCK_KEY(t.number) === tk);
-        if (tailRow && !['Check Up', 'Maintenance', 'Accident'].includes(String(tailRow.status))) {
+        // STILL-BOOKED-TAIL: a Scheduled dispatch booked on this body keeps it —
+        // the return never stamps Check Up over a booking's tail.
+        if (tailRow && !stillBookedTailKeys.has(tk) &&
+            !['Check Up', 'Maintenance', 'Accident'].includes(String(tailRow.status))) {
           await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
           tailsReleased += 1;
         }
@@ -1647,9 +1673,14 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
           .map((v) => TRUCK_KEY(v)).filter((k) => k.length > 2);
         if (tailCandidates.length) {
           const tails = await prisma.tail.findMany();
+          // TAIL:EXACT (27 Oct 2026, Daniel) — equality on the whole key only.
+          // The old containment both ways ("k.includes(tn) || tn.includes(k)")
+          // is exactly what cross-closed plate-sibling families before; a tail
+          // is named by its OWN code, never by a prefix of another's.
           for (const tailRow of tails) {
             const tn = TRUCK_KEY(tailRow.number);
-            if (tailCandidates.some((k) => k === tn || k.includes(tn) || tn.includes(k)) &&
+            if (tailCandidates.some((k) => k === tn) &&
+                !stillBookedTailKeys.has(tn) &&
                 !['Check Up', 'Maintenance', 'Accident'].includes(String(tailRow.status))) {
               await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
               tailsReleased += 1;
@@ -1658,7 +1689,12 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
           }
         }
       } catch (_) { /* best-effort: the head's return stands */ }
-      await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Check Up' } });
+      // OPEN-BOOK-BUSY: a Scheduled booking keeps the truck in its own word —
+      // it stays whatever the register said, ready for the load that is
+      // waiting on it. Only a FREE truck goes to engineering.
+      if (!stillBookedTruck) {
+        await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Check Up' } });
+      }
     }
 
     try {
@@ -1671,7 +1707,10 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
 
     res.json({
       ok: true,
-      truck: truck ? { id: truck.id, capId: truck.cabId, registration: truck.registration, status: 'Check Up' } : null,
+      // The word the register actually wears at the end of this return: when a
+      // Scheduled booking keeps the truck, the response reports THAT, not a
+      // Check Up that was never written true.
+      truck: truck ? { id: truck.id, capId: truck.cabId, registration: truck.registration, status: stillBookedTruck ? String(truck.status || 'Booked') : 'Check Up' } : null,
       dispatchClosed: closed,
       driversFreed: freed,
       tailsReleased,
@@ -1822,6 +1861,26 @@ async function sweepReturnedTrucks(): Promise<number> {
       }
     }
     if (homeKeys.size === 0) return 0;
+    // SWEEP-NEEDS-GATE-RETURN (Daniel, 27 Oct 2026): quiet hours alone were no
+    // proof the truck came HOME — a truck that LEFT while reading Check Up
+    // kept that word all trip (Departure only moved Active/Available/Assigned
+    // out of the yard), and 12 silent hours then closed a genuinely out
+    // dispatch. So a sweep may close only on BOTH signals now: the truck
+    // reads Check Up AND the gate logged a RETURN stamp for it after the trip
+    // set out. Latest Return stamp per truck key wins ('Return' entries only).
+    const gateReturns = await prisma.gateEntry.findMany({ where: { type: 'Return' } });
+    const homeStampBy = new Map<string, number>();
+    for (const ge of gateReturns) {
+      const stamp = new Date(ge.timestamp).getTime();
+      if (isNaN(stamp)) continue;
+      for (const k of String(ge.truckReg || '')
+        .split(/[^0-9a-zA-Z]+/)
+        .map((v) => TRUCK_KEY(v))
+        .filter((k) => k.length > 2)) {
+        const cur = homeStampBy.get(k);
+        if (!cur || stamp > cur) homeStampBy.set(k, stamp);
+      }
+    }
     // SWEEP-ONLY-MOVING (Fortune/Adyems, 26 Oct 2026): a Scheduled trip is
     // unstarted work — the sweep used to complete Scheduled dispatches whose
     // truck row happened to sit in Check Up (engineering parks healthy trucks
@@ -1856,6 +1915,31 @@ async function sweepReturnedTrucks(): Promise<number> {
         const seen = new Date(lastCp.at).getTime();
         if (!isNaN(seen) && now - seen < ACTIVE_WINDOW_MS) continue;
       }
+      // THE GATE'S OWN PROOF (the second half of SWEEP-NEEDS-GATE-RETURN): a
+      // Return stamp for this truck AFTER the trip set out. The gate stamps
+      // start times in its own en-GB words ("27 Oct 2026, 10:39"), which
+      // Date() does not always read — so the parse falls back through the
+      // same field formats the yard itself writes. No readable stamp after
+      // a readable departure = no proof anyone brought this load home.
+      const setOut = (function () {
+        for (const v of [t.startTime, t.createdAt]) {
+          if (!v) continue;
+          const d = new Date(String(v).replace(', ', ' ')).getTime();
+          if (!isNaN(d)) return d;
+          const dRaw = new Date(v).getTime();
+          if (!isNaN(dRaw)) return dRaw;
+        }
+        return 0;
+      })();
+      let gateHomeAfterDeparture = false;
+      for (const k of truckKeysOf(t)) {
+        const home = homeStampBy.get(k);
+        if (home !== undefined && (!setOut || home > setOut)) {
+          gateHomeAfterDeparture = true;
+          break;
+        }
+      }
+      if (!gateHomeAfterDeparture) continue;
       doomed.push(t);
     }
     let closed = 0;
@@ -1942,7 +2026,16 @@ async function gateCycleAssetsOut(truckReg, tailNumber) {
     if (norm(truckReg)) {
       const trucks = await prisma.truck.findMany();
       const truck = trucks.find((t) => norm(t.registration) === norm(truckReg) || norm(t.cabId) === norm(truckReg));
-      if (truck && ['Active', 'Available', 'Assigned'].includes(String(truck.status))) {
+      // DEPARTURE-FOLLOWS-THE-GATE (Daniel, 27 Oct 2026): Departure used to
+      // move only Active/Available/Assigned trucks out of the yard, so a
+      // truck that rolled off while still reading Check Up kept that word
+      // for the whole trip — and the returned-truck sweep, whose rule is
+      // "Check Up = home", then closed its dispatch from the wrong end
+      // after 12 quiet hours. A gate Departure stamp is the yard's own
+      // proof the truck LEFT, and Out of Yard is the word for that;
+      // Engineering's harder verdicts (Maintenance, Accident) are still
+      // untouched — only the release state follows the gate.
+      if (truck && ['Active', 'Available', 'Assigned', 'Check Up'].includes(String(truck.status))) {
         await prisma.truck.update({ where: { id: truck.id }, data: { status: 'Out of Yard' } });
       }
     }
