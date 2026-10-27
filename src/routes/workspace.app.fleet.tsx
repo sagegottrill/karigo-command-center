@@ -52,8 +52,10 @@ export const Route = createFileRoute("/workspace/app/fleet")({
 /** Desktop table columns — fr units so the table flexes to fit 1280–1920px
     laptops instead of forcing the page sideways (screenshot bug). */
 const FLEET_GRID =
-  // Column order is the order the row is read in: the DATE leads (what came in
-  // first), then who it is for, the truck, and the DISPATCH ID last — it is the
+  // Column order is the order the row is read in: DATE APPROVED leads (the
+  // company's decision stamped first, per Fortune's 27 Oct note), then DATE
+  // REQUESTED for when it actually came in, then who it is for, the truck, and
+  // the DISPATCH ID last — it is the
   // reference you look up after you have found the row, not the first thing you
   // read. Status keeps its own wide track: it has to hold "Awaiting Approval" on
   // ONE line — 86px wrapped it into a two-line pill that read as a glitch.
@@ -417,7 +419,7 @@ function FleetDispatchRequests() {
   const exportCSV = () => {
     // Same order as the table, so the file reconciles with the screen row for row.
     const header =
-      "Date Requested,Customer,Driver,Truck Head,Truck Type,Loading Point,Drop-off Location,Date Approved,Estimated Time of Return,Trip Duration,Status,Dispatch ID";
+      "Date Approved,Customer,Driver,Truck Head,Truck Type,Loading Point,Drop-off Location,Date Requested,Estimated Time of Return,Trip Duration,Status,Dispatch ID";
     const csv = filtered
       .map((t) => {
         const driver = t.driverId ? driverById.get(t.driverId) : undefined;
@@ -425,14 +427,14 @@ function FleetDispatchRequests() {
         // stale timestamp under Date Approved either.
         const sentBack = fleetStatusOf(t) === "Sent Back";
         return csvRow([
-          formatDateTimeStamp(t.createdAt),
+          sentBack ? "—" : formatDateTimeStamp(t.dispatchedAt),
           t.customerConsignee ?? "",
           t.driverName || driver?.name || "—",
           headLabel(t, heads),
           fleetTruckTypeOf(t),
           tripLoadingSites(t).join(", ") || "",
           t.dropoff,
-          sentBack ? "—" : formatDateTimeStamp(t.dispatchedAt),
+          formatDateTimeStamp(t.createdAt),
           t.estimatedDate ? formatTableDate(t.estimatedDate) : "",
           formatTripDuration(t.estimatedDays) || "",
           fleetStatusOf(t),
@@ -787,6 +789,8 @@ function FleetDispatchRequests() {
                       : formatDateTimeStamp(trip.dispatchedAt)
                   }
                 />
+                {/* Date Requested reads after Date Approved, like the table. */}
+                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow
                   label="Estimated Time of Return:"
                   value={trip.estimatedDate ? formatTableDate(trip.estimatedDate) : ""}
@@ -892,9 +896,10 @@ function FleetDispatchRequests() {
                   FLEET_GRID,
                 )}
               >
-                {/* Date Requested leads the row — the TM reads the request date first. */}
+                {/* Date Approved leads the row — the approval stamp is the date the
+                    TM works from; Date Requested sits with Loading/Drop-off below. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Date Requested
+                  Date Approved
                 </span>
                 <span className="truncate text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Customer
@@ -917,7 +922,7 @@ function FleetDispatchRequests() {
                   Drop-off Location
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Date Approved
+                  Date Requested
                 </span>
                 {/* The date the TM is working to — his own estimate of when the
                     truck is due back, until the gate stamp records the real
@@ -948,7 +953,13 @@ function FleetDispatchRequests() {
                       FLEET_GRID,
                     )}
                   >
-                    <DateCell value={trip.createdAt} />
+                    {/* Date Approved leads the row (Fortune, 27 Oct). Same rule as
+                        before, moved to the front: once the TM has sent a dispatch
+                        back, there is no live approval — the old timestamp must not
+                        keep talking. */}
+                    <DateCell
+                      value={fleetStatusOf(trip) === "Sent Back" ? null : trip.dispatchedAt}
+                    />
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.customerConsignee || "—"}
                     </span>
@@ -967,11 +978,7 @@ function FleetDispatchRequests() {
                     <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.dropoff}
                     </span>
-                    {/* Once the TM has sent a dispatch back, there is no live
-                        approval — the old timestamp must not keep talking. */}
-                    <DateCell
-                      value={fleetStatusOf(trip) === "Sent Back" ? null : trip.dispatchedAt}
-                    />
+                    <DateCell value={trip.createdAt} />
                     <span className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]">
                       {trip.estimatedDate ? formatTableDate(trip.estimatedDate) : "—"}
                       {formatTripDuration(trip.estimatedDays) ? (

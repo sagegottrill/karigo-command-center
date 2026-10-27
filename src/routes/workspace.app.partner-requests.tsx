@@ -377,11 +377,11 @@ function AdminPartnerRequests() {
 
   const exportCSV = () => {
     const header =
-      "Date Requested,Partner,Customer Name,Product,Truck Type,Truck,Loading Site,Drop-off Location,Date Approved,Request ID,Status";
+      "Date Approved,Partner,Customer Name,Product,Truck Type,Truck,Loading Site,Drop-off Location,Date Requested,Request ID,Status";
     const csv = filtered
       .map((t) =>
         csvRow([
-          formatTableDate(t.createdAt),
+          formatTableDate(approvedStampOf(t)),
           partnerNameOf(t),
           t.customerConsignee ?? "",
           t.cargo,
@@ -389,7 +389,7 @@ function AdminPartnerRequests() {
           displayTruckAssigned(t),
           loadingPointLabel(t),
           t.dropoff,
-          formatTableDate(approvedStampOf(t)),
+          formatTableDate(t.createdAt),
           requestId(t),
           toPartnerUiStatus(t),
         ]),
@@ -675,10 +675,11 @@ function AdminPartnerRequests() {
                 className="relative flex w-full flex-col gap-2 rounded-md border border-[#E2E5E9] bg-white px-3.5 py-2.5 shadow-[0px_1px_2px_rgba(12,12,13,0.05)]"
               >
                 <div className="flex items-center justify-between gap-2">
-                  {/* The card leads with the date it came in; the Request ID closes
-                      the card, exactly like the table's column order. */}
+                  {/* The card leads with its approval stamp, like the table —
+                      until the TM stamps anything, the row that came in shows
+                      the date it was raised on. */}
                   <span className="text-[14px] font-semibold tracking-[0.4px] text-[#303D50]">
-                    {formatDateTimeStamp(trip.createdAt)}
+                    {formatDateTimeStamp(approvedStampOf(trip) || trip.createdAt)}
                   </span>
                   <div className="flex items-center gap-2">
                     <StatusPill status={toPartnerUiStatus(trip)} />
@@ -726,10 +727,7 @@ function AdminPartnerRequests() {
                 <MetaRow label="Truck:" value={displayTruckAssigned(trip) || "—"} />
                 <MetaRow label="Loading Site:" value={loadingPointLabel(trip)} />
                 <MetaRow label="Drop-off Location:" value={trip.dropoff || ""} />
-                <MetaRow
-                  label="Date Approved:"
-                  value={formatDateTimeStamp(approvedStampOf(trip))}
-                />
+                <MetaRow label="Date Requested:" value={formatDateTimeStamp(trip.createdAt)} />
                 <MetaRow label="Request ID:" value={requestId(trip)} />
               </div>
             );
@@ -842,8 +840,9 @@ function AdminPartnerRequests() {
                 page never scrolls sideways on smaller laptops. */}
             <div className="w-full">
               <div className="grid grid-cols-[minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-[15px]">
+                {/* Date Approved leads the row — the stamp the TM works from. */}
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Date Requested
+                  Date Approved
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Partner
@@ -867,7 +866,7 @@ function AdminPartnerRequests() {
                   Drop-off Location
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
-                  Date Approved
+                  Date Requested
                 </span>
                 <span className="text-[16px] font-semibold tracking-[0.4px] text-[#1B2432]">
                   Request ID
@@ -883,12 +882,18 @@ function AdminPartnerRequests() {
                   key={trip.id}
                   className="relative grid h-12 grid-cols-[minmax(110px,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(104px,1fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(110px,0.9fr)_minmax(88px,0.9fr)_minmax(80px,0.7fr)_auto] items-center gap-x-3 border-b border-[#E2E5E9] py-2.5 last:border-b-0"
                 >
+                  {/* Date Approved leads the row (Fortune, 27 Oct) — until the TM
+                      has stamped anything, the leading column shows “—”. */}
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
-                    {formatDateLines(trip.createdAt).date}
-                    {formatDateLines(trip.createdAt).time && (
-                      <span className="block text-[12px] text-[#627084]">
-                        {formatDateLines(trip.createdAt).time}
-                      </span>
+                    {approvedStampOf(trip) ? (
+                      <>
+                        {formatDateLines(approvedStampOf(trip)).date}
+                        <span className="block text-[12px] text-[#627084]">
+                          {formatDateLines(approvedStampOf(trip)).time}
+                        </span>
+                      </>
+                    ) : (
+                      "—"
                     )}
                   </span>
                   <span className="truncate capitalize text-[14px] tracking-[0.4px] text-[#5C6470]">
@@ -921,15 +926,11 @@ function AdminPartnerRequests() {
                     {trip.dropoff}
                   </span>
                   <span className="text-[14px] leading-4 tracking-[0.4px] text-[#5C6470]">
-                    {approvedStampOf(trip) ? (
-                      <>
-                        {formatDateLines(approvedStampOf(trip)).date}
-                        <span className="block text-[12px] text-[#627084]">
-                          {formatDateLines(approvedStampOf(trip)).time}
-                        </span>
-                      </>
-                    ) : (
-                      "—"
+                    {formatDateLines(trip.createdAt).date}
+                    {formatDateLines(trip.createdAt).time && (
+                      <span className="block text-[12px] text-[#627084]">
+                        {formatDateLines(trip.createdAt).time}
+                      </span>
                     )}
                   </span>
                   <span className="truncate text-[14px] font-semibold tracking-[0.4px] text-[#5C6470]">
@@ -1100,11 +1101,11 @@ function AdminPartnerRequests() {
               label="Destination Address"
               value={detail.dropoffAddress?.trim() ? detail.dropoffAddress : "Not provided yet"}
             />
-            <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
             <ReadOnlyField
               label="Date Approved"
               value={formatDateTimeStamp(approvedStampOf(detail))}
             />
+            <ReadOnlyField label="Date Requested" value={formatDateTimeStamp(detail.createdAt)} />
             {loadingSitesFor(detail).length > 0 ? (
               <div className="flex w-full flex-col gap-1.5">
                 <span className="text-[14px] font-medium leading-[14px] tracking-[0.4px] text-[#141A1F]">

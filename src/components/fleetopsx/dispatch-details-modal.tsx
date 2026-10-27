@@ -194,8 +194,8 @@ function exportCsv(fields: ReturnType<typeof dispatchFields>) {
     esc("Petroline Transport Ltd — Dispatch Details"),
     esc(`Ticket ${fields.ticket}${fields.partner ? ` • ${fields.partner}` : ""}`),
     esc(`Status: ${fields.status}`),
-    esc(`Date Requested: ${fields.dateRequested}`),
     esc(`Date Approved: ${fields.dateApproved}`),
+    esc(`Date Requested: ${fields.dateRequested}`),
     "",
     esc("Section"),
     esc("Field"),
@@ -246,7 +246,7 @@ export function printDispatch(fields: ReturnType<typeof dispatchFields>) {
   </style></head><body>
     <h1>Dispatch Details</h1>
     <div class="meta">Ticket ${fields.ticket}${fields.partner ? ` &bull; ${fields.partner}` : ""}</div>
-    <div class="stamp">Status: ${fields.status} &nbsp;|&nbsp; Requested: ${fields.dateRequested} &nbsp;|&nbsp; Approved: ${fields.dateApproved} &nbsp;|&nbsp; Printed: ${formatDateLines(new Date().toISOString()).date} ${formatDateLines(new Date().toISOString()).time}</div>
+    <div class="stamp">Status: ${fields.status} &nbsp;|&nbsp; Approved: ${fields.dateApproved} &nbsp;|&nbsp; Requested: ${fields.dateRequested} &nbsp;|&nbsp; Printed: ${formatDateLines(new Date().toISOString()).date} ${formatDateLines(new Date().toISOString()).time}</div>
     ${section("Customer Details", fields.customer)}
     ${section("Vehicle & Operator Details", fields.vehicle)}
     ${section("Expense Configuration Breakdown", fields.expense)}
