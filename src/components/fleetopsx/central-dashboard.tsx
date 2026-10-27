@@ -50,6 +50,7 @@ import {
 import {
   ACTIVE_DISPATCH_BUCKETS,
   countBuckets,
+  isReturnedRequest,
   isInBucket,
   statusesInBucket,
   toPartnerUiStatus,
@@ -744,9 +745,10 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const heads = live.trucks ?? [];
     const drivers = live.drivers ?? [];
 
+    const allRequests = trips.filter(isCustomerRequest);
     // The request pool IS the window: a request belongs to the day it was raised,
     // so the four cards break that pool down and always sum back to the total.
-    const requests = trips.filter(isCustomerRequest).filter((t) => inPeriod(t.createdAt, range));
+    const requests = allRequests.filter((t) => inPeriod(t.createdAt, range));
     const counts = countBuckets(requests);
 
     /**
@@ -780,6 +782,33 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     const inTransitWindow = requests.filter((t) => tripBucket(t) === "inTransit");
     const declined = requests.filter((t) => tripBucket(t) === "declined");
     const completed = requests.filter((t) => tripBucket(t) === "completed");
+
+    /**
+     * THE LIVE PIPELINE (Shula, 27 Oct 2026 — "the total request card, some
+     * things are not updating like the scheduled"; "this pending card does
+     * not update", while requests were genuinely waiting and trucks sat on
+     * the board).
+     *
+     * Pending, Seen and Scheduled are states a request is IN right now, not
+     * things that happened inside the window: a request raised yesterday that
+     * still has no TM decision IS pending today, and a dispatch put on the
+     * board last week IS on the board now. Counting them only from the
+     * window's own intake left the Pending card at 0 with "Nothing is waiting
+     * on the Transport Manager" showing underneath it, and Scheduled at 0
+     * while trucks were on the dispatch board. These three count EVERY
+     * request — the same live rule In Transit already follows — and a request
+     * SENT BACK for correction is the partner's work, not the TM's decision,
+     * so it stays out of the Pending figure. The Total card above remains the
+     * window's intake and keeps its own breakdown, which always sums to it.
+     */
+    const livePending = allRequests.filter(
+      (t) => tripBucket(t) === "pending" && !isReturnedRequest(t),
+    );
+    const liveSeen = allRequests.filter((t) => {
+      const b = tripBucket(t);
+      return b === "approved" || b === "awaiting";
+    });
+    const liveScheduled = allRequests.filter((t) => tripBucket(t) === "scheduled");
 
     const active = trips.filter((t) => isInBucket(t, ACTIVE_DISPATCH_BUCKETS));
 
@@ -981,6 +1010,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           completed,
           all: requests,
           live: liveOnRoad,
+        },
+        /** The live pipeline cards: every request, whenever it was raised. */
+        pipeline: {
+          pending: livePending.length,
+          seen: liveSeen.length,
+          scheduled: liveScheduled.length,
+          lists: { pending: livePending, seen: liveSeen, scheduled: liveScheduled },
         },
       },
       spend: {
@@ -2127,9 +2163,12 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           </div>
 
           <div className="relative">
+            {/* THE LIVE PIPELINE — every request awaiting the TM decision,
+                whenever it was raised. The window's own pending rows live in
+                the Total card's breakdown above. */}
             <LiveMetricTile
               label="Pending"
-              value={stats.requests.pending}
+              value={stats.requests.pipeline.pending}
               hint="Awaiting TM decision"
               tone="amber"
               icon={History}
@@ -2139,15 +2178,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <DrillPopover
               open={drill.isOpen("req-pending")}
               onClose={drill.close}
-              title={`Pending Requests Breakdown (${stats.requests.pending})`}
+              title={`Pending Requests Breakdown (${stats.requests.pipeline.pending})`}
               width={340}
             >
-              {stats.requests.lists.pending.length === 0 ? (
+              {stats.requests.pipeline.lists.pending.length === 0 ? (
                 <p className="py-3 text-[12px] text-white/60">
                   Nothing is waiting on the Transport Manager.
                 </p>
               ) : (
-                stats.requests.lists.pending.map((trip) => requestRow(trip, false))
+                stats.requests.pipeline.lists.pending.map((trip) => requestRow(trip, false))
               )}
             </DrillPopover>
           </div>
@@ -2271,7 +2310,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <div className="relative">
             <LiveMetricTile
               label="Seen"
-              value={stats.requests.seen}
+              value={stats.requests.pipeline.seen}
               hint="TM first approval"
               tone="teal"
               icon={CircleCheck}
@@ -2281,13 +2320,15 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <DrillPopover
               open={drill.isOpen("req-seen")}
               onClose={drill.close}
-              title={`Seen Requests (${stats.requests.seen})`}
+              title={`Seen Requests (${stats.requests.pipeline.seen})`}
               width={340}
             >
-              {stats.requests.lists.seen.length === 0 ? (
-                <p className="py-3 text-[12px] text-white/60">No seen request in this window.</p>
+              {stats.requests.pipeline.lists.seen.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">
+                  No request is carrying the TM's first approval.
+                </p>
               ) : (
-                stats.requests.lists.seen.map((trip) => requestRow(trip, true))
+                stats.requests.pipeline.lists.seen.map((trip) => requestRow(trip, true))
               )}
             </DrillPopover>
           </div>
@@ -2295,7 +2336,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           <div className="relative">
             <LiveMetricTile
               label="Scheduled"
-              value={stats.requests.onBoard}
+              value={stats.requests.pipeline.scheduled}
               hint="On the dispatch board"
               tone="green"
               icon={CalendarDays}
@@ -2305,13 +2346,13 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
             <DrillPopover
               open={drill.isOpen("req-scheduled")}
               onClose={drill.close}
-              title={`Scheduled Dispatches (${stats.requests.onBoard})`}
+              title={`Scheduled Dispatches (${stats.requests.pipeline.scheduled})`}
               width={340}
             >
-              {stats.requests.lists.scheduled.length === 0 ? (
-                <p className="py-3 text-[12px] text-white/60">Nothing scheduled in this window.</p>
+              {stats.requests.pipeline.lists.scheduled.length === 0 ? (
+                <p className="py-3 text-[12px] text-white/60">Nothing is on the dispatch board.</p>
               ) : (
-                stats.requests.lists.scheduled.map((trip) => requestRow(trip, true))
+                stats.requests.pipeline.lists.scheduled.map((trip) => requestRow(trip, true))
               )}
             </DrillPopover>
           </div>
