@@ -174,7 +174,7 @@ function HrStaffDirectory() {
       { label: "Name", value: driver.name || "—" },
       { label: "Phone", value: driver.phone || "—" },
       { label: "Department", value: driver.department || "—" },
-      { label: "Employment status", value: driverStatusWord(driver, trips) },
+      { label: "Employment status", value: driverStatusWord(driver, trips, drivers) },
       { label: "Guarantor", value: driver.guarantorName || "—" },
       { label: "Guarantor phone", value: driver.guarantorPhone || "—" },
       { label: "Licence document", value: driver.licenseDocName || "— none on file" },
@@ -223,8 +223,10 @@ function HrStaffDirectory() {
     [periodFilter, rangeCustom.custom],
   );
 
-  /** The ONE status word, from the dispatches — the platform's single truth. */
-  const statusWordOf = useCallback((d: Driver) => driverStatusWord(d, trips), [trips]);
+  /** The ONE status word, from the dispatches — the platform's single truth.
+   * The roster rides along so a name filed under two men borrows neither's
+   * dispatch (the P0293/P0901 "Mohammed" case, 28 Oct 2026). */
+  const statusWordOf = useCallback((d: Driver) => driverStatusWord(d, trips, drivers), [trips, drivers]);
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
@@ -367,7 +369,7 @@ function HrStaffDirectory() {
      * EMPLOYMENT (Active / On Leave / Suspended), and none of those is the word
      * a dispatch uses, so every save is a decision about the open trips.
      */
-    const openDispatches = liveTripsFor(idEdit.driver, trips);
+    const openDispatches = liveTripsFor(idEdit.driver, trips, undefined, drivers);
     let closeDispatches = forceClose;
     /*
      * A RELEASE IS AN EXIT FROM THE FLEET (Fortune/Adyems, 26 Oct 2026).
@@ -391,7 +393,7 @@ function HrStaffDirectory() {
      * silent no-op that leaves the driver committed.
      */
     const leavesEmployment = draft.status === "On Leave" || draft.status === "Suspended";
-    if (leavesEmployment && !forceClose && driverHasOpenDispatches(idEdit.driver, trips)) {
+    if (leavesEmployment && !forceClose && driverHasOpenDispatches(idEdit.driver, trips, drivers)) {
       setPendingFree({ driver: idEdit.driver, status: draft.status, openDispatches });
       return;
     }
@@ -611,7 +613,7 @@ function HrStaffDirectory() {
             const sn = currentPage * PAGE_SIZE + index + 1;
             const licence = licenseState(driver);
             // The register's own word for the row: HR's employment decision.
-            const statusWord = driverStatusWord(driver, trips);
+            const statusWord = driverStatusWord(driver, trips, drivers);
             return (
               <div key={driver.id}>
                 <div className="mb-3 flex flex-col gap-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3.5 py-2.5 md:hidden">
@@ -835,12 +837,12 @@ function HrStaffDirectory() {
               <span
                 className={cn(
                   "inline-flex h-[22px] items-center rounded px-2.5 text-[10px] font-medium",
-                  statusPillClass(driverStatusWord(details, trips)),
+                  statusPillClass(driverStatusWord(details, trips, drivers)),
                 )}
               >
-                {driverStatusWord(details, trips)}
+                {driverStatusWord(details, trips, drivers)}
               </span>
-              {driverStatusWord(details, trips) !== staffStatusLabel(details) ? (
+              {driverStatusWord(details, trips, drivers) !== staffStatusLabel(details) ? (
                 <span className="text-[10px] uppercase tracking-[0.4px] text-[#9CA3AF]">
                   filed {staffStatusLabel(details)}
                 </span>

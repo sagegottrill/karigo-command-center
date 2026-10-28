@@ -2680,28 +2680,65 @@ async function nextFreeDriverId(): Promise<string> {
 }
 
 app.get('/api/drivers', authenticate, async (_req, res) => {
-  const [drivers, openTrips] = await Promise.all([
+  const [drivers, openTrips, trucks] = await Promise.all([
     prisma.driver.findMany({ orderBy: { createdAt: 'desc' } }),
     prisma.trip.findMany({
       where: {
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'] },
       },
-      select: { driverName: true },
+      select: { driverName: true, truckReg: true },
     }),
+    prisma.truck.findMany(),
   ]);
-  // How many dispatches still name each driver — the fact the UI must not have
-  // to fetch the whole trip list to learn.
+  //
+  // SHARED-NAMES BOUNDARY (Fortune/Adyems, 28 Oct 2026): the count keyed on
+  // the NAME alone, so the open KNT785XP run typed "MOHAMMED" held every man
+  // filed under exactly that word — three of them (P0293, P0901, P0932). The
+  // man back at the yard carried an open-dispatch count he never touched, the
+  // register read him On Trip, and no desk would offer him. A name shared by
+  // more than one row now binds a dispatch only on EVIDENCE naming that man:
+  // his own record claims the road (stored 'On Trip'), or the dispatch's
+  // truck resolves through the registry to a cap HR paired with him.
+  // Unambiguous names count exactly as they always did.
+  const nameKeyOf = (v) => String(v || '').trim().toLowerCase();
+  const capTokOf = (v) => String(v || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+  const nameBank = new Map();
+  for (const d of drivers) nameBank.set(nameKeyOf(d.name), (nameBank.get(nameKeyOf(d.name)) || 0) + 1);
+  const capByToken = new Map();
+  for (const t of trucks) {
+    const cap = capTokOf(t.cabId);
+    for (const raw of [t.registration, t.cabId]) {
+      for (const piece of String(raw || '').split(/[^0-9a-zA-Z]+/)) {
+        const k = capTokOf(piece);
+        if (k.length > 2) capByToken.set(k, cap);
+      }
+    }
+  }
   const counts = new Map();
+  for (const d of drivers) counts.set(d.id, 0);
   for (const t of openTrips) {
-    const key = String(t.driverName || '').trim().toLowerCase();
-    if (!key) continue;
-    counts.set(key, (counts.get(key) || 0) + 1);
+    const nameKey = nameKeyOf(t.driverName);
+    if (!nameKey || !nameBank.has(nameKey)) continue;
+    const candidates = drivers.filter((d) => nameKeyOf(d.name) === nameKey);
+    let owners = candidates;
+    if (candidates.length > 1) {
+      let tripCap = null;
+      for (const piece of String(t.truckReg || '').split(/[^0-9a-zA-Z]+/)) {
+        const c = capByToken.get(capTokOf(piece));
+        if (c) { tripCap = c; break; }
+      }
+      const paired = tripCap
+        ? candidates.filter((d) => [d.truckReg, d.truckReg2].some((v) => capTokOf(v) === tripCap))
+        : [];
+      owners = paired.length ? paired : candidates.filter((d) => String(d.status) === 'On Trip');
+    }
+    for (const d of owners) counts.set(d.id, (counts.get(d.id) || 0) + 1);
   }
   res.json(
     drivers.map(({ licenseDocument, ...d }) => ({
       ...d,
       hasLicenseDoc: Boolean(licenseDocument),
-      openDispatches: counts.get(String(d.name || '').trim().toLowerCase()) || 0,
+      openDispatches: counts.get(d.id) || 0,
     })),
   );
 });

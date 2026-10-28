@@ -167,19 +167,61 @@ export function driverForTrip(trip: Trip, drivers: Driver[]): TripDriverMatch | 
  * surfaces that offer the release name them before the decision is taken. One
  * implementation, so the roster, the staff record and the fleet desk cannot
  * disagree about which dispatches a man is on.
+ *
+ * SHARED-NAMES BOUNDARY (Fortune/Adyems, 28 Oct 2026): with the roster in hand
+ * (`roster`), a name shared by MORE THAN ONE row can no longer bind a
+ * dispatch to every man answering it. The open KNT785XP run was typed
+ * "MOHAMMED" — and three men are filed under exactly that word (P0293,
+ * P0901, P0932), so the man sitting back at the yard read "On Trip" on the
+ * register and the fleet desk refused to offer him, all because of the
+ * other's trip. When the name is shared, a dispatch binds a driver only on
+ * EVIDENCE that names HIM: his own record claims the road (stored "On
+ * Trip"), or the dispatch's truck matches the truck HR paired with him.
+ * Without the roster nothing changes — unambiguous names bind as they always
+ * did. This mirrors the rule driverForTrip already follows on the way back:
+ * a wrong linkage is worse than none.
  */
-export function liveTripsFor(driver: Driver, trips: Trip[], excludeTripId?: string): Trip[] {
+export function liveTripsFor(
+  driver: Driver,
+  trips: Trip[],
+  excludeTripId?: string,
+  roster?: Driver[],
+): Trip[] {
   const id = String(driver.id ?? "");
   const name = normPersonName(driver.name);
+  const nameShared =
+    Boolean(name) &&
+    !!roster?.some(
+      (other) => String(other.id ?? "") !== id && normPersonName(other.name) === name,
+    );
   return trips.filter((trip) => {
     if (!isLiveTrip(trip)) return false;
     if (excludeTripId && String(trip.id) === String(excludeTripId)) return false;
     const tripDriverId = String((trip as { driverId?: unknown }).driverId ?? "");
     if (id && tripDriverId && tripDriverId === id) return true;
-    return (
-      Boolean(name) && isNamedDriver(trip.driverName) && normPersonName(trip.driverName) === name
-    );
+    if (
+      !name ||
+      !isNamedDriver(trip.driverName) ||
+      normPersonName(trip.driverName) !== name
+    ) {
+      return false;
+    }
+    return !nameShared || bindingEvidenceFor(driver, trip);
   });
+}
+
+/**
+ * The proof that a SHARED-name dispatch belongs to THIS man (not to one of the
+ * others filed under the same word) — the stored duty word that claims the
+ * road, or the truck HR says is his.
+ */
+function bindingEvidenceFor(driver: Driver, trip: Trip): boolean {
+  if (String(driver.status) === "On Trip") return true;
+  const cap = capCode(displayCapFromTrip(trip));
+  if (!cap) return false;
+  return [driver.assignedTruck, driver.assignedTail].some(
+    (pairing) => capCode(pairing) === cap,
+  );
 }
 
 /**
@@ -191,13 +233,18 @@ export function liveTripFor(
   driver: Driver,
   trips: Trip[],
   excludeTripId?: string,
+  roster?: Driver[],
 ): Trip | undefined {
-  return liveTripsFor(driver, trips, excludeTripId)[0];
+  return liveTripsFor(driver, trips, excludeTripId, roster)[0];
 }
 
 /** Is this driver genuinely out on a live dispatch? */
-export function driverIsOnLiveTrip(driver: Driver, trips: Trip[]): boolean {
-  return liveTripFor(driver, trips) !== undefined;
+export function driverIsOnLiveTrip(
+  driver: Driver,
+  trips: Trip[],
+  roster?: Driver[],
+): boolean {
+  return liveTripFor(driver, trips, undefined, roster) !== undefined;
 }
 
 /**
@@ -211,15 +258,23 @@ export function driverIsOnLiveTrip(driver: Driver, trips: Trip[]): boolean {
  * so the fleet desk still refused him and HR had to go Off Duty and back to get
  * anything to happen. The server's count cannot be missing.
  */
-export function driverOpenDispatchCount(driver: Driver, trips: Trip[]): number {
+export function driverOpenDispatchCount(
+  driver: Driver,
+  trips: Trip[],
+  roster?: Driver[],
+): number {
   const fromServer = Number((driver as { openDispatches?: unknown }).openDispatches);
   const server = Number.isFinite(fromServer) && fromServer > 0 ? fromServer : 0;
-  return Math.max(server, liveTripsFor(driver, trips).length);
+  return Math.max(server, liveTripsFor(driver, trips, undefined, roster).length);
 }
 
 /** Is this driver still committed to a dispatch the platform has not closed? */
-export function driverHasOpenDispatches(driver: Driver, trips: Trip[]): boolean {
-  return driverOpenDispatchCount(driver, trips) > 0;
+export function driverHasOpenDispatches(
+  driver: Driver,
+  trips: Trip[],
+  roster?: Driver[],
+): boolean {
+  return driverOpenDispatchCount(driver, trips, roster) > 0;
 }
 
 /**
@@ -260,8 +315,12 @@ export function releaseConfirmBody(driver: Driver, trips: Trip[], targetWord: st
  */
 export type DriverStatusWord = "On Trip" | "On Leave" | "Suspended" | "Active";
 
-export function driverStatusWord(driver: Driver, trips: Trip[]): DriverStatusWord {
-  if (driverHasOpenDispatches(driver, trips)) return "On Trip";
+export function driverStatusWord(
+  driver: Driver,
+  trips: Trip[],
+  roster?: Driver[],
+): DriverStatusWord {
+  if (driverHasOpenDispatches(driver, trips, roster)) return "On Trip";
   if (driver.status === "Off Duty") return "On Leave";
   if (driver.status === "Suspended") return "Suspended";
   return "Active";
@@ -287,8 +346,12 @@ export type DutyWord = DriverStatus | "In Transit";
  *                                  dispatch behind it is a stale record and
  *                                  the man is standing in the yard
  */
-export function displayDutyStatus(driver: Driver, trips: Trip[]): DutyWord {
-  if (driverHasOpenDispatches(driver, trips)) return "In Transit";
+export function displayDutyStatus(
+  driver: Driver,
+  trips: Trip[],
+  roster?: Driver[],
+): DutyWord {
+  if (driverHasOpenDispatches(driver, trips, roster)) return "In Transit";
   if (driver.status === "Off Duty" || driver.status === "Suspended") return driver.status;
   return "Available";
 }
@@ -313,7 +376,7 @@ export function dutyTally(
   let offDuty = 0;
   let suspended = 0;
   for (const driver of drivers) {
-    if (driverHasOpenDispatches(driver, trips)) {
+    if (driverHasOpenDispatches(driver, trips, drivers)) {
       inTransit += 1;
     } else if (driver.status === "Suspended") {
       suspended += 1;
@@ -333,9 +396,14 @@ export function dutyTally(
  * only respected when a live dispatch backs it up. A driver already out on a
  * job is never offered, so one man cannot be handed two trucks.
  */
-export function driverIsAssignable(driver: Driver, trips: Trip[], excludeTripId?: string): boolean {
+export function driverIsAssignable(
+  driver: Driver,
+  trips: Trip[],
+  excludeTripId?: string,
+  roster?: Driver[],
+): boolean {
   if (driver.status === "Suspended" || driver.status === "Off Duty") return false;
-  if (liveTripFor(driver, trips, excludeTripId) !== undefined) return false;
+  if (liveTripFor(driver, trips, excludeTripId, roster) !== undefined) return false;
   // With no dispatch in hand to exclude, the server's count is the truth: a man
   // the platform still has on the road is never offered a second truck, even if
   // this browser never managed to load the trip list.
@@ -351,7 +419,10 @@ export function assignableDrivers(
   trips: Trip[],
   excludeTripId?: string,
 ): Driver[] {
-  return drivers.filter((d) => driverIsAssignable(d, trips, excludeTripId));
+  // The roster itself rides along: shared names cannot borrow the other man's
+  // dispatch, so one Mohammed back at the yard stays offered while the other is
+  // out on his run.
+  return drivers.filter((d) => driverIsAssignable(d, trips, excludeTripId, drivers));
 }
 
 /**
@@ -364,8 +435,9 @@ export function assignableDrivers(
 export function staleDutyStatus(
   driver: Driver,
   trips: Trip[],
+  roster?: Driver[],
 ): "should-be-free" | "should-be-on-trip" | null {
-  const onTrip = driverIsOnLiveTrip(driver, trips);
+  const onTrip = driverIsOnLiveTrip(driver, trips, roster);
   if (driver.status === "On Trip" && !onTrip) return "should-be-free";
   if (onTrip && driver.status !== "On Trip") return "should-be-on-trip";
   return null;
