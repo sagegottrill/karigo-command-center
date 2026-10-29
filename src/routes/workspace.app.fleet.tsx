@@ -831,7 +831,14 @@ function FleetDispatchRequests() {
                               },
                             ]
                           : []),
+                        // RETURN BACK (Fortune, 29 Oct): an Awaiting-Approval
+                        // dispatch can carry an assignment the yard cannot honour
+                        // (a tail another open dispatch already holds). The TM's
+                        // way out is the same send-back Fleet Ops' own rows have —
+                        // clear the roster and hand it back with the reason,
+                        // instead of a menu that only offers Approve and Modify.
                         ...(fleetStatusOf(trip) === "Approved" ||
+                        fleetStatusOf(trip) === "Awaiting Approval" ||
                         fleetStatusOf(trip) === "Scheduled"
                           ? [
                               {
@@ -1120,7 +1127,12 @@ function FleetDispatchRequests() {
                                 },
                               ]
                             : []),
+                          // Same return-back as the card menu: the TM can hand an
+                          // Awaiting-Approval dispatch back to Fleet Ops with a
+                          // reason instead of choosing between only Approve and
+                          // Modify (Fortune, 29 Oct).
                           ...(fleetStatusOf(trip) === "Approved" ||
+                          fleetStatusOf(trip) === "Awaiting Approval" ||
                           fleetStatusOf(trip) === "Scheduled"
                             ? [
                                 {
