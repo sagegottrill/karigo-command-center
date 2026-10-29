@@ -6405,8 +6405,17 @@ app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Adm
     const limit = Math.min(Math.max(parseInt(String(req.query?.limit || '300'), 10) || 300, 1), 1000);
     const offset = Math.max(parseInt(String(req.query?.offset || '0'), 10) || 0, 0);
 
+    // PLUMBING-OFF-TRAIL (owner, 29 Oct 2026): the modules that exist for the
+    // machine — push-token registration churn, api/health probes — are not
+    // business acts. They stayed in the table but never reach the board: the
+    // client reads this trail to follow DISPATCH work, and a wall of
+    // "Anonymous Deleted push-tokens" reads as back-end noise ("why should
+    // they be seeing this?"). Sign-ins live in the Sign-in Reports tab.
+    const PLUMBING_MODULES = ['push-tokens', 'api', 'health'];
+
     const where: any = {};
     if (module) where.module = module;
+    else where.module = { notIn: PLUMBING_MODULES };
     if (user) where.user = user;
     if (kind === 'System') where.user = 'System';
     else if (kind) where.action = { startsWith: kind, mode: 'insensitive' };
@@ -6433,8 +6442,10 @@ app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Adm
       prisma.auditLog.findMany({ where, orderBy: { timestamp: 'desc' }, take: limit, skip: offset }),
       prisma.auditLog.count({ where }),
       // Facets read the WHOLE trail (not the current filter) — the chips must
-      // keep their counts even while one module is selected.
-      prisma.auditLog.groupBy({ by: ['module'], _count: { _all: true } }),
+      // keep their counts even while one module is selected. The plumbing
+      // modules stay off the chip rail for the same reason they stay off the
+      // board: they are the machine's work, not the business's.
+      prisma.auditLog.groupBy({ by: ['module'], _count: { _all: true }, where: { module: { notIn: PLUMBING_MODULES } } }),
       prisma.auditLog.groupBy({ by: ['user'], _count: { _all: true } }),
     ]);
     const modules = byModule
