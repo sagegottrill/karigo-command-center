@@ -124,6 +124,10 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
     case "Stopped":
       return "Declined";
     case "Completed":
+    // The TM's field endings close the run (Fordune choice at the board, 28 Oct) —
+    // history reads them as completed work either way.
+    case "Returned to Customer":
+    case "Returned to Fleet Ops":
       return "Completed";
     default: {
       const _exhaustive: never = status;

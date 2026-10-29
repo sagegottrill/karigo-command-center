@@ -19,6 +19,7 @@ import {
   formatTableDate,
 } from "@/lib/fleetopsx/display-dates";
 import { tripLoadingSites } from "@/lib/fleetopsx/tracking-ops";
+import { completeTripReturn } from "@/lib/fleetopsx/return-trip";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
   daysToReturnDate,
@@ -113,6 +114,11 @@ type FleetStatus =
   | "Scheduled"
   | "In Transit"
   | "Completed"
+  // The field endings (Fortune, 28 Oct): a partner can cancel a trip that is
+  // already on the road; the TM closes the run with the word that says where
+  // the vehicle went.
+  | "Returned to Customer"
+  | "Returned to Fleet Ops"
   | "Declined";
 
 /**
@@ -132,6 +138,8 @@ const STATUS_FILTERS: Array<"All" | FleetStatus> = [
   "Scheduled",
   "In Transit",
   "Completed",
+  "Returned to Customer",
+  "Returned to Fleet Ops",
   "Declined",
 ];
 
@@ -167,6 +175,8 @@ const FLEET_QUEUE_RANK: Record<string, number> = {
   Scheduled: 2,
   "In Transit": 3,
   Completed: 4,
+  "Returned to Customer": 4,
+  "Returned to Fleet Ops": 4,
   Declined: 5,
 };
 
@@ -188,6 +198,10 @@ const STATUS_HINT: Record<FleetStatus, string> = {
   Scheduled: "Approved and scheduled — the truck is on the dispatch board.",
   "In Transit": "The truck is out of the yard and moving — see it on Tracking Operations.",
   Completed: "Delivered — the dispatch is closed.",
+  "Returned to Customer":
+    "The run was closed with the load back at the customer (e.g. canceled while in transit). The vehicle drives home empty and is checked in at the gate.",
+  "Returned to Fleet Ops":
+    "The truck is back with the yard — the dispatch is closed and its head/tail move to Check Up.",
   Declined: "Rejected by the Transport Manager.",
 };
 
@@ -206,8 +220,12 @@ function StatusPill({ status, note }: { status: FleetStatus; note?: string }) {
             ? "bg-[#CB30E0] text-white"
             : status === "In Transit"
               ? "bg-[#30B0C7] text-white"
-              : // Amber needs dark text: white on #FC0 was barely legible.
-                "bg-[#FC0] text-[#1B2432]";
+              : // The field endings read as closed-but-different: sober slate,
+                // not the delivery blue.
+                status === "Returned to Customer" || status === "Returned to Fleet Ops"
+                ? "bg-[#627084] text-white"
+                : // Amber needs dark text: white on #FC0 was barely legible.
+                  "bg-[#FC0] text-[#1B2432]";
   return (
     <span
       title={
@@ -280,6 +298,9 @@ function FleetDispatchRequests() {
   const [sendBackTrip, setSendBackTrip] = useState<Trip | null>(null);
   const [sendBackNote, setSendBackNote] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
+  // Which In Transit row is being closed right now — the menu items disable
+  // while the closure travels, so a double press cannot close it twice.
+  const [closingId, setClosingId] = useState<string | null>(null);
   // The TM's estimated dispatch date. Deliberately its own small action: a
   // request can be given a working date before Fleet Ops has picked a truck,
   // which the full Modify form cannot do (it demands the whole assignment).
@@ -616,6 +637,46 @@ function FleetDispatchRequests() {
     }
   };
 
+  /**
+   * Closing an In Transit run from this board (Fortune, 28 Oct): a partner can
+   * cancel while the truck is already on the road, and until now the TM had NO
+   * way to end such a run — only the gate or Tracking could. Two endings, the
+   * same truth as the gate's return (eta stamp, driver released); the word on
+   * the record says which way the vehicle went.
+   */
+  const closeInTransit = async (
+    trip: Trip,
+    endStatus: "Returned to Customer" | "Returned to Fleet Ops",
+  ) => {
+    if (closingId) return;
+    setMenuFor(null);
+    setDetail(null);
+    setClosingId(trip.id);
+    try {
+      const { marked } = await completeTripReturn(trip, endStatus);
+      toast.success(`Dispatch ${dispatchId(trip)} — ${endStatus}.`, {
+        description:
+          endStatus === "Returned to Fleet Ops"
+            ? marked
+              ? "Truck and tail are on Check Up; the driver is released."
+              : "Run closed — confirm the truck's Check Up from the Fleet Registry if it did not move."
+            : "Run closed while the vehicle is still on the road — the gate will log it in when it reaches the yard.",
+      });
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      const fresh = await tripService.list();
+      setTrips(fresh);
+    } catch (err) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      toast.error(
+        offline
+          ? "You are offline — the dispatch is UNCHANGED. Reconnect and try again."
+          : `Failed to close the dispatch: ${err instanceof Error ? err.message : "network error"}.`,
+      );
+    } finally {
+      setClosingId(null);
+    }
+  };
+
   return (
     <>
       {/* Figma desktop 480:15035 · mobile 480:2112 */}
@@ -737,6 +798,25 @@ function FleetDispatchRequests() {
                       items={[
                         { label: "View Details", onSelect: () => setDetail(trip) },
                         { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
+                        // In Transit done by hand: the partner canceled, or the
+                        // truck is back. The two field endings live beside the
+                        // ordinary items — see closeInTransit (Fortune, 28 Oct).
+                        ...(fleetStatusOf(trip) === "In Transit"
+                          ? [
+                              {
+                                label:
+                                  closingId === trip.id ? "Closing…" : "Returned to Customer",
+                                onSelect: () => void closeInTransit(trip, "Returned to Customer"),
+                                disabled: closingId === trip.id,
+                              },
+                              {
+                                label:
+                                  closingId === trip.id ? "Closing…" : "Returned to Fleet Ops",
+                                onSelect: () => void closeInTransit(trip, "Returned to Fleet Ops"),
+                                disabled: closingId === trip.id,
+                              },
+                            ]
+                          : []),
                         ...(fleetStatusOf(trip) === "Awaiting Approval" ||
                         fleetStatusOf(trip) === "Approved" ||
                         fleetStatusOf(trip) === "Scheduled"
@@ -1006,6 +1086,26 @@ function FleetDispatchRequests() {
                           // The date the truck leaves AND how long it will be gone —
                           // the two halves of the promise the partner is given.
                           { label: "Set Date & Duration", onSelect: () => openEstimate(trip) },
+                          // In Transit closed by hand — the same field endings as
+                          // the phone cards' menu above (identical items, one handler).
+                          ...(fleetStatusOf(trip) === "In Transit"
+                            ? [
+                                {
+                                  label:
+                                    closingId === trip.id ? "Closing…" : "Returned to Customer",
+                                  onSelect: () =>
+                                    void closeInTransit(trip, "Returned to Customer"),
+                                  disabled: closingId === trip.id,
+                                },
+                                {
+                                  label:
+                                    closingId === trip.id ? "Closing…" : "Returned to Fleet Ops",
+                                  onSelect: () =>
+                                    void closeInTransit(trip, "Returned to Fleet Ops"),
+                                  disabled: closingId === trip.id,
+                                },
+                              ]
+                            : []),
                           ...(fleetStatusOf(trip) === "Awaiting Approval" ||
                           fleetStatusOf(trip) === "Approved" ||
                           fleetStatusOf(trip) === "Scheduled"

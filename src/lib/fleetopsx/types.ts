@@ -185,6 +185,11 @@ export type TripStatus =
   | "Returning"
   | "Delayed"
   | "Completed"
+  // The Transport Manager's field endings for a run closed off the gate (Fortune,
+  // 28 Oct): a partner can cancel while the truck is already In Transit, and he
+  // closes it as either returned to the customer or back with Fleet Operations.
+  | "Returned to Customer"
+  | "Returned to Fleet Ops"
   | "Stopped";
 
 export interface Trip {

@@ -41,6 +41,9 @@ function toPartnerStatus(trip: {
     case "Stopped":
       return "Declined";
     case "Completed":
+    // The TM's field endings close the run — partners read them as Completed.
+    case "Returned to Customer":
+    case "Returned to Fleet Ops":
       return "Completed";
     case "En Route":
     case "Loaded":

@@ -64,6 +64,13 @@ const BUCKET_BY_STATUS: Record<string, TripBucket> = {
   Returning: "inTransit",
   Delayed: "inTransit",
   Completed: "completed",
+  // The Transport Manager's field endings (Fortune, 28 Oct): a run closed off
+  // the gate is finished for every surface — the partner sees Completed, the
+  // tracking boards drop it, the sweeps leave it alone. The WORD the TM chose
+  // stays on the record so Fleet Ops can tell a customer return from a truck
+  // the yard has physically taken back.
+  "Returned to Customer": "completed",
+  "Returned to Fleet Ops": "completed",
 };
 
 export function tripBucket(

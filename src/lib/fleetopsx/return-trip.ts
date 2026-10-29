@@ -34,7 +34,20 @@ export function returnStampNow(): string {
   });
 }
 
-export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean }> {
+/**
+ * The word a closed run carries. The gate, the dispatch detail page and the
+ * Transport Manager all close via the ONE path below — only the end word
+ * differs.
+ */
+export type TripEndStatus =
+  | "Completed" // the ordinary end: delivered and physically back, checked in at the gate
+  | "Returned to Customer" // the partner canceled while in transit — the load goes back to them
+  | "Returned to Fleet Ops"; // the yard has taken the truck back
+
+export async function completeTripReturn(
+  trip: Trip,
+  endStatus: TripEndStatus = "Completed",
+): Promise<{ marked: boolean }> {
   // WHO logged the return — the signed-in account that pressed the button,
   // carried onto the guard ledger verbatim (24 Oct 2026). The old code refused
   // Traffic/Manager names and invented "Petroline Security" instead, an account
@@ -53,7 +66,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
     return undefined;
   })();
   await tripService.update(trip.id, {
-    status: "Completed",
+    status: endStatus,
     eta: returnStampNow(),
     ...(gateInBy ? { gateInBy } : {}),
   });
@@ -66,6 +79,12 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
   const cap = displayCapFromTrip(trip) || "";
   let marked = false;
 
+  // The vehicle's books close as IN-THE-YARD only when it is actually here.
+  // A run returned to the CUSTOMER still has a truck driving home empty — the
+  // gate will check it in and set Check Up when it physically arrives, so its
+  // head/tail keep their road status in the meantime.
+  const vehicleBackInYard = endStatus !== "Returned to Customer";
+
   try {
     const heads = await fleetService.listHeads();
     const head =
@@ -74,7 +93,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         ? heads.find((h) => h.registration.replace(/\s/g, "").toUpperCase() === plate)
         : undefined) ??
       heads.find((h) => cap && cap !== "—" && (displayHeadCap(h) === cap || h.number === cap));
-    if (head) {
+    if (vehicleBackInYard && head) {
       await fleetService.updateHeadStatus(
         head.id,
         "Check Up",
@@ -92,7 +111,7 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
         (t) =>
           t.number.replace(/\s/g, "").toUpperCase() === tailCode.replace(/\s/g, "").toUpperCase(),
       );
-      if (tail && (tail.status === "Assigned" || tail.status === "Out of Yard")) {
+      if (vehicleBackInYard && tail && (tail.status === "Assigned" || tail.status === "Out of Yard")) {
         await fleetService.updateTailStatus(tail.id, "Check Up", tail.number);
         marked = true;
       }
@@ -126,12 +145,21 @@ export async function completeTripReturn(trip: Trip): Promise<{ marked: boolean 
     /* the return itself must stand even if the asset row cannot be updated */
   }
 
-  void notificationService.create({
-    title: "Truck returned — check-up required",
-    body: `${plate || cap || "Truck"} is back in the yard${marked ? " and is now on Check Up" : ""}. Confirm Available or Maintenance.`,
-    category: "Operations",
-    audience: "Engineering,Transport Manager,Fleet Operations,Platform Admin",
-  });
+  void notificationService.create(
+    endStatus === "Returned to Customer"
+      ? {
+          title: "Trip returned to customer",
+          body: `${plate || cap || "Truck"} was returned to the customer — the dispatch is closed while the vehicle is still on the road. The gate must log its return when it reaches the yard.`,
+          category: "Operations" as const,
+          audience: "Transport Manager,Fleet Operations,Platform Admin",
+        }
+      : {
+          title: "Truck returned — check-up required",
+          body: `${plate || cap || "Truck"} is back in the yard${marked ? " and is now on Check Up" : ""}. Confirm Available or Maintenance.`,
+          category: "Operations" as const,
+          audience: "Engineering,Transport Manager,Fleet Operations,Platform Admin",
+        },
+  );
 
   return { marked };
 }
