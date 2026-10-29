@@ -4019,11 +4019,16 @@ async function lubricantPending(limit = 200) {
     if (['Stopped', 'Declined', 'Completed', 'Returning', 'Returned'].includes(String(t.status))) continue;
     const req = tripLubricantRequest(t.directCosts);
     if (!req) continue;
-    // The TM's final approval IS the release: a Scheduled or moving dispatch
-    // was cleared when it was scheduled and must never sit here as waiting —
-    // and a declined trip is dead, not pending. The gate rides the row so
-    // every reader asks the same question.
-    pending.push({ trip: t, request: req, gate: lubricantGate(t.status) });
+    // THE DESK SEES ONLY WHAT THE TM HAS RELEASED (Fortune, 29 Oct 2026): his
+    // final approval is the release — Scheduled or already moving. A dispatch
+    // still Awaiting Approval or sitting Approved-but-unscheduled used to ride
+    // this list with a gate: 'waiting' tag, and the desk read a card with a
+    // Disburse button on work the TM had not cleared ("TM has not approved
+    // fleet dispatch so why is it showing in diesel here"). The pour endpoint
+    // already refuses an un-released trip; the board now agrees with it — no
+    // card, no invitation.
+    if (lubricantGate(t.status) !== 'released') continue;
+    pending.push({ trip: t, request: req, gate: 'released' });
     if (pending.length >= limit) break;
   }
   return pending;
