@@ -1574,17 +1574,22 @@ function truckKeysOf(trip: any): string[] {
   const out = new Set<string>();
   for (const v of [trip?.truckReg, trip?.tailNumber]) {
     const whole = TRUCK_KEY(v);
-    if (whole.length > 2) out.add(whole);
+    if (whole.length > 3) out.add(whole);
     for (const token of String(v || '').split(/[^0-9a-zA-Z]+/)) {
       const k = TRUCK_KEY(token);
-      if (k && k.length > 2) out.add(k);
+      // TOKEN:FLOOR-4 (29 Oct 2026, the "wrong error" ticket): identity in this
+      // fleet is never shorter than four characters — caps are P0xx, tails
+      // B0xx, plates longer. A 3-char fragment is a hyphen artifact ("ABC" out
+      // of TEST-ABC-123 and ABC-GRA-67 alike) and under exact equality it
+      // made two DIFFERENT trucks clash on approval. Four or more, or not at all.
+      if (k && k.length > 3) out.add(k);
     }
   }
   return Array.from(out);
 }
 
 function truckMatches(truck: any, keys: string[]): boolean {
-  const own = [TRUCK_KEY(truck?.registration), TRUCK_KEY(truck?.cabId)].filter((k) => k.length > 2);
+  const own = [TRUCK_KEY(truck?.registration), TRUCK_KEY(truck?.cabId)].filter((k) => k.length > 3);
   // TRUCKMATCH:V2 (29 Oct 2026) — EXACT token equality only. The bidirectional
   // containment arm ("k.includes(o) || o.includes(k)") is how cap and plate
   // families moved each other: key "P062" contains "P06" and "B1001"
@@ -1688,12 +1693,12 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
     // 2-3 char text is a substring of half the fleet's plates and tails, and
     // matching on it closed whole families of dispatches in one request. One
     // return closes one truck's trips, exactly.
-    const tokens = raw.split(/[\s/]+/).map((v) => TRUCK_KEY(v)).filter((k) => k.length >= 3);
-    if (key.length < 3) {
+    const tokens = raw.split(/[\s/]+/).map((v) => TRUCK_KEY(v)).filter((k) => k.length >= SAFE_MIN_KEY);
+    if (key.length < SAFE_MIN_KEY) {
       return res.status(400).json({ error: 'That input is too short to match a truck safely — type the full cap number or plate.' });
     }
     const trucks = await prisma.truck.findMany();
-    const ownKeys = (t: any) => [TRUCK_KEY(t.registration), TRUCK_KEY(t.cabId)].filter((k: string) => k.length >= 3);
+    const ownKeys = (t: any) => [TRUCK_KEY(t.registration), TRUCK_KEY(t.cabId)].filter((k: string) => k.length >= SAFE_MIN_KEY);
     const truck = trucks.find((t) => [...tokens, key].some((m) => ownKeys(t).includes(m))) || null;
     // GATERETURN:V4 — match on the RESOLVED truck, not only the typed text. A
     // guard who logs "071" names the cap number; the dispatch's truckReg may
@@ -1750,7 +1755,7 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
       if (closedIds.has(String(t2.id))) continue;
       for (const v of [t2.tailNumber, String(t2.truckReg || '').split('/')[1]]) {
         const k = TRUCK_KEY(v);
-        if (k.length > 2) stillBookedTailKeys.add(k);
+        if (k.length > 3) stillBookedTailKeys.add(k);
       }
     }
 
@@ -2022,7 +2027,7 @@ async function sweepReturnedTrucks(): Promise<number> {
       for (const k of String(ge.truckReg || '')
         .split(/[^0-9a-zA-Z]+/)
         .map((v) => TRUCK_KEY(v))
-        .filter((k) => k.length > 2)) {
+        .filter((k) => k.length > 3)) {
         const cur = homeStampBy.get(k);
         if (!cur || stamp > cur) homeStampBy.set(k, stamp);
       }
@@ -2255,7 +2260,7 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
       String(entry.truckReg || '')
         .split(/[^0-9a-zA-Z]+/)
         .map((v) => TRUCK_KEY(v))
-        .filter((k) => k.length > 2),
+        .filter((k) => k.length > 3),
     );
     const stampDriver = String(entry.driver || '').trim().toUpperCase();
     const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
@@ -2306,7 +2311,7 @@ if (entry.type === 'Departure' && (entry.truckReg || entry.driver)) {
         String(entry.truckReg || '')
           .split(/[^0-9a-zA-Z]+/)
           .map((v) => TRUCK_KEY(v))
-          .filter((k) => k.length > 2),
+          .filter((k) => k.length > 3),
       );
       const driverName = String(entry.driver || '').trim().toUpperCase();
       const openTrips = await prisma.trip.findMany({ where: { status: { in: OPEN_TRIP_STATUSES } } });
