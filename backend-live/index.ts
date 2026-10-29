@@ -1146,11 +1146,29 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
         const listing = clash
           .map((t) => dispatchRef(t.id) + ' (' + t.status + (t.driverName ? ' · ' + t.driverName : '') + ', ' + String(t.truckReg) + ')')
           .join('; ');
+        // SPEAK THE BLOCKING ASSET (Fortune, 29 Oct: "this error is wrong"): a
+        // clash on the TAIL reads as "this truck" and sends the TM hunting a
+        // truck that is fine — the head is free, the BODY is out on another
+        // load. Name which one it is and the way out: the tail goes back via
+        // Send Back to Fleet Ops for a re-pick, the truck via closing that
+        // dispatch if it is physically home.
+        const ownHead = TRUCK_KEY(String(ownReg).split('/')[0] || '');
+        const ownTail = TRUCK_KEY(String(data.tailNumber ?? before.tailNumber ?? '') || String(ownReg).split('/')[1] || '');
+        const tailClash = clash.some((t) => {
+          if (!ownTail || ownTail.length < 4) return false;
+          const theirs = [t.tailNumber, String(t.truckReg || '').split('/')[1]].map((v) => TRUCK_KEY(v));
+          return theirs.includes(ownTail);
+        });
+        const headClash = clash.some((t) => ownHead && ownHead.length >= 4 && truckKeysOf(t).includes(ownHead));
+        const what = tailClash && !headClash
+          ? 'The tail ' + (String(data.tailNumber ?? before.tailNumber ?? '').trim() || String(ownReg).split('/')[1] || '').trim() + ' on this request is already out on an open dispatch'
+          : 'This truck already carries an open dispatch';
+        const wayOut = tailClash && !headClash
+          ? 'Send this request back to Fleet Operations to pick another tail, or close that dispatch if the body is physically back.'
+          : 'Send this request back to Fleet Operations for a re-assignment, or close that dispatch if the truck is physically back in the yard.';
         return res.status(409).json({
           error:
-            clash.length === 1
-              ? 'This truck already carries an open dispatch — ' + listing + '. Close or reassign that dispatch before scheduling another on the same truck.'
-              : clash.length + ' open dispatches already name this truck — ' + listing + '. Close or reassign them before scheduling another on the same truck.',
+            what + ' — ' + listing + '. ' + wayOut,
           conflict: clash.map((t) => t.id),
         });
       }
