@@ -9,11 +9,17 @@ import { FilterButton } from "@/components/fleetopsx/filter-button";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
-import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
-import { authService, fleetService } from "@/lib/fleetopsx/services";
+import { displayDriverSalary, displayHeadCap } from "@/lib/fleetopsx/display-ids";
+import {
+  authService,
+  driverService,
+  fleetService,
+  tripService,
+} from "@/lib/fleetopsx/services";
 import { headCategoryOptions, tailBodyOptions } from "@/lib/fleetopsx/asset-options";
+import { driverForHead } from "@/lib/fleetopsx/driver-duty";
 import { csvRow } from "@/lib/fleetopsx/csv";
-import type { TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
+import type { Driver, Trip, TruckHead, TruckStatus, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/fleet-registry")({
@@ -57,10 +63,16 @@ const ASSET_STATUS_ORDER: TruckStatus[] = [
  * edit, block, retire) gets one extra narrow track for its menu — Fleet Ops,
  * which only reads and re-states, sees the same table without it.
  */
-const registryGrid = (canAct: boolean) =>
-  canAct
-    ? "grid-cols-[122px_132px_1fr_120px_120px_44px] gap-x-8"
-    : "grid-cols-[146px_146px_1fr_140px_140px] gap-[50px]";
+/** Tails carry no driver, so their rows keep the narrower 5-column shape the
+ * heads used before the salary column was added. */
+const registryGrid = (canAct: boolean, tab: AssetTab) =>
+  tab === "head"
+    ? canAct
+      ? "grid-cols-[122px_132px_minmax(160px,1fr)_120px_120px_44px] gap-x-8"
+      : "grid-cols-[146px_146px_minmax(180px,1fr)_140px_140px] gap-[50px]"
+    : canAct
+      ? "grid-cols-[122px_132px_1fr_120px_120px_44px] gap-x-8"
+      : "grid-cols-[146px_146px_1fr_140px_140px] gap-[50px]";
 
 /** Where an asset sits when it is not on a trip. The client's sheet only ever uses
  * Port or Customer; Depot is the fallback for assets without a sheet location. */
@@ -176,6 +188,7 @@ function printFleetReport({
   tab,
   filterLabel,
   query,
+  pairOf,
 }: {
   heads: TruckHead[];
   tails: TruckTail[];
@@ -183,6 +196,8 @@ function printFleetReport({
   tab: AssetTab;
   filterLabel: string;
   query: string;
+  /** The printed sheet must read the same pairing the table shows. */
+  pairOf?: (head: TruckHead) => string;
 }) {
   const htmlEsc = (value: string) =>
     value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -191,13 +206,21 @@ function printFleetReport({
     const tails_ = countByStatus(tails, status);
     return `<tr><td>${status}</td><td class="n">${heads_}</td><td class="n">${tails_}</td><td class="n">${heads_ + tails_}</td></tr>`;
   }).join("");
+  const columns =
+    tab === "head"
+      ? `<th>Head No</th><th>Registration</th><th>Driver (Salary No)</th><th>Category</th><th>Status</th><th>Location</th>`
+      : `<th>Tail No</th><th>Registration</th><th>Body</th><th>Status</th><th>Location</th>`;
   const detailRows = listing
     .map((item) => {
       const head = tab === "head" ? (item as TruckHead) : undefined;
       const tail = tab === "tail" ? (item as TruckTail) : undefined;
       return `<tr><td>${htmlEsc(head ? headLabel(head) : (tail?.number ?? ""))}</td><td>${htmlEsc(
         item.registration || "—",
-      )}</td><td>${htmlEsc(head ? head.make : (tail?.type ?? ""))}</td><td>${htmlEsc(
+      )}</td>${
+        head
+          ? `<td>${htmlEsc(pairOf ? pairOf(head) : "—")}</td>`
+          : ""
+      }<td>${htmlEsc(head ? head.make : (tail?.type ?? ""))}</td><td>${htmlEsc(
         item.status,
       )}</td><td>${htmlEsc(item.location || "—")}</td></tr>`;
     })
@@ -251,8 +274,8 @@ function printFleetReport({
     </table>
     <h2>${tab === "head" ? "Truck Heads" : "Truck Tails"} (${listing.length})</h2>
     <table>
-      <tr><th>${tab === "head" ? "Head No" : "Tail No"}</th><th>Registration</th><th>${tab === "head" ? "Category" : "Body"}</th><th>Status</th><th>Location</th></tr>
-      ${detailRows || `<tr><td colspan="5">No records.</td></tr>`}
+      <tr>${columns}</tr>
+      ${detailRows || `<tr><td colspan="${tab === "head" ? 6 : 5}">No records.</td></tr>`}
     </table>
     <div class="sign">Prepared by:<br/><span>${htmlEsc(preparedBy || "")}</span></div>
     <script>window.onload = function () { window.print(); };</script>
@@ -296,6 +319,10 @@ function FleetRegistryPage() {
   const navigate = useNavigate();
   const [heads, setHeads] = useState<TruckHead[]>([]);
   const [tails, setTails] = useState<TruckTail[]>([]);
+  // The payroll pairing: without these two lists a returned truck's row cannot
+  // name the salary-numbered man it belongs to, and the fleet desk is-blind.
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<AssetTab>("head");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
@@ -324,19 +351,33 @@ function FleetRegistryPage() {
       navigate({ to: "/workspace/app/unauthorized", replace: true });
       return;
     }
-    void Promise.all([fleetService.listHeads(), fleetService.listTails()])
-      .then(([h, t]) => {
+    void Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+      driverService.list().catch(() => []),
+      tripService.list(),
+    ])
+      .then(([h, t, ds, ts]) => {
         setHeads(h);
         setTails(t);
+        setDrivers(ds);
+        setTrips(ts);
       })
       .finally(() => setLoading(false));
   }, [navigate]);
 
   const refresh = () => {
-    void Promise.all([fleetService.listHeads(), fleetService.listTails()])
-      .then(([h, t]) => {
+    void Promise.all([
+      fleetService.listHeads(),
+      fleetService.listTails(),
+      driverService.list().catch(() => []),
+      tripService.list(),
+    ])
+      .then(([h, t, ds, ts]) => {
         setHeads(h);
         setTails(t);
+        setDrivers(ds);
+        setTrips(ts);
       })
       .catch(() => toast.error("Could not refresh fleet list"));
   };
@@ -489,17 +530,38 @@ function FleetRegistryPage() {
 
   const listing = tab === "head" ? heads : tails;
 
+  /**
+   * The salary-numbered pair for every head at the moment the page loads —
+   * never computed inside a render. Unpairable stays a blank: no guesses.
+   */
+  const driverByHeadId = useMemo(() => {
+    const byId = new Map<string, Driver>();
+    for (const head of heads) {
+      const match = driverForHead(head, drivers, trips);
+      if (match) byId.set(head.id, match.driver);
+    }
+    return byId;
+  }, [heads, drivers, trips]);
+
+  /** One cell: the salary number first, then the man who answers to it. */
+  const pairOf = (head: TruckHead) => {
+    const d = driverByHeadId.get(head.id);
+    if (!d) return "—";
+    const salary = displayDriverSalary(d);
+    return salary ? `${salary} · ${d.name}` : d.name;
+  };
+
   const filtered = useMemo(() => {
     return listing.filter((item) => {
       if (statusFilter !== "All" && item.status !== statusFilter) return false;
       const hay =
         tab === "head"
-          ? `${headLabel(item as TruckHead)} ${(item as TruckHead).capNumber ?? ""} ${item.number} ${item.registration} ${(item as TruckHead).make} ${item.location} ${item.status}`
+          ? `${headLabel(item as TruckHead)} ${(item as TruckHead).capNumber ?? ""} ${item.number} ${item.registration} ${(item as TruckHead).make} ${item.location} ${item.status} ${pairOf(item as TruckHead)}`
           : `${item.number} ${item.registration} ${(item as TruckTail).type} ${item.location} ${item.status}`;
       // Loose match: "b 010" finds tail B010, "p-017" finds cap P017.
       return matchesQuery(hay, query);
     });
-  }, [listing, statusFilter, query, tab]);
+  }, [listing, statusFilter, query, tab, driverByHeadId]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -510,15 +572,18 @@ function FleetRegistryPage() {
   const exportCSV = () => {
     const header =
       tab === "head"
-        ? "Head No,Registration,Category,Status,Location"
+        ? "Head No,Registration,Salary No,Driver,Category,Status,Location"
         : "Tail No,Registration,Body,Status,Location";
     const csv = filtered
       .map((item) => {
         if (tab === "head") {
           const head = item as TruckHead;
+          const d = driverByHeadId.get(head.id);
           return csvRow([
             headLabel(head),
             head.registration,
+            d ? displayDriverSalary(d) || "" : "",
+            d ? d.name : "",
             head.make,
             head.status,
             head.location,
@@ -648,6 +713,7 @@ function FleetRegistryPage() {
                   tab,
                   filterLabel: statusFilter,
                   query,
+                  pairOf,
                 })
               }
               className="flex h-9 shrink-0 items-center gap-1.5 rounded bg-[#1B2432] px-3 text-[13px] font-medium tracking-[0.4px] text-white md:text-[14px]"
@@ -731,11 +797,11 @@ function FleetRegistryPage() {
           <div
             className={cn(
               "hidden items-center border-b border-[#E2E5E9] py-2.5 md:grid",
-              registryGrid(canManageFleet),
+              registryGrid(canManageFleet, tab),
             )}
           >
             {(tab === "head"
-              ? ["Head No", "Registration", "Category", "Status", "Location"]
+              ? ["Head No", "Registration", "Driver (Salary No)", "Category", "Status", "Location"]
               : ["Tail No", "Registration", "Body", "Status", "Location"]
             ).map((h) => (
               <span key={h} className="text-[14px] font-semibold tracking-[0.4px] text-[#1B2432]">
@@ -770,6 +836,18 @@ function FleetRegistryPage() {
                   <span className="text-[14px] font-medium tracking-[0.4px] text-[#ED351D]">
                     {item.registration || "—"}
                   </span>
+                  {head ? (
+                    <span
+                      className="text-[13px] tracking-[0.4px] text-[#5C6470]"
+                      title={
+                        driverByHeadId.get(head.id)
+                          ? "The payroll number and driver paired to this truck"
+                          : "Not paired — the fleet desk must complete the cycle before this row can show a salary number"
+                      }
+                    >
+                      Driver: {pairOf(head)}
+                    </span>
+                  ) : null}
                   {/* Editable kind: a tail's body / a head's category. */}
                   <select
                     value={head ? head.make : tail?.type || "Trailer"}
@@ -839,7 +917,7 @@ function FleetRegistryPage() {
                   key={item.id}
                   className={cn(
                     "grid items-center border-b border-[#E2E5E9] py-2.5",
-                    registryGrid(canManageFleet),
+                    registryGrid(canManageFleet, tab),
                   )}
                 >
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
@@ -847,6 +925,16 @@ function FleetRegistryPage() {
                   </span>
                   <span className="text-[14px] tracking-[0.4px] text-[#5C6470]">
                     {item.registration}
+                  </span>
+                  <span
+                    className="truncate text-[14px] tracking-[0.4px] text-[#5C6470]"
+                    title={
+                      head && driverByHeadId.get(head.id)
+                        ? "The payroll number and driver paired to this truck"
+                        : undefined
+                    }
+                  >
+                    {head ? pairOf(head) : "—"}
                   </span>
                   {/* Editable kind: a tail's body / a head's category. */}
                   <select

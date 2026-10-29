@@ -1,6 +1,6 @@
-import { displayCapFromTrip } from "./display-ids";
+import { displayCapFromTrip, displayHeadCap, displayPlateFromTrip } from "./display-ids";
 import { displayDispatchId } from "./request-id";
-import type { Driver, DriverStatus, Trip } from "./types";
+import type { Driver, DriverStatus, TruckHead, Trip } from "./types";
 
 /**
  * Who may be put on a dispatch, decided by the LIVE DISPATCH and not by the
@@ -87,6 +87,67 @@ function capCode(value: unknown): string {
  * way say so rather than presenting a guess as a record.
  */
 export type TripDriverMatchVia = "id" | "name" | "token" | "truck";
+
+/** How a truck's driver was resolved: HR's pairing columns, or the man the most recent dispatch put on it. */
+export type HeadDriverMatchVia = "pairing" | "history";
+
+/**
+ * The salary-numbered man a TRUCK belongs to — the pairing the fleet desk reads
+ * when it flips a returned truck from Check Up to Available and needs the driver
+ * details behind it (28 Oct: trucks back under Check Up printed no salary number
+ * at all, because the pairing only existed in HR's columns and a third of the
+ * roster rows carry none).
+ *
+ * Two truths, in order of how much they say:
+ *   1. HR's pairing columns — exactly one roster row naming this truck's cap
+ *      (assignedTruck/assignedTail). Ambiguous rows give way: the pairing data
+ *      is sparse and two rows naming one cap is exactly half the problem.
+ *   2. The dispatch record — the most recent dispatch that names this truck,
+ *      resolved through the same driver-for-trip rules every board already
+ *      trusts (exact name, token, or the truck binding the shared name). This
+ *      is the part that "works together with the return": a run CLOSED by the
+ *      gate or the TM still carries the man who brought the truck home.
+ *
+ * A wrong pairing is worse than a blank one — anything unresolvable stays a
+ * blank cell, never a guess.
+ */
+export function driverForHead(
+  head: TruckHead,
+  drivers: Driver[],
+  trips: Trip[],
+): { driver: Driver; via: HeadDriverMatchVia } | undefined {
+  const cap = capCode(displayHeadCap(head));
+
+  if (cap) {
+    const paired = soleRow(
+      drivers.filter((d) =>
+        [d.assignedTruck, d.assignedTail].some((v) => capCode(v) === cap),
+      ),
+    );
+    if (paired) return { driver: paired, via: "pairing" };
+  }
+
+  // Dispatch truth: the latest dispatch on THIS truck, whichever way the plate
+  // is spelled on the two rows. dispatchId-ordered, newest first.
+  const plateNorm = normPersonName(head.registration).replace(/\s/g, "");
+  if (!cap && !plateNorm) return undefined;
+  const history = trips
+    .filter((t) => {
+      if (cap && capCode(displayCapFromTrip(t)) === cap) return true;
+      const plate = normPersonName(displayPlateFromTrip(t)).replace(/\s/g, "");
+      return Boolean(plate && plateNorm && plate === plateNorm);
+    })
+    .sort((a, b) => {
+      const ta = new Date(a.dispatchedAt ?? a.updatedAt ?? a.createdAt ?? 0).getTime();
+      const tb = new Date(b.dispatchedAt ?? b.updatedAt ?? b.createdAt ?? 0).getTime();
+      return tb - ta;
+    });
+  for (const trip of history.slice(0, 3)) {
+    const match = driverForTrip(trip, drivers);
+    if (match) return { driver: match.driver, via: "history" };
+  }
+  return undefined;
+}
 
 export type TripDriverMatch = { driver: Driver; via: TripDriverMatchVia };
 
