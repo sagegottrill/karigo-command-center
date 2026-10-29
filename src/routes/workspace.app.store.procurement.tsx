@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ListTree } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
@@ -7,14 +6,14 @@ import { RequestProcurementModal } from "@/components/fleetopsx/store-request-pr
 import {
   CardShell,
   CountBadge,
-  FamilyTabs,
+  Dropdown,
   PagerFooter,
   SearchField,
-  STORE_TAB_LABEL,
+  FAMILY_OPTIONS,
   StatusPill,
   StorePageShell,
-  classOfItem,
-  classOfPo,
+  familyFromOption,
+  familyOfPo,
   csvOf,
   dateOf,
 } from "@/components/fleetopsx/store-portal";
@@ -75,7 +74,7 @@ function ProcurementRequestsPage() {
   const [pos, setPos] = useState<PoRow[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"parts" | "lubricants" | "tyres">("parts");
+  const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [raiseOpen, setRaiseOpen] = useState(false);
@@ -109,16 +108,19 @@ function ProcurementRequestsPage() {
     };
   }, []);
 
+  const optionFamily = familyFromOption(familyOption);
   const familyPos = useMemo(
-    () => pos.filter((po) => classOfPo(po, items) === tab),
-    [pos, items, tab],
+    () => (optionFamily ? pos.filter((po) => familyOfPo(po, items) === optionFamily) : pos),
+    [pos, items, optionFamily],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return familyPos;
     return familyPos.filter((po) =>
-      `${po.partName} ${po.vendor ?? ""} ${dateOf(po.date)}`.toLowerCase().includes(q),
+      `${po.partName} ${po.vendor ?? ""} ${po.requestedBy ?? ""} ${po.note ?? ""} ${dateOf(po.date)}`
+        .toLowerCase()
+        .includes(q),
     );
   }, [familyPos, query]);
 
@@ -147,26 +149,30 @@ function ProcurementRequestsPage() {
         "Family",
         "Part Number",
         "Part Name",
+        "Requested By",
         "Quantity",
         "Total Price",
         "Status",
         "Vendor",
+        "Procurement Note",
       ],
       ...filtered.flatMap((po) =>
         linesOf(po).map((l) => [
           dateOf(po.date),
           `PO-${po.id.substring(0, 6).toUpperCase()}`,
-          STORE_TAB_LABEL[tab],
+          familyOption,
           l.sku,
           l.name,
+          po.requestedBy ?? "",
           String(l.quantity),
           String(l.price),
           po.status,
           po.vendor ?? "",
+          po.note ?? "",
         ]),
       ),
     ];
-    downloadCsvBlob(csvOf(rows), `procurement-requests-${tab}`);
+    downloadCsvBlob(csvOf(rows), `procurement-requests-${familyOption}`);
   };
 
   const markProcured = async (po: PoRow) => {
@@ -187,7 +193,7 @@ function ProcurementRequestsPage() {
     <>
       <StorePageShell
         title="Procurement Order"
-        subtitle="Request for purchase requisition to procurements — track each buy to the day the shelf takes it."
+        subtitle="Manage and issue received approved parts requests."
         actions={
           <button
             type="button"
@@ -207,7 +213,13 @@ function ProcurementRequestsPage() {
               <CountBadge value={filtered.length} />
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-              <FamilyTabs active={tab} onSelect={setTab} />
+              <Dropdown
+                value={familyOption}
+                options={FAMILY_OPTIONS}
+                onChange={setFamilyOption}
+                className="w-[168px]"
+                align="right"
+              />
               <SearchField value={query} onChange={setQuery} />
             </div>
           </div>
@@ -222,13 +234,12 @@ function ProcurementRequestsPage() {
               />
             </div>
           ) : (
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {pageRows.map((po) => (
                 <PoCard
                   key={po.id}
                   po={po}
                   lines={linesOf(po)}
-                  items={items}
                   onProcured={() => markProcured(po)}
                 />
               ))}
@@ -245,6 +256,7 @@ function ProcurementRequestsPage() {
                 pageCount={pageCount}
                 onPage={setPage}
                 onExport={exportCsv}
+                exportLabel="Export"
               />
             </div>
           )}
@@ -279,7 +291,6 @@ function PoCard({
 }: {
   po: PoRow;
   lines: PoLine[];
-  items?: InventoryItem[];
   onProcured: () => Promise<void>;
 }) {
   const pill = pillFor(po.status);
@@ -314,8 +325,16 @@ function PoCard({
         </div>
       </div>
       <p className="mt-1 text-[12px] text-[#5C6470]">
-        {po.vendor ? `From: ${po.vendor}` : "Requested by: Store desk"}
+        Requested by:&nbsp;
+        <span className="font-medium text-[#1B2432]">{po.requestedBy || "Store desk"}</span>
       </p>
+
+      {po.note && (
+        <div className="mt-2 rounded-[8px] bg-[#F7F8FA] px-3 py-2">
+          <p className="text-[12px] font-semibold text-[#1B2432]">Procurement note:</p>
+          <p className="mt-0.5 line-clamp-3 text-[12px] leading-[16px] text-[#5C6470]">{po.note}</p>
+        </div>
+      )}
 
       <div className="mt-2 flex-1 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
         <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] font-medium text-[#5C6470]">

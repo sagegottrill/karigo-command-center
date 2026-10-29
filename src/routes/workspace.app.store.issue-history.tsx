@@ -6,16 +6,18 @@ import { downloadCsvBlob } from "@/lib/fleetopsx/table-export";
 import {
   CardShell,
   CountBadge,
-  FamilyTabs,
+  Dropdown,
   ModalActions,
   ModalShell,
   PagerFooter,
   SearchField,
   StorePageShell,
-  classOfItem,
+  FAMILY_OPTIONS,
+  familyFromOption,
+  familyOfItem,
   csvOf,
   dateOf,
-  type StoreTab,
+  type ItemFamily,
 } from "@/components/fleetopsx/store-portal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, inventoryService } from "@/lib/fleetopsx/services";
@@ -48,7 +50,7 @@ interface IssueCard {
   date: string;
   truck: string;
   requestedBy: string;
-  tab: StoreTab;
+  family: ItemFamily;
   lines: InventoryMovement[];
 }
 
@@ -56,7 +58,7 @@ function IssueHistoryPage() {
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<StoreTab>("parts");
+  const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [reportFor, setReportFor] = useState<IssueCard | null>(null);
@@ -100,12 +102,12 @@ function IssueHistoryPage() {
       const [date, truck] = key.split("|");
       const first = lines[0];
       if (!date || !first) return;
-      const tabOf = lines
+      const familyOf = lines
         .map((l) => {
           const item = itemBySku.get(l.sku);
           return item
-            ? classOfItem(item)
-            : classOfItem({ sku: l.sku, name: l.itemName, category: "" });
+            ? familyOfItem(item)
+            : familyOfItem({ sku: l.sku, name: l.itemName, category: "" });
         })
         .find(Boolean);
       cards.push({
@@ -113,14 +115,18 @@ function IssueHistoryPage() {
         date,
         truck: truck ?? "STORE",
         requestedBy: first.actedBy,
-        tab: tabOf ?? "parts",
+        family: familyOf ?? "parts",
         lines: lines.sort((a, b) => a.itemName.localeCompare(b.itemName)),
       });
     });
     return cards.sort((a, b) => b.date.localeCompare(a.date));
   }, [movements, items]);
 
-  const familyCards = useMemo(() => cards.filter((c) => c.tab === tab), [cards, tab]);
+  const optionFamily = familyFromOption(familyOption);
+  const familyCards = useMemo(
+    () => (optionFamily ? cards.filter((c) => c.family === optionFamily) : cards),
+    [cards, optionFamily],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -153,7 +159,7 @@ function IssueHistoryPage() {
           c.date,
           c.truck === "STORE" ? "Store floor" : c.truck,
           c.requestedBy,
-          c.tab,
+          c.family,
           l.sku,
           l.itemName,
           String(Math.abs(Number(l.quantity) || 0)),
@@ -161,7 +167,7 @@ function IssueHistoryPage() {
         ]),
       ),
     ];
-    downloadCsvBlob(csvOf(rows), `parts-issue-history-${tab}`);
+    downloadCsvBlob(csvOf(rows), `parts-issue-history-${familyOption.toLowerCase().replace(/\s+/g, "-")}`);
   };
 
   return (
@@ -179,7 +185,13 @@ function IssueHistoryPage() {
               <CountBadge value={filtered.length} />
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-              <FamilyTabs active={tab} onSelect={setTab} />
+              <Dropdown
+                value={familyOption}
+                options={FAMILY_OPTIONS}
+                onChange={setFamilyOption}
+                className="w-[168px]"
+                align="right"
+              />
               <SearchField value={query} onChange={setQuery} />
             </div>
           </div>
@@ -242,7 +254,7 @@ function IssueCardView({ card, onPrint }: { card: IssueCard; onPrint: () => void
 
       <div className="mt-2 flex-1 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
         <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] font-medium text-[#5C6470]">
-          <span>Parts Dispensed</span>
+          <span>Item Dispensed</span>
           <span>Quantity</span>
         </div>
         {card.lines.map((l) => (

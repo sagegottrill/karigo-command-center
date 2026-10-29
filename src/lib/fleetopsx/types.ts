@@ -538,6 +538,10 @@ export interface ProcurementRequest {
   unitPrice?: number | null;
   /** Who the buy is from — procurement owns the vendor record. */
   vendor?: string | null;
+  /** What the store said the buy is for — the card shows it. */
+  note?: string | null;
+  /** Who raised the buy on the store's behalf. */
+  requestedBy?: string | null;
 }
 
 export type ExpenseStatus = "Pending" | "Approved" | "Disbursed" | "Rejected" | "Clarification";

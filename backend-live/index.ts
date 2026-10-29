@@ -1455,7 +1455,14 @@ function truckKeysOf(trip: any): string[] {
 
 function truckMatches(truck: any, keys: string[]): boolean {
   const own = [TRUCK_KEY(truck?.registration), TRUCK_KEY(truck?.cabId)].filter((k) => k.length > 2);
-  return own.some((o) => keys.some((k) => k.includes(o) || o.includes(k)));
+  // TRUCKMATCH:V2 (29 Oct 2026) — EXACT token equality only. The bidirectional
+  // containment arm ("k.includes(o) || o.includes(k)") is how cap and plate
+  // families moved each other: key "P062" contains "P06" and "B1001"
+  // contains "B100", so stamping one dispatch could drag a NEIGHBOUR truck
+  // to Out of Yard or Check Up. truckKeysOf() already hands in the whole
+  // tokens (cap and plate split apart), so equality is all that is needed —
+  // the same rule the gate return and the gate book now run.
+  return own.some((o) => keys.includes(o));
 }
 
 /**

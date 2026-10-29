@@ -86,18 +86,70 @@ export const STORE_TAB_DETAILS: Record<StoreTab, string> = {
   tyres: "Tyre & Rims details",
 };
 
-const TYRE_RX = /tyre|tire|\brim/i;
+/**
+ * The FIVE shelf families the approved frame's valuation tiles and category
+ * dropdowns name (Store Hub / Store Inventory / Procurement / Issue History,
+ * Figma · Store Module, 25 Oct 2026): the old three tabs split Rims away from
+ * Tyres and gave Batteries a shelf of their own. `tabOfFamily` folds them
+ * back onto the request-queue's three boarding groups so the ticket pages keep
+ * their old grouping — a rim still boards with the tyres, a battery with the
+ * parts.
+ */
+export type ItemFamily = "parts" | "lubricants" | "tyres" | "rims" | "batteries";
+
+export const FAMILY_LABEL: Record<ItemFamily, string> = {
+  parts: "Spare Parts",
+  lubricants: "Lubricants",
+  tyres: "Tyres",
+  rims: "Rims",
+  batteries: "Batteries",
+};
+
+export const FAMILY_OPTIONS: string[] = [
+  "All Categories",
+  FAMILY_LABEL.parts,
+  FAMILY_LABEL.lubricants,
+  FAMILY_LABEL.tyres,
+  FAMILY_LABEL.rims,
+  FAMILY_LABEL.batteries,
+];
+
+const TYRE_RX = /tyre|tire/i;
+const RIM_RX = /\brim/i;
+const BATTERY_RX = /batter|\bbtr/i;
 const LUBE_SKU_RX = /^(oil|grs|grease|lub|lube|hyd|coolant|atf|ep ?2|2t|4t|sae)/i;
 const LUBE_TEXT_RX =
   /lubricant|grease|coolant|hydraulic fluid|engine oil|gear oil|transmission|brake fluid|diesel|petrol/i;
 
-/** The family a shelf line belongs to — it decides which tab shows the card. */
-export function classOfItem(item: { sku: string; name: string; category: string }): StoreTab {
+/** The FIVE-family shelf family a line belongs to — the dropdown's row. */
+export function familyOfItem(item: { sku: string; name: string; category: string }): ItemFamily {
   const hay = `${item.category} ${item.name} ${item.sku}`;
+  if (BATTERY_RX.test(hay)) return "batteries";
+  if (RIM_RX.test(hay)) return "rims";
   if (TYRE_RX.test(hay)) return "tyres";
   if (LUBE_SKU_RX.test(item.sku) || LUBE_TEXT_RX.test(`${item.category} ${item.name}`))
     return "lubricants";
   return "parts";
+}
+
+/** The boarding group a family rides — keeps the three-tab pages' maths. */
+export function tabOfFamily(family: ItemFamily): StoreTab {
+  if (family === "lubricants") return "lubricants";
+  if (family === "tyres" || family === "rims") return "tyres";
+  return "parts";
+}
+
+/** Reads "All Categories" | a FAMILY_LABEL value → the family, or null. */
+export function familyFromOption(option: string): ItemFamily | null {
+  const entry = (Object.keys(FAMILY_LABEL) as ItemFamily[]).find(
+    (f) => FAMILY_LABEL[f] === option,
+  );
+  return entry ?? null;
+}
+
+/** The family a shelf line belongs to — the boarding group its ticket rides. */
+export function classOfItem(item: { sku: string; name: string; category: string }): StoreTab {
+  return tabOfFamily(familyOfItem(item));
 }
 
 /** The store line a PO names — exact SKU, exact name, then containment. */
@@ -119,13 +171,13 @@ function itemOfPo(
 }
 
 /** The family a PO bills under — the shelf line it names decides it. */
-export function classOfPo(
+export function familyOfPo(
   po: { partName?: string | null; kind?: string | null },
   items: Array<{ sku: string; name: string; category: string }>,
-): StoreTab {
+): ItemFamily {
   if (po.kind === "Fuel") return "lubricants";
   const item = itemOfPo(po, items);
-  return item ? classOfItem(item) : "parts";
+  return item ? familyOfItem(item) : "parts";
 }
 
 /* --------------------------------------------------------------------- pills */

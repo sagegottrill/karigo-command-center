@@ -1,7 +1,17 @@
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ModalActions, ModalField, ModalShell, classOfItem, inputClass, type StoreTab } from "@/components/fleetopsx/store-portal";
+import {
+  ModalActions,
+  ModalField,
+  ModalShell,
+  FAMILY_LABEL,
+  FAMILY_OPTIONS,
+  familyFromOption,
+  familyOfItem,
+  inputClass,
+  type ItemFamily,
+} from "@/components/fleetopsx/store-portal";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import { authService, formatNairaFull } from "@/lib/fleetopsx/services";
 import type { InventoryItem, ProcurementRequest } from "@/lib/fleetopsx/types";
@@ -23,20 +33,30 @@ export function RequestProcurementModal({
   items,
   onClose,
   onDone,
+  initialItemId,
 }: {
   items: InventoryItem[];
   onClose: () => void;
   onDone: () => Promise<void>;
+  /** Pre-picked when the row menu's "Procure Request" opened the modal. */
+  initialItemId?: string;
 }) {
-  const [tab, setTab] = useState<StoreTab>("parts");
-  const [itemId, setItemId] = useState("");
+  const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
+  const [itemId, setItemId] = useState(initialItemId ?? "");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [requestedBy, setRequestedBy] = useState(currentUserName());
   const [busy, setBusy] = useState(false);
 
-  const candidates = useMemo(() => items.filter((i) => classOfItem(i) === tab), [items, tab]);
+  const optionFamily = familyFromOption(familyOption);
+  const candidates = useMemo(
+    () =>
+      optionFamily ? items.filter((i) => familyOfItem(i) === optionFamily) : items,
+    [items, optionFamily],
+  );
   const chosen = useMemo(() => candidates.find((i) => i.id === itemId) || null, [candidates, itemId]);
+
+  const total = (Number(quantity) || 0) * (chosen?.unitCost ?? 0);
 
   const submit = async () => {
     if (!chosen) {
@@ -50,7 +70,8 @@ export function RequestProcurementModal({
     setBusy(true);
     // The PO lands in the procurement ledger with exactly the fields the model
     // owns — partName carries the SKU the store re-reads on delivery, kind
-    // Part keeps the fuel-tank restocks out of the store's ledger.
+    // Part keeps the fuel-tank restocks out of the store's ledger. The note
+    // and the requester ride along: the board's card prints them.
     const po: Partial<ProcurementRequest> = {
       partName: chosen.sku,
       quantity: Number(quantity) || 0,
@@ -59,6 +80,8 @@ export function RequestProcurementModal({
       kind: "Part",
       unitPrice: chosen.unitCost || null,
       date: new Date().toISOString(),
+      note: note.trim() || undefined,
+      requestedBy: requestedBy.trim() || undefined,
     };
     try {
       await fetchApi("/procurement", { method: "POST", body: JSON.stringify(po) });
@@ -76,31 +99,24 @@ export function RequestProcurementModal({
       onClose={onClose}
       width="max-w-[620px]"
     >
-      <div className="flex items-center gap-2">
-        {(["parts", "lubricants", "tyres"] as StoreTab[]).map((t) => (
-          <label
-            key={t}
-            className={cn(
-              "flex h-[38px] cursor-pointer items-center gap-2 rounded-[8px] border px-3.5 text-[13px]",
-              tab === t ? "border-[#E2E5E9] shadow-[0px_1px_2px_rgba(27,36,50,0.08)]" : "border-[#E9ECF0] text-[#5C6470]",
-            )}
-          >
-            <input
-              type="radio"
-              name="proc-family"
-              checked={tab === t}
-              onChange={() => {
-                setTab(t);
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        <ModalField label="Select Category">
+          <div className="relative">
+            <select
+              value={familyOption}
+              onChange={(e) => {
+                setFamilyOption(e.target.value);
                 setItemId("");
               }}
-              className="accent-[#ED351D]"
-            />
-            {t === "parts" ? "Spare Parts" : t === "lubricants" ? "Lubricants" : "Tyre & Rims"}
-          </label>
-        ))}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              className={cn(inputClass, "appearance-none pr-9")}
+            >
+              {FAMILY_OPTIONS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
+          </div>
+        </ModalField>
         <ModalField label="Select from Registered Inventory">
           <div className="relative">
             <select
@@ -118,14 +134,19 @@ export function RequestProcurementModal({
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
           </div>
         </ModalField>
-        <ModalField label="Part Number (Auto-Fill)" required>
-          <input className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")} readOnly value={chosen?.sku ?? ""} />
-        </ModalField>
         <ModalField label="Part Name (Auto-Fill)" required>
-          <input className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")} readOnly value={chosen?.name ?? ""} />
+          <input
+            className={cn(inputClass, "sm:col-span-1 bg-[#F7F8FA] text-[#9AA2AC]")}
+            readOnly
+            value={chosen?.name ?? ""}
+          />
         </ModalField>
         <ModalField label="Category (Auto-Fill)" required>
-          <input className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")} readOnly value={chosen?.category ?? ""} />
+          <input
+            className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")}
+            readOnly
+            value={chosen ? FAMILY_LABEL[familyOfItem(chosen)] : ""}
+          />
         </ModalField>
         <ModalField label="Requested Quantity" required>
           <input
@@ -167,6 +188,13 @@ export function RequestProcurementModal({
           />
         </ModalField>
       </div>
+
+      {chosen && (Number(quantity) || 0) > 0 && (
+        <div className="mt-3.5 flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">
+          <span className="text-[13.5px] font-semibold text-[#1B2432]">Total Price:</span>
+          <span className="text-[13.5px] font-medium text-[#7C8794]">{formatNairaFull(total)}</span>
+        </div>
+      )}
 
       <div className="mt-4">
         <ModalActions onCancel={onClose} submitLabel="Send Request" busy={busy} onAction={submit} />
