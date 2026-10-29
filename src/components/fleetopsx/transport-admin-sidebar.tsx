@@ -22,6 +22,7 @@ import {
   Wrench,
   CircleDollarSign,
   BarChart3,
+  ScrollText,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -129,6 +130,9 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // The TM's end-to-end read of every department at once: requests, cost,
       // litres and destinations in one window, computed from the live truth.
       { label: "Analytics & Reports", to: "/workspace/app/analytics", icon: BarChart3 },
+      // The custody record: every write the platform made, every actor, every
+      // sign-in — read-only by design, filtered and categorized server-side.
+      { label: "Audit Trail", to: "/workspace/app/audit-trail", icon: ScrollText },
     ],
   },
   {

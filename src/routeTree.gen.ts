@@ -26,6 +26,7 @@ import { Route as WorkspaceAppActiveDispatchRouteImport } from './routes/workspa
 import { Route as WorkspaceAppAddAccountRouteImport } from './routes/workspace.app.add-account'
 import { Route as WorkspaceAppAddPartnerRouteImport } from './routes/workspace.app.add-partner'
 import { Route as WorkspaceAppAnalyticsRouteImport } from './routes/workspace.app.analytics'
+import { Route as WorkspaceAppAuditTrailRouteImport } from './routes/workspace.app.audit-trail'
 import { Route as WorkspaceAppDisbursalRouteImport } from './routes/workspace.app.disbursal'
 import { Route as WorkspaceAppDisbursalVoucherRouteImport } from './routes/workspace.app.disbursal-voucher'
 import { Route as WorkspaceAppDispatchRouteImport } from './routes/workspace.app.dispatch'
@@ -160,6 +161,11 @@ const WorkspaceAppAddPartnerRoute = WorkspaceAppAddPartnerRouteImport.update({
 const WorkspaceAppAnalyticsRoute = WorkspaceAppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
+const WorkspaceAppAuditTrailRoute = WorkspaceAppAuditTrailRouteImport.update({
+  id: '/audit-trail',
+  path: '/audit-trail',
   getParentRoute: () => WorkspaceAppRoute,
 } as any)
 const WorkspaceAppDisbursalRoute = WorkspaceAppDisbursalRouteImport.update({
@@ -458,6 +464,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/analytics': typeof WorkspaceAppAnalyticsRoute
+  '/workspace/app/audit-trail': typeof WorkspaceAppAuditTrailRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -522,6 +529,7 @@ export interface FileRoutesByTo {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/analytics': typeof WorkspaceAppAnalyticsRoute
+  '/workspace/app/audit-trail': typeof WorkspaceAppAuditTrailRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -590,6 +598,7 @@ export interface FileRoutesById {
   '/workspace/app/add-account': typeof WorkspaceAppAddAccountRoute
   '/workspace/app/add-partner': typeof WorkspaceAppAddPartnerRoute
   '/workspace/app/analytics': typeof WorkspaceAppAnalyticsRoute
+  '/workspace/app/audit-trail': typeof WorkspaceAppAuditTrailRoute
   '/workspace/app/disbursal': typeof WorkspaceAppDisbursalRoute
   '/workspace/app/disbursal-voucher': typeof WorkspaceAppDisbursalVoucherRoute
   '/workspace/app/dispatch': typeof WorkspaceAppDispatchRoute
@@ -660,6 +669,7 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/analytics'
+    | '/workspace/app/audit-trail'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -724,6 +734,7 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/analytics'
+    | '/workspace/app/audit-trail'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -791,6 +802,7 @@ export interface FileRouteTypes {
     | '/workspace/app/add-account'
     | '/workspace/app/add-partner'
     | '/workspace/app/analytics'
+    | '/workspace/app/audit-trail'
     | '/workspace/app/disbursal'
     | '/workspace/app/disbursal-voucher'
     | '/workspace/app/dispatch'
@@ -971,6 +983,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/workspace/app/analytics'
       preLoaderRoute: typeof WorkspaceAppAnalyticsRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
+    '/workspace/app/audit-trail': {
+      id: '/workspace/app/audit-trail'
+      path: '/audit-trail'
+      fullPath: '/workspace/app/audit-trail'
+      preLoaderRoute: typeof WorkspaceAppAuditTrailRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
     '/workspace/app/disbursal': {
@@ -1342,6 +1361,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppAddAccountRoute: typeof WorkspaceAppAddAccountRoute
   WorkspaceAppAddPartnerRoute: typeof WorkspaceAppAddPartnerRoute
   WorkspaceAppAnalyticsRoute: typeof WorkspaceAppAnalyticsRoute
+  WorkspaceAppAuditTrailRoute: typeof WorkspaceAppAuditTrailRoute
   WorkspaceAppDisbursalRoute: typeof WorkspaceAppDisbursalRoute
   WorkspaceAppDisbursalVoucherRoute: typeof WorkspaceAppDisbursalVoucherRoute
   WorkspaceAppDispatchRoute: typeof WorkspaceAppDispatchRoute
@@ -1390,6 +1410,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppAddAccountRoute: WorkspaceAppAddAccountRoute,
   WorkspaceAppAddPartnerRoute: WorkspaceAppAddPartnerRoute,
   WorkspaceAppAnalyticsRoute: WorkspaceAppAnalyticsRoute,
+  WorkspaceAppAuditTrailRoute: WorkspaceAppAuditTrailRoute,
   WorkspaceAppDisbursalRoute: WorkspaceAppDisbursalRoute,
   WorkspaceAppDisbursalVoucherRoute: WorkspaceAppDisbursalVoucherRoute,
   WorkspaceAppDispatchRoute: WorkspaceAppDispatchRoute,

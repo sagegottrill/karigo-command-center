@@ -477,6 +477,16 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
     let user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
+    // LOGIN:FAILED-REPORT — every refused sign-in goes into the LoginReport so
+    // the audit trail shows probing, not just successes. Success and Logout
+    // were recorded all along; the failed attempt was invisible, which is
+    // exactly the blind spot an audit must not have.
+    const __loginIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '—').toString().split(',')[0].trim() || '—';
+    const __loginDevice = /android|iphone|ipad|mobile/i.test(String(req.headers['user-agent'] || '')) ? 'Mobile' : 'Web';
+    const __reportFailed = (name: string, role: string, ip: string, device: string) =>
+      void prisma.loginReport.create({
+        data: { userId: '', name: String(name).slice(0, 120), role, status: 'Failed', ip, device },
+      }).catch(() => {});
     // Partner portal Figma uses Username (local-part) — match email prefix when no @ provided.
     // Multiple accounts can share a local-part (e.g. s.ughojo@accessbank.com and
     // s.ughojo@sabasteel.com) — try the password against EVERY candidate.
@@ -500,6 +510,7 @@ app.post('/api/auth/login', async (req, res) => {
       };
       const pool = wantedDept ? candidates.filter(holdsWanted) : candidates;
       if (wantedDept && pool.length === 0) {
+        __reportFailed(email, 'No Department', __loginIp, __loginDevice);
         return res.status(403).json({ error: `None of the accounts using username "${email}" belong to ${wantedDept}. Pick the department on your credentials, or leave the department blank.` });
       }
       for (const candidate of pool) {
@@ -507,14 +518,27 @@ app.post('/api/auth/login', async (req, res) => {
       }
       if (!user && candidates.length > 0) {
         // Right username, wrong password — never impersonate another match.
+        __reportFailed(email, 'Invalid Credentials', __loginIp, __loginDevice);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
     }
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    if (user.status === 'Suspended') return res.status(401).json({ error: 'Your account has been suspended. Contact your administrator.' });
-    if (user.status === 'Deleted') return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      __reportFailed(email, 'Unknown Account', __loginIp, __loginDevice);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (user.status === 'Suspended') {
+      __reportFailed(user.name, 'Suspended', __loginIp, __loginDevice);
+      return res.status(401).json({ error: 'Your account has been suspended. Contact your administrator.' });
+    }
+    if (user.status === 'Deleted') {
+      __reportFailed(user.name, 'Deleted Account', __loginIp, __loginDevice);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!valid) {
+      __reportFailed(user.name, 'Invalid Credentials', __loginIp, __loginDevice);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     if (user.role === 'Customer Portals (External)' && !user.partnerCompanyName) {
       const derived = await partnerCompanyForUser(user.id, user.email, user.role);
       if (derived) {
@@ -527,7 +551,7 @@ app.post('/api/auth/login', async (req, res) => {
     const allRoles = Array.from(new Set([user.role, ...rolesArr]));
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role, roles: allRoles, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
     await prisma.loginReport.create({
-      data: { userId: user.id, name: user.name, role: user.role, status: 'Success' },
+      data: { userId: user.id, name: user.name, role: user.role, status: 'Success', ip: __loginIp, device: __loginDevice },
     });
     res.json({ token, user: userPayload(user) });
   } catch {
@@ -539,11 +563,46 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', authenticate, async (req: any, res) => {
   try {
     await prisma.loginReport.create({
-      data: { userId: req.user.id, name: req.user.name || '', role: req.user.role || '', status: 'Logout' },
+      data: {
+        userId: req.user.id,
+        name: req.user.name || '',
+        role: req.user.role || '',
+        status: 'Logout',
+        ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '—').toString().split(',')[0].trim() || '—',
+        device: /android|iphone|ipad|mobile/i.test(String(req.headers['user-agent'] || '')) ? 'Mobile' : 'Web',
+      },
     });
   } catch {}
   res.json({ ok: true });
 });
+
+/*
+ * AUDIT:SYS-HELPER — the trail for writes that never pass through HTTP.
+ *
+ * The middleware above sees requests; the self-heal sweeps below run on
+ * timers and poke drivers, trucks, tails and dispatches with NO request
+ * attached. Without this helper those writes are invisible to the platform:
+ * a 3am sweep closing 20 dispatches leaves no entry anywhere. Now every such
+ * act is recorded with System as the actor and Server as the device, so an
+ * admin can tell at a glance which rows the machine wrote and which a person
+ * did.
+ */
+async function sysTrail(module: string, action: string, record: string): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        user: 'System',
+        module,
+        action,
+        record: String(record).slice(0, 240),
+        device: 'Server',
+        ip: 'internal',
+      },
+    });
+  } catch {
+    /* the trail must never break the sweep itself */
+  }
+}
 
 app.get('/api/auth/me', authenticate, async (req: any, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.id } });
@@ -1097,6 +1156,77 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       }
     }
   }
+  // ASSET-BUSY-AT-ASSIGNMENT (Daniel/Fortune, 29 Oct 2026): the one-truck rule
+  // was only enforced at FINAL APPROVAL, so Fleet Ops could hang a tail that is
+  // already in transit onto a fresh request — and the refusal surfaced a day
+  // later on the TM's desk as "Failed to approve", with trucks queued at the
+  // gate and nobody able to say why. The yard rule is enforced WHERE the choice
+  // is made now: the moment a truck head or tail body is (re)assigned, any open
+  // dispatch that already holds that exact head or body refuses the save and
+  // names itself. Registry-resolved: only a REAL Truck row blocks a head and
+  // only a REAL Tail row blocks a body, so a tail TYPE word ("Flat") or a test
+  // string can never freeze an assignment.
+  if (!isPartner && before && (data.truckReg !== undefined || data.tailNumber !== undefined)) {
+    const newReg = String(data.truckReg ?? before.truckReg ?? '').trim();
+    const newTail = String(data.tailNumber ?? before.tailNumber ?? '').trim();
+    const regChanged = Boolean(newReg) && newReg !== String(before.truckReg ?? '').trim();
+    const tailChanged = Boolean(newTail) && newTail !== String(before.tailNumber ?? '').trim();
+    if (regChanged || tailChanged) {
+      const regHeadToken = TRUCK_KEY(String(newReg).split('/')[0] || '');
+      const regTailToken = TRUCK_KEY(String(newReg).includes('/') ? String(newReg).split('/')[1] : '');
+      const tailToken = TRUCK_KEY(newTail);
+      const [trucks, tails] = await Promise.all([prisma.truck.findMany(), prisma.tail.findMany()]);
+      const headRow = regHeadToken
+        ? trucks.find((t) => TRUCK_KEY(t.cabId) === regHeadToken || TRUCK_KEY(t.registration) === regHeadToken)
+        : undefined;
+      const tailRow = (tailToken || regTailToken)
+        ? tails.find((t) => TRUCK_KEY(t.number) === (tailToken || regTailToken))
+        : undefined;
+      if (headRow || tailRow) {
+        const openSiblings = await prisma.trip.findMany({
+          where: {
+            id: { not: before.id },
+            status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+          },
+          select: { id: true, truckReg: true, driverName: true, status: true, tailNumber: true },
+        });
+        const heldKeys = new Set<string>();
+        if (headRow) {
+          heldKeys.add(TRUCK_KEY(headRow.cabId));
+          heldKeys.add(TRUCK_KEY(headRow.registration));
+        }
+        const tailHeldKey = tailRow ? TRUCK_KEY(tailRow.number) : '';
+        const tailHeldBy = (t: any) => {
+          if (!tailHeldKey) return false;
+          const own = [t.tailNumber, String(t.truckReg || '').split('/')[1]]
+            .map((v) => TRUCK_KEY(v))
+            .filter(Boolean);
+          return own.includes(tailHeldKey);
+        };
+        const headHeldBy = (t: any) =>
+          Boolean(headRow) && truckKeysOf(t).some((k) => heldKeys.has(k));
+        const blocking = openSiblings.filter((t) => headHeldBy(t) || tailHeldBy(t));
+        if (blocking.length) {
+          // Name the asset the open dispatch ACTUALLY holds — when both the head
+          // and the tail resolve, the message must blame the held one, not the
+          // first that matched the registry.
+          const headBlocked = blocking.some((t) => headHeldBy(t));
+          const who = headBlocked
+            ? 'Truck ' + String(headRow.cabId || headRow.registration) + (headRow.registration ? ' (' + headRow.registration + ')' : '')
+            : 'Tail ' + String(tailRow.number);
+          const listing = blocking
+            .slice(0, 3)
+            .map((t) => dispatchRef(t.id) + ' (' + t.status + (t.driverName ? ' · ' + t.driverName : '') + ', ' + String(t.truckReg) + ')')
+            .join('; ');
+          return res.status(409).json({
+            error:
+              who + ' is already held by an open dispatch — ' + listing + '. Close or reassign that dispatch first, or pick another ' + (headBlocked ? 'truck' : 'tail') + '. The assignment was not saved.',
+            conflict: blocking.map((t) => t.id),
+          });
+        }
+      }
+    }
+  }
   // SECURITY NO-SHOW OVERRIDE — the gate refuses a truck the TM released when
   // the physical asset/crew is wrong or absent: the dispatch goes to Stopped,
   // the release stamps are cleared, and the TM is told to re-approve.
@@ -1455,7 +1585,14 @@ function truckKeysOf(trip: any): string[] {
 
 function truckMatches(truck: any, keys: string[]): boolean {
   const own = [TRUCK_KEY(truck?.registration), TRUCK_KEY(truck?.cabId)].filter((k) => k.length > 2);
-  return own.some((o) => keys.some((k) => k.includes(o) || o.includes(k)));
+  // TRUCKMATCH:V2 (29 Oct 2026) — EXACT token equality only. The bidirectional
+  // containment arm ("k.includes(o) || o.includes(k)") is how cap and plate
+  // families moved each other: key "P062" contains "P06" and "B1001"
+  // contains "B100", so stamping one dispatch could drag a NEIGHBOUR truck
+  // to Out of Yard or Check Up. truckKeysOf() already hands in the whole
+  // tokens (cap and plate split apart), so equality is all that is needed —
+  // the same rule the gate return and the gate book now run.
+  return own.some((o) => keys.includes(o));
 }
 
 /**
@@ -1804,6 +1941,7 @@ async function syncDriverDuty(): Promise<number> {
       select: { id: true, name: true, truckReg: true, truckReg2: true },
     });
     let flipped = 0;
+    const freedNames: string[] = [];
     for (const d of onTrip) {
       if (['Suspended', 'Off Duty', 'Deleted'].includes(String(d.status))) continue;
       const nameKey = String(d.name || '').trim().toLowerCase();
@@ -1817,10 +1955,18 @@ async function syncDriverDuty(): Promise<number> {
       if (!stillOn) {
         await prisma.driver.update({ where: { id: d.id }, data: { status: 'Active' } });
         flipped++;
+        freedNames.push(String(d.name || '').trim());
       }
     }
     if (flipped) {
       console.log('[driver-duty] freed ' + flipped + ' driver(s) the dispatch list no longer holds.');
+      // AUDIT:SYSTEM — the sweep is a server write with no HTTP request, so it
+      // records itself here; otherwise duty flips were invisible to the trail.
+      void sysTrail(
+        'HR',
+        'System Freed',
+        'Auto duty-sync released ' + flipped + ' driver(s) no longer on an open dispatch: ' + freedNames.join(', ')
+      );
     }
     return flipped;
   } catch (e: any) {
@@ -1968,6 +2114,15 @@ async function sweepReturnedTrucks(): Promise<number> {
           },
         });
         closed += 1;
+        // AUDIT:SYSTEM — a self-heal close is a server write with no HTTP
+        // request; it records itself here so the trail shows WHO closed a
+        // dispatch the human never touched ('System', device 'Server').
+        void sysTrail(
+          'Dispatch',
+          'System Closed',
+          (String(trip.driverName || '').trim() || 'unassigned') + ' · ' + (trip.truckReg || '—') + ' · dispatch ' + dispatchRef(trip.id) +
+            ' closed by the auto-return sweep (gate return proof + 12h dormant).'
+        );
         // The tail rode in with the truck — home to Check Up beside the head.
         const tailCode = String(trip.tailNumber || (String(trip.truckReg || '').split('/')[1] || '')).trim();
         if (tailCode) {
@@ -1976,6 +2131,7 @@ async function sweepReturnedTrucks(): Promise<number> {
           const tailRow = tails.find((t) => TRUCK_KEY(t.number) === tk);
           if (tailRow && ['Out of Yard', 'Assigned', 'Available'].includes(String(tailRow.status))) {
             await prisma.tail.update({ where: { id: tailRow.id }, data: { status: 'Check Up' } });
+            void sysTrail('Fleet', 'System Updated', 'Tail ' + tailCode + ' returned to Check Up by the auto-return sweep after ' + dispatchRef(trip.id) + ' closed.');
           }
         }
       } catch (e: any) {
@@ -1999,6 +2155,7 @@ async function sweepReturnedTrucks(): Promise<number> {
             data: { status: 'Active' },
           });
         }
+        void sysTrail('HR', 'System Freed', 'Auto-return sweep released driver(s) back to Active: ' + (names.length ? names.join(', ') : 'none'));
       } catch (e: any) {
         console.error('[return-sweep] driver release failed:', e?.message || e);
       }
@@ -6228,11 +6385,82 @@ app.get('/api/chat/directory', authenticate, async (req: any, res) => {
 });
 
 // --- AUDIT / LOGIN REPORTS ---
-app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Admin', 'HR'), async (_req, res) => {
-  res.json(await prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' } }));
+/*
+ * AUDIT:READ — the audit trail, queried properly.
+ *
+ * The old endpoint returned the whole table every poll: unfiltered,
+ * unpaginated, growing forever. This one does the server-side work the admin
+ * page needs — module/user/kind filters, a search across action+record,
+ * a date range, paging — and returns the FACETS (every module and user with
+ * live counts) so the page can render its filter chips without guessing.
+ */
+app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Admin', 'HR'), async (req: any, res) => {
+  try {
+    const q = String(req.query?.q || '').trim();
+    const module = String(req.query?.module || '').trim();
+    const user = String(req.query?.user || '').trim();
+    const kind = String(req.query?.kind || '').trim(); // Created | Updated | Deleted | Logged Out | System
+    const from = String(req.query?.from || '').trim(); // YYYY-MM-DD
+    const to = String(req.query?.to || '').trim(); // YYYY-MM-DD
+    const limit = Math.min(Math.max(parseInt(String(req.query?.limit || '300'), 10) || 300, 1), 1000);
+    const offset = Math.max(parseInt(String(req.query?.offset || '0'), 10) || 0, 0);
+
+    const where: any = {};
+    if (module) where.module = module;
+    if (user) where.user = user;
+    if (kind === 'System') where.user = 'System';
+    else if (kind) where.action = { startsWith: kind, mode: 'insensitive' };
+    if (q) {
+      where.OR = [
+        { action: { contains: q, mode: 'insensitive' } },
+        { record: { contains: q, mode: 'insensitive' } },
+        { module: { contains: q, mode: 'insensitive' } },
+        { user: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    const range: any = {};
+    if (from) {
+      const d = new Date(from + 'T00:00:00.000Z');
+      if (!isNaN(d.getTime())) range.gte = d;
+    }
+    if (to) {
+      const d = new Date(to + 'T23:59:59.999Z');
+      if (!isNaN(d.getTime())) range.lte = d;
+    }
+    if (range.gte || range.lte) where.timestamp = range;
+
+    const [rows, total, byModule, byUser] = await Promise.all([
+      prisma.auditLog.findMany({ where, orderBy: { timestamp: 'desc' }, take: limit, skip: offset }),
+      prisma.auditLog.count({ where }),
+      // Facets read the WHOLE trail (not the current filter) — the chips must
+      // keep their counts even while one module is selected.
+      prisma.auditLog.groupBy({ by: ['module'], _count: { _all: true } }),
+      prisma.auditLog.groupBy({ by: ['user'], _count: { _all: true } }),
+    ]);
+    const modules = byModule
+      .map((m: any) => ({ name: m.module, count: m._count._all }))
+      .sort((a: any, b: any) => b.count - a.count);
+    const users = byUser
+      .map((u: any) => ({ name: u.user, count: u._count._all }))
+      .sort((a: any, b: any) => b.count - a.count);
+    res.json({ rows, total, modules, users, limit, offset });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Server error' });
+  }
 });
-app.get('/api/login-reports', authenticate, authorize('Transport Manager', 'Platform Admin', 'HR'), async (_req, res) => {
-  res.json(await prisma.loginReport.findMany({ orderBy: { timestamp: 'desc' } }));
+/*
+ * AUDIT:LOGINS — who signed in, who failed, who signed out. Failed attempts
+ * are now written by the login route, so a probing session is visible.
+ */
+app.get('/api/login-reports', authenticate, authorize('Transport Manager', 'Platform Admin', 'HR'), async (req: any, res) => {
+  try {
+    const where: any = {};
+    const status = String(req.query?.status || '').trim();
+    if (status) where.status = status;
+    res.json(await prisma.loginReport.findMany({ where, orderBy: { timestamp: 'desc' }, take: 5000 }));
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Server error' });
+  }
 });
 
 // --- DASHBOARD ---
