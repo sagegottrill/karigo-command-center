@@ -50,6 +50,16 @@ model Trip {
   gateOutBy String?
   /// Which security account stamped Log In (the return).
   gateInBy  String?
+  /// The roster's OWN identity for the man driving this dispatch — the driver
+  /// row's id. Trip.driverName stays as the display text, but every guard
+  /// (busy-driver, release, return, duty sync) binds on THIS. A typed name can
+  /// collide; a P-number never does. Clients should send driverId on
+  /// assignment; the server then validates it against the roster and writes
+  /// driverName from the row itself so a typo can never create a phantom.
+  driverId         String?
+  /// The P-number (Driver.staffId) of the bound driver — kept beside driverId
+  /// so dispatch surfaces can show "P0960" without a join.
+  driverStaffId    String?
   id                String   @id @default(uuid())
   driverName        String
   truckReg          String

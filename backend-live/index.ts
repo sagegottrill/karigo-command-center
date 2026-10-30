@@ -2103,7 +2103,7 @@ async function syncDriverDuty(): Promise<number> {
     const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
     const openTrips = await prisma.trip.findMany({
       where: { status: { in: OPEN_TRIP_STATUSES } },
-      select: { driverName: true, truckReg: true, tailNumber: true },
+      select: { driverId: true, driverName: true, truckReg: true, tailNumber: true },
     });
     const headKeyOf = (v: any) => {
       const k = TRUCK_KEY(String(v || '').split(/[/\s]+/)[0]);
@@ -2120,6 +2120,9 @@ async function syncDriverDuty(): Promise<number> {
       const nameKey = String(d.name || '').trim().toLowerCase();
       const own = [d.truckReg, d.truckReg2].map((v) => headKeyOf(v)).filter(Boolean);
       const stillOn = openTrips.some((t: any) => {
+        // DRIVER-IDENTITY: an identity binding decides first; a name is only
+        // evidence when the row is unbound and the name is unambiguous.
+        if (t.driverId) return t.driverId === d.id;
         if (String(t.driverName || '').trim().toLowerCase() === nameKey) return true;
         const headKey = headKeyOf(String(t.truckReg || '').trim());
         const tailKey = headKeyOf(String(t.tailNumber || '').trim());
@@ -3016,7 +3019,7 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
       where: {
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'] },
       },
-      select: { driverName: true, truckReg: true },
+      select: { driverId: true, driverName: true, truckReg: true },
     }),
     prisma.truck.findMany(),
   ]);

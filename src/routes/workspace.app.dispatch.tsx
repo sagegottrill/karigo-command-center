@@ -314,7 +314,83 @@ function DispatchPage() {
     const resolvedTailNumber = tail?.number || tailNumber || "";
 
     const assignedHead = head;
-    await tripService.update(selectedOrder!.id, {
+
+    /*
+     * LATEST-YARD-TRUTH (30 Oct 2026: "Confirm Dispatch does nothing"). The
+     * register was true when the form opened, but a form can sit open for hours:
+     * a tail rated Available at pick time can leave the yard on another truck
+     * before the confirm is pressed. The form was polling NOT to clobber the
+     * operator's selections, so its lists go stale by design — which is exactly
+     * the moment the silent failure happened. So at the click the register is
+     * read AGAIN from the server, and a stale asset is refused here with the
+     * word it now wears — before the dispatch ever costs the server a write.
+     */
+    try {
+      const [liveHeads, liveTails, liveTrips] = await Promise.all([
+        fleetService.listHeads(),
+        fleetService.listTails(),
+        tripService.list(),
+      ]);
+      /* The same exact-token rule the server runs: a token read "GGE88YK / B016"
+         is a CAP and a PLATE/BODY, each an exact identity, never a substring. */
+      const tok = (v: string) =>
+        String(v || "")
+          .split(/[^0-9a-zA-Z]+/)
+          .map((k) => k.toUpperCase())
+          .filter((k) => k.length > 3);
+      const keysOf = (t: { truckReg?: string | null; tailNumber?: string | null }) =>
+        new Set([...tok(String(t.truckReg || "")), ...tok(String(t.tailNumber || ""))]);
+      /* An open dispatch on the SELECTED order itself is THIS save's own load —
+         the server excludes it too; its assets belong to this assignment. */
+      const openOthers = liveTrips.filter(
+        (t) =>
+          ["Scheduled", "En Route", "Loaded", "Offloading", "Returning", "Delayed"].includes(t.status) &&
+          t.id !== selectedOrder!.id,
+      );
+      /* Engineering words are never a booking's word: a truck on Check Up,
+         Maintenance or Accident is grounded whoever booked it. But a mere
+         "Assigned"/"Out of Yard" with NO other open dispatch holding the asset
+         means the only holder is THIS order — a re-confirm of its own run must
+         still land. */
+      const ENGINEERING_WORDS = ["Check Up", "Maintenance", "Accident"];
+      const heldByOther = (t: { truckReg?: string | null; tailNumber?: string | null }, keys: Set<string>) =>
+        [...keysOf(t)].some((k) => keys.has(k));
+
+      const liveHead = liveHeads.find((h) => h.id === assignedHead.id);
+      const headKeys = new Set([
+        ...tok(String(assignedHead.registration || "")),
+        ...tok(String(assignedHead.number || assignedHead.capNumber || "")),
+      ]);
+      const headBlockedBy = openOthers.find((t) => heldByOther(t, headKeys));
+      const headGrounded = liveHead && ENGINEERING_WORDS.includes(String(liveHead.status || ""));
+      if (liveHead && (headBlockedBy || headGrounded)) {
+        toast.error(
+          headBlockedBy
+            ? `Truck head ${displayHeadCap(liveHead) || liveHead.registration} is already held by an open dispatch (${headBlockedBy.status}${headBlockedBy.driverName ? " · " + headBlockedBy.driverName : ""}, ${String(headBlockedBy.truckReg || "")}). Close that dispatch or pick another head.`
+            : `Truck head ${displayHeadCap(liveHead) || liveHead.registration} is ${liveHead.status} (engineering has it). Pick another head.`,
+        );
+        return;
+      }
+
+      const liveTail = tail ? liveTails.find((t2) => t2.id === tail.id) : null;
+      const tailKeys = liveTail ? new Set(tok(String(liveTail.number || liveTail.registration || ""))) : null;
+      const tailBlockedBy = tailKeys ? openOthers.find((t) => heldByOther(t, tailKeys)) : undefined;
+      const tailGrounded = liveTail && ENGINEERING_WORDS.includes(String(liveTail.status || ""));
+      if (liveTail && (tailBlockedBy || tailGrounded)) {
+        toast.error(
+          tailBlockedBy
+            ? `Tail ${liveTail.number || liveTail.registration} is already held by an open dispatch (${tailBlockedBy.status}${tailBlockedBy.driverName ? " · " + tailBlockedBy.driverName : ""}, ${String(tailBlockedBy.truckReg || "")}). Send this request back to the queue or pick another tail.`
+            : `Tail ${liveTail.number || liveTail.registration} is ${liveTail.status} (engineering has it). Pick another tail.`,
+        );
+        return;
+      }
+    } catch {
+      /* the register could not answer — the server's own guards still hold, so
+         never block the confirm on the freshness check itself. */
+    }
+
+    try {
+      await tripService.update(selectedOrder!.id, {
       headId: assignedHead.id,
       ...(tail?.id ? { tailId: tail.id } : {}),
       ...(resolvedTailType ? { tailType: resolvedTailType } : {}),
@@ -357,6 +433,18 @@ function DispatchPage() {
       description: `${displayTicket(selectedOrder!)} assigned to ${displayHeadCap(head) || head.registration} — sent for final TM approval`,
     });
     navigate({ to: "/workspace/app/dispatch-history" });
+    } catch (err) {
+      /*
+       * NEVER SILENT (30 Oct 2026): the confirm used to be fire-forgotten — a
+       * 409 from the asset-busy guard ("tail B016 already held …") or any
+       * server refusal died in an unhandled promise and the operator saw the
+       * button do nothing at all, with a network he had already checked. Every
+       * refusal now reaches the screen with the exact reason the server gave.
+       */
+      toast.error("Dispatch not confirmed", {
+        description: err instanceof Error ? err.message : "The dispatch could not be saved — refresh and try again.",
+      });
+    }
   };
 
   const handleBackToQueue = () => {
