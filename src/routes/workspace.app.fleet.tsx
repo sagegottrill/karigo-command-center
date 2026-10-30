@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DispatchDetailsModal } from "@/components/fleetopsx/dispatch-details-modal";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { TmEditAssignmentModal } from "@/components/fleetopsx/tm-edit-assignment-modal";
+import { ConfirmDialog } from "@/components/fleetopsx/confirm-dialog";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
   displayCapFromTrip,
@@ -295,6 +296,9 @@ function FleetDispatchRequests() {
 
   const [detail, setDetail] = useState<Trip | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  /** A refused approval whose blocker the TM may close in place (clash decision dialog). */
+  const [clash, setClash] = useState<{ pending: Trip; conflicts: Trip[]; message: string } | null>(null);
+  const [closingClash, setClosingClash] = useState(false);
   const [sendBackTrip, setSendBackTrip] = useState<Trip | null>(null);
   const [sendBackNote, setSendBackNote] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
@@ -500,6 +504,27 @@ function FleetDispatchRequests() {
       }
     } catch (err) {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      // CLASH-DECISION-IN-PLACE (29 Oct 2026): a refused approval used to be a
+      // dead end — a toast and a hunt through other boards. The refusal carries
+      // the blocking dispatch ids, and the blocker is usually a stale run whose
+      // rig is already back. Offer the decision HERE: close the old dispatch(es)
+      // as Returned to Fleet Ops and approve this one, or leave everything as
+      // it is (Send Back to Fleet Ops stays in the row menu for the other case).
+      const body = (err as { body?: { conflict?: string[] } })?.body;
+      const conflictIds = Array.isArray(body?.conflict) ? body!.conflict! : [];
+      if (!offline && conflictIds.length > 0) {
+        let list = trips;
+        if (!conflictIds.every((id) => list.some((t) => t.id === id))) {
+          list = await tripService.list().catch(() => trips);
+        }
+        const conflicts = conflictIds
+          .map((id) => list.find((t) => t.id === id))
+          .filter((t): t is Trip => Boolean(t));
+        if (conflicts.length > 0) {
+          setClash({ pending: trip, conflicts, message: err instanceof Error ? err.message : "The truck or tail is already out on an open dispatch." });
+          return;
+        }
+      }
       toast.error(
         offline
           ? "You are offline — dispatch NOT approved. Reconnect and try again."
@@ -507,6 +532,36 @@ function FleetDispatchRequests() {
       );
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  // The clash decision: the TM has chosen to close the stale dispatch(es) that
+  // blocked his approval and push this one through in the same breath. Each old
+  // dispatch closes as "Returned to Fleet Ops" — the same ending his own row
+  // menu writes — so the record carries who ended it and when.
+  const closeClashAndApprove = async () => {
+    if (!clash) return;
+    setClosingClash(true);
+    try {
+      for (const old of clash.conflicts) {
+        await completeTripReturn(old, "Returned to Fleet Ops");
+      }
+      await tripService.approveDispatch(clash.pending.id);
+      void assignmentReleaseService.claimAssets(clash.pending);
+      toast.success(
+        clash.conflicts.length === 1
+          ? `Dispatch ${dispatchId(clash.conflicts[0] ?? clash.pending)} closed — ${dispatchId(clash.pending)} approved.`
+          : `${clash.conflicts.length} stale dispatches closed — ${dispatchId(clash.pending)} approved.`,
+      );
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+      setTrips(await tripService.list());
+      setClash(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not close the old dispatch — nothing was changed.",
+      );
+    } finally {
+      setClosingClash(false);
     }
   };
 
@@ -1361,6 +1416,29 @@ function FleetDispatchRequests() {
           </div>
         </div>
       )}
+
+      {/* THE CLASH DECISION: the approval named the dispatch(es) blocking it.
+          Closing is the TM's call and ONLY true when the old rig is home. */}
+      <ConfirmDialog
+        open={clash !== null}
+        busy={closingClash}
+        tone="danger"
+        title="Close the old dispatch and approve?"
+        body={
+          clash
+            ? `${clash.message}\n\nClosing ${
+                clash.conflicts.map((c) => dispatchId(c)).join(", ")
+              } marks it "Returned to Fleet Ops" and sends its truck and tail to Check Up.\n\nOnly continue if that rig is physically back in the yard. If it is still out, cancel and use Send Back to Fleet Ops so Fleet Operations picks another tail instead.`
+            : ""
+        }
+        confirmLabel={
+          clash && clash.conflicts[0]
+            ? `Close ${dispatchId(clash.conflicts[0])} & Approve`
+            : "Close & Approve"
+        }
+        onCancel={() => setClash(null)}
+        onConfirm={() => void closeClashAndApprove()}
+      />
 
       {sendBackTrip && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">

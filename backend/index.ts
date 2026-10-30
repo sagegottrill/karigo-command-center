@@ -1317,6 +1317,78 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     const stamped = await prisma.trip.update({ where: { id: trip.id }, data: { approvedAt: new Date() } });
     trip.approvedAt = stamped.approvedAt;
   }
+  /*
+   * SUPERSEDE-ON-DEPARTURE (the permanent fix, 29 Oct 2026): a rig cannot be on
+   * two loads. The moment the gate logs a truck OUT — this dispatch moves to En
+   * Route — any OLDER open moving dispatch naming the same head or tail is
+   * provably already over: the yard just physically sent that rig out again on
+   * this one. Those stale rows are what blocked approvals with "this truck
+   * already carries an open dispatch" for days while the desk waited on a human
+   * to close them. They close themselves here — status Completed, the departing
+   * stamp as the end of the run, an honest note on the record, a System row in
+   * the audit trail and a notice to the Transport Manager. The registry is NOT
+   * sent home (the rig is out on the new load — the departure's own coupling
+   * already said so), and drivers are left to the duty-sync, which frees anyone
+   * the live dispatch list no longer holds.
+   */
+  if (String(trip.status) === 'En Route' && before && before.status !== 'En Route') {
+    try {
+      const depKeys = truckKeysOf(trip);
+      if (depKeys.length) {
+        const older = await prisma.trip.findMany({
+          where: {
+            id: { not: trip.id },
+            status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+          },
+        });
+        const superseded = older.filter(
+          (o) =>
+            // Date objects compare by moment — String(Date) drops milliseconds
+            // and two trips created in the same second compared EQUAL, skipping
+            // the supersede (found live: the 7a95c/a950e pair, 10ms apart).
+            new Date(o.createdAt).getTime() < new Date(trip.createdAt).getTime() &&
+            truckKeysOf(o).some((k) => depKeys.includes(k)),
+        );
+        for (const o of superseded) {
+          const dc = o.directCosts && typeof o.directCosts === 'object' ? { ...(o.directCosts as any) } : {};
+          dc.returnedBy = {
+            by: gateActor || 'S.1 Petroline',
+            role: req.user?.role || '',
+            at: new Date().toISOString(),
+            confirmed: true,
+            note: 'Superseded: the yard dispatched the same rig on ' + dispatchRef(trip.id) +
+              ' — this run was already over. Closed automatically; the registry was left as the new departure set it.',
+          };
+          await prisma.trip.update({
+            where: { id: o.id },
+            data: {
+              status: 'Completed',
+              eta: o.eta || autoStamp(new Date()),
+              directCosts: dc,
+            },
+          });
+          void sysTrail(
+            'Dispatch',
+            'System Closed',
+            dispatchRef(o.id) + ' (' + String(o.truckReg || '—') + ') superseded by ' + dispatchRef(trip.id) +
+              ' — the gate logged the same head/tail out on the newer load, so the older run was closed.',
+          );
+          void notify('Transport Manager', 'Stale dispatch closed',
+            dispatchRef(o.id) + ' (' + String(o.truckReg || '—') + ') named a rig the gate just dispatched on ' +
+            dispatchRef(trip.id) + ' — it was closed automatically. Restore it from this notice if that is wrong.',
+            'warning', 'Transport Manager,Platform Admin,Fleet Operations', {
+              module: 'Dispatch', eventKey: 'dispatch.superseded', refId: o.id, refLabel: dispatchRef(o.id),
+              actionRoles: ['Transport Manager'],
+            });
+        }
+        if (superseded.length) {
+          console.log('[supersede] departure of ' + dispatchRef(trip.id) + ' closed ' + superseded.length + ' older dispatch(es) naming the same rig.');
+        }
+      }
+    } catch (e: any) {
+      console.error('[supersede] failed:', e?.message || e);
+    }
+  }
   // Fleet Ops assignment (driver/truck written) — stamp the first assignment.
   const assignmentWritten =
     raw.driverName !== undefined || raw.truckReg !== undefined || raw.tailNumber !== undefined;

@@ -1023,22 +1023,81 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     }
   }
 
-  // Explicitly prevent overriding ID or timestamps; drop client-only fields the Trip model
-  // does not store (headId/driverId/tailId are UI references — assignment persists via
-  // driverName/truckReg/tailType/tailNumber/directCosts).
+  // Explicitly prevent overriding ID or timestamps. headId/tailId stay UI
+  // references, but driverId is now a REAL column (DRIVER-IDENTITY, 30 Oct
+  // 2026): the dispatch records the roster row that owns the run, so every
+  // guard binds on identity instead of a name two men can share.
   const ALLOWED_TRIP_FIELDS = isPartner
     ? PARTNER_EDITABLE_TRIP_FIELDS
-    : ['driverName', 'truckReg', 'requestedTruckType', 'tailType', 'pickup', 'dropoff', 'dropoffAddress', 'customerConsignee', 'customer', 'cargo', 'loadingSite', 'revenue', 'status', 'directCosts', 'tailNumber', 'sendBackReason', 'partnerNote', 'estimatedDate', 'startTime', 'estimatedDays', 'eta', 'gateOutBy', 'gateInBy'];
+    : ['driverName', 'driverId', 'truckReg', 'requestedTruckType', 'tailType', 'pickup', 'dropoff', 'dropoffAddress', 'customerConsignee', 'customer', 'cargo', 'loadingSite', 'revenue', 'status', 'directCosts', 'tailNumber', 'sendBackReason', 'partnerNote', 'estimatedDate', 'startTime', 'estimatedDays', 'eta', 'gateOutBy', 'gateInBy'];
   const raw = { ...req.body };
+  // driverStaffId is SERVER-DERIVED from the roster row, never accepted from
+  // the wire — a client cannot stamp identity it invented.
+  delete raw.driverStaffId;
   const data: any = {};
   for (const key of ALLOWED_TRIP_FIELDS) {
     if (raw[key] !== undefined) data[key] = raw[key];
+  }
+  // DRIVER-IDENTITY: a driverId on the wire is validated against the roster,
+  // and the row wins over typing — the bound man's name and P-number are
+  // written from the row itself, so "mobammed"-grade typos can never create
+  // a phantom driver on a live dispatch. Clearing driverId clears the binding
+  // (the display name the operator typed remains, if any).
+  let boundDriver: { id: string; staffId: string | null; name: string; status: string } | null = null;
+  if (!isPartner && data.driverId !== undefined) {
+    const did = String(data.driverId || '').trim();
+    if (did) {
+      const row = await prisma.driver.findUnique({ where: { id: did } });
+      if (!row) {
+        return res.status(400).json({ error: 'driverId ' + did + ' names no driver in the roster — pick the driver from the Salary Number list.' });
+      }
+      boundDriver = { id: row.id, staffId: row.staffId, name: row.name, status: row.status };
+      data.driverStaffId = row.staffId;
+      if (row.name) data.driverName = row.name;
+    } else {
+      data.driverId = null;
+      data.driverStaffId = null;
+    }
   }
   // loadingSite is a String column; a list payload is joined, never rejected.
   if (Array.isArray(data.loadingSite)) {
     data.loadingSite = data.loadingSite.filter(Boolean).join(', ') || null;
   }
   const before = await prisma.trip.findUnique({ where: { id: req.params.id } });
+  // DRIVER-BUSY GUARD (identity, 30 Oct 2026): assigning a man to a dispatch
+  // while ANOTHER open dispatch already binds HIM (by driverId) is refused and
+  // names the dispatch holding him — the same one-truck rule the fleet runs,
+  // carried to the man. Legacy dispatches without a binding still match by
+  // exact full name, so a shared name is resolved by the unique-row rule: only
+  // when EXACTLY ONE roster driver carries that name does the legacy trip
+  // bind him, which is already the register's evidence rule.
+  if (!isPartner && boundDriver && data.driverId !== (before && before.driverId)) {
+    const openSibs = await prisma.trip.findMany({
+      where: {
+        id: { not: before ? before.id : '__none__' },
+        status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+      },
+      select: { id: true, driverId: true, driverName: true, truckReg: true, status: true },
+    });
+    const nameKeyOf = (v: any) => String(v || '').trim().toLowerCase();
+    // For the legacy name-armed rows: is this exact name held by exactly one driver?
+    const rosterSameName = await prisma.driver.count({ where: { name: boundDriver.name } });
+    const clash = openSibs.find((t) => {
+      if (t.driverId) return t.driverId === boundDriver!.id;
+      if (nameKeyOf(t.driverName) !== nameKeyOf(boundDriver!.name)) return false;
+      return rosterSameName === 1; // unique-name legacy binding only
+    });
+    if (clash) {
+      return res.status(409).json({
+        error:
+          (boundDriver.name || 'This driver') + (boundDriver.staffId ? ' (' + boundDriver.staffId + ')' : '') +
+          ' is already committed to an open dispatch — ' + dispatchRef(clash.id) + ' (' + clash.status +
+          (clash.driverName ? ' · ' + clash.driverName : '') + (clash.truckReg ? ', ' + String(clash.truckReg) : '') +
+          '). Close or reassign that dispatch first, or pick another driver. The assignment was not saved.',
+        conflict: clash.id,
+      });
+    }
+  }
   // A DECLINED request is CLOSED. No later action may move it back onto the
   // road: a gate departure, a tracking location, a fleet assignment and a
   // scheduling all write a live status, and without this check any one of them
@@ -1299,10 +1358,20 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   // completion never carries, stranding the man as 'On Trip' with no load.
   if (String(trip.status) === 'Completed' && before && before.status !== 'Completed' && trip.driverName) {
     try {
-      await prisma.driver.updateMany({
-        where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
-        data: { status: 'Active' },
-      });
+      // DRIVER-IDENTITY: free the man the dispatch is BOUND to — by driverId
+      // when the binding exists; legacy rows fall back to the exact name, and
+      // only when exactly one roster driver carries that name (so freeing a
+      // shared name can never release a namesake who did not ride this truck).
+      // driver-duty sync is the safety net for any row neither lands on.
+      let freedWhere: any = null;
+      if (trip.driverId) freedWhere = { id: trip.driverId, status: { in: ['On Trip', 'Active'] } };
+      else {
+        const sameName = await prisma.driver.count({ where: { name: trip.driverName } });
+        if (sameName === 1) freedWhere = { name: trip.driverName, status: { in: ['On Trip', 'Active'] } };
+      }
+      if (freedWhere) {
+        await prisma.driver.updateMany({ where: freedWhere, data: { status: 'Active' } });
+      }
     } catch (e: any) {
       console.error('return could not free the driver:', e?.message || e);
     }
@@ -1316,6 +1385,78 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   if (trip.status === 'Approved' && !trip.approvedAt) {
     const stamped = await prisma.trip.update({ where: { id: trip.id }, data: { approvedAt: new Date() } });
     trip.approvedAt = stamped.approvedAt;
+  }
+  /*
+   * SUPERSEDE-ON-DEPARTURE (the permanent fix, 29 Oct 2026): a rig cannot be on
+   * two loads. The moment the gate logs a truck OUT — this dispatch moves to En
+   * Route — any OLDER open moving dispatch naming the same head or tail is
+   * provably already over: the yard just physically sent that rig out again on
+   * this one. Those stale rows are what blocked approvals with "this truck
+   * already carries an open dispatch" for days while the desk waited on a human
+   * to close them. They close themselves here — status Completed, the departing
+   * stamp as the end of the run, an honest note on the record, a System row in
+   * the audit trail and a notice to the Transport Manager. The registry is NOT
+   * sent home (the rig is out on the new load — the departure's own coupling
+   * already said so), and drivers are left to the duty-sync, which frees anyone
+   * the live dispatch list no longer holds.
+   */
+  if (String(trip.status) === 'En Route' && before && before.status !== 'En Route') {
+    try {
+      const depKeys = truckKeysOf(trip);
+      if (depKeys.length) {
+        const older = await prisma.trip.findMany({
+          where: {
+            id: { not: trip.id },
+            status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] },
+          },
+        });
+        const superseded = older.filter(
+          (o) =>
+            // Date objects compare by moment — String(Date) drops milliseconds
+            // and two trips created in the same second compared EQUAL, skipping
+            // the supersede (found live: the 7a95c/a950e pair, 10ms apart).
+            new Date(o.createdAt).getTime() < new Date(trip.createdAt).getTime() &&
+            truckKeysOf(o).some((k) => depKeys.includes(k)),
+        );
+        for (const o of superseded) {
+          const dc = o.directCosts && typeof o.directCosts === 'object' ? { ...(o.directCosts as any) } : {};
+          dc.returnedBy = {
+            by: gateActor || 'S.1 Petroline',
+            role: req.user?.role || '',
+            at: new Date().toISOString(),
+            confirmed: true,
+            note: 'Superseded: the yard dispatched the same rig on ' + dispatchRef(trip.id) +
+              ' — this run was already over. Closed automatically; the registry was left as the new departure set it.',
+          };
+          await prisma.trip.update({
+            where: { id: o.id },
+            data: {
+              status: 'Completed',
+              eta: o.eta || autoStamp(new Date()),
+              directCosts: dc,
+            },
+          });
+          void sysTrail(
+            'Dispatch',
+            'System Closed',
+            dispatchRef(o.id) + ' (' + String(o.truckReg || '—') + ') superseded by ' + dispatchRef(trip.id) +
+              ' — the gate logged the same head/tail out on the newer load, so the older run was closed.',
+          );
+          void notify('Transport Manager', 'Stale dispatch closed',
+            dispatchRef(o.id) + ' (' + String(o.truckReg || '—') + ') named a rig the gate just dispatched on ' +
+            dispatchRef(trip.id) + ' — it was closed automatically. Restore it from this notice if that is wrong.',
+            'warning', 'Transport Manager,Platform Admin,Fleet Operations', {
+              module: 'Dispatch', eventKey: 'dispatch.superseded', refId: o.id, refLabel: dispatchRef(o.id),
+              actionRoles: ['Transport Manager'],
+            });
+        }
+        if (superseded.length) {
+          console.log('[supersede] departure of ' + dispatchRef(trip.id) + ' closed ' + superseded.length + ' older dispatch(es) naming the same rig.');
+        }
+      }
+    } catch (e: any) {
+      console.error('[supersede] failed:', e?.message || e);
+    }
   }
   // Fleet Ops assignment (driver/truck written) — stamp the first assignment.
   const assignmentWritten =
@@ -1815,11 +1956,20 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
         }
       }
       if (trip.driverName && trip.driverName !== 'Unassigned') {
-        await prisma.driver.updateMany({
-          where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
-          data: { status: 'Active' },
-        });
-        freed.push(trip.driverName);
+        // DRIVER-IDENTITY: the name only frees when no binding exists AND the
+        // name is unique in the roster — a shared name must never be released
+        // wholesale by one truck's return (this held two Mohammeds hostage).
+        // The duty-sync net catches anything left.
+        let freedWhere: any = null;
+        if (trip.driverId) freedWhere = { id: trip.driverId, status: { in: ['On Trip', 'Active'] } };
+        else {
+          const sameName = await prisma.driver.count({ where: { name: trip.driverName } });
+          if (sameName === 1) freedWhere = { name: trip.driverName, status: { in: ['On Trip', 'Active'] } };
+        }
+        if (freedWhere) {
+          await prisma.driver.updateMany({ where: freedWhere, data: { status: 'Active' } });
+          freed.push(String(trip.driverStaffId || trip.driverName));
+        }
       }
     }
 
@@ -2897,6 +3047,15 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
   const counts = new Map();
   for (const d of drivers) counts.set(d.id, 0);
   for (const t of openTrips) {
+    // DRIVER-IDENTITY (30 Oct 2026): whenever the trip is BOUND to a roster
+    // row, the count follows the binding — a shared name can only ever paint
+    // the wrong man. Legacy unbound rows fall through to the name rules:
+    // unique name binds as it always did; a shared name needs evidence tanker
+    // (stored duty word or HR pairing) before it counts.
+    if (t.driverId && counts.has(t.driverId)) {
+      counts.set(t.driverId, (counts.get(t.driverId) || 0) + 1);
+      continue;
+    }
     const nameKey = nameKeyOf(t.driverName);
     if (!nameKey || !nameBank.has(nameKey)) continue;
     const candidates = drivers.filter((d) => nameKeyOf(d.name) === nameKey);
