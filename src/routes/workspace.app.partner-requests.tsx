@@ -129,6 +129,7 @@ const STATUS_FILTERS: Array<"All" | PartnerUiStatus> = [
   "Returned",
   "Pending",
   "Seen",
+  "Assigned",
   "Scheduled",
   "In transit",
   "Completed",
@@ -148,6 +149,9 @@ function statusPillClass(status: PartnerUiStatus) {
     case "Seen":
       // Same orange the partner portals use for an acknowledged request.
       return "bg-[#F99E1F] text-white";
+    case "Assigned":
+      // Progress past Seen: Fleet Operations hung a vehicle on it.
+      return "bg-[#30B0C7] text-white";
     case "Scheduled":
       return "bg-[#34C759] text-white";
     case "Declined":

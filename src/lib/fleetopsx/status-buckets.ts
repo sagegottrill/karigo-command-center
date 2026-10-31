@@ -223,6 +223,9 @@ export const PARTNER_QUEUE_RANK: Record<PartnerUiStatus, number> = {
   Returned: 0,
   Pending: 1,
   Seen: 3,
+  // Assigned rides with Seen: same waiting-for-final-approval zone, but the
+  // partner now sees the vehicle went on.
+  Assigned: 3,
   Scheduled: 4,
   "In transit": 5,
   Completed: 6,
@@ -258,11 +261,13 @@ export function partnerQueueOrder(a: QueueTrip, b: QueueTrip): number {
 export const PARTNER_PORTAL_RANK: Record<PartnerUiStatus, number> = {
   Pending: 0,
   Seen: 1,
-  Returned: 2,
-  "In transit": 3,
-  Scheduled: 4,
-  Completed: 5,
-  Declined: 6,
+  // Assigned is progress the partner wants near the top — their truck is going on.
+  Assigned: 2,
+  Returned: 3,
+  "In transit": 4,
+  Scheduled: 5,
+  Completed: 6,
+  Declined: 7,
 };
 
 /** Partner-portal priority order: act-on-me rank first, newest first inside it. */
@@ -282,12 +287,15 @@ export function partnerPortalOrder(
  *
  * `Seen` is the TM's FIRST approval: the request has been acknowledged, the
  * partner can see it was read, but no truck has been dispatched yet.
+ * `Assigned` is the rung Fortune asked for (31 Oct 2026): Fleet Operations has
+ * hung a vehicle and driver on the request — the partner sees progress past
+ * "Seen" the moment that happens, instead of an acknowledged word that stuck.
  * `Scheduled` is the FINAL approval, when the dispatch is on the board.
- * There is no "Approved" state in the pipeline — Pending, Seen, Scheduled,
- * In transit, Completed, Declined.
+ * There is no "Approved" state in the pipeline — Pending, Seen, Assigned,
+ * Scheduled, In transit, Completed, Declined.
  */
 export type PartnerUiStatus =
-  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
+  "Pending" | "Seen" | "Assigned" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
 
 export function toPartnerUiStatus(
   trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
@@ -303,6 +311,7 @@ export function toPartnerUiStatus(
       return "Pending";
     case "approved":
     case "awaiting":
+      if (hasAssignment(trip)) return "Assigned";
       return "Seen";
     case "scheduled":
       return "Scheduled";

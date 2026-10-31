@@ -1293,6 +1293,21 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     } else if (movingOut) {
       void coupleTruckRegistry(trip, 'out');
       void coupleTailRegistry(trip, 'out');
+      // DEPARTURE-DISPATCHES-THE-DRIVER (Fortune, 31 Oct 2026): the gate logs
+      // the truck out — the man riding it goes On Trip in the SAME write, on
+      // every surface, not only where the client remembered to ask. The gate
+      // book path already did this (gateCycleDriverOnTrip); the trip-level
+      // departure does it here now, so "dispatch the truck and then dispatch
+      // the driver" is one motion the server guarantees.
+      const outDriver = String(trip.driverName || '').trim();
+      if (outDriver && !/^unassigned$|^tbd$/i.test(outDriver)) {
+        void prisma.driver
+          .updateMany({
+            where: { name: outDriver, status: { in: ['Available', 'Active'] } },
+            data: { status: 'On Trip' },
+          })
+          .catch((e: any) => console.error('departure could not claim the driver:', e?.message || e));
+      }
     }
     // lifecycle-coupling-v2: a COMPLETED dispatch frees its driver — full stop.
   // The old check demanded gateInBy in the request body, which a tracking-leg

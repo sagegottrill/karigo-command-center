@@ -1326,6 +1326,7 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
     Returned: "red",
     Pending: "amber",
     Seen: "teal",
+    Assigned: "teal",
     Scheduled: "green",
     "In transit": "purple",
     Completed: "blue",

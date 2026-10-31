@@ -17,11 +17,14 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard
 });
 
 type PartnerUiStatus =
-  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
+  "Pending" | "Seen" | "Assigned" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
 
 function toPartnerStatus(trip: {
   status: TripStatus;
   partnerNote?: string | null;
+  truckReg?: string | null;
+  headId?: string | null;
+  driverName?: string | null;
 }): PartnerUiStatus {
   const status = trip.status;
   switch (status) {
@@ -33,9 +36,10 @@ function toPartnerStatus(trip: {
     case "Awaiting Approval":
     case "Approved":
     case "Approved for Dispatch":
-      // TM's FIRST approval = acknowledged only (Seen). "Scheduled" comes after
-      // the second (final) approval, when the trip is on the dispatch board.
-      return "Seen";
+      // TM's FIRST approval = acknowledged only (Seen); the word becomes
+      // "Assigned" the moment Fleet Operations hangs a vehicle on it, and
+      // "Scheduled" after the final approval (Fortune, 31 Oct 2026).
+      return trip.truckReg || trip.headId || trip.driverName ? "Assigned" : "Seen";
     case "Scheduled":
       return "Scheduled";
     case "Stopped":
@@ -70,6 +74,8 @@ function partnerStatusClass(status: PartnerUiStatus) {
       return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
+    case "Assigned":
+      return "bg-[#30B0C7] text-white";
     case "Scheduled":
       return "bg-[#34C759] text-white";
     case "Declined":

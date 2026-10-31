@@ -748,6 +748,9 @@ export const tripService = {
       "Trip Completed",
     ];
     const idx: Record<string, number> = {
+      Requested: 0,
+      "Awaiting Approval": 1,
+      Approved: 1,
       Scheduled: 1,
       Loaded: 3,
       "En Route": 4,
@@ -757,7 +760,11 @@ export const tripService = {
       Returning: 6,
       Completed: 7,
     };
-    const current = idx[trip.status] ?? 4;
+    // TIMELINE-DEFAULT-0 (31 Oct 2026): the old default of 4 put every request
+    // the map had not named — Requested, Awaiting Approval, Approved — at the
+    // En Route step, so a partner read "Truck Departed" as done on a load the
+    // gate had never logged out. Un-named means not yet on the road: step 1.
+    const current = idx[String(trip.status).trim()] ?? 1;
     return order.map((label, i) => {
       const step: TimelineStep = {
         label,
