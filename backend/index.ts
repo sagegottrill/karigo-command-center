@@ -950,6 +950,20 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
       },
     };
   }
+  // CREATE-CARRIES-THE-COST-SHEET (found by the lifecycle E2E, 1 Nov 2026):
+  // directCosts sent at creation was silently dropped — so a request raised
+  // with a diesel/gas allocation never reached the fuel desk's board, and the
+  // desk wondered where the truck's litres were. Staff callers may open a
+  // request WITH its cost sheet; partners still never write one.
+  if (!isPartner && req.body.directCosts && typeof req.body.directCosts === 'object') {
+    data.directCosts = raisedForPartner
+      ? { ...req.body.directCosts, ...(data.directCosts as any) }
+      : req.body.directCosts;
+  }
+  if (!isPartner && req.body.revenue !== undefined) {
+    const revenue = Number(req.body.revenue);
+    if (Number.isFinite(revenue) && revenue >= 0) data.revenue = revenue;
+  }
   const trip = await prisma.trip.create({ data });
   // partner-sites-optin-patch: auto-collector removed from POST /api/trips
   if (raisedForPartner) {
@@ -1267,6 +1281,97 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     data.gateInBy = gateActor;
   }
   const trip = await prisma.trip.update({ where: { id: req.params.id }, data });
+  /*
+   * ASSIGNMENT-COUPLES-THE-REGISTRY (server-derived truth, 31 Oct 2026): when
+   * a save CHANGES the head, tail or driver on a pre-departure dispatch, the
+   * registry rows follow in the same write — the new rig/body claim as
+   * Assigned, the new driver goes On Trip, and whatever the dispatch RELEASED
+   * (a re-assignment's previous rig/body/driver) goes back on the board only
+   * if no other open dispatch still holds it. Before this, the coupling lived
+   * in the calling client's bookkeeping (claimAssets), so an API caller — or
+   * one failed best-effort fetch — left the register lying: trucks "Assigned"
+   * to nothing, bodies stranded Out of Yard, the exact stranded rows the
+   * audits kept finding. Never runs once the truck is moving or home — the
+   * departure and return couplings own those words.
+   */
+  try {
+    const assignmentChanged =
+      before &&
+      (['truckReg', 'tailNumber', 'driverName'] as const).some(
+        (k) =>
+          data[k] !== undefined &&
+          String(data[k] ?? '').trim() !== String((before as any)[k] ?? '').trim(),
+      );
+    const PRE_DEPARTURE = ['Requested', 'Awaiting Approval', 'Approved', 'Approved for Dispatch', 'Scheduled'];
+    if (assignmentChanged && PRE_DEPARTURE.includes(String(trip.status))) {
+      const HOLDING_STATUSES = [...PRE_DEPARTURE, 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
+      const openOthers = await prisma.trip.findMany({
+        where: { id: { not: trip.id }, status: { in: HOLDING_STATUSES } },
+        select: { truckReg: true, tailNumber: true, driverName: true },
+      });
+      const heldByOther = (tokv: string) =>
+        Boolean(tokv) && openOthers.some((o) => truckKeysOf(o).includes(tokv));
+      const heldByName = (name: string) =>
+        Boolean(name) &&
+        openOthers.some((o) => String(o.driverName || '').trim().toLowerCase() === name.toLowerCase());
+
+      // RELEASE what this dispatch let go — the previous rig, body and driver.
+      const oldHead = TRUCK_KEY(String(before.truckReg || '').split('/')[0] || '');
+      const oldTail = TRUCK_KEY(String(before.tailNumber || '') || String(before.truckReg || '').split('/')[1] || '');
+      const oldDriver = String(before.driverName || '').trim();
+      if (oldHead && !heldByOther(oldHead)) {
+        const rows = await prisma.truck.findMany();
+        for (const row of rows) {
+          if ((TRUCK_KEY(row.cabId) === oldHead || TRUCK_KEY(row.registration) === oldHead) && String(row.status) === 'Assigned') {
+            await prisma.truck.update({ where: { id: row.id }, data: { status: 'Available' } });
+          }
+        }
+      }
+      if (oldTail && !heldByOther(oldTail)) {
+        const rows = await prisma.tail.findMany();
+        for (const row of rows) {
+          if (TRUCK_KEY(row.number) === oldTail && String(row.status) === 'Assigned') {
+            await prisma.tail.update({ where: { id: row.id }, data: { status: 'Available' } });
+          }
+        }
+      }
+      if (oldDriver && !/^unassigned$|^tbd$/i.test(oldDriver) && !heldByName(oldDriver)) {
+        await prisma.driver.updateMany({
+          where: { name: oldDriver, status: 'On Trip' },
+          data: { status: 'Active' },
+        });
+      }
+
+      // CLAIM what this dispatch now holds — the new rig, body and driver.
+      const newHead = TRUCK_KEY(String(trip.truckReg || '').split('/')[0] || '');
+      const newTail = TRUCK_KEY(String(trip.tailNumber || '') || String(trip.truckReg || '').split('/')[1] || '');
+      const newDriver = String(trip.driverName || '').trim();
+      if (newHead) {
+        const rows = await prisma.truck.findMany();
+        for (const row of rows) {
+          if ((TRUCK_KEY(row.cabId) === newHead || TRUCK_KEY(row.registration) === newHead) && String(row.status) === 'Available') {
+            await prisma.truck.update({ where: { id: row.id }, data: { status: 'Assigned' } });
+          }
+        }
+      }
+      if (newTail) {
+        const rows = await prisma.tail.findMany();
+        for (const row of rows) {
+          if (TRUCK_KEY(row.number) === newTail && String(row.status) === 'Available') {
+            await prisma.tail.update({ where: { id: row.id }, data: { status: 'Assigned' } });
+          }
+        }
+      }
+      if (newDriver && !/^unassigned$|^tbd$/i.test(newDriver)) {
+        await prisma.driver.updateMany({
+          where: { name: newDriver, status: { in: ['Available', 'Active'] } },
+          data: { status: 'On Trip' },
+        });
+      }
+    }
+  } catch (e: any) {
+    console.error('[assignment-couple] failed:', e?.message || e);
+  }
   /*
    * THE RETURN STAMP FREES THE DRIVER (return-frees-driver).
    *
@@ -1680,6 +1785,17 @@ function truckKeysOf(trip: any): string[] {
   for (const v of [trip?.truckReg, trip?.tailNumber]) {
     const whole = TRUCK_KEY(v);
     if (whole.length > 3) out.add(whole);
+    // SEGMENT-KEYS (1 Nov 2026): the registry rows key on the STRIPPED WHOLE
+    // field (TRUCK_KEY of the entire plate or tail as typed), so a hyphenated
+    // plate "E2E-PLATE-91" lives there as E2EPLATE91 — while this function's
+    // sub-tokens only ever produced E2E / PLATE / 91, and the coupling could
+    // never meet the row it owned (the truck stayed Assigned through its own
+    // departure). Each '/'-segment's stripped whole joins the set: the same
+    // key the row carries, under the same exact-equality rule.
+    for (const segment of String(v || '').split('/')) {
+      const sk = TRUCK_KEY(segment);
+      if (sk && sk.length > 3) out.add(sk);
+    }
     for (const token of String(v || '').split(/[^0-9a-zA-Z]+/)) {
       const k = TRUCK_KEY(token);
       // TOKEN:FLOOR-4 (29 Oct 2026, the "wrong error" ticket): identity in this
@@ -2037,7 +2153,12 @@ async function autoReconcileGateDepartures(): Promise<number> {
  */
 async function syncDriverDuty(): Promise<number> {
   try {
-    const OPEN_TRIP_STATUSES = ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
+    // DUTY-SYNC-HOLDS-ASSIGNED (31 Oct 2026): the pre-approval states hold a
+    // claimed driver too — Fleet Operations assigned him and the TM's final
+    // approval is pending. Without these, the sync freed a man ten minutes
+    // after his assignment (the On Trip → Active churn the notifications
+    // showed all day) while his truck sat assigned in the queue.
+    const OPEN_TRIP_STATUSES = ['Awaiting Approval', 'Approved', 'Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
     const openTrips = await prisma.trip.findMany({
       where: { status: { in: OPEN_TRIP_STATUSES } },
       select: { driverName: true, truckReg: true, tailNumber: true },
