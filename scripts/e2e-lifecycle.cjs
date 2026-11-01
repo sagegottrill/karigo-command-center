@@ -17,6 +17,21 @@ const BASE = 'http://127.0.0.1:3001';
 const STAMP = 'E2E-LC-' + Date.now().toString().slice(-6);
 
 let pass = 0, fail = 0;
+/**
+ * Registry couplings are fire-and-forget server writes — poll like a real
+ * reader instead of racing the server's own bookkeeping.
+ */
+const waitFor = async (fn, label, timeoutMs = 6000) => {
+  const deadline = Date.now() + timeoutMs;
+  let last;
+  while (Date.now() < deadline) {
+    last = await fn();
+    if (last === true) { ok(true, label); return true; }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  ok(false, label, last);
+  return false;
+};
 const ok = (cond, label, extra) => {
   if (cond) { pass++; console.log('  PASS', label); }
   else { fail++; console.log('  FAIL', label, extra !== undefined ? '-> ' + JSON.stringify(extra).slice(0, 200) : ''); }
@@ -58,12 +73,9 @@ const ok = (cond, label, extra) => {
   console.log('== S3: FO assigns vehicle + tail + driver (partner: Assigned)');
   const assign = await fetch(`${BASE}/api/trips/${created.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ truckReg: reg, tailNumber: tail.number, driverName: driver.name }) });
   ok(assign.status === 200, 'assignment saved (asset-busy guard passes)', await assign.clone().json().catch(() => ''));
-  const truckAfter = await p.truck.findUnique({ where: { id: truck.id } });
-  const tailAfter = await p.tail.findUnique({ where: { id: tail.id } });
-  const drvAfter = await p.driver.findUnique({ where: { id: driver.id } });
-  ok(truckAfter.status === 'Assigned', 'truck registry -> Assigned', truckAfter.status);
-  ok(tailAfter.status === 'Assigned', 'tail registry -> Assigned', tailAfter.status);
-  ok(drvAfter.status === 'On Trip', 'driver -> On Trip at assignment', drvAfter.status);
+  await waitFor(async () => (await p.truck.findUnique({ where: { id: truck.id } })).status === 'Assigned', 'truck registry -> Assigned');
+  await waitFor(async () => (await p.tail.findUnique({ where: { id: tail.id } })).status === 'Assigned', 'tail registry -> Assigned');
+  await waitFor(async () => (await p.driver.findUnique({ where: { id: driver.id } })).status === 'On Trip', 'driver -> On Trip at assignment');
 
   // ---------- S4: TM final approval ----------
   console.log('== S4: TM final approval (partner: Scheduled)');
@@ -84,11 +96,9 @@ const ok = (cond, label, extra) => {
   console.log('== S6: gate departure (truck Out of Yard, driver On Trip)');
   const dep = await fetch(`${BASE}/api/trips/${created.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ status: 'En Route', startTime: '31 Oct 2026, 14:00', gateOutBy: 'S.1 Petroline' }) });
   const t6 = await fetch(`${BASE}/api/trips/${created.id}`, { headers: H }).then((r) => r.json());
-  const truckOut = await p.truck.findUnique({ where: { id: truck.id } });
-  const tailOut = await p.tail.findUnique({ where: { id: tail.id } });
   ok(dep.status === 200 && t6.status === 'En Route', 'trip En Route', t6.status);
-  ok(truckOut.status === 'Out of Yard', 'truck -> Out of Yard', truckOut.status);
-  ok(tailOut.status === 'Out of Yard', 'tail -> Out of Yard', tailOut.status);
+  await waitFor(async () => (await p.truck.findUnique({ where: { id: truck.id } })).status === 'Out of Yard', 'truck -> Out of Yard');
+  await waitFor(async () => (await p.tail.findUnique({ where: { id: tail.id } })).status === 'Out of Yard', 'tail -> Out of Yard');
   const drvOn = await p.driver.findUnique({ where: { id: driver.id } });
   ok(drvOn.status === 'On Trip', 'driver stays On Trip through departure', drvOn.status);
 
@@ -103,14 +113,11 @@ const ok = (cond, label, extra) => {
   // ---------- S8: gate return ----------
   console.log('== S8: gate return (Check Up + driver freed)');
   const ret = await fetch(`${BASE}/api/trips/${created.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ status: 'Completed', eta: '31 Oct 2026, 16:00', gateInBy: 'S.1 Petroline' }) });
-  const truckHome = await p.truck.findUnique({ where: { id: truck.id } });
-  const tailHome = await p.tail.findUnique({ where: { id: tail.id } });
-  const drvHome = await p.driver.findUnique({ where: { id: driver.id } });
   const t8 = await fetch(`${BASE}/api/trips/${created.id}`, { headers: H }).then((r) => r.json());
   ok(ret.status === 200 && t8.status === 'Completed' && t8.gateInBy, 'trip Completed + gateInBy', t8);
-  ok(truckHome.status === 'Check Up', 'truck -> Check Up', truckHome.status);
-  ok(tailHome.status === 'Check Up', 'tail -> Check Up', tailHome.status);
-  ok(drvHome.status === 'Active', 'driver released to Active', drvHome.status);
+  await waitFor(async () => (await p.truck.findUnique({ where: { id: truck.id } })).status === 'Check Up', 'truck -> Check Up');
+  await waitFor(async () => (await p.tail.findUnique({ where: { id: tail.id } })).status === 'Check Up', 'tail -> Check Up');
+  await waitFor(async () => (await p.driver.findUnique({ where: { id: driver.id } })).status === 'Active', 'driver released to Active');
 
   // ---------- S9: engineering check-up pass ----------
   console.log('== S9: engineering check-up pass (Available again)');
