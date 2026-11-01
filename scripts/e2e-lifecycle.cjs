@@ -13,7 +13,7 @@
  */
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-const BASE = 'http://127.0.0.1:3001';
+const BASE = 'https://petrolline.fleetopsx.com';
 const STAMP = 'E2E-LC-' + Date.now().toString().slice(-6);
 
 let pass = 0, fail = 0;

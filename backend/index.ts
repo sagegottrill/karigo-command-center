@@ -964,6 +964,31 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
     const revenue = Number(req.body.revenue);
     if (Number.isFinite(revenue) && revenue >= 0) data.revenue = revenue;
   }
+  // ONE-MAN-ONE-DISPATCH at creation: a dispatch opened directly with a driver
+  // binds his roster identity here, and a man already held by an open dispatch
+  // is refused — the same rule the assignment PATCH enforces.
+  if (!isPartner && data.driverName && !/^unassigned$|^tbd$/i.test(String(data.driverName))) {
+    const roster = await prisma.driver.findFirst({
+      where: { name: { equals: String(data.driverName).trim(), mode: 'insensitive' } },
+      select: { staffId: true, name: true },
+    });
+    if (roster && roster.staffId) {
+      const holder = await prisma.trip.findFirst({
+        where: { driverStaffId: roster.staffId, status: { in: ['Awaiting Approval', 'Approved', 'Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+        orderBy: { updatedAt: 'desc' },
+        select: { id: true, status: true, truckReg: true, driverName: true },
+      });
+      if (holder) {
+        return res.status(409).json({
+          error: 'Driver ' + roster.name + ' (' + roster.staffId + ') is already on an open dispatch — ' +
+            dispatchRef(holder.id) + ' (' + holder.status + (holder.driverName ? ' · ' + holder.driverName : '') + ', ' + String(holder.truckReg || '—') + ').' +
+            ' Reassign or close that dispatch before putting this man on another load.',
+          conflict: [holder.id],
+        });
+      }
+      data.driverStaffId = roster.staffId;
+    }
+  }
   const trip = await prisma.trip.create({ data });
   // partner-sites-optin-patch: auto-collector removed from POST /api/trips
   if (raisedForPartner) {
@@ -1120,6 +1145,49 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   }
   const isGateAccount = ['Security', 'Gate Security', 'Gate'].includes(String(req.user?.role || ''))
     || /(^|,)(security|gate)(,|$)/i.test(String(req.user?.roles || ''));
+  /*
+   * ONE-MAN-ONE-DISPATCH (server identity — 1 Nov 2026): the roster row is the
+   * man's identity (driverStaffId, server-derived from the roster, never
+   * accepted from the wire). When a save CHANGES the driver, that identity is
+   * resolved here: if another open dispatch already holds the same staffId the
+   * save is refused with the holder named — shared names can no longer borrow
+   * another man's dispatch, and a roster-matched man cannot be double-booked.
+   * Unrostered names stay unbound (they cannot be told apart, so they are
+   * never guarded on identity). A release clears the stale binding.
+   */
+  const DRIVER_HOLDING = ['Awaiting Approval', 'Approved', 'Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
+  if (!isPartner && before && data.driverName !== undefined) {
+    const newDriver = String(data.driverName ?? '').trim();
+    const driverChanged = newDriver.toLowerCase() !== String(before.driverName ?? '').trim().toLowerCase();
+    if (driverChanged) {
+      if (!newDriver || /^unassigned$|^tbd$/i.test(newDriver)) {
+        data.driverStaffId = null; // released — drop the stale binding
+      } else {
+        const roster = await prisma.driver.findFirst({
+          where: { name: { equals: newDriver, mode: 'insensitive' } },
+          select: { staffId: true, name: true },
+        });
+        if (roster && roster.staffId) {
+          const holder = await prisma.trip.findFirst({
+            where: { id: { not: before.id }, driverStaffId: roster.staffId, status: { in: DRIVER_HOLDING } },
+            orderBy: { updatedAt: 'desc' },
+            select: { id: true, status: true, truckReg: true, driverName: true },
+          });
+          if (holder) {
+            return res.status(409).json({
+              error: 'Driver ' + roster.name + ' (' + roster.staffId + ') is already on an open dispatch — ' +
+                dispatchRef(holder.id) + ' (' + holder.status + (holder.driverName ? ' · ' + holder.driverName : '') + ', ' + String(holder.truckReg || '—') + ').' +
+                ' Reassign or close that dispatch before putting this man on another load.',
+              conflict: [holder.id],
+            });
+          }
+          data.driverStaffId = roster.staffId;
+        } else {
+          data.driverStaffId = null;
+        }
+      }
+    }
+  }
   if (isGateAccount && before && before.status !== data.status) {
     if (data.status === 'En Route') {
       data.gateOutBy = gateActor;
