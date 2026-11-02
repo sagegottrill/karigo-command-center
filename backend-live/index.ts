@@ -968,10 +968,18 @@ app.post('/api/trips', authenticate, authorize('Platform Admin', 'Transport Mana
   // binds his roster identity here, and a man already held by an open dispatch
   // is refused — the same rule the assignment PATCH enforces.
   if (!isPartner && data.driverName && !/^unassigned$|^tbd$/i.test(String(data.driverName))) {
-    const roster = await prisma.driver.findFirst({
+    // ROW-HINT (2 Nov 2026): same as the PATCH — a chosen roster row wins over
+    // a name lookup, so a shared name binds the man the picker held, and the
+    // row's own name becomes the stored truth.
+    const createRowHint = String(req.body.driverId || '').trim();
+    const hinted = createRowHint
+      ? await prisma.driver.findUnique({ where: { id: createRowHint }, select: { staffId: true, name: true } })
+      : null;
+    const roster = hinted || (await prisma.driver.findFirst({
       where: { name: { equals: String(data.driverName).trim(), mode: 'insensitive' } },
       select: { staffId: true, name: true },
-    });
+    }));
+    if (roster && roster.name) data.driverName = roster.name;
     if (roster && roster.staffId) {
       const holder = await prisma.trip.findFirst({
         where: { driverStaffId: roster.staffId, status: { in: ['Awaiting Approval', 'Approved', 'Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
@@ -1163,10 +1171,23 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       if (!newDriver || /^unassigned$|^tbd$/i.test(newDriver)) {
         data.driverStaffId = null; // released — drop the stale binding
       } else {
-        const roster = await prisma.driver.findFirst({
+        // ROW-HINT (2 Nov 2026): six roster names are shared ("Mohammed" ×3),
+        // so a name-only lookup would grab an ARBITRARY row's staffId. When the
+        // caller carries the roster row its picker chose (driverId), THAT row
+        // decides — validated against the roster, so the wire can never stamp
+        // an identity the roster does not own, and the row's own name corrects
+        // the typed text as the 30 Oct identity rule did. No hint: the name
+        // stands (unambiguous names resolve; a shared name binds the row
+        // findFirst reaches — the desktop and mobile pickers always send the row).
+        const rowHint = String(req.body?.driverId || '').trim();
+        const hinted = rowHint
+          ? await prisma.driver.findUnique({ where: { id: rowHint }, select: { staffId: true, name: true } })
+          : null;
+        const roster = hinted || (await prisma.driver.findFirst({
           where: { name: { equals: newDriver, mode: 'insensitive' } },
           select: { staffId: true, name: true },
-        });
+        }));
+        if (roster && roster.name) data.driverName = roster.name;
         if (roster && roster.staffId) {
           const holder = await prisma.trip.findFirst({
             where: { id: { not: before.id }, driverStaffId: roster.staffId, status: { in: DRIVER_HOLDING } },
@@ -1487,10 +1508,21 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   // completion never carries, stranding the man as 'On Trip' with no load.
   if (String(trip.status) === 'Completed' && before && before.status !== 'Completed' && trip.driverName) {
     try {
-      await prisma.driver.updateMany({
-        where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
-        data: { status: 'Active' },
-      });
+      // FREE-THE-BOUND-MAN-FIRST (2 Nov 2026): the trip's own driverStaffId is
+      // the man who rode it — every assignment path stamps it and roster
+      // staffIds are unique. Six roster names are shared ("Mohammed" ×3), so a
+      // plain name-free releases ALL rows under the word and flips a namesake
+      // off his own live dispatch's On Trip. A trip with NO binding falls back
+      // to the name — and only when exactly one roster row carries it.
+      const boundSid = String((trip as any).driverStaffId || '').trim();
+      const freedWhere = boundSid
+        ? { staffId: boundSid, status: { in: ['On Trip', 'Active'] } }
+        : (await prisma.driver.count({ where: { name: trip.driverName } })) === 1
+          ? { name: trip.driverName, status: { in: ['On Trip', 'Active'] } }
+          : null;
+      if (freedWhere) {
+        await prisma.driver.updateMany({ where: freedWhere, data: { status: 'Active' } });
+      }
     } catch (e: any) {
       console.error('return could not free the driver:', e?.message || e);
     }
@@ -2086,11 +2118,22 @@ app.post('/api/gate/return', authenticate, authorize('Security', 'Platform Admin
         }
       }
       if (trip.driverName && trip.driverName !== 'Unassigned') {
-        await prisma.driver.updateMany({
-          where: { name: trip.driverName, status: { in: ['On Trip', 'Active'] } },
-          data: { status: 'Active' },
-        });
-        freed.push(trip.driverName);
+        // FREE-THE-BOUND-MAN-FIRST: same rule the dispatch-level return runs —
+        // the binding frees the man who rode; an unbound trip frees only a
+        // UNIQUE name. A shared name freed wholesale is the Mohammed hostage.
+        const boundSid = String((trip as any).driverStaffId || '').trim();
+        const freedWhere = boundSid
+          ? { staffId: boundSid, status: { in: ['On Trip', 'Active'] } }
+          : (await prisma.driver.count({ where: { name: trip.driverName } })) === 1
+            ? { name: trip.driverName, status: { in: ['On Trip', 'Active'] } }
+            : null;
+        if (freedWhere) {
+          await prisma.driver.updateMany({
+            where: freedWhere,
+            data: { status: 'Active' },
+          });
+          freed.push(boundSid || trip.driverName);
+        }
       }
     }
 
@@ -2229,7 +2272,7 @@ async function syncDriverDuty(): Promise<number> {
     const OPEN_TRIP_STATUSES = ['Awaiting Approval', 'Approved', 'Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'];
     const openTrips = await prisma.trip.findMany({
       where: { status: { in: OPEN_TRIP_STATUSES } },
-      select: { driverName: true, truckReg: true, tailNumber: true },
+      select: { driverName: true, driverStaffId: true, truckReg: true, tailNumber: true },
     });
     const headKeyOf = (v: any) => {
       const k = TRUCK_KEY(String(v || '').split(/[/\s]+/)[0]);
@@ -2237,7 +2280,7 @@ async function syncDriverDuty(): Promise<number> {
     };
     const onTrip = await prisma.driver.findMany({
       where: { status: 'On Trip' },
-      select: { id: true, name: true, truckReg: true, truckReg2: true },
+      select: { id: true, name: true, staffId: true, truckReg: true, truckReg2: true },
     });
     let flipped = 0;
     const freedNames: string[] = [];
@@ -2246,6 +2289,10 @@ async function syncDriverDuty(): Promise<number> {
       const nameKey = String(d.name || '').trim().toLowerCase();
       const own = [d.truckReg, d.truckReg2].map((v) => headKeyOf(v)).filter(Boolean);
       const stillOn = openTrips.some((t: any) => {
+        // BOUND-DUTY-FIRST (2 Nov 2026): a dispatch bound by staffId can only
+        // hold THAT man — a namesake never hangs on another's word.
+        const tSid = String((t as any).driverStaffId || '').trim();
+        if (tSid && String(d.staffId || '').trim()) return tSid === String(d.staffId).trim();
         if (String(t.driverName || '').trim().toLowerCase() === nameKey) return true;
         const headKey = headKeyOf(String(t.truckReg || '').trim());
         const tailKey = headKeyOf(String(t.tailNumber || '').trim());
@@ -3142,7 +3189,7 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
       where: {
         status: { in: ['Scheduled', 'En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed', 'Stopped'] },
       },
-      select: { driverName: true, truckReg: true },
+      select: { driverName: true, driverStaffId: true, truckReg: true },
     }),
     prisma.truck.findMany(),
   ]);
@@ -3173,6 +3220,15 @@ app.get('/api/drivers', authenticate, async (_req, res) => {
   const counts = new Map();
   for (const d of drivers) counts.set(d.id, 0);
   for (const t of openTrips) {
+    // BOUND-COUNT-FIRST (2 Nov 2026): a dispatch bound by staffId counts for
+    // THAT man (staffIds are unique); the name/cap-evidence rules below are
+    // for legacy unbound rows only. "Mohammed" ×3 counting on the word alone
+    // is the P0293 story all over again.
+    const tSid = String((t as any).driverStaffId || '').trim().toUpperCase();
+    if (tSid) {
+      const bound = drivers.find((d: any) => String(d.staffId || '').trim().toUpperCase() === tSid);
+      if (bound) { counts.set(bound.id, (counts.get(bound.id) || 0) + 1); continue; }
+    }
     const nameKey = nameKeyOf(t.driverName);
     if (!nameKey || !nameBank.has(nameKey)) continue;
     const candidates = drivers.filter((d) => nameKeyOf(d.name) === nameKey);
