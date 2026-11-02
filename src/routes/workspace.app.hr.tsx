@@ -37,6 +37,7 @@ import { displayDispatchId } from "@/lib/fleetopsx/request-id";
 import {
   HR_ACCESS_ROLES,
   employmentStatusForWrite,
+  employmentStatusOf,
   rolesCanMaintainStaff,
   staffStatusLabel,
   type EmploymentStatus,
@@ -372,32 +373,33 @@ function HrStaffDirectory() {
     const openDispatches = liveTripsFor(idEdit.driver, trips, undefined, drivers);
     let closeDispatches = forceClose;
     /*
-     * A RELEASE IS AN EXIT FROM THE FLEET (Fortune/Adyems, 26 Oct 2026).
+     * ONE CLICK, ONE SAVE (Fortune, 2 Nov 2026).
      *
-     * The question used to be raised on EVERY save of a driver with open
-     * dispatches — so editing a man's phone number could close his unstarted
-     * Scheduled trips, and trucks were freed before Security ever logged a
-     * departure. It is raised now only when the save moves the man OUT of
-     * employment — On Leave or Suspended — which is exactly the rule the
-     * mobile HR app always applied.
-     *
-     * Actively employed (Active) is the DEFAULT: a plain record edit never
-     * touches his dispatches, whatever the trip list says.
+     * The question used to be raised only when the save moved the man OUT of
+     * employment (On Leave / Suspended) — so a driver whose trip nobody closed
+     * could not be brought back with a single Active save: the row kept
+     * printing "On Trip", the fleet desk kept refusing him, and the only way
+     * through was editing him On Leave first and Active after. The On Leave
+     * detour is gone: any save of a driver whose open dispatches still name
+     * him asks once, in-app, naming the dispatches — a changed decision
+     * (Active, On Leave or Suspended alike) or an Active save at all — and
+     * closes them with him when it is confirmed. Only a decision that does
+     * not change to Active skips the question.
      *
      * Asked in the app, NOT with window.confirm: a native dialog the browser
      * dismisses returns false, which made this save do nothing at all — the
-     * reported "make available from HR does not work".
-     *
-     * And the question is raised from the SERVER's open-dispatch count, so a
-     * trip list that failed to load can no longer turn the release into a
-     * silent no-op that leaves the driver committed.
+     * reported "make available from HR does not work". The confirm closes
+     * only ROAD dispatches on the server (Scheduled work is never completed
+     * from here), so the release cannot hand an unstarted truck back to the
+     * yard.
      */
-    const leavesEmployment = draft.status === "On Leave" || draft.status === "Suspended";
-    if (leavesEmployment && !forceClose && driverHasOpenDispatches(idEdit.driver, trips, drivers)) {
+    const currentWord = employmentStatusOf(idEdit.driver);
+    const asksRelease = draft.status !== currentWord || draft.status === "Active";
+    if (asksRelease && !forceClose && driverHasOpenDispatches(idEdit.driver, trips, drivers)) {
       setPendingFree({ driver: idEdit.driver, status: draft.status, openDispatches });
       return;
     }
-    if (leavesEmployment && forceClose) closeDispatches = true;
+    if (asksRelease && forceClose) closeDispatches = true;
     try {
       // Only live Driver columns — the API whitelists exactly these on PATCH.
       // Anything HR empties is sent as "" (never left out, which would silently

@@ -3305,12 +3305,22 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
      *   2. a Scheduled dispatch is UNSTARTED work — no release may complete it.
      *      It is reassigned or cancelled by the fleet desk, never closed
      *      Completed here.
+     *
+     * ONE CLICK, ONE SAVE (Fortune, 2 Nov 2026): stop 1 loses its second
+     * half. closeDispatches is only ever SENT by the web editor after the
+     * in-app dialog is confirmed, so an explicit carry is the desk's decision
+     * — and an Active write now honours it too: the On Leave-then-Active
+     * detour for a man a stale dispatch held is gone. The road-only list
+     * below still means a Scheduled dispatch is NEVER completed from here.
      */
     if (b.closeDispatches) {
       const OPEN_TRIP_STATUSES: string[] = ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'];
       const driver = await prisma.driver.findUnique({ where: { id: req.params.id } });
       const nextStatus = String(data.status ?? driver?.status ?? '').trim();
-      const leavesEmployment = ['On Leave', 'Off Duty', 'Suspended'].includes(nextStatus);
+      // Road dispatches may be closed with the man on ANY employment decision
+      // the desk confirmed — leaving work (On Leave / Off Duty / Suspended)
+      // and returning to it (Active / Available) alike.
+      const leavesEmployment = ['On Leave', 'Off Duty', 'Suspended', 'Active', 'Available'].includes(nextStatus);
       if (driver && driver.name && leavesEmployment) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Transport Manager';
         const stuck = await prisma.trip.findMany({
