@@ -261,7 +261,12 @@ function AdminManagePartner() {
     }
   };
 
-  const shareText = `Hello,\n\nYour Partner Portal account is ready.\nUsername: ${sharedCredentials.username || "(see your administrator)"}\nTemporary password: ${sharedCredentials.password || "(see your administrator)"}\nLogin at: ${window.location.origin}/workspace/customer-portal/login`;
+  // window.location here faults the server render (the hydration trap add-partner fixed):
+// guard so SSR renders the shell and the browser owns the real origin.
+function loginOriginSSRSafe(): string {
+  return typeof window === "undefined" ? "" : window.location.origin;
+}
+const shareText = `Hello,\n\nYour Partner Portal account is ready.\nUsername: ${sharedCredentials.username || "(see your administrator)"}\nTemporary password: ${sharedCredentials.password || "(see your administrator)"}\nLogin at: ${loginOriginSSRSafe()}/workspace/customer-portal/login`;
 
   return (
     <>

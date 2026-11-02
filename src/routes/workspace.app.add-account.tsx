@@ -189,7 +189,12 @@ function AdminAddAccount() {
   };
 
   // Share text reflects the department the account was created FOR (not a hardcoded portal).
-  const shareText = `Hello ${firstName},\n\nYour ${departments.join(" & ") || "Petroline"} account has been created.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${window.location.origin}/workspace/login`;
+  // window.location here faults the server render (the hydration trap add-partner fixed):
+// guard so SSR renders the shell and the browser owns the real origin.
+function loginOriginSSRSafe(): string {
+  return typeof window === "undefined" ? "" : window.location.origin;
+}
+const shareText = `Hello ${firstName},\n\nYour ${departments.join(" & ") || "Petroline"} account has been created.\nUsername: ${generatedUsername}\nPassword: ${generatedPassword}\nLogin at: ${loginOriginSSRSafe()}/workspace/login`;
 
   const handleShareDone = () => {
     setShowShareModal(false);
