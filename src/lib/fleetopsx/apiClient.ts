@@ -1,7 +1,8 @@
 /**
  * Production API client for FleetOpsX → Hetzner backend.
  *
- * Browser: prefer same-origin `/api` (Vercel rewrite / Vite proxy) to avoid mixed-content.
+ * Browser: prefer same-origin `/api` (the VPS nginx proxies the API on its own
+ * origin / Vite proxy in dev) to avoid mixed-content.
  * SSR: hit the absolute backend URL.
  */
 import { clearPendingLoginPassword } from "./password-policy";
