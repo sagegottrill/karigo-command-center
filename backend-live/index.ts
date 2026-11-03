@@ -2954,6 +2954,53 @@ function statusFromLeg(current: string, leg: string): string | null {
 // checkpoint-departure-patch-end
 
 // --- TRACKING ---
+/*
+ * TRACKING:RECENT — the live board feed (1 Nov 2026): every truck the gate has
+ * dispatched, with its LAST REAL REPORT — the newest checkpoint the tracking
+ * crew logged, or "no report yet" for a load moving silently. Each row carries
+ * the age in minutes so the board can flag the trucks that have gone quiet.
+ * This is reported truth with timestamps, not status words.
+ */
+app.get('/api/tracking/recent', authenticate, async (_req, res) => {
+  try {
+    const open = await prisma.trip.findMany({
+      where: { status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+      select: {
+        id: true, truckReg: true, driverName: true, status: true,
+        startTime: true, updatedAt: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    const ids = open.map((t) => t.id);
+    const cps = ids.length
+      ? await prisma.trackingCheckpoint.findMany({ where: { tripId: { in: ids } }, orderBy: { at: 'desc' } })
+      : [];
+    const latest = new Map<string, { location: string; leg: string; at: Date }>();
+    for (const cp of cps) if (!latest.has(cp.tripId)) latest.set(cp.tripId, cp);
+    const now = Date.now();
+    const rows = open.map((t) => {
+      const cp = latest.get(t.id) || null;
+      const lastAt = cp ? new Date(cp.at).getTime() : NaN;
+      const departure = t.startTime ? new Date(String(t.startTime).replace(', ', ' ')).getTime() : NaN;
+      const refMoment = Number.isFinite(lastAt) ? lastAt : departure;
+      const ageMinutes = Number.isFinite(refMoment) ? Math.max(0, Math.round((now - refMoment) / 60000)) : null;
+      return {
+        tripId: t.id,
+        reference: dispatchRef(t.id),
+        truckReg: t.truckReg || '',
+        driverName: t.driverName || '',
+        status: t.status,
+        last: cp ? { location: cp.location, leg: cp.leg, at: cp.at } : null,
+        ageMinutes,
+      };
+    });
+    rows.sort((a, b) => (b.last ? new Date(b.last.at).getTime() : 0) - (a.last ? new Date(a.last.at).getTime() : 0));
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/tracking/:tripId', authenticate, async (req, res) => {
   const checkpoints = await prisma.trackingCheckpoint.findMany({
     where: { tripId: req.params.tripId },

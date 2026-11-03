@@ -206,37 +206,37 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/")({
 const FILTERS = ["All", "On Schedule", "Slight delay", "Significant Delay"] as const;
 type FilterTab = (typeof FILTERS)[number];
 
-/**
- * FLEET PULSE (the Traccar board Fortune wants copied, 3 Nov 2026): the whole
- * fleet's position state as coloured tiles — one glance answers "where is
- * everything". Each tile is a filter: click to drill into that stage, click
- * again to release.
- */
-const PULSE_STAGES: Array<{ status: string; label: string; color: string }> = [
-  { status: "En Route", label: "On the road", color: "#30B0C7" },
-  { status: "Loaded", label: "Loading done", color: "#4F46E5" },
-  { status: "Offloading", label: "Offloading", color: "#F99E1F" },
-  { status: "Returning", label: "Returning", color: "#14B8A6" },
-  { status: "Delayed", label: "Delayed", color: "#ED351D" },
-  { status: "Scheduled", label: "Still in yard", color: "#627084" },
-];
-const PULSE_DELAYS: Array<{ status: TrackingDelayStatus; color: string }> = [
-  { status: "On Schedule", color: "#0ACF83" },
-  { status: "Slight delay", color: "#F99E1F" },
-  { status: "Significant Delay", color: "#FF7262" },
-];
+/** One LIVE MOVEMENT FEED card — the last real report for a moving truck. */
+type RecentRow = {
+  tripId: string;
+  reference: string;
+  truckReg: string;
+  driverName: string;
+  status: string;
+  last: { location: string; leg: string; at: string } | null;
+  ageMinutes: number | null;
+};
+
+const refreshRecent = async (): Promise<RecentRow[]> => {
+  const token = localStorage.getItem("fleetopsx_token");
+  const r = await fetch("/api/tracking/recent", {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!r.ok) throw new Error(`tracking feed ${r.status}`);
+  return (await r.json()) as RecentRow[];
+};
 
 function ActiveDispatchPage() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  /** LIVE MOVEMENT FEED — last real report per truck on the road. */
+  const [recent, setRecent] = useState<RecentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [partner, setPartner] = useState<string>("All partners");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("All");
-  // FLEET PULSE: the stage tile the operator drilled into (click again to release).
-  const [stageFilter, setStageFilter] = useState<string>("All");
   const [page, setPage] = useState(0);
   // Every checkpoint the board's visible rows have, keyed by dispatch. The latest
   // one answers "where is that truck right now?", and the Loading ones answer the
@@ -265,6 +265,11 @@ function ActiveDispatchPage() {
         if (cancelled) return;
         setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
+        void refreshRecent()
+          .then((rows) => {
+            if (!cancelled) setRecent(rows);
+          })
+          .catch(() => {});
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load active dispatches");
       } finally {
@@ -289,6 +294,9 @@ function ActiveDispatchPage() {
         ]);
         setTrips(allTrips.filter(isActiveDispatchTrip).sort(sortLatestFirst));
         setDrivers(allDrivers);
+        void refreshRecent()
+          .then((rows) => setRecent(rows))
+          .catch(() => {});
       } catch {
         /* keep last good data */
       }
@@ -428,34 +436,12 @@ function ActiveDispatchPage() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b));
   }, [trips]);
 
-  /** FLEET PULSE counts — one pass over the board for stage and delay health. */
-  const pulse = useMemo(() => {
-    const stages: Record<string, number> = {
-      "En Route": 0,
-      Loaded: 0,
-      Offloading: 0,
-      Returning: 0,
-      Delayed: 0,
-      Scheduled: 0,
-    };
-    const delays: Record<string, number> = {
-      "On Schedule": 0,
-      "Slight delay": 0,
-      "Significant Delay": 0,
-    };
-    for (const trip of trips) {
-      if (stages[trip.status] !== undefined) stages[trip.status] = (stages[trip.status] ?? 0) + 1;
-      const d = getTrackingDelayStatus(trip);
-      if (delays[d] !== undefined) delays[d] = (delays[d] ?? 0) + 1;
-    }
-    return { stages, delays, total: trips.length };
-  }, [trips]);
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return trips.filter((trip) => {
       const delay = getTrackingDelayStatus(trip);
-      if (stageFilter !== "All" && trip.status !== stageFilter) return false;
       if (filter !== "All" && delay !== filter) return false;
       // Partner filter — "show me Saba's trucks" without typing a search.
       if (partner !== "All partners" && partnerOf(trip) !== partner) return false;
@@ -481,7 +467,7 @@ function ActiveDispatchPage() {
         .join(" ");
       return matchesQuery(hay, q);
     });
-  }, [trips, search, filter, partner, driverMatchFor, stageFilter]);
+  }, [trips, search, filter, partner, driverMatchFor]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -679,62 +665,54 @@ function ActiveDispatchPage() {
         <StatusLegend mobile />
       </div>
 
-      {/* FLEET PULSE — the whole fleet's position state at a glance (the Traccar
-          board Fortune wants copied): stage tiles drill the board into one
-          stage; the delay tiles ride the existing delay filter. */}
+      {/* LIVE MOVEMENT FEED — the last REAL report for every truck on the road:
+          where the tracking crew last placed it and how long ago. A card turns
+          red when a truck has gone silent past three hours — the dispatcher's
+          first question answered before the table is even read. */}
       {!loading ? (
-        <div className="flex flex-wrap gap-3">
-          {PULSE_STAGES.map((stage) => {
-            const active = stageFilter === stage.status;
-            return (
-              <button
-                key={stage.status}
-                type="button"
-                onClick={() => {
-                  setStageFilter(active ? "All" : stage.status);
-                  setPage(0);
-                }}
-                aria-pressed={active}
-                className={cn(
-                  "min-w-[128px] flex-1 rounded-[10px] px-4 py-3 text-left shadow-[0px_1px_4px_rgba(12,12,13,0.12)] transition-transform hover:-translate-y-0.5",
-                  active && "ring-2 ring-[#1B2432] ring-offset-2",
-                )}
-                style={{ backgroundColor: stage.color }}
-              >
-                <div className="text-[26px] font-bold leading-7 text-white">{pulse.stages[stage.status] ?? 0}</div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-white/85">{stage.label}</div>
-              </button>
-            );
-          })}
-          <div className="min-w-[128px] flex-1 rounded-[10px] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.12)]">
-            <div className="text-[26px] font-bold leading-7 text-[#1B2432]">{pulse.total}</div>
-            <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">On the board</div>
+        recent.length ? (
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {recent.map((row) => {
+              const stale = row.ageMinutes === null || row.ageMinutes > 180;
+              return (
+                <button
+                  key={row.tripId}
+                  type="button"
+                  onClick={() => {
+                    setSearch(row.reference);
+                    setPage(0);
+                  }}
+                  className={cn(
+                    "min-w-[236px] shrink-0 rounded-[10px] border bg-white p-4 text-left shadow-[0px_1px_4px_rgba(12,12,13,0.1)] transition-transform hover:-translate-y-0.5",
+                    stale ? "border-[#ED351D]" : "border-[#E2E5E9]",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12px] font-semibold tracking-[0.4px] text-[#5C6470]">{row.reference}</span>
+                    <span
+                      className={cn(
+                        "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.4px]",
+                        stale ? "bg-[#FDECEA] text-[#C0392B]" : "bg-[#E7F6EC] text-[#137A3D]",
+                      )}
+                    >
+                      {row.ageMinutes === null ? "no report" : stale ? `silent ${Math.floor(row.ageMinutes / 60)}h` : `${row.ageMinutes} min ago`}
+                    </span>
+                  </div>
+                  <div className="mt-2 truncate text-[16px] font-bold text-[#1B2432]">
+                    {row.last ? row.last.location : "No report yet"}
+                  </div>
+                  <div className="mt-0.5 truncate text-[12px] text-[#5C6470]">
+                    {row.truckReg || "—"}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="truncate text-[12px] font-medium text-[#344256]">{row.driverName || "—"}</span>
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">{row.status}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          {PULSE_DELAYS.map((d) => {
-            const active = filter === d.status;
-            return (
-              <button
-                key={d.status}
-                type="button"
-                onClick={() => {
-                  setFilter(active ? "All" : d.status);
-                  setPage(0);
-                }}
-                aria-pressed={active}
-                className={cn(
-                  "min-w-[128px] flex-1 rounded-[10px] border px-4 py-3 text-left shadow-[0px_1px_4px_rgba(12,12,13,0.12)] transition-transform hover:-translate-y-0.5",
-                  active && "ring-2 ring-[#1B2432] ring-offset-2",
-                )}
-                style={{ borderColor: d.color }}
-              >
-                <div className="text-[26px] font-bold leading-7" style={{ color: d.color }}>
-                  {pulse.delays[d.status] ?? 0}
-                </div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">{d.status}</div>
-              </button>
-            );
-          })}
-        </div>
+        ) : null
       ) : null}
 
       <div className="hidden overflow-hidden rounded-[10px] bg-white p-5 shadow-[0px_1px_4px_rgba(12,12,13,0.1)] md:block">
