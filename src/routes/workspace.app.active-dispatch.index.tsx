@@ -206,6 +206,26 @@ export const Route = createFileRoute("/workspace/app/active-dispatch/")({
 const FILTERS = ["All", "On Schedule", "Slight delay", "Significant Delay"] as const;
 type FilterTab = (typeof FILTERS)[number];
 
+/**
+ * FLEET PULSE (the Traccar board Fortune wants copied, 3 Nov 2026): the whole
+ * fleet's position state as coloured tiles — one glance answers "where is
+ * everything". Each tile is a filter: click to drill into that stage, click
+ * again to release.
+ */
+const PULSE_STAGES: Array<{ status: string; label: string; color: string }> = [
+  { status: "En Route", label: "On the road", color: "#30B0C7" },
+  { status: "Loaded", label: "Loading done", color: "#4F46E5" },
+  { status: "Offloading", label: "Offloading", color: "#F99E1F" },
+  { status: "Returning", label: "Returning", color: "#14B8A6" },
+  { status: "Delayed", label: "Delayed", color: "#ED351D" },
+  { status: "Scheduled", label: "Still in yard", color: "#627084" },
+];
+const PULSE_DELAYS: Array<{ status: TrackingDelayStatus; color: string }> = [
+  { status: "On Schedule", color: "#0ACF83" },
+  { status: "Slight delay", color: "#F99E1F" },
+  { status: "Significant Delay", color: "#FF7262" },
+];
+
 function ActiveDispatchPage() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -215,6 +235,8 @@ function ActiveDispatchPage() {
   const [partner, setPartner] = useState<string>("All partners");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("All");
+  // FLEET PULSE: the stage tile the operator drilled into (click again to release).
+  const [stageFilter, setStageFilter] = useState<string>("All");
   const [page, setPage] = useState(0);
   // Every checkpoint the board's visible rows have, keyed by dispatch. The latest
   // one answers "where is that truck right now?", and the Loading ones answer the
@@ -406,10 +428,34 @@ function ActiveDispatchPage() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b));
   }, [trips]);
 
+  /** FLEET PULSE counts — one pass over the board for stage and delay health. */
+  const pulse = useMemo(() => {
+    const stages: Record<string, number> = {
+      "En Route": 0,
+      Loaded: 0,
+      Offloading: 0,
+      Returning: 0,
+      Delayed: 0,
+      Scheduled: 0,
+    };
+    const delays: Record<string, number> = {
+      "On Schedule": 0,
+      "Slight delay": 0,
+      "Significant Delay": 0,
+    };
+    for (const trip of trips) {
+      if (stages[trip.status] !== undefined) stages[trip.status] = (stages[trip.status] ?? 0) + 1;
+      const d = getTrackingDelayStatus(trip);
+      if (delays[d] !== undefined) delays[d] = (delays[d] ?? 0) + 1;
+    }
+    return { stages, delays, total: trips.length };
+  }, [trips]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return trips.filter((trip) => {
       const delay = getTrackingDelayStatus(trip);
+      if (stageFilter !== "All" && trip.status !== stageFilter) return false;
       if (filter !== "All" && delay !== filter) return false;
       // Partner filter — "show me Saba's trucks" without typing a search.
       if (partner !== "All partners" && partnerOf(trip) !== partner) return false;
@@ -435,7 +481,7 @@ function ActiveDispatchPage() {
         .join(" ");
       return matchesQuery(hay, q);
     });
-  }, [trips, search, filter, partner, driverMatchFor]);
+  }, [trips, search, filter, partner, driverMatchFor, stageFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -632,6 +678,64 @@ function ActiveDispatchPage() {
         ) : null}
         <StatusLegend mobile />
       </div>
+
+      {/* FLEET PULSE — the whole fleet's position state at a glance (the Traccar
+          board Fortune wants copied): stage tiles drill the board into one
+          stage; the delay tiles ride the existing delay filter. */}
+      {!loading ? (
+        <div className="flex flex-wrap gap-3">
+          {PULSE_STAGES.map((stage) => {
+            const active = stageFilter === stage.status;
+            return (
+              <button
+                key={stage.status}
+                type="button"
+                onClick={() => {
+                  setStageFilter(active ? "All" : stage.status);
+                  setPage(0);
+                }}
+                aria-pressed={active}
+                className={cn(
+                  "min-w-[128px] flex-1 rounded-[10px] px-4 py-3 text-left shadow-[0px_1px_4px_rgba(12,12,13,0.12)] transition-transform hover:-translate-y-0.5",
+                  active && "ring-2 ring-[#1B2432] ring-offset-2",
+                )}
+                style={{ backgroundColor: stage.color }}
+              >
+                <div className="text-[26px] font-bold leading-7 text-white">{pulse.stages[stage.status] ?? 0}</div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-white/85">{stage.label}</div>
+              </button>
+            );
+          })}
+          <div className="min-w-[128px] flex-1 rounded-[10px] bg-white px-4 py-3 shadow-[0px_1px_4px_rgba(12,12,13,0.12)]">
+            <div className="text-[26px] font-bold leading-7 text-[#1B2432]">{pulse.total}</div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">On the board</div>
+          </div>
+          {PULSE_DELAYS.map((d) => {
+            const active = filter === d.status;
+            return (
+              <button
+                key={d.status}
+                type="button"
+                onClick={() => {
+                  setFilter(active ? "All" : d.status);
+                  setPage(0);
+                }}
+                aria-pressed={active}
+                className={cn(
+                  "min-w-[128px] flex-1 rounded-[10px] border px-4 py-3 text-left shadow-[0px_1px_4px_rgba(12,12,13,0.12)] transition-transform hover:-translate-y-0.5",
+                  active && "ring-2 ring-[#1B2432] ring-offset-2",
+                )}
+                style={{ borderColor: d.color }}
+              >
+                <div className="text-[26px] font-bold leading-7" style={{ color: d.color }}>
+                  {pulse.delays[d.status] ?? 0}
+                </div>
+                <div className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">{d.status}</div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="hidden overflow-hidden rounded-[10px] bg-white p-5 shadow-[0px_1px_4px_rgba(12,12,13,0.1)] md:block">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
