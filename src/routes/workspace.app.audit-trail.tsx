@@ -202,6 +202,79 @@ const KINDS = [
   { value: "System", label: "System (machine)" },
 ];
 
+/**
+ * PLAIN LANGUAGE (Fortune, 3 Nov 2026: "make it easy to understand"): every
+ * row is read out as a sentence — WHO did it, WHAT they did, to WHICH part of
+ * the platform — because a table of module names and UUIDs answers nothing a
+ * human asked. The raw record stays one click away in the expandable detail.
+ */
+const MODULE_WORDS: Record<string, string> = {
+  Dispatch: "a dispatch",
+  Fleet: "a fleet asset (truck/tail)",
+  Tracking: "a tracking report",
+  HR: "a staff record",
+  Comms: "a notification",
+  Accounts: "an accounts record",
+  Lubricant: "the fuel & lubricant desk",
+  "fuel-requests": "a fuel request",
+  "fuel-restock-orders": "a fuel restock",
+  auth: "an account record",
+  Inventory: "store inventory",
+  "inventory-handoffs": "a store handoff",
+  Procurement: "a parts requisition",
+  Engineering: "an engineering record",
+  "partner-sites": "a partner loading site",
+  Security: "the security/gate log",
+  chat: "a chat message",
+  "push-tokens": "a device push registration",
+  health: "a system health probe",
+  api: "an API diagnostic",
+};
+
+function auditVerb(action: string): string {
+  const a = String(action || "").toLowerCase();
+  if (a.startsWith("created")) return "created";
+  if (a.startsWith("updated")) return "updated";
+  if (a.startsWith("deleted")) return "deleted";
+  if (a.startsWith("logged out")) return "logged out of";
+  if (a.startsWith("system")) return "closed automatically";
+  return "acted on";
+}
+
+function auditSentence(r: AuditRow): string {
+  const who = r.user || "Someone";
+  const what = auditVerb(r.action);
+  const where = MODULE_WORDS[r.module] || `the ${r.module || "system"} module`;
+  return `${who} ${what} ${where}`;
+}
+
+function dayKeyOf(ts: string): string {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? "?" : d.toISOString().slice(0, 10);
+}
+
+function dayLabelOf(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "Unknown date";
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (same(d, today)) return "Today";
+  if (same(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function isoDay(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function ChangeTrailTab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -307,6 +380,29 @@ function ChangeTrailTab() {
         ))}
       </div>
 
+      {/* QUICK QUESTIONS — the asks this desk exists for, one click each.
+          (Fortune, 3 Nov 2026: "I tapped Security 16 and got lost" — the desk
+          must answer the question before the filters do.) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] font-semibold text-[#5C6470]">Quick questions:</span>
+        {(
+          [
+            ["What happened today?", () => { setUser(""); setModule(""); setKind(""); setFrom(isoDay(new Date())); setTo(isoDay(new Date())); }],
+            ["What did the Security desk do today?", () => { setUser("S.1 Petroline"); setModule(""); setKind(""); setFrom(isoDay(new Date())); setTo(isoDay(new Date())); }],
+            ["What happened yesterday?", () => { const y = new Date(); y.setDate(y.getDate() - 1); const d = isoDay(y); setUser(""); setModule(""); setKind(""); setFrom(d); setTo(d); }],
+            ["Everything in the last 7 days", () => { const s = new Date(); s.setDate(s.getDate() - 6); setUser(""); setModule(""); setKind(""); setFrom(isoDay(s)); setTo(isoDay(new Date())); }],
+          ] as Array<[string, () => void]>
+        ).map(([label, run]) => (
+          <button
+            key={label}
+            onClick={run}
+            className="rounded-full border border-[#1B2432] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#1B2432] transition-colors hover:bg-[#1B2432] hover:text-white"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Filter toolbar */}
       <div className="rounded-lg border border-[#E2E5E9] bg-white p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -357,7 +453,11 @@ function ChangeTrailTab() {
 
         {/* Module chips — categorized exactly as the server records them, with live counts */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-medium text-[#5C6470]">Modules:</span>
+          <span className="text-[12px] font-medium text-[#5C6470]">
+            <span className="font-semibold text-[#1B2432]">WHERE the change was made</span> (module) — this is
+            <span className="font-semibold"> not </span>
+            the same as who did it; use the Actor filter above:
+          </span>
           <button
             onClick={() => setModule("")}
             className={
@@ -396,6 +496,42 @@ function ChangeTrailTab() {
               Clear all filters
             </button>
           )}
+        </div>
+
+        {/* WHO did it — the actor rail. Tapping a person is the natural way to
+            answer "what did this user do?" (Fortune's security-desk question). */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-medium text-[#5C6470]">
+            <span className="font-semibold text-[#1B2432]">WHO did it</span> (actor) — tap a person to see
+            everything they did:
+          </span>
+          <button
+            onClick={() => setUser("")}
+            className={
+              "rounded-full px-3 py-1 text-[12px] font-medium " +
+              (user === "" ? "bg-[#1B2432] text-white" : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
+            }
+          >
+            Everyone
+          </button>
+          {users
+            .slice()
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 8)
+            .map((u) => (
+              <button
+                key={u.name}
+                onClick={() => setUser(user === u.name ? "" : u.name)}
+                className={
+                  "rounded-full px-3 py-1 text-[12px] font-medium " +
+                  (user === u.name
+                    ? "bg-[#1B2432] text-white"
+                    : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
+                }
+              >
+                {u.name} · {u.count.toLocaleString()}
+              </button>
+            ))}
         </div>
       </div>
 
@@ -446,20 +582,28 @@ function ChangeTrailTab() {
               <thead>
                 <tr className="border-b border-[#E2E5E9] bg-[#FAFBFC] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#5C6470]">
                   <th className="px-4 py-2.5">When</th>
-                  <th className="px-4 py-2.5">Actor</th>
-                  <th className="px-4 py-2.5">Module</th>
-                  <th className="px-4 py-2.5">Action</th>
-                  <th className="px-4 py-2.5">Record</th>
+                  <th className="px-4 py-2.5">Who</th>
+                  <th className="px-4 py-2.5" colSpan={2}>
+                    What happened
+                  </th>
                   <th className="px-4 py-2.5">Origin</th>
                   <th className="px-4 py-2.5 w-8"></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {rows.map((r, i) => {
                   const tone = actionTone(r.action);
                   const open = expandedId === r.id;
+                  const newDay = i === 0 || dayKeyOf(r.timestamp) !== dayKeyOf(rows[i - 1]!.timestamp);
                   return (
                     <Fragment key={r.id}>
+                      {newDay && (
+                        <tr className="border-b border-[#E2E5E9] bg-[#1B2432]">
+                          <td colSpan={7} className="px-4 py-2 text-[12px] font-bold uppercase tracking-[0.6px] text-white">
+                            {dayLabelOf(r.timestamp)}
+                          </td>
+                        </tr>
+                      )}
                       <tr
                         onClick={() => setExpandedId(open ? null : r.id)}
                         className="cursor-pointer border-b border-[#E2E5E9] align-top hover:bg-[#FAFBFC]"
@@ -470,10 +614,11 @@ function ChangeTrailTab() {
                         <td className="px-4 py-3">
                           <ActorCell name={r.user} />
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-block rounded-full bg-[#F1F2F4] px-2.5 py-0.5 text-[12px] font-medium text-[#3D4B5C]">
-                            {r.module || "—"}
-                          </span>
+                        <td colSpan={2} className="max-w-[460px] px-4 py-3">
+                          <div className="text-[13px] font-medium text-[#1B2432]">{auditSentence(r)}</div>
+                          <div className={"mt-0.5 text-[12px] text-[#5C6470] " + (open ? "" : "line-clamp-1")}>
+                            {r.record || "—"}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -481,11 +626,6 @@ function ChangeTrailTab() {
                           >
                             {r.action || "—"}
                           </span>
-                        </td>
-                        <td className="max-w-[420px] px-4 py-3">
-                          <div className={"text-[13px] text-[#1B2432] " + (open ? "" : "line-clamp-2")}>
-                            {r.record || "—"}
-                          </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#5C6470]">
                           {r.device || "—"}
