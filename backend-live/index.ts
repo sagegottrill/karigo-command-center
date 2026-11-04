@@ -6878,7 +6878,50 @@ app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Adm
     const users = byUser
       .map((u: any) => ({ name: u.user, count: u._count._all }))
       .sort((a: any, b: any) => b.count - a.count);
-    res.json({ rows, total, modules, users, limit, offset });
+    /*
+     * HUMAN LABELS (Fortune, 4 Nov 2026: "what did he do and what did it
+     * change?"): a record column of raw UUIDs answers nothing. Every UUID
+     * reference is resolved into the thing it names — the dispatch with its
+     * truck and driver, the truck with its cap, the tail, the staff member —
+     * and returned as `recordLabel` beside the raw id. One batch read per
+     * table keeps the page fast.
+     */
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const refIds = Array.from(
+      new Set(
+        rows
+          .map((r: any) => String(r.record || '').trim())
+          .filter((v: string) => uuidRe.test(v)),
+      ),
+    );
+    const labels = new Map<string, string>();
+    if (refIds.length) {
+      const [refTrips, refTrucks, refTails, refDrivers] = await Promise.all([
+        prisma.trip.findMany({
+          where: { id: { in: refIds } },
+          select: { id: true, truckReg: true, driverName: true, dropoff: true, customer: true },
+        }),
+        prisma.truck.findMany({ where: { id: { in: refIds } }, select: { id: true, cabId: true, registration: true } }),
+        prisma.tail.findMany({ where: { id: { in: refIds } }, select: { id: true, number: true } }),
+        prisma.driver.findMany({ where: { id: { in: refIds } }, select: { id: true, name: true, staffId: true } }),
+      ]);
+      for (const t of refTrips) {
+        labels.set(
+          t.id,
+          `dispatch ${dispatchRef(t.id)} — ${t.truckReg || 'truck TBD'}` +
+            (t.driverName ? ` · ${t.driverName}` : '') +
+            (t.dropoff ? ` → ${t.dropoff}` : ''),
+        );
+      }
+      for (const t of refTrucks) labels.set(t.id, `truck ${t.cabId || ''} (${t.registration || ''})`.replace(' ()', ''));
+      for (const t of refTails) labels.set(t.id, `tail ${t.number}`);
+      for (const d of refDrivers) labels.set(d.id, `staff ${d.name}${d.staffId ? ` (${d.staffId})` : ''}`);
+    }
+    const enriched = rows.map((r: any) => {
+      const rec = String(r.record || '').trim();
+      return { ...r, recordLabel: labels.get(rec) || null };
+    });
+    res.json({ rows: enriched, total, modules, users, limit, offset });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Server error' });
   }

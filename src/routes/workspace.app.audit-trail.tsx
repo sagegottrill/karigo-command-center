@@ -61,6 +61,7 @@ interface AuditRow {
   module: string;
   action: string;
   record: string;
+  recordLabel?: string | null;
   device: string;
   ip: string;
 }
@@ -613,8 +614,8 @@ function ChangeTrailTab() {
                         </td>
                         <td colSpan={2} className="max-w-[460px] px-4 py-3">
                           <div className="text-[13px] font-medium text-[#1B2432]">{auditSentence(r)}</div>
-                          <div className={"mt-0.5 text-[12px] text-[#5C6470] " + (open ? "" : "line-clamp-1")}>
-                            {r.record || "—"}
+                          <div className={"mt-0.5 text-[12px] font-medium text-[#344256] " + (open ? "" : "line-clamp-1")}>
+                            {r.recordLabel || r.record || "—"}
                           </div>
                         </td>
                         <td className="px-4 py-3">
