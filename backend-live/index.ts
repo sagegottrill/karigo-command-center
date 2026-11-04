@@ -6829,12 +6829,19 @@ app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Adm
     // "Anonymous Deleted push-tokens" reads as back-end noise ("why should
     // they be seeing this?"). Sign-ins live in the Sign-in Reports tab.
     const PLUMBING_MODULES = ['push-tokens', 'api', 'health'];
+    // SYSTEM-OFF-BOARD (Fortune, 3 Nov 2026): the machine's own rows — duty-sync
+    // frees, supersede closes — are recorded in the database (the trail stays
+    // complete and immutable) but they are not human acts and the board no
+    // longer shows them. This page answers "who did what"; the machine's
+    // bookkeeping is invisible here unless someone explicitly asks for it.
+    const SYSTEM_ACTOR = 'System';
 
     const where: any = {};
     if (module) where.module = module;
     else where.module = { notIn: PLUMBING_MODULES };
     if (user) where.user = user;
-    if (kind === 'System') where.user = 'System';
+    else where.user = { not: SYSTEM_ACTOR };
+    if (kind === 'System') where.user = SYSTEM_ACTOR;
     else if (kind) where.action = { startsWith: kind, mode: 'insensitive' };
     if (q) {
       where.OR = [
@@ -6863,7 +6870,7 @@ app.get('/api/audit', authenticate, authorize('Transport Manager', 'Platform Adm
       // modules stay off the chip rail for the same reason they stay off the
       // board: they are the machine's work, not the business's.
       prisma.auditLog.groupBy({ by: ['module'], _count: { _all: true }, where: { module: { notIn: PLUMBING_MODULES } } }),
-      prisma.auditLog.groupBy({ by: ['user'], _count: { _all: true } }),
+      prisma.auditLog.groupBy({ by: ['user'], _count: { _all: true }, where: { user: { not: SYSTEM_ACTOR } } }),
     ]);
     const modules = byModule
       .map((m: any) => ({ name: m.module, count: m._count._all }))

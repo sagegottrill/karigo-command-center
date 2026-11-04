@@ -199,7 +199,6 @@ const KINDS = [
   { value: "Updated", label: "Updated" },
   { value: "Deleted", label: "Deleted" },
   { value: "Logged Out", label: "Logged Out" },
-  { value: "System", label: "System (machine)" },
 ];
 
 /**
@@ -355,8 +354,7 @@ function ChangeTrailTab() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayCount = rows.filter((r) => new Date(r.timestamp) >= today).length;
-    const systemCount = rows.filter((r) => /^system/i.test(r.user)).length;
-    return { shown: rows.length, total, todayCount, systemCount, moduleCount: modules.length };
+    return { shown: rows.length, total, todayCount, moduleCount: modules.length };
   }, [rows, total, modules]);
 
   return (
@@ -368,7 +366,6 @@ function ChangeTrailTab() {
             ["Total entries", summary.total.toLocaleString()],
             ["On this page", summary.shown.toLocaleString()],
             ["Today's entries", summary.todayCount.toLocaleString()],
-            ["System (machine) rows", summary.systemCount.toLocaleString()],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-lg border border-[#E2E5E9] bg-white px-4 py-3">
@@ -684,9 +681,9 @@ function ChangeTrailTab() {
       <div className="flex items-start gap-2 rounded-lg border border-[#E2E5E9] bg-white px-4 py-3 text-[12px] text-[#5C6470]">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0F7A38]" />
         <span>
-          Rows written by the machine carry actor "System" and device "Server" — the auto-return
-          sweep and duty-sync record themselves. Failed sign-ins are recorded in the Sign-in
-          Reports tab. The trail cannot be edited or deleted from the web by design.
+          Machine bookkeeping (duty-sync, automatic closes) is recorded in the database but kept
+          off this board — every row here is a human action. Failed sign-ins are recorded in the
+          Sign-in Reports tab. The trail cannot be edited or deleted from the web by design.
         </span>
       </div>
     </div>
