@@ -275,6 +275,31 @@ function isoDay(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Friendly names for the departments the trail records, shown in the filter. */
+const MODULE_LABELS: Record<string, string> = {
+  Dispatch: "Dispatches",
+  Fleet: "Fleet assets",
+  Tracking: "Tracking reports",
+  HR: "Staff records",
+  Comms: "Notifications",
+  Accounts: "Accounts records",
+  Lubricant: "Fuel & lubricant desk",
+  "fuel-requests": "Fuel requests",
+  "fuel-restock-orders": "Fuel restocks",
+  auth: "Account records",
+  Inventory: "Store inventory",
+  "inventory-handoffs": "Store handoffs",
+  Procurement: "Parts requisitions",
+  Engineering: "Engineering records",
+  engineering: "Engineering records",
+  "partner-sites": "Partner sites",
+  Security: "Security / gate log",
+  chat: "Chat messages",
+  Fuel: "Fuel records",
+};
+
+const PERIODS = ["All time", "Today", "Yesterday", "Last 7 days", "Last 30 days", "Custom"] as const;
+
 function ChangeTrailTab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -292,7 +317,8 @@ function ChangeTrailTab() {
   const [module, setModule] = useState("");
   const [user, setUser] = useState("");
   const [kind, setKind] = useState("");
-  const [from, setFrom] = useState("");
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("All time");
+  const [from, setFrom] = useState(""); // only used when period === "Custom"
   const [to, setTo] = useState("");
 
   useEffect(() => {
@@ -300,15 +326,40 @@ function ChangeTrailTab() {
     return () => window.clearTimeout(t);
   }, [q0]);
 
+  /** The named periods resolve to real dates here; Custom uses the date inputs. */
+  const effectiveRange = useCallback((): [string, string] => {
+    const today = isoDay(new Date());
+    if (period === "Today") return [today, today];
+    if (period === "Yesterday") {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const d = isoDay(y);
+      return [d, d];
+    }
+    if (period === "Last 7 days") {
+      const s = new Date();
+      s.setDate(s.getDate() - 6);
+      return [isoDay(s), today];
+    }
+    if (period === "Last 30 days") {
+      const s = new Date();
+      s.setDate(s.getDate() - 29);
+      return [isoDay(s), today];
+    }
+    if (period === "Custom") return [from, to];
+    return ["", ""];
+  }, [period, from, to]);
+
   const load = useCallback(
     async (opts?: { append?: boolean }) => {
+      const [fromD, toD] = effectiveRange();
       const params = new URLSearchParams();
       if (q.trim()) params.set("q", q.trim());
       if (module) params.set("module", module);
       if (user) params.set("user", user);
       if (kind) params.set("kind", kind);
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
+      if (fromD) params.set("from", fromD);
+      if (toD) params.set("to", toD);
       params.set("limit", String(PAGE));
       params.set("offset", String(opts?.append ? rows.length : 0));
       setLoading(true);
@@ -329,17 +380,17 @@ function ChangeTrailTab() {
     // rows.length is read for append mode; the eslint-known trade-off of the
     // append caller is fine because load() is rebuilt whenever filters change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [q, module, user, kind, from, to],
+    [q, module, user, kind, period, from, to],
   );
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, module, user, kind, from, to]);
+  }, [q, module, user, kind, period, from, to]);
 
   useAutoRefresh(() => void load(), [load], { interval: 15_000, enabled: auto });
 
-  const filtersActive = Boolean(q || module || user || kind || from || to);
+  const filtersActive = Boolean(q || module || user || kind || period !== "All time");
 
   const exportCsv = () => {
     const header = ["Timestamp", "Actor", "Module", "Action", "Record", "Device", "IP Address"];
@@ -385,10 +436,10 @@ function ChangeTrailTab() {
         <span className="text-[12px] font-semibold text-[#5C6470]">Quick questions:</span>
         {(
           [
-            ["What happened today?", () => { setUser(""); setModule(""); setKind(""); setFrom(isoDay(new Date())); setTo(isoDay(new Date())); }],
-            ["What did the Security desk do today?", () => { setUser("S.1 Petroline"); setModule(""); setKind(""); setFrom(isoDay(new Date())); setTo(isoDay(new Date())); }],
-            ["What happened yesterday?", () => { const y = new Date(); y.setDate(y.getDate() - 1); const d = isoDay(y); setUser(""); setModule(""); setKind(""); setFrom(d); setTo(d); }],
-            ["Everything in the last 7 days", () => { const s = new Date(); s.setDate(s.getDate() - 6); setUser(""); setModule(""); setKind(""); setFrom(isoDay(s)); setTo(isoDay(new Date())); }],
+            ["What happened today?", () => { setUser(""); setModule(""); setKind(""); setPeriod("Today"); }],
+            ["What did the Security desk do today?", () => { setUser("S.1 Petroline"); setModule(""); setKind(""); setPeriod("Today"); }],
+            ["What happened yesterday?", () => { setUser(""); setModule(""); setKind(""); setPeriod("Yesterday"); }],
+            ["Everything in the last 7 days", () => { setUser(""); setModule(""); setKind(""); setPeriod("Last 7 days"); }],
           ] as Array<[string, () => void]>
         ).map(([label, run]) => (
           <button
@@ -401,25 +452,25 @@ function ChangeTrailTab() {
         ))}
       </div>
 
-      {/* Filter toolbar */}
+      {/* Filter toolbar — ONE bar: search, person, department, action, period */}
       <div className="rounded-lg border border-[#E2E5E9] bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-[#1B2432]">Search everything</span>
+            <span className="text-[12px] font-medium text-[#1B2432]">Search</span>
             <span className="relative block">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5C6470]" />
               <input
                 className={`${inputClass} pl-8`}
-                placeholder="record, action, person, module…"
+                placeholder="person, truck, record…"
                 value={q0}
                 onChange={(e) => setQ0(e.target.value)}
               />
             </span>
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-[#1B2432]">Actor</span>
+            <span className="text-[12px] font-medium text-[#1B2432]">Person</span>
             <select className={selectClass} value={user} onChange={(e) => setUser(e.target.value)}>
-              <option value="">Everyone (facets on the right show all)</option>
+              <option value="">Everyone</option>
               {users.map((u) => (
                 <option key={u.name} value={u.name}>
                   {u.name} ({u.count.toLocaleString()})
@@ -428,7 +479,18 @@ function ChangeTrailTab() {
             </select>
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-[#1B2432]">Action type</span>
+            <span className="text-[12px] font-medium text-[#1B2432]">Department</span>
+            <select className={selectClass} value={module} onChange={(e) => setModule(e.target.value)}>
+              <option value="">All departments</option>
+              {modules.map((m) => (
+                <option key={m.name} value={m.name}>
+                  {(MODULE_LABELS as Record<string, string>)[m.name] || m.name} ({m.count.toLocaleString()})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-medium text-[#1B2432]">Action</span>
             <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value)}>
               {KINDS.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -437,7 +499,23 @@ function ChangeTrailTab() {
               ))}
             </select>
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-medium text-[#1B2432]">Period</span>
+            <select
+              className={selectClass}
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as (typeof PERIODS)[number])}
+            >
+              {PERIODS.map((p2) => (
+                <option key={p2} value={p2}>
+                  {p2}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {period === "Custom" ? (
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12px] font-medium text-[#1B2432]">From</span>
               <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -447,89 +525,27 @@ function ChangeTrailTab() {
               <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
             </label>
           </div>
-        </div>
-
-        {/* Module chips — categorized exactly as the server records them, with live counts */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-medium text-[#5C6470]">
-            <span className="font-semibold text-[#1B2432]">WHERE the change was made</span> (module) — this is
-            <span className="font-semibold"> not </span>
-            the same as who did it; use the Actor filter above:
+        ) : null}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="text-[12px] text-[#5C6470]">
+            Every entry here was written by the server itself — read-only, complete, immutable.
           </span>
-          <button
-            onClick={() => setModule("")}
-            className={
-              "rounded-full px-3 py-1 text-[12px] font-medium " +
-              (module === "" ? "bg-[#1B2432] text-white" : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
-            }
-          >
-            All
-          </button>
-          {modules.map((m) => (
-            <button
-              key={m.name}
-              onClick={() => setModule(module === m.name ? "" : m.name)}
-              className={
-                "rounded-full px-3 py-1 text-[12px] font-medium " +
-                (module === m.name
-                  ? "bg-[#1B2432] text-white"
-                  : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
-              }
-            >
-              {m.name} · {m.count.toLocaleString()}
-            </button>
-          ))}
-          {filtersActive && (
+          {filtersActive ? (
             <button
               onClick={() => {
                 setQ0("");
                 setModule("");
                 setUser("");
                 setKind("");
+                setPeriod("All time");
                 setFrom("");
                 setTo("");
               }}
-              className="ml-1 text-[12px] font-semibold text-[#ED351D] hover:underline"
+              className="text-[12px] font-semibold text-[#ED351D] hover:underline"
             >
               Clear all filters
             </button>
-          )}
-        </div>
-
-        {/* WHO did it — the actor rail. Tapping a person is the natural way to
-            answer "what did this user do?" (Fortune's security-desk question). */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-medium text-[#5C6470]">
-            <span className="font-semibold text-[#1B2432]">WHO did it</span> (actor) — tap a person to see
-            everything they did:
-          </span>
-          <button
-            onClick={() => setUser("")}
-            className={
-              "rounded-full px-3 py-1 text-[12px] font-medium " +
-              (user === "" ? "bg-[#1B2432] text-white" : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
-            }
-          >
-            Everyone
-          </button>
-          {users
-            .slice()
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 8)
-            .map((u) => (
-              <button
-                key={u.name}
-                onClick={() => setUser(user === u.name ? "" : u.name)}
-                className={
-                  "rounded-full px-3 py-1 text-[12px] font-medium " +
-                  (user === u.name
-                    ? "bg-[#1B2432] text-white"
-                    : "bg-[#F1F2F4] text-[#3D4B5C] hover:bg-[#E2E5E9]")
-                }
-              >
-                {u.name} · {u.count.toLocaleString()}
-              </button>
-            ))}
+          ) : null}
         </div>
       </div>
 
