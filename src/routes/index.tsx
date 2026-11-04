@@ -93,7 +93,7 @@ function MainLandingPage() {
           </nav>
           <div className="flex items-center gap-4">
             <Link 
-              to="/superadmin" 
+              to="/workspace/login" 
               className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white text-black hover:bg-gray-200 h-[40px] px-6 font-semibold transition-colors"
             >
               Access Portal
@@ -232,7 +232,7 @@ function MainLandingPage() {
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
             <div className="flex items-center gap-4 mb-4 md:mb-0">
-              <Link to="/superadmin" className="hover:text-white transition-colors">Platform Admin</Link>
+              <Link to="/workspace/login" className="hover:text-white transition-colors">Platform Admin</Link>
             </div>
             <span>© {new Date().getFullYear()} FleetOpsX. All rights reserved.</span>
           </div>
@@ -420,7 +420,7 @@ function TenantLandingPage() {
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-xs text-white/40">
             <div className="flex items-center gap-4 mb-4 md:mb-0">
-              <Link to="/superadmin" className="hover:text-white transition-colors">Platform Admin</Link>
+              <Link to="/workspace/login" className="hover:text-white transition-colors">Platform Admin</Link>
             </div>
             <span>© {new Date().getFullYear()} {displayName}. All rights reserved.</span>
           </div>
