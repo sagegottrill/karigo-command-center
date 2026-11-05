@@ -3607,11 +3607,30 @@ const actingUser = (req: any) =>
 app.get('/api/inventory', authenticate, async (_req, res) => {
   res.json(await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' } }));
 });
+// MANUAL INPUT (Nov 2026): the old create spread req.body raw into Prisma — a
+// duplicate stock code 500'd (sku is @unique) and unknown UI fields poisoned the
+// write. Whitelist, validate and answer a duplicate with 409, mirroring PATCH.
 app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
-  const stock = Number(req.body.stock ?? 0);
-  const reorderLevel = Number(req.body.reorderLevel ?? 5);
+  const ALLOWED_ITEM_FIELDS = ['sku', 'name', 'category', 'stock', 'reorderLevel', 'unitCost', 'vehicleCompatibility', 'supplier', 'location'];
+  const body: any = {};
+  for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
+  body.sku = String(body.sku ?? '').trim();
+  body.name = String(body.name ?? '').trim();
+  if (!body.sku) return res.status(400).json({ error: 'A stock code is required.' });
+  if (!body.name) return res.status(400).json({ error: 'A description is required.' });
+  const stock = Number(body.stock ?? 0);
+  const reorderLevel = Number(body.reorderLevel ?? 5);
+  const unitCost = Number(body.unitCost ?? 0);
+  if (!Number.isFinite(stock) || stock < 0) return res.status(400).json({ error: 'stock must be a non-negative number' });
+  if (!Number.isFinite(reorderLevel) || reorderLevel < 0) return res.status(400).json({ error: 'reorderLevel must be a non-negative number' });
+  if (!Number.isFinite(unitCost) || unitCost < 0) return res.status(400).json({ error: 'unitCost must be a non-negative number' });
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
-  res.json(await prisma.inventoryItem.create({ data: { ...req.body, stock, reorderLevel, status } }));
+  try {
+    res.json(await prisma.inventoryItem.create({ data: { ...body, stock, reorderLevel, unitCost, status } }));
+  } catch (e: any) {
+    if (e?.code === 'P2002') return res.status(409).json({ error: `Stock code ${body.sku} is already on the shelf. Use Restock or Modify on that line.` });
+    throw e;
+  }
 });
 app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   const existing = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });

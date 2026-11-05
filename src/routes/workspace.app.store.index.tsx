@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ChevronDown, Download, MoreVertical } from "lucide-react";
+import { ChevronDown, Download, MoreVertical, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -192,14 +192,11 @@ function StoreInventoryPage() {
             </button>
             <button
               type="button"
-              onClick={() =>
-                document
-                  .getElementById("store-inventory-listing")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-              className="h-[40px] rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[13.5px] text-[#9AA2AC] hover:text-[#1B2432]"
+              onClick={() => setManualOpen(true)}
+              className="flex h-[40px] items-center gap-2 rounded-[8px] border border-[#E2E5E9] bg-white px-4 text-[13.5px] text-[#1B2432] hover:border-[#1B2432]"
             >
-              View Inventory Listing
+              <Plus className="size-4" />
+              Input New Inventory
             </button>
             <button
               type="button"
