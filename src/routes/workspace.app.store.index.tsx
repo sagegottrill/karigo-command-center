@@ -96,6 +96,17 @@ const currentUserName = () =>
   (typeof window !== "undefined" ? localStorage.getItem("fleetopsx_user_name") || "" : "") ||
   "";
 
+/**
+ * TM's ruling (Nov 2026): unit cost is seen and maintained by Transport
+ * Manager, Platform Admin and Procurement ONLY — the store keeps inventory and
+ * hands out material; money is not its business. Enforced AGAIN server-side:
+ * the API strips unitCost from payloads to other roles, so removing the
+ * columns here is for clarity, not the whole defence.
+ */
+const COST_VISIBLE_ROLES = ["Transport Manager", "Platform Admin", "Procurement"];
+const userSeesCost = () =>
+  authService.getRoles().some((r: string) => COST_VISIBLE_ROLES.includes(r));
+
 function StoreInventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,17 +171,16 @@ function StoreInventoryPage() {
   const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   const exportCsv = () => {
+    const costColumn = userSeesCost();
     const rows: string[][] = [
-      ["Code", "Description", "Category", "Family", "Quantity", "Status", "Unit Cost"],
-      ...filtered.map((i) => [
-        i.sku,
-        i.name,
-        i.category,
-        FAMILY_LABEL[familyOfItem(i)],
-        String(i.stock),
-        i.status,
-        String(i.unitCost ?? 0),
-      ]),
+      costColumn
+        ? ["Code", "Description", "Category", "Family", "Quantity", "Status", "Unit Cost"]
+        : ["Code", "Description", "Category", "Family", "Quantity", "Status"],
+      ...filtered.map((i) =>
+        costColumn
+          ? [i.sku, i.name, i.category, FAMILY_LABEL[familyOfItem(i)], String(i.stock), i.status, String(i.unitCost ?? 0)]
+          : [i.sku, i.name, i.category, FAMILY_LABEL[familyOfItem(i)], String(i.stock), i.status],
+      ),
     ];
     downloadCsvBlob(csvOf(rows), "store-inventory-listing");
   };
@@ -265,7 +275,7 @@ function StoreInventoryPage() {
                       <th className="py-3 pr-4">Description</th>
                       <th className="py-3 pr-4">Category</th>
                       <th className="py-3 pr-4">Quantity</th>
-                      <th className="py-3 pr-4">Unit Cost</th>
+                      {userSeesCost() && <th className="py-3 pr-4">Unit Cost</th>}
                       <th className="py-3 pr-2">Status</th>
                       <th className="w-10 py-3" />
                     </tr>
@@ -283,9 +293,11 @@ function StoreInventoryPage() {
                         <td className="py-3 pr-4 text-[13px] text-[#1B2432]">
                           {item.stock.toLocaleString("en-NG")}
                         </td>
-                        <td className="py-3 pr-4 text-[13px] text-[#1B2432]">
-                          {item.unitCost > 0 ? formatNairaFull(item.unitCost) : ""}
-                        </td>
+                        {userSeesCost() && (
+                          <td className="py-3 pr-4 text-[13px] text-[#1B2432]">
+                            {item.unitCost > 0 ? formatNairaFull(item.unitCost) : ""}
+                          </td>
+                        )}
                         <td className="py-3 pr-2">
                           <StockChip
                             status={
@@ -502,7 +514,9 @@ function ManuallyImportInventoryModal({
         name: partName.trim(),
         category,
         stock: Number(quantity) || 0,
-        unitCost: Number(unitCost) || 0,
+        // Cost-blind hands do not put money on the line — Procurement / TM
+        // price it afterwards (the server enforces this too).
+        unitCost: userSeesCost() ? Number(unitCost) || 0 : 0,
         location: "Main Store",
       });
       await onDone();
@@ -586,21 +600,25 @@ function ManuallyImportInventoryModal({
               onChange={(e) => setQuantity(e.target.value)}
             />
           </ModalField>
-          <ModalField label="Unit Cost:" required>
-            <input
-              className={inputClass}
-              placeholder="e.g ₦12,345,678"
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-            />
-          </ModalField>
+          {userSeesCost() && (
+            <ModalField label="Unit Cost:" required>
+              <input
+                className={inputClass}
+                placeholder="e.g ₦12,345,678"
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+              />
+            </ModalField>
+          )}
         </div>
-        <div className="flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">
-          <span className="text-[13.5px] font-semibold text-[#1B2432]">Total Stock Value:</span>
-          <span className="text-[13.5px] font-medium text-[#7C8794]">
-            {total > 0 ? formatNairaFull(total) : "e.g ₦12,345,678"}
-          </span>
-        </div>
+        {userSeesCost() && (
+          <div className="flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">
+            <span className="text-[13.5px] font-semibold text-[#1B2432]">Total Stock Value:</span>
+            <span className="text-[13.5px] font-medium text-[#7C8794]">
+              {total > 0 ? formatNairaFull(total) : "e.g ₦12,345,678"}
+            </span>
+          </div>
+        )}
       </div>
 
       <ModalActions
@@ -679,7 +697,11 @@ function ImportInventoryFromFileModal({
             name: String(r["Part Name"] ?? r["Name"] ?? r.name ?? "").trim(),
             category: String(r["Category"] ?? r.category ?? "General").trim() || "General",
             stock: Number(r["Unit Quantity"] ?? r["Quantity"] ?? r.stock ?? 0) || 0,
-            unitCost: Number(r["Unit Cost"] ?? r["Cost"] ?? r.unitCost ?? 0) || 0,
+            // A sheet from a cost-blind desk loses its price column here:
+            // Procurement / TM maintain cost, not the shelf (server enforced).
+            unitCost: userSeesCost()
+              ? Number(r["Unit Cost"] ?? r["Cost"] ?? r.unitCost ?? 0) || 0
+              : 0,
             location: "Main Store",
           }))
           .filter((i) => i.sku && i.name);
@@ -827,7 +849,9 @@ function RestockPartInventoryModal({
       toast.error("How many units arrived?");
       return;
     }
-    if (price <= 0) {
+    // Cost-blind restock books the delivery, not the money — Procurement / TM
+    // post what was paid on the line afterwards.
+    if (userSeesCost() && price <= 0) {
       toast.error("What was paid per unit?");
       return;
     }
@@ -835,7 +859,7 @@ function RestockPartInventoryModal({
     try {
       await inventoryService.purchase(item.id, {
         qty,
-        unitPrice: price,
+        unitPrice: userSeesCost() ? price : 0,
         vendor: item.supplier || undefined,
         note: `Restock logged by ${loggedBy || "store"}`,
         reference: loggedBy || "store desk",
@@ -876,13 +900,15 @@ function RestockPartInventoryModal({
               onChange={(e) => setQuantity(e.target.value)}
             />
           </ModalField>
-          <ModalField label="Unit Cost:" required>
-            <input
-              className={inputClass}
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-            />
-          </ModalField>
+          {userSeesCost() && (
+            <ModalField label="Unit Cost:" required>
+              <input
+                className={inputClass}
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+              />
+            </ModalField>
+          )}
         </div>
         <div className="rounded-[8px] bg-[#EAF7F3] px-4 py-3">
           <p className="text-[13.5px] font-semibold text-[#1B2432]">
@@ -891,9 +917,11 @@ function RestockPartInventoryModal({
               {newTotal.toLocaleString("en-NG")}
             </span>
           </p>
-          <p className="mt-1 text-[13.5px] text-[#1B2432]">
-            Updated Cost Valuation:&nbsp;{formatNairaFull(newValuation)}
-          </p>
+          {userSeesCost() && (
+            <p className="mt-1 text-[13.5px] text-[#1B2432]">
+              Updated Cost Valuation:&nbsp;{formatNairaFull(newValuation)}
+            </p>
+          )}
         </div>
         <ModalField label="Logged by:" required>
           <input
@@ -946,12 +974,14 @@ function ModifyInventoryModal({
     }
     setBusy(true);
     try {
-      await inventoryService.updateItem(item.id, {
+      const updates: Record<string, unknown> = {
         name: name.trim(),
         category: category.trim(),
-        unitCost: Math.max(0, Number(unitCost) || 0),
         stock: Math.max(0, Math.trunc(Number(stock) || 0)),
-      });
+      };
+      // Cost-blind Modify leaves the price alone — Procurement / TM own it.
+      if (userSeesCost()) updates.unitCost = Math.max(0, Number(unitCost) || 0);
+      await inventoryService.updateItem(item.id, updates);
       await onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The change did not save.");
@@ -1011,13 +1041,15 @@ function ModifyInventoryModal({
               onChange={(e) => setStock(e.target.value)}
             />
           </ModalField>
-          <ModalField label="Unit Cost:" required>
-            <input
-              className={inputClass}
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-            />
-          </ModalField>
+          {userSeesCost() && (
+            <ModalField label="Unit Cost:" required>
+              <input
+                className={inputClass}
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+              />
+            </ModalField>
+          )}
         </div>
       </div>
 

@@ -3601,11 +3601,37 @@ async function writeMovement(row: any) {
 const inventoryStatus = (stock: number, reorderLevel: number) =>
   stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
 
+// COST OF STORE ITEMS IS A MANAGEMENT NUMBER, NOT A STORE-FLOOR NUMBER.
+// TM's ruling (Nov 2026): unit cost is seen and maintained by Transport
+// Manager, Platform Admin and Procurement ONLY. The store keeps the shelf:
+// count, give out, request. Every cost.write/entry path below checks this,
+// and GET strips prices from answers to other roles — a store session can
+// never read a unit cost over the wire, no matter which screen it uses.
+const COST_VISIBLE_ROLES = ['Transport Manager', 'Platform Admin', 'Procurement'];
+const userSeesCost = (req: any) => {
+  const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
+  return held.some((r) => COST_VISIBLE_ROLES.includes(r));
+};
+const stripCost = <T extends Record<string, any>>(item: T) => {
+  const { unitCost, ...visible } = item;
+  return visible;
+};
+
 /** Who touched it — the name on the token, or the email behind it. */
 const actingUser = (req: any) =>
   String(req?.user?.name || req?.user?.fullName || req?.user?.email || 'System');
-app.get('/api/inventory', authenticate, async (_req, res) => {
-  res.json(await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' } }));
+app.get('/api/inventory', authenticate, async (req, res) => {
+  const items = await prisma.inventoryItem.findMany({ orderBy: { name: 'asc' } });
+  // Shelf numbers are public to signed-in staff; the price is not. For
+  // anything that is not TM / Platform Admin / Procurement, the cost fields
+  // leave the payload entirely — hidden in the UI is not enough.
+  if (!userSeesCost(req)) {
+    return res.json(items.map((it: any) => {
+      const { unitCost, ...visible } = it;
+      return visible;
+    }));
+  }
+  res.json(items);
 });
 // MANUAL INPUT (Nov 2026): the old create spread req.body raw into Prisma — a
 // duplicate stock code 500'd (sku is @unique) and unknown UI fields poisoned the
@@ -3616,17 +3642,24 @@ app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport 
   for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
   body.sku = String(body.sku ?? '').trim();
   body.name = String(body.name ?? '').trim();
+  // A missing category used to reach Prisma as undefined and blow up as a
+  // raw 500 — the shelf's default bin is now "General", same as the UI.
+  body.category = String(body.category ?? 'General').trim() || 'General';
   if (!body.sku) return res.status(400).json({ error: 'A stock code is required.' });
   if (!body.name) return res.status(400).json({ error: 'A description is required.' });
   const stock = Number(body.stock ?? 0);
   const reorderLevel = Number(body.reorderLevel ?? 5);
-  const unitCost = Number(body.unitCost ?? 0);
+  // The store registers the line without money; Procurement / TM put the
+  // price on it afterwards (or import with cost in hand).
+  const unitCost = userSeesCost(req) ? Number(body.unitCost ?? 0) : 0;
+  body.unitCost = unitCost;
   if (!Number.isFinite(stock) || stock < 0) return res.status(400).json({ error: 'stock must be a non-negative number' });
   if (!Number.isFinite(reorderLevel) || reorderLevel < 0) return res.status(400).json({ error: 'reorderLevel must be a non-negative number' });
   if (!Number.isFinite(unitCost) || unitCost < 0) return res.status(400).json({ error: 'unitCost must be a non-negative number' });
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
   try {
-    res.json(await prisma.inventoryItem.create({ data: { ...body, stock, reorderLevel, unitCost, status } }));
+    const created = await prisma.inventoryItem.create({ data: { ...body, stock, reorderLevel, unitCost, status } });
+    res.json(userSeesCost(req) ? created : stripCost(created));
   } catch (e: any) {
     if (e?.code === 'P2002') return res.status(409).json({ error: `Stock code ${body.sku} is already on the shelf. Use Restock or Modify on that line.` });
     throw e;
@@ -3642,6 +3675,9 @@ app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Trans
   const ALLOWED_ITEM_FIELDS = ['name', 'sku', 'category', 'stock', 'reorderLevel', 'unitCost', 'vehicleCompatibility', 'supplier', 'location'];
   const body: any = {};
   for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
+  if (body.unitCost !== undefined && !userSeesCost(req)) {
+    return res.status(403).json({ error: 'Unit cost is maintained by Transport Manager and Procurement only.' });
+  }
   if (body.stock != null && (!Number.isFinite(Number(body.stock)) || Number(body.stock) < 0)) {
     return res.status(400).json({ error: 'stock must be a non-negative number' });
   }
@@ -3672,7 +3708,7 @@ app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Trans
       actedBy: actingUser(req),
     });
   }
-  res.json(updated);
+  res.json(userSeesCost(req) ? updated : stripCost(updated));
 });
 app.delete('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
   await prisma.inventoryItem.delete({ where: { id: req.params.id } });
@@ -3682,11 +3718,15 @@ app.delete('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Tran
 /** The ledger, newest first — one line's history, or the whole store's. */
 app.get('/api/inventory-movements', authenticate, async (req, res) => {
   const itemId = String(req.query.itemId || '');
-  res.json(await prisma.inventoryMovement.findMany({
+  const rows = await prisma.inventoryMovement.findMany({
     where: itemId ? { itemId } : undefined,
     orderBy: { actedAt: 'desc' },
     take: 500,
-  }));
+  });
+  // Purchase prices / write-off values ride on movement rows — a cost-blind
+  // session gets the ledger with the money columns removed.
+  if (!userSeesCost(req)) return res.json(rows.map((m: any) => { const { unitCost, value, ...visible } = m; return visible; }));
+  res.json(rows);
 });
 
 /**
@@ -3701,7 +3741,11 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const qty = Math.floor(Number(req.body.qty ?? 0));
   if (!qty || qty <= 0) return res.status(400).json({ error: 'A purchase needs a quantity.' });
+  // A restock from a cost-blind session books quantity only — the money side
+  // (what was paid per unit) belongs to Procurement / TM, who post it on the
+  // same line afterwards.
   const unitPrice = Number(req.body.unitPrice ?? 0) || item.unitCost;
+  const effectivePrice = userSeesCost(req) ? unitPrice : 0;
   const vendor = String(req.body.vendor || '').trim();
   // Weighted average cost: the line's unit cost becomes the blend of
   // everything bought for it, so the valuation moves by what was actually paid
@@ -3709,16 +3753,16 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
   const existingQty = Math.max(0, item.stock);
   const existingCost = item.unitCost ?? 0;
   const wac =
-    unitPrice > 0 && existingQty + qty > 0
-      ? (existingQty * existingCost + qty * unitPrice) / (existingQty + qty)
-      : existingCost || unitPrice;
+    effectivePrice > 0 && existingQty + qty > 0
+      ? (existingQty * existingCost + qty * effectivePrice) / (existingQty + qty)
+      : existingCost || effectivePrice;
   const stock = item.stock + qty;
   const updated = await prisma.inventoryItem.update({
     where: { id: item.id },
     data: {
       stock,
       status: inventoryStatus(stock, item.reorderLevel),
-      unitCost: unitPrice > 0 ? wac : existingCost,
+      unitCost: effectivePrice > 0 ? wac : existingCost,
       supplier: vendor || item.supplier,
     },
   });
@@ -3728,8 +3772,8 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
     sku: item.sku,
     kind: 'Purchase',
     quantity: qty,
-    unitCost: unitPrice,
-    value: qty * unitPrice,
+    unitCost: effectivePrice,
+    value: qty * effectivePrice,
     vendor,
     reference: String(req.body.reference || ''),
     note: String(req.body.note || ''),
@@ -3737,9 +3781,9 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
   });
   // A vendor moving their price more than 15% above the line's existing cost is
   // flagged, not silently absorbed into the average.
-  if (existingCost > 0 && unitPrice > existingCost * 1.15) {
-    const pct = Math.round(((unitPrice - existingCost) / existingCost) * 100);
-    await notify('Inventory', 'Vendor price increase', `${item.name}: ${vendor || 'the vendor'} moved the unit price from ${Math.round(existingCost).toLocaleString()} to ${Math.round(unitPrice).toLocaleString()} (+${pct}%).`, 'warning', 'Head of Inventory,Transport Manager', { module: 'Inventory', eventKey: 'inventory.price_increase', refId: item.id, refLabel: item.name, actionRoles: ['Head of Inventory'] });
+  if (existingCost > 0 && effectivePrice > existingCost * 1.15) {
+    const pct = Math.round(((effectivePrice - existingCost) / existingCost) * 100);
+    await notify('Inventory', 'Vendor price increase', `${item.name}: ${vendor || 'the vendor'} moved the unit price from ${Math.round(existingCost).toLocaleString()} to ${Math.round(effectivePrice).toLocaleString()} (+${pct}%).`, 'warning', 'Head of Inventory,Transport Manager', { module: 'Inventory', eventKey: 'inventory.price_increase', refId: item.id, refLabel: item.name, actionRoles: ['Head of Inventory'] });
   }
   // Auto-reactivation: the shelf now covers a ticket that was paused for
   // procurement — hand it back to the store floor queue. The guard reads the
@@ -3767,7 +3811,7 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
       await notify('Inventory', 'Back in stock — handoff resumed', `${item.name} is back on the shelf; ${ticket.part} for ${ticket.truckReg} returned to the store floor queue.`, 'info', 'Inventory,Head of Inventory,Store Floor Attendant,Engineering', { module: 'Inventory', eventKey: 'inventory.reactivated', refId: ticket.id, refLabel: ticket.part, actionRoles: ['Head of Inventory', 'Store Floor Attendant', 'Inventory'] });
     }
   }
-  res.json(updated);
+  res.json(userSeesCost(req) ? updated : stripCost(updated));
 });
 
 /** A correction that is neither a purchase nor an issue. */
@@ -3794,7 +3838,7 @@ app.post('/api/inventory/:id/adjust', authenticate, authorize('Platform Admin', 
     reference: String(req.body.reference || ''),
     actedBy: actingUser(req),
   });
-  res.json(updated);
+  res.json(userSeesCost(req) ? updated : stripCost(updated));
 });
 
 /**
