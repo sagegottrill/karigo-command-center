@@ -673,24 +673,33 @@ app.post('/api/users', authenticate, authorize('Transport Manager', 'Platform Ad
       if (clash.length) usernameConflict = clash;
     }
     const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
-    if (existing) {
+    // REVIVE_DELETED_V1 — removing a person is a SOFT delete (their trips, logs
+    // and audits must survive), so the row lingers with status 'Deleted'. That
+    // ghost used to block the email forever: the manager deleted the account and
+    // still got "already exists". Re-creating the same address now re-arms that
+    // same row with the new details instead of refusing.
+    const existingIsDeleted = !!existing && String(existing.status || '').toLowerCase() === 'deleted';
+    if (existing && !existingIsDeleted) {
       return res.status(409).json({ error: `A user with this email already exists${username ? ` — try a different username (e.g. ${username}2)` : ''}` });
     }
     const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        role,
-        roles: rolesList.length ? rolesList.join(',') : null,
-        password: hashed,
-        phone: b.phone,
-        tenantId,
-        status: b.status || 'Active',
-        passwordResetRequired: b.passwordResetRequired !== false,
-        partnerCompanyName,
-        companyLogo,
-      },
+    const createData = {
+      email,
+      name,
+      role,
+      roles: rolesList.length ? rolesList.join(',') : null,
+      password: hashed,
+      phone: b.phone,
+      tenantId,
+      status: b.status || 'Active',
+      passwordResetRequired: b.passwordResetRequired !== false,
+      partnerCompanyName,
+      companyLogo,
+    };
+    const user = existingIsDeleted
+      ? await prisma.user.update({ where: { id: existing!.id }, data: createData })
+      : await prisma.user.create({
+        data: createData,
     });
     // A company that works from a known set of loading locations gets them with
     // its first account, so nobody has to type the yards in one by one.
