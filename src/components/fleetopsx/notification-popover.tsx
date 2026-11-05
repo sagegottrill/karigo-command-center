@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Bell, Check, CheckCheck, Clock } from "lucide-react";
+import { ArrowUpRight, Bell, Check, CheckCheck, Clock, X } from "lucide-react";
 import { notificationService } from "@/lib/fleetopsx/services";
 import type { Notification } from "@/lib/fleetopsx/types";
 import {
@@ -111,6 +111,30 @@ export function NotificationPopover({
       window.removeEventListener("fleetopsx:badges-refresh", sync);
     };
   }, []);
+
+  /**
+   * Close (dismiss) a notification from THIS reader's list. The row is only
+   * ever removed for the caller — the server keeps it for everyone else —
+   * so the X here never hides a colleague's alert. Read state is untouched:
+   * closing is not reading.
+   */
+  const removeNotification = async (row: Notification) => {
+    const wasUnread = !row.read;
+    setNotifications((prev) => prev.filter((n) => n.id !== row.id));
+    if (wasUnread) setUnread((count) => Math.max(0, count - 1));
+    try {
+      await notificationService.remove(row.id);
+      window.dispatchEvent(new Event("fleetopsx:badges-refresh"));
+    } catch {
+      setNotifications((prev) =>
+        prev.some((n) => n.id === row.id)
+          ? prev
+          : [...prev, row].sort((a, b) => Date.parse(String(b.createdAt ?? 0)) - Date.parse(String(a.createdAt ?? 0))),
+      );
+      if (wasUnread) setUnread((count) => count + 1);
+      toast.error("Could not close the notification. Try again.");
+    }
+  };
 
   const markAllRead = async () => {
     setBusy(true);
@@ -253,11 +277,27 @@ export function NotificationPopover({
                             {n.title}
                           </span>
                         </span>
-                        {!n.read && (
-                          <span
-                            className={cn("size-2 shrink-0 rounded-full", SEVERITY_CLASS[tone])}
-                          />
-                        )}
+                        <span className="flex shrink-0 items-center gap-1">
+                          {!n.read && (
+                            <span className={cn("size-2 rounded-full", SEVERITY_CLASS[tone])} />
+                          )}
+                          {/* THE X (4 Nov 2026): every notification can be closed
+                              from the drop-down itself, as its own tap — not the
+                              row's read tap, and only for THIS reader. */}
+                          <button
+                            type="button"
+                            aria-label={`Close notification: ${n.title}`}
+                            title="Close — removes it from your list only"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void removeNotification(n);
+                            }}
+                            className="grid size-5 shrink-0 place-items-center rounded text-[#8E95A1] transition-colors hover:bg-[#F1F2F4] hover:text-[#B42318]"
+                          >
+                            <X className="size-3.5" strokeWidth={2} />
+                          </button>
+                        </span>
                       </div>
                       <span className="line-clamp-2 text-[13px] leading-snug text-[#5C6470]">
                         {n.body}

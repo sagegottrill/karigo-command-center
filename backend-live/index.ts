@@ -1551,7 +1551,30 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
    * already said so), and drivers are left to the duty-sync, which frees anyone
    * the live dispatch list no longer holds.
    */
-  if (String(trip.status) === 'En Route' && before && before.status !== 'En Route') {
+  // NO-AUTO-CLOSE:N2 (4 Nov 2026) — a departure never closes ANOTHER dispatch.
+  // The older run naming the same head/tail is reported to the Transport
+  // Manager to close by hand. ALLOW_AUTO_SUPERSEDE=1 restores the self-close.
+  if (process.env.ALLOW_AUTO_SUPERSEDE !== '1' && String(trip.status) === 'En Route' && before && before.status !== 'En Route') {
+    try {
+      const depKeys = truckKeysOf(trip);
+      if (depKeys.length) {
+        const older = await prisma.trip.findMany({
+          where: { id: { not: trip.id }, status: { in: ['En Route', 'Loaded', 'Offloading', 'Returning', 'Delayed'] } },
+        });
+        for (const o of older) {
+          if (!(new Date(o.createdAt).getTime() < new Date(trip.createdAt).getTime() && truckKeysOf(o).some((k) => depKeys.includes(k)))) continue;
+          void notify('Transport Manager', 'Same rig on two open dispatches',
+            dispatchRef(trip.id) + ' just left the gate with ' + String(trip.truckReg || '—') + ', which ' + dispatchRef(o.id) +
+            ' still names as on the road. Nothing was closed automatically — close ' + dispatchRef(o.id) + ' if that run is over.',
+            'warning', 'Transport Manager,Platform Admin,Fleet Operations',
+            { module: 'Dispatch', eventKey: 'dispatch.rig_conflict', refId: o.id, refLabel: dispatchRef(o.id), actionRoles: ['Transport Manager'] });
+        }
+      }
+    } catch (e: any) {
+      console.error('[supersede] warn failed:', e?.message || e);
+    }
+  }
+  if (process.env.ALLOW_AUTO_SUPERSEDE === '1' && String(trip.status) === 'En Route' && before && before.status !== 'En Route') {
     try {
       const depKeys = truckKeysOf(trip);
       if (depKeys.length) {
@@ -2216,6 +2239,9 @@ function autoStamp(value: any): string {
 }
 
 async function autoReconcileGateDepartures(): Promise<number> {
+  // NO-AUTO-CLOSE:N4 (4 Nov 2026): the first movement of a load belongs to
+  // Security's Log Out. This never runs unless ALLOW_AUTO_DEPARTURE=1.
+  if (process.env.ALLOW_AUTO_DEPARTURE !== '1') return 0;
   try {
     const moving = await prisma.trip.findMany({ where: { status: { in: AUTO_OPEN_MOVING } } });
     let stamped = 0;
@@ -2433,6 +2459,26 @@ async function sweepReturnedTrucks(): Promise<number> {
       }
       if (!gateHomeAfterDeparture) continue;
       doomed.push(t);
+    }
+    // NO-AUTO-CLOSE:N1 (4 Nov 2026) — the sweep REPORTS, it never closes.
+    // Trucks kept "returning by themselves"; every version of this guard still
+    // closed something a person had not. The dispatches it would have closed
+    // are sent to the Transport Manager once each, to close by hand if they
+    // really are finished. ALLOW_AUTO_RETURN=1 restores the old self-close.
+    if (process.env.ALLOW_AUTO_RETURN !== '1') {
+      const seen: Set<string> = ((globalThis as any).__noAutoCloseWarned ||= new Set<string>());
+      for (const trip of doomed) {
+        if (seen.has(trip.id)) continue;
+        seen.add(trip.id);
+        void notify('Dispatch', 'Dispatch looks finished — close it if so',
+          dispatchRef(trip.id) + ' (' + String(trip.truckReg || '—') + (trip.driverName ? ' · ' + trip.driverName : '') +
+          ') has had no activity for 12 hours and the gate logged its truck home. It was NOT closed automatically — ' +
+          'close it from the dispatch if the run is over.',
+          'warning', 'Transport Manager,Platform Admin,Fleet Operations',
+          { module: 'Dispatch', eventKey: 'dispatch.dormant_review', refId: trip.id, refLabel: dispatchRef(trip.id), actionRoles: ['Transport Manager'] });
+      }
+      if (doomed.length) console.log('[return-sweep] report-only: ' + doomed.length + ' dormant dispatch(es) flagged, none closed.');
+      return 0;
     }
     let closed = 0;
     for (const trip of doomed) {
@@ -3371,12 +3417,45 @@ app.patch('/api/drivers/:id', authenticate, authorize('Platform Admin', 'Transpo
       if (driver && driver.name && leavesEmployment) {
         const actor = (req as any).user?.name || (req as any).user?.email || 'Transport Manager';
         const stuck = await prisma.trip.findMany({
-          where: { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
+          // NO-AUTO-CLOSE:N3 (4 Nov 2026): bound by the man's P-number, never a
+          // name two drivers share. Unbound legacy dispatches still match by name.
+          where: driver.staffId
+            ? { status: { in: OPEN_TRIP_STATUSES }, OR: [{ driverStaffId: driver.staffId }, { driverStaffId: null, driverName: driver.name }] }
+            : { driverName: driver.name, status: { in: OPEN_TRIP_STATUSES } },
         });
         for (const trip of stuck) {
+          /*
+           * RELEASE-STAMP-TRUTH (Fortune IT check, 4 Nov 2026): a release-closed
+           * dispatch used to carry a plain gateInBy name with eta null, so the
+           * front office read "returned" where NO GUARD acted — truck 078's
+           * closure nearly cost a security man his job before the audit trail
+           * proved the release did it. The stamp keeps the confirming desk's
+           * name but says why the run completed, always carries its return
+           * moment, and files the truth in the record's own returnedBy object
+           * the same way the status-change and self-heal paths do.
+           */
+          const dcRel: any = trip.directCosts && typeof trip.directCosts === 'object'
+            ? { ...(trip.directCosts as any) }
+            : {};
+          dcRel.returnedBy = {
+            by: actor,
+            role: (req as any).user?.role || 'Transport Manager',
+            at: new Date().toISOString(),
+            via: 'driver-release',
+            confirmed: true,
+            note: 'Completed when the man driving it was released from the roster — the gate never logged this return.',
+          };
+          const closedGateIn = String(trip.gateInBy || '').includes('(driver release)')
+            ? trip.gateInBy
+            : (trip.gateInBy || actor) + ' (driver release)';
           const closedTrip = await prisma.trip.update({
             where: { id: trip.id },
-            data: { status: 'Completed', gateInBy: trip.gateInBy || actor },
+            data: {
+              status: 'Completed',
+              gateInBy: closedGateIn,
+              eta: trip.eta || autoStamp(new Date()),
+              directCosts: dcRel,
+            },
           });
           // THE RELEASE FOLLOWS THE FLOW (self-return fix): a release-closed
           // dispatch runs the same home cycle Security's gate runs — head to

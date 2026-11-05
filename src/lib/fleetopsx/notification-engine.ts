@@ -13,8 +13,9 @@
 
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { useRouterState } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { notificationService } from "./services";
+import { notificationCenterPath } from "./notification-modules";
 import { getToken } from "./apiClient";
 import type { Notification } from "./types";
 
@@ -128,6 +129,11 @@ function applyTitleBadge(count: number) {
 
 let polling = false;
 
+
+// Set inside useNotificationEngine (hooks can't run at module scope): the
+// "Open center" action on the overflow toast uses it to route.
+let goCenter: (() => void) | null = null;
+
 async function pollOnce() {
   if (polling) return;
   if (!getToken()) {
@@ -168,6 +174,10 @@ async function pollOnce() {
       if (fresh.length > 3) {
         toast(`${fresh.length - 3} more new notification${fresh.length - 3 === 1 ? "" : "s"}`, {
           description: "Open the Notification Center to review them.",
+          // The X was demanded in writing (Fortune, 4 Nov 2026): a toast stack
+          // with no way to clear it sits on the screen like an open question.
+          action: { label: "Open center", onClick: () => goCenter?.() },
+          duration: 12_000,
         });
       }
     }
@@ -184,6 +194,8 @@ async function pollOnce() {
 /** Mount ONCE in the app shell. Idle on public/login routes. */
 export function useNotificationEngine() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const router = useRouter();
+  goCenter = () => void router.navigate({ to: notificationCenterPath() });
 
   useEffect(() => {
     const inApp =
