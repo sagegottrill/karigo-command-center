@@ -775,10 +775,13 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
 });
 
 app.delete('/api/users/:id', authenticate, authorize('Transport Manager', 'Platform Admin'), async (req, res) => {
-  // SOFT delete per spec: revoke access but keep every historical action
-  // (trips, logs, audits) intact so operational/financial history is never corrupted.
+  // HARD delete per the TM's ruling: "delete" must leave no trace, so the
+  // address can be re-created immediately. Nothing references a user by foreign
+  // key (trips, logs and audits store names/ids as plain strings), so operational
+  // history survives untouched; only the account row and its sign-in reports go.
   try {
-    await prisma.user.update({ where: { id: req.params.id }, data: { status: 'Deleted' } });
+    await prisma.loginReport.deleteMany({ where: { userId: req.params.id } }).catch(() => {});
+    await prisma.user.delete({ where: { id: req.params.id } });
     res.status(204).end();
   } catch (e: any) {
     if (String(e?.code) === 'P2025') return res.status(404).json({ error: 'User not found' });

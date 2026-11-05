@@ -185,7 +185,7 @@ function AdminManageAccount() {
         break;
       case "delete":
         await adminService.deleteUser(confirmAction.userId);
-        toast.error("Account deleted (soft).");
+        toast.error("Account deleted — the email is free to use again.");
         setConfirmAction(null);
         void adminService.users().then(setUsers);
         break;
@@ -647,7 +647,8 @@ function AdminManageAccount() {
                 "Are you sure you want to\nsuspend this account?"}
               {confirmAction.type === "activate" &&
                 "Are you sure you want to\nactivate this account?"}
-              {confirmAction.type === "delete" && "Are you sure you want to\ndelete this account?"}
+              {confirmAction.type === "delete" &&
+                "Permanently remove this account?\nThe person is gone and their email can be used again."}
             </p>
             <div className="flex w-full items-center justify-between gap-6">
               <button

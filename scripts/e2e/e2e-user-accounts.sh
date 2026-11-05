@@ -63,25 +63,25 @@ check "secondary department grants its module (HR list 200)" 200
 
 # --- 2. delete frees the email ---
 req DELETE "/api/users/$MULTI_ID" "$ADMIN" ""
-check "remove the account (soft delete 204)" 204
+check "remove the account (hard delete 204)" 204
 req GET /api/users "$ADMIN" ""
-GONE="$(jq_ "const u=d.find(x=>x.id==='$MULTI_ID'); console.log(!u?'HIDDEN':(u.status||'ACTIVE'))")"
-if [ "$GONE" = "HIDDEN" ] || [ "$GONE" = "Deleted" ] || [ "$GONE" = "Inactive" ]; then PASS=$((PASS+1)); echo "  ok   account reads as removed ($GONE)";
-else FAIL=$((FAIL+1)); FAILED_NAMES+=("account removed from list"); echo "       still listed as: $GONE"; fi
+GONE="$(jq_ "const u=d.find(x=>x.id==='$MULTI_ID'||String(x.email).toLowerCase()==='$MULTI_EMAIL'); console.log(!u?'GONE':'STILL_THERE: '+(u.status||'Active'))")"
+if [ "$GONE" = "GONE" ]; then PASS=$((PASS+1)); echo "  ok   no row left behind — the delete is real, not a status flag";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("row fully wiped"); echo "       $GONE"; fi
 login "$MULTI_EMAIL" 'MultiRole@2026'
 if [ -z "$LAST_TOKEN" ]; then PASS=$((PASS+1)); echo "  ok   removed account can no longer sign in";
 else FAIL=$((FAIL+1)); FAILED_NAMES+=("removed account still signs in"); echo "       deleted account logged in"; fi
 
-# --- 3. the same address can be created again ---
+# --- 3. the same address can be created again, instantly ---
 req POST /api/users "$ADMIN" "{\"firstName\":\"E2E\",\"surname\":\"Multi\",\"username\":\"e2e.multi\",\"email\":\"$MULTI_EMAIL\",\"roles\":[\"Security\",\"HR\"],\"password\":\"SecondLife@2026\"}"
 check "re-create the SAME email after deletion (200, was 409)" 200
 NEW_ID="$(jq_ "console.log(d.id ?? d.user?.id ?? '')")"
 NEW_STATUS="$(jq_ "console.log(d.status ?? d.user?.status ?? '')")"
 req GET /api/users "$ADMIN" ""
 ROWS="$(jq_ "console.log(d.filter(x=>String(x.email).toLowerCase()==='$MULTI_EMAIL').length)")"
-if [ "$ROWS" = "1" ]; then PASS=$((PASS+1)); echo "  ok   exactly one row for that email (revived, not duplicated)";
-else FAIL=$((FAIL+1)); FAILED_NAMES+=("one row after revive"); echo "       rows: $ROWS"; fi
-[ "$NEW_ID" = "$MULTI_ID" ] && { PASS=$((PASS+1)); echo "  ok   history kept: same user id revived"; } || echo "  ..   revived row id differs (old $MULTI_ID, new $NEW_ID)"
+if [ "$ROWS" = "1" ]; then PASS=$((PASS+1)); echo "  ok   exactly one row for that email (fresh, not duplicated)";
+else FAIL=$((FAIL+1)); FAILED_NAMES+=("one row after re-create"); echo "       rows: $ROWS"; fi
+[ "$NEW_ID" != "$MULTI_ID" ] && [ -n "$NEW_ID" ] && { PASS=$((PASS+1)); echo "  ok   a brand-new row was issued (old one is gone for good)"; } || echo "  ..   re-created row id: $NEW_ID (old $MULTI_ID)"
 [ "$NEW_STATUS" = "Active" ] && { PASS=$((PASS+1)); echo "  ok   revived account is Active"; } || echo "  ..   status after revive: $NEW_STATUS"
 
 login "$MULTI_EMAIL" 'SecondLife@2026'
