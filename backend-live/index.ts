@@ -4175,6 +4175,15 @@ app.post('/api/inventory-handoffs/:reqId/pick', authenticate, async (req, res) =
       quantity: requisition.quantity,
       linkedId: requisition.workOrder || requisition.id,
       truckReg: requisition.truckReg,
+      // WHICH DESK THIS CAME FROM (PRD §2): an engineering requisition (it
+      // carries a requestGroup) reads as Engineering in the buying inbox; a
+      // plain store ticket reads as Store. The line's SKU rides along so
+      // receiving lands on the same shelf the mechanic asked about.
+      source: requisition.requestGroup ? 'Engineering' : 'Store',
+      requestedBy: requisition.mechanic || null,
+      itemId: item?.id ?? null,
+      sku: item?.sku ?? null,
+      category: item?.category ?? null,
       status: 'Requested',
     },
   }).catch(() => null);
@@ -4225,9 +4234,11 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
     (stock <= item.reorderLevel || stock <= 0) &&
     item.stock > Math.max(item.reorderLevel, 0)
   ) {
-    await notify('Inventory', stock <= 0 ? 'Stock depleted' : 'Low stock alert',
+    // PRD §3 has two tiers: crossing the threshold is a low-stock alert, reaching
+    // zero is a critical stockout and leads in red, not amber.
+    await notify('Inventory', stock <= 0 ? 'Critical stockout' : 'Low stock alert',
       `${item.name} dropped to ${stock} on the shelf (threshold: ${item.reorderLevel}) after ${qty} × ${requisition.part} was released to ${requisition.truckReg}. Initiate procurement to replenish the line.`,
-      'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant,Procurement',
+      stock <= 0 ? 'critical' : 'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant,Procurement',
       { module: 'Inventory', eventKey: 'inventory.low_stock', refId: item.id, refLabel: item.name, actionRoles: ['Procurement', 'Transport Manager'] });
   }
   const releasedValue = qty * wac;
@@ -4338,6 +4349,10 @@ app.post('/api/fuel-restock-orders', authenticate, authorize('Transport Manager'
         kind: 'Fuel',
         unitPrice,
         vendor: vendor || null,
+        // The TM raised this one himself (PRD §2): his order belongs in the
+        // inbox under TM, not filed as a store request.
+        source: 'TM',
+        requestedBy: actingUser(req),
         status: 'Requested',
       },
     });

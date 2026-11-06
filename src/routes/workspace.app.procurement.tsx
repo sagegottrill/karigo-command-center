@@ -93,6 +93,9 @@ function ProcurementPage() {
   const [vendorDraft, setVendorDraft] = useState<Vendor | "new" | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("All");
+  // PRD §2: the inbox is multi-channel — Store, Engineering, TM and the desk's
+  // own reorders, picked apart by the desk that asked.
+  const [channel, setChannel] = useState("All");
 
   const load = useCallback(async () => {
     try {
@@ -120,8 +123,18 @@ function ProcurementPage() {
   const open = useMemo(() => requests.filter((r) => !["Procured", "Rejected"].includes(r.status)), [requests]);
   const lowStock = useMemo(() => items.filter((i) => i.stock <= i.reorderLevel), [items]);
   const search = q.trim().toLowerCase();
+  const channelCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of requests) {
+      if (["Procured", "Rejected"].includes(r.status)) continue;
+      const key = r.source || "Store";
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [requests]);
   const inbox = useMemo(
     () => requests.filter((r) => {
+      if (channel !== "All" && (r.source || "Store") !== channel) return false;
       if (status !== "All" && r.status !== status) return false;
       if (!search) return true;
       return [r.partName, r.linkedId, r.requestedBy, r.vendor, r.source, r.sku].some((v) => String(v ?? "").toLowerCase().includes(search));
@@ -245,6 +258,23 @@ function ProcurementPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-[#E2E8F0] px-2 text-[12.5px]">
               {STATUSES.map((s) => <option key={s} value={s}>{s === "All" ? "All statuses" : s}</option>)}
             </select>
+          )}
+          {tab === "Inbox" && (
+            <div className="flex flex-wrap items-center gap-1">
+              {["All", ...SOURCES].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setChannel(s)}
+                  className={
+                    "rounded-full px-2.5 py-1 text-[11.5px] font-medium transition " +
+                    (channel === s ? "bg-[#1B2432] text-white" : "bg-[#F4F7FA] text-[#5A6B7F] hover:bg-[#EAEFF5]")
+                  }
+                >
+                  {s === "All" ? "All desks" : s}
+                  {s !== "All" && <span className="ml-1 opacity-70">{channelCount[s] || 0}</span>}
+                </button>
+              ))}
+            </div>
           )}
           {tab === "Vendors" && (
             <button onClick={() => setVendorDraft("new")} className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#1B2432] px-3 py-2 text-[12.5px] font-semibold text-white">
