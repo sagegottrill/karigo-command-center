@@ -1805,6 +1805,19 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
         .map((a: { name: string; task: string }) => (a.task ? `${a.name} — ${a.task}` : a.name))
         .join('; ')
     : String(req.body?.assignedTo || '').trim();
+  // EXTERNAL-LABOUR: work an outside workshop does on THIS truck. The charge
+  // becomes the work order's `cost` — the line Accounts books as External
+  // Labour against the truck's plate — so the money is always tied to one
+  // truck instead of floating free of the fleet.
+  const rawExternal =
+    req.body?.externalLabour && typeof req.body.externalLabour === 'object'
+      ? req.body.externalLabour
+      : {};
+  const externalWorkshop = String(rawExternal.workshop || '').trim();
+  const externalCost = Number(rawExternal.cost ?? 0);
+  if (!Number.isFinite(externalCost) || externalCost < 0) {
+    return res.status(400).json({ error: 'The external labour cost must be a non-negative number.' });
+  }
   const parts = Array.isArray(req.body?.parts) ? req.body.parts : [];
   if (!headId && !tailId) return res.status(400).json({ error: 'Choose the truck that was inspected.' });
   if (!['no-issues', 'issues'].includes(result)) return res.status(400).json({ error: 'result must be no-issues or issues.' });
@@ -1831,8 +1844,12 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
         priority: severity === 'Critical (Grounded)' ? 'Critical' : severity.startsWith('Major') ? 'High' : 'Medium',
         mechanic: assignedTo || '',
         reportedBy: inspectedBy || by,
-        cost: 0,
-        notes: `Check-up: ${defect}`,
+        cost: externalCost,
+        notes: `Check-up: ${defect}${
+          externalCost > 0
+            ? ` · External labour: ${externalWorkshop || 'outside workshop'} (₦${Math.round(externalCost).toLocaleString('en-NG')})`
+            : ''
+        }`,
         status: 'Reported',
         severity: severity || null,
         inspectedBy: inspectedBy || by,
@@ -1864,7 +1881,13 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
     const crewLine = crew.length
       ? ` Assigned to ${crew.map((a: { name: string }) => a.name).join(', ')}.`
       : '';
-    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${crewLine}${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
+    const externalLine =
+      externalCost > 0
+        ? ` External labour ₦${Math.round(externalCost).toLocaleString('en-NG')}${
+            externalWorkshop ? ` (${externalWorkshop})` : ''
+          } booked to ${truckReg}.`
+        : '';
+    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${crewLine}${externalLine}${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
     res.status(201).json({ ok: true, result, job, group });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

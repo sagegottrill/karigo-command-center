@@ -1213,6 +1213,8 @@ export const inventoryService = {
     assignedTo?: string;
     /** One line per engineer: who does it, and the work they own. */
     assignments?: Array<{ name: string; task: string }>;
+    /** Work an outside workshop does on this truck, and what it charges. */
+    externalLabour?: { workshop: string; cost: number };
     parts?: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number }>;
   }) =>
     fetchApi<{ ok: boolean; group?: string | null }>("/engineering/inspections", {

@@ -164,6 +164,10 @@ export function InspectionDialog({
     { name: "", task: "" },
   ]);
   const [technicians, setTechnicians] = useState<string[]>([]);
+  // External labour — work an outside workshop does on THIS truck. The charge
+  // rides on the work order's cost, which Accounts reads as External Labour
+  // against the truck's plate; it is never a loose figure on the page.
+  const [external, setExternal] = useState({ workshop: "", cost: "" });
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +199,11 @@ export function InspectionDialog({
     const crew = assignments
       .map((a) => ({ name: a.name.trim(), task: a.task.trim() }))
       .filter((a) => a.name);
+    const externalCost = Number(external.cost.replace(/[^0-9.]/g, "")) || 0;
+    if (external.workshop.trim() && externalCost <= 0) {
+      toast.error("Enter what the outside workshop charged for this truck.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await inventoryService.logInspection({
@@ -206,6 +215,10 @@ export function InspectionDialog({
         inspectedBy: by.trim(),
         assignedTo: crew.map((a) => a.name).join(", ") || undefined,
         assignments: crew,
+        externalLabour:
+          externalCost > 0
+            ? { workshop: external.workshop.trim(), cost: externalCost }
+            : undefined,
         parts: result === "issues" && wantParts ? lines : [],
       });
       toast.success(
@@ -431,6 +444,45 @@ export function InspectionDialog({
             </div>
           ) : null}
 
+          {result === "issues" ? (
+            <div className="flex flex-col gap-2 rounded-[8px] border border-[#E2E5E9] p-2.5">
+              <div>
+                <span className="text-[14px] font-medium text-[#141A1F]">External Labour</span>
+                <p className="text-[12px] text-[#5C6470]">
+                  Work an outside workshop does on {asset.reg || "this truck"} — the charge
+                  is booked to this truck as external labour.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px]">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-medium text-[#141A1F]">
+                    Workshop / work done
+                  </span>
+                  <input
+                    value={external.workshop}
+                    onChange={(e) =>
+                      setExternal((prev) => ({ ...prev, workshop: e.target.value }))
+                    }
+                    placeholder="e.g. Kenworth workshop — press the chassis"
+                    className={`${inputClass} bg-white`}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-medium text-[#141A1F]">Cost (₦)</span>
+                  <input
+                    value={external.cost}
+                    onChange={(e) =>
+                      setExternal((prev) => ({ ...prev, cost: e.target.value }))
+                    }
+                    inputMode="decimal"
+                    placeholder="0"
+                    className={`${inputClass} bg-white`}
+                  />
+                </label>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex items-center justify-end gap-2 pt-1">
             <button
               type="button"
@@ -549,6 +601,19 @@ export function InspectionReportCard({
         {job.mechanic ? (
           <p className="text-[#3C4653]">
             Assigned to: <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
+          </p>
+        ) : null}
+        {Number(job.cost ?? 0) > 0 ? (
+          <p className="text-[#3C4653]">
+            External labour:{" "}
+            <span className="font-medium text-[#1B2432]">
+              {Number(job.cost).toLocaleString("en-NG", {
+                style: "currency",
+                currency: "NGN",
+                maximumFractionDigits: 0,
+              })}
+            </span>{" "}
+            <span className="text-[#8E95A1]">— booked to {job.truckReg || "the truck"}</span>
           </p>
         ) : null}
         <p className="flex items-center gap-2">
