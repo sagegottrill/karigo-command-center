@@ -3675,7 +3675,7 @@ const inventoryStatus = (stock: number, reorderLevel: number) =>
 // count, give out, request. Every cost.write/entry path below checks this,
 // and GET strips prices from answers to other roles — a store session can
 // never read a unit cost over the wire, no matter which screen it uses.
-const COST_VISIBLE_ROLES = ['Transport Manager', 'Platform Admin', 'Procurement'];
+const COST_VISIBLE_ROLES = ['Transport Manager', 'Platform Admin', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer', 'Buyer'];
 const userSeesCost = (req: any) => {
   const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
   return held.some((r) => COST_VISIBLE_ROLES.includes(r));
