@@ -4390,6 +4390,15 @@ app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transpor
       : callerRole === 'Transport Manager' ? 'TM'
       : callerRole === 'Procurement' ? 'Procurement' : 'Store';
   }
+  // ONE OPEN BUY PER PART (PRD §3): a double-click on "Raise PO" must not mint
+  // two POs for the same shelf line, and the desk must not receive it twice.
+  if (String(data.kind ?? 'Part') === 'Part' && String(data.sku || '').trim()) {
+    const openForSku = await prisma.procurementRequest.findFirst({
+      where: { sku: String(data.sku).trim(), kind: 'Part', status: { notIn: ['Procured', 'Rejected'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (openForSku) return res.status(409).json({ error: `Already on the desk as ${openForSku.linkedId} — receive or reject that one first.` });
+  }
   if (!String(data.linkedId ?? '').trim()) {
     // The buying reference the board groups by — a generated PO tag when the
     // client sent none, so the row is still one source of truth on its board.
@@ -4416,7 +4425,21 @@ app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transpor
 app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer'), async (req, res) => {
   const before = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
   if (!before) return res.status(404).json({ error: 'Procurement request not found' });
-  const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: req.body });
+  // A PART BUY IS ONLY "PROCURED" BY RECEIVING IT (PRD §4/§5). The PATCH used to
+  // let a board flip a part PO to Procured with no stock, no cost and no
+  // paperwork — and that also locked the PO out of receiving (409 already
+  // procured). Fuel deliveries still close here: their tank row is written by
+  // this route, not by the parts desk.
+  if (String(req.body?.status || '') === 'Procured' && before.kind !== 'Fuel') {
+    return res.status(400).json({ error: 'Receiving is the only way to close a part PO — it books the stock, the cost and the receipt. Fuel POs still close here.' });
+  }
+  // Whitelist: the board may move the status and correct the agreed figures,
+  // never write the receipt columns by hand.
+  const patch: any = {};
+  for (const k of ['status', 'vendor', 'unitPrice', 'note', 'requestedBy', 'linkId']) {
+    if (req.body?.[k] !== undefined) patch[k] = req.body[k];
+  }
+  const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: patch });
   if (req.body.status === 'Procured' && before.status !== 'Procured') {
     if (before.kind === 'Fuel') {
       // Receiving a fuel delivery: the tank takes in what was bought, priced at
@@ -4508,7 +4531,10 @@ app.get('/api/vendors/price-history', authenticate, async (req, res) => {
   res.json(rows);
 });
 
-app.get('/api/procurement/documents', authenticate, async (_req, res) => {
+app.get('/api/procurement/documents', authenticate, async (req, res) => {
+  // Receipts carry the money (PRD §6): only a cost-visible session may list
+  // them, never the store floor.
+  if (!userSeesCost(req)) return res.status(403).json({ error: 'Proof of purchase is a costing document — Procurement, the TM and the admin read it.' });
   res.json(await prisma.procurementDocument.findMany({
     select: { id: true, procurementId: true, kind: true, fileName: true, mimeType: true, size: true, vendor: true, uploadedBy: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
@@ -4516,6 +4542,7 @@ app.get('/api/procurement/documents', authenticate, async (_req, res) => {
   }));
 });
 app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
+  if (!userSeesCost(req)) return res.status(403).json({ error: 'Proof of purchase is a costing document — Procurement, the TM and the admin read it.' });
   const doc = await prisma.procurementDocument.findUnique({ where: { id: req.params.id } });
   if (!doc) return res.status(404).json({ error: 'Document not found' });
   res.json(doc);
@@ -4531,11 +4558,15 @@ app.post('/api/procurement/:id/receive', authenticate, authorize(...PROCUREMENT_
     const po = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
     if (!po) return res.status(404).json({ error: 'Procurement request not found' });
     if (po.status === 'Procured') return res.status(409).json({ error: 'This PO is already received — its stock was booked once already.' });
+    if (po.kind === 'Fuel') return res.status(400).json({ error: 'Fuel deliveries are received on the fuel desk — this desk books parts and equipment.' });
+    if (po.status === 'Rejected') return res.status(409).json({ error: 'That request was rejected — reopen it on the inbox before receiving.' });
     const b = req.body || {};
     const qty = Math.trunc(Number(b.quantity ?? po.quantity));
     if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'Quantity received must be a positive whole number.' });
     const unitCost = Number(b.unitCost ?? po.unitPrice ?? 0);
     if (!Number.isFinite(unitCost) || unitCost < 0) return res.status(400).json({ error: 'Unit cost must be zero or more.' });
+    if (qty > 100000) return res.status(400).json({ error: 'That quantity looks like a typo — over 100,000 units on one receipt.' });
+    if (unitCost > 1000000000) return res.status(400).json({ error: 'That unit cost looks like a typo — over ₦1bn per unit.' });
     const partName = String(b.name || po.partName || '').trim();
     const sku = String(b.sku || po.sku || partName).trim();
     const category = String(b.category || po.category || 'General').trim();
@@ -4603,6 +4634,28 @@ app.post('/api/procurement/:id/receive', authenticate, authorize(...PROCUREMENT_
       },
     });
 
+    // A vendor moving the price more than 15% above the line's old cost is
+    // flagged, not silently averaged away (PRD §7).
+    if (existingCost > 0 && unitCost > existingCost * 1.15) {
+      const pct = Math.round(((unitCost - existingCost) / existingCost) * 100);
+      await notify('Inventory', 'Vendor price increase', `${partName}: ${vendor || 'the vendor'} moved the unit price from ${Math.round(existingCost).toLocaleString()} to ${Math.round(unitCost).toLocaleString()} (+${pct}%).`, 'warning', 'Head of Inventory,Procurement,Transport Manager', { module: 'Inventory', eventKey: 'inventory.price_increase', refId: shelf.id, refLabel: partName, actionRoles: ['Procurement'] });
+    }
+    // THE SHELF NOW COVERS PAUSED TICKETS (PRD §4): the moment stock lands, the
+    // store floor's held handoffs resume — oldest first, and only what this
+    // delivery can actually cover.
+    if (shelf.stock > 0) {
+      let coverable = qty;
+      const paused = await prisma.inventoryRequisition.findMany({
+        where: { itemId: shelf.id, status: 'Awaiting Procurement' },
+        orderBy: { date: 'asc' },
+      });
+      for (const ticket of paused) {
+        if (ticket.quantity > coverable) continue;
+        coverable -= ticket.quantity;
+        await prisma.inventoryRequisition.update({ where: { id: ticket.id }, data: { status: 'Awaiting Pickup' } });
+        await notify('Inventory', 'Back in stock — handoff resumed', `${partName} is back on the shelf; ${ticket.part} for ${ticket.truckReg} returned to the store floor queue.`, 'info', 'Inventory,Head of Inventory,Store Floor Attendant,Engineering', { module: 'Inventory', eventKey: 'inventory.reactivated', refId: ticket.id, refLabel: ticket.part, actionRoles: ['Head of Inventory', 'Store Floor Attendant', 'Inventory'] });
+      }
+    }
     // Ping the desk that asked (PRD §4) — the inbox it came from hears first.
     const desk = po.source === 'Engineering' ? 'Engineering'
       : po.source === 'TM' ? 'Transport Manager'

@@ -1353,19 +1353,14 @@ export const procurementService = {
       .then((rows) => rows.filter((r: any) => r?.kind === "Fuel")),
   // Backend expects PATCH /procurement/:id { status: 'Procured' } (no /procure sub-route).
   // Receiving a fuel PO is server-side: it writes the tank row at the PO's price.
+  // Fuel only: receiving a part PO is the buying desk's, and it writes stock,
+  // cost and paperwork in one call (POST /procurement/:id/receive). The server
+  // refuses a part PO marked Procured through here, and no client-side
+  // notification is invented — the API sends the real one to the requester.
   markProcured: (id: string) =>
     fetchApi(`/procurement/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "Procured" }),
-    }).then((res) => {
-      notificationService.create({
-        title: "Items Procured",
-        body: `Procurement request ${id.substring(0, 6)} fulfilled.`,
-        category: "Compliance",
-        module: "Engineering",
-        audience: "Engineering,Parts & Store,Transport Manager,Platform Admin",
-      });
-      return res;
     }),
 };
 

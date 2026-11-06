@@ -54,7 +54,7 @@ interface PoLine {
   name: string;
   sku: string;
   quantity: number;
-  price: number;
+  price: number | null;
 }
 
 function pillFor(status: string): { label: string; tone: "amber" | "green" | "red" | "blue" } {
@@ -136,9 +136,12 @@ function ProcurementRequestsPage() {
     if (!item) item = items.find((i) => i.name.trim().toLowerCase() === name);
     const label = item ? item.sku : po.partName;
     const labelName = item ? item.name : "";
-    const price = Number(po.unitPrice ?? item?.unitCost ?? 0) || 0;
+    // Cost is masked from the storehouse (PRD §6): when the desk's price is not
+    // on this session's copy of the PO, the card says so rather than showing a
+    // misleading ₦0 for a part that was plainly paid for.
+    const unit = po.unitPrice ?? item?.unitCost ?? null;
     const qty = Number(po.quantity ?? 0) || 0;
-    return [{ name: labelName || label, sku: label, quantity: qty, price: price * qty }];
+    return [{ name: labelName || label, sku: label, quantity: qty, price: unit == null ? null : unit * qty }];
   };
 
   const exportCsv = () => {
@@ -165,7 +168,7 @@ function ProcurementRequestsPage() {
           l.name,
           po.requestedBy ?? "",
           String(l.quantity),
-          String(l.price),
+          l.price == null ? "" : String(l.price),
           po.status,
           po.vendor ?? "",
           po.note ?? "",
@@ -305,22 +308,15 @@ function PoCard({
         <div className="flex items-center gap-1.5">
           <StatusPill label={pill.label} tone={pill.tone} />
           {actionOpen && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                const run = async () => {
-                  setBusy(true);
-                  await onProcured();
-                  setBusy(false);
-                };
-                void run();
-              }}
-              title="The delivery arrived — the buy is fulfilled"
-              className="rounded-[6px] border border-[#E2E5E9] px-2 py-1 text-[11.5px] font-medium text-[#1B2432] disabled:opacity-40"
+            // The store raises the buy; the buying desk receives it. A part PO
+            // cannot be closed from here — the server refuses it, because
+            // closing without receiving would skip stock, cost and paperwork.
+            <span
+              title="The buying desk receives the delivery and books the stock"
+              className="rounded-[6px] border border-[#E2E5E9] px-2 py-1 text-[11.5px] font-medium text-[#8A94A3]"
             >
-              Mark Procured
-            </button>
+              Awaiting buying desk
+            </span>
           )}
         </div>
       </div>
@@ -351,7 +347,7 @@ function PoCard({
                   {l.quantity.toLocaleString("en-NG")}
                 </span>
                 <span className="text-[11.5px] font-semibold text-[#1B2432]">
-                  {formatNairaFull(l.price)}
+                  {l.price == null ? "—" : formatNairaFull(l.price)}
                 </span>
               </div>
             </div>

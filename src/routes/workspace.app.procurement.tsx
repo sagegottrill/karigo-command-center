@@ -330,7 +330,7 @@ function Inbox({ rows, onReceive, onAdvance }: { rows: Po[]; onReceive: (po: Po)
               <td className="px-4 py-2.5"><span className={"rounded-full px-2 py-0.5 text-[10.5px] font-semibold " + statusTone(r.status)}>{r.status}</span></td>
               <td className="px-4 py-2.5">
                 <div className="flex flex-wrap gap-1.5">
-                  {r.status !== "Procured" && (
+                  {!["Procured", "Rejected"].includes(r.status) && (
                     <button onClick={() => onReceive(r)} className="rounded-md bg-[#127A45] px-2.5 py-1 text-[11.5px] font-semibold text-white">Receive</button>
                   )}
                   {r.status === "Requested" && (
