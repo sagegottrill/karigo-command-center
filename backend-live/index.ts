@@ -4228,7 +4228,7 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
     await notify('Inventory', stock <= 0 ? 'Stock depleted' : 'Low stock alert',
       `${item.name} dropped to ${stock} on the shelf (threshold: ${item.reorderLevel}) after ${qty} × ${requisition.part} was released to ${requisition.truckReg}. Initiate procurement to replenish the line.`,
       'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant,Procurement',
-      { module: 'Inventory', eventKey: 'inventory.low_stock', refId: item.id, refLabel: item.name, actionRoles: ['Transport Manager'] });
+      { module: 'Inventory', eventKey: 'inventory.low_stock', refId: item.id, refLabel: item.name, actionRoles: ['Procurement', 'Transport Manager'] });
   }
   const releasedValue = qty * wac;
   const updated = await prisma.inventoryRequisition.update({

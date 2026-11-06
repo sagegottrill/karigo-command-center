@@ -347,7 +347,7 @@ function LowStock({ rows, onRaise }: { rows: Item[]; onRaise: (i: Item) => void 
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead><tr><Th>SKU</Th><Th>Item</Th><Th>On shelf</Th><Th>Reorder at</Th><Th>Status</Th><Th>Action</Th></tr></thead>
         <tbody>
-          {rows.map((i) => (
+          {rows.slice(0, 300).map((i) => (
             <tr key={i.id} className="border-b border-[#F2F5F8] last:border-0">
               <td className="px-4 py-2.5 text-[12px] font-medium text-[#41556B]">{i.sku}</td>
               <td className="px-4 py-2.5 text-[12.5px] text-[#1B2432]">{i.name}<p className="text-[11px] text-[#8896A6]">{i.category}</p></td>
@@ -363,6 +363,11 @@ function LowStock({ rows, onRaise }: { rows: Item[]; onRaise: (i: Item) => void 
           ))}
         </tbody>
       </table>
+      {rows.length > 300 && (
+        <p className="border-t border-[#EDF0F4] px-4 py-2.5 text-[11.5px] text-[#8896A6]">
+          Showing the 300 most urgent of {rows.length.toLocaleString()} lines below their reorder level.
+        </p>
+      )}
     </div>
   );
 }

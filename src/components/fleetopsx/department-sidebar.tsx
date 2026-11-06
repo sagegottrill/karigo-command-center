@@ -167,6 +167,10 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       // in the rail's approved order: the request queue first, then the shelf.
       { label: "Parts Request", to: STORE_PARTS_REQUEST, icon: List },
       { label: "Store Inventory", to: STORE_HOME, icon: Package },
+      // The BUYING DESK (PRD, 6 Nov 2026): the desk that receives every
+      // department's request, buys it, and files the receipt. Its own page,
+      // beside the store's request queue — the two are the same pipeline.
+      { label: "Procurement", to: "/workspace/app/procurement", icon: PackageSearch },
       { label: "Procurement Request", to: STORE_PROCUREMENT, icon: ListTree },
       { label: "Issue History", to: STORE_ISSUE_HISTORY, icon: History },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
