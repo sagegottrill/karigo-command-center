@@ -340,6 +340,22 @@ function dispatchRef(tripId: any) {
 
 // Lifecycle status -> notification sent to the right roles (partner stays informed of ITS cargo).
 const TRIP_STATUS_NOTICES: Record<string, { category: string; title: string; body: (t: any) => string; audience: string; severity?: string }> = {
+  // ARRANGE-THE-APPROVAL (client, 6 Nov): Fleet Ops configuring a dispatch used
+  // to move it to 'Awaiting Approval' silently — there was no catalogue entry,
+  // so no notice fired and no action task landed on anyone. The Transport
+  // Manager found out by scrolling the board. This entry IS the arrangement:
+  // an Approvals notice naming the dispatch, addressed to the TM with
+  // actionRequired set, so the approval is waiting in his centre and queue.
+  'Awaiting Approval': {
+    category: 'Approvals',
+    title: 'Dispatch awaiting your approval',
+    body: (t) =>
+      `Dispatch ${dispatchRef(t.id)} for ${t.customer || t.customerConsignee || 'internal operations'} (${t.truckReg || 'truck not set'} · ${t.driverName || 'driver not set'}) is configured and waiting for the Transport Manager's approval.`,
+    audience: 'Transport Manager,Platform Admin',
+    severity: 'warning',
+    module: 'Fleet Operations',
+    actionRoles: ['Transport Manager'],
+  },
   'Approved': { category: 'Approvals', title: 'Request Approved', body: (t) => `Dispatch ${dispatchRef(t.id)} was approved and is awaiting truck assignment.`, audience: 'Partner,Transport Manager,Fleet Operations', severity: 'success', module: 'Fleet Operations', actionRoles: ['Fleet Operations'] },
   'Scheduled': { category: 'Operations', title: 'Truck Assigned', body: (t) => `Dispatch ${dispatchRef(t.id)} is fully assigned (${t.truckReg} · ${t.driverName}) and scheduled for ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Tracking,Loading', severity: 'success', module: 'Fleet Operations' },
   'En Route': { category: 'Operations', title: 'Truck Departed', body: (t) => `Dispatch ${dispatchRef(t.id)} departed — truck ${t.truckReg} is En Route to ${t.dropoff}.`, audience: 'Partner,Transport Manager,Fleet Operations,Security,Tracking', severity: 'info', module: 'Gate Security' },
