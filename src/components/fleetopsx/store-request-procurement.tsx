@@ -22,12 +22,33 @@ const currentUserName = () =>
   (typeof window !== "undefined" ? localStorage.getItem("fleetopsx_user_name") || "" : "") ||
   "";
 
+/** The shelf families a brand-new part can be filed under. */
+const NEW_PART_CATEGORIES: string[] = [
+  FAMILY_LABEL.parts,
+  FAMILY_LABEL.lubricants,
+  FAMILY_LABEL.tyres,
+  FAMILY_LABEL.rims,
+  FAMILY_LABEL.batteries,
+  "Other",
+];
+
 /**
- * Request Procurement — the store asks the buying desk to restock one of its
- * own shelf lines. The line is picked from the registered inventory and the
- * number fields carry what the shelf already knows (SKU, name, category, the
- * last price paid); only the quantity is decided here. It lands on the
- * Transport Manager's authorisation desk, never straight into stock.
+ * Request Procurement — the store asks the buying desk to buy a part.
+ *
+ * Two ways in, because the yard needs both:
+ *
+ *   Registered inventory — a line already on the shelf. Its name, category and
+ *   last price auto-fill, and the unit cost stays EDITABLE: the buying desk may
+ *   already have a fresher quote than the shelf's last price.
+ *
+ *   New part — a part the store has never stocked, so there is nothing to pick
+ *   and nothing to auto-fill. The name is typed, the category is picked, and the
+ *   price is whatever the store knows today (or left blank until the buyer
+ *   quotes it). The PO carries the typed name and a generated buying reference;
+ *   receiving matches it by name, and the line enters stock when it is booked in.
+ *
+ * Either way the request lands on the Transport Manager's authorisation desk,
+ * never straight into stock.
  */
 export function RequestProcurementModal({
   items,
@@ -41,26 +62,46 @@ export function RequestProcurementModal({
   /** Pre-picked when the row menu's "Procure Request" opened the modal. */
   initialItemId?: string;
 }) {
+  const initialItem = initialItemId ? items.find((i) => i.id === initialItemId) : undefined;
+  const [mode, setMode] = useState<"registered" | "new">("registered");
   const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
   const [itemId, setItemId] = useState(initialItemId ?? "");
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState(NEW_PART_CATEGORIES[0] ?? "Spare Parts");
   const [quantity, setQuantity] = useState("");
+  const [cost, setCost] = useState(
+    initialItem?.unitCost ? String(initialItem.unitCost) : "",
+  );
   const [note, setNote] = useState("");
   const [requestedBy, setRequestedBy] = useState(currentUserName());
   const [busy, setBusy] = useState(false);
 
   const optionFamily = familyFromOption(familyOption);
   const candidates = useMemo(
-    () =>
-      optionFamily ? items.filter((i) => familyOfItem(i) === optionFamily) : items,
+    () => (optionFamily ? items.filter((i) => familyOfItem(i) === optionFamily) : items),
     [items, optionFamily],
   );
   const chosen = useMemo(() => candidates.find((i) => i.id === itemId) || null, [candidates, itemId]);
 
-  const total = (Number(quantity) || 0) * (chosen?.unitCost ?? 0);
+  /** Picking a shelf line fills the price from the shelf — still editable. */
+  const pickItem = (id: string) => {
+    setItemId(id);
+    const item = candidates.find((i) => i.id === id);
+    setCost(item?.unitCost ? String(item.unitCost) : "");
+  };
+
+  const unitCost = Number(String(cost).replace(/[^0-9.]/g, "")) || 0;
+  const total = (Number(quantity) || 0) * unitCost;
+  const partLabel =
+    mode === "registered" ? chosen?.name ?? "" : newName.trim();
 
   const submit = async () => {
-    if (!chosen) {
-      toast.error("Pick a line from the registered inventory.");
+    if (mode === "registered" && !chosen) {
+      toast.error("Pick a line from the registered inventory, or switch to New part.");
+      return;
+    }
+    if (mode === "new" && !newName.trim()) {
+      toast.error("Name the part being bought.");
       return;
     }
     if ((Number(quantity) || 0) <= 0) {
@@ -69,20 +110,33 @@ export function RequestProcurementModal({
     }
     setBusy(true);
     // The PO lands in the procurement ledger with exactly the fields the model
-    // owns — partName carries the SKU the store re-reads on delivery, kind
-    // Part keeps the fuel-tank restocks out of the store's ledger. The note
-    // and the requester ride along: the board's card prints them.
-    const po: Partial<ProcurementRequest> = {
-      partName: chosen.sku,
+    // owns. A registered line keeps its SKU as the part name (the store re-reads
+    // it on delivery); a new part carries the typed name and no buying reference,
+    // so the server stamps its own PO tag. The category of a new part rides in
+    // the note — the ledger has no category column of its own.
+    const base: Partial<ProcurementRequest> = {
       quantity: Number(quantity) || 0,
-      linkedId: chosen.sku || chosen.id,
       status: "Requested",
       kind: "Part",
-      unitPrice: chosen.unitCost || null,
+      unitPrice: unitCost > 0 ? unitCost : null,
       date: new Date().toISOString(),
-      note: note.trim() || undefined,
       requestedBy: requestedBy.trim() || undefined,
     };
+    const po: Partial<ProcurementRequest> =
+      mode === "registered" && chosen
+        ? {
+            ...base,
+            partName: chosen.sku,
+            linkedId: chosen.sku || chosen.id,
+            note: note.trim() || undefined,
+          }
+        : {
+            ...base,
+            partName: newName.trim(),
+            note:
+              [`New part · Category: ${newCategory}`, note.trim()].filter(Boolean).join(" · ") ||
+              undefined,
+          };
     try {
       await fetchApi("/procurement", { method: "POST", body: JSON.stringify(po) });
       await onDone();
@@ -99,55 +153,115 @@ export function RequestProcurementModal({
       onClose={onClose}
       width="max-w-[620px]"
     >
+      {/* Where the part comes from decides what the form asks for. */}
+      <div className="mb-3.5 flex items-center gap-2">
+        {(
+          [
+            { id: "registered", label: "Registered inventory" },
+            { id: "new", label: "New part" },
+          ] as const
+        ).map((option) => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setMode(option.id)}
+              className={cn(
+                "h-[34px] rounded-[6px] px-3 text-[13px] font-medium",
+                active
+                  ? "bg-[#1B2432] text-white"
+                  : "border border-[#E2E5E9] bg-white text-[#5C6470] hover:bg-[#F7F8FA]",
+              )}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-        <ModalField label="Select Category">
-          <div className="relative">
-            <select
-              value={familyOption}
-              onChange={(e) => {
-                setFamilyOption(e.target.value);
-                setItemId("");
-              }}
-              className={cn(inputClass, "appearance-none pr-9")}
-            >
-              {FAMILY_OPTIONS.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
-          </div>
-        </ModalField>
-        <ModalField label="Select from Registered Inventory">
-          <div className="relative">
-            <select
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              className={cn(inputClass, "appearance-none pr-9")}
-            >
-              <option value="">Select</option>
-              {candidates.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.sku} — {i.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
-          </div>
-        </ModalField>
-        <ModalField label="Part Name (Auto-Fill)" required>
-          <input
-            className={cn(inputClass, "sm:col-span-1 bg-[#F7F8FA] text-[#9AA2AC]")}
-            readOnly
-            value={chosen?.name ?? ""}
-          />
-        </ModalField>
-        <ModalField label="Category (Auto-Fill)" required>
-          <input
-            className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")}
-            readOnly
-            value={chosen ? FAMILY_LABEL[familyOfItem(chosen)] : ""}
-          />
-        </ModalField>
+        {mode === "registered" ? (
+          <>
+            <ModalField label="Select Category">
+              <div className="relative">
+                <select
+                  value={familyOption}
+                  onChange={(e) => {
+                    setFamilyOption(e.target.value);
+                    setItemId("");
+                    setCost("");
+                  }}
+                  className={cn(inputClass, "appearance-none pr-9")}
+                >
+                  {FAMILY_OPTIONS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
+              </div>
+            </ModalField>
+            <ModalField label="Select from Registered Inventory">
+              <div className="relative">
+                <select
+                  value={itemId}
+                  onChange={(e) => pickItem(e.target.value)}
+                  className={cn(inputClass, "appearance-none pr-9")}
+                >
+                  <option value="">Select</option>
+                  {candidates.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.sku} — {i.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
+              </div>
+            </ModalField>
+            <ModalField label="Part Name" required>
+              <input
+                className={cn(inputClass, "bg-[#F7F8FA] text-[#5C6470]")}
+                readOnly
+                value={chosen?.name ?? ""}
+                placeholder="Fills from the shelf line you pick"
+              />
+            </ModalField>
+            <ModalField label="Category" required>
+              <input
+                className={cn(inputClass, "bg-[#F7F8FA] text-[#5C6470]")}
+                readOnly
+                value={chosen ? FAMILY_LABEL[familyOfItem(chosen)] : ""}
+                placeholder="Fills from the shelf line you pick"
+              />
+            </ModalField>
+          </>
+        ) : (
+          <>
+            <ModalField label="Part Name" required>
+              <input
+                className={inputClass}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. 12mm hydraulic hose"
+              />
+            </ModalField>
+            <ModalField label="Category" required>
+              <div className="relative">
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className={cn(inputClass, "appearance-none pr-9")}
+                >
+                  {NEW_PART_CATEGORIES.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#5C6470]" />
+              </div>
+            </ModalField>
+          </>
+        )}
+
         <ModalField label="Requested Quantity" required>
           <input
             type="number"
@@ -155,13 +269,18 @@ export function RequestProcurementModal({
             className={inputClass}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
+            placeholder="0"
           />
         </ModalField>
-        <ModalField label="Unit Cost (Auto-Fill)" required>
+        <ModalField label="Unit Cost (₦)">
           <input
-            className={cn(inputClass, "bg-[#F7F8FA] text-[#9AA2AC]")}
-            readOnly
-            value={chosen?.unitCost ? formatNairaFull(chosen.unitCost) : ""}
+            inputMode="decimal"
+            className={inputClass}
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder={
+              mode === "registered" ? "Fills from the shelf — change it if quoted differently" : "Leave blank until the buyer quotes"
+            }
           />
         </ModalField>
       </div>
@@ -189,12 +308,16 @@ export function RequestProcurementModal({
         </ModalField>
       </div>
 
-      {chosen && (Number(quantity) || 0) > 0 && (
+      {partLabel && (Number(quantity) || 0) > 0 ? (
         <div className="mt-3.5 flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">
-          <span className="text-[13.5px] font-semibold text-[#1B2432]">Total Price:</span>
-          <span className="text-[13.5px] font-medium text-[#7C8794]">{formatNairaFull(total)}</span>
+          <span className="text-[13.5px] font-semibold text-[#1B2432]">
+            {partLabel} × {Number(quantity) || 0}
+          </span>
+          <span className="text-[13.5px] font-medium text-[#7C8794]">
+            {unitCost > 0 ? `Total Price: ${formatNairaFull(total)}` : "Price to be quoted"}
+          </span>
         </div>
-      )}
+      ) : null}
 
       <div className="mt-4">
         <ModalActions onCancel={onClose} submitLabel="Send Request" busy={busy} onAction={submit} />
