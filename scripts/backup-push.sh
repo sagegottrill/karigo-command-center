@@ -18,7 +18,8 @@ fi
 
 for remote in $(git remote); do
   echo "→ pushing $remote"
-  git push "$remote" --all --tags
+  git push "$remote" --all
+  git push "$remote" --tags --force-with-lease 2>/dev/null || git push "$remote" --tags
 done
 
 # code + full history, without anything npm can reinstall or the build emits
