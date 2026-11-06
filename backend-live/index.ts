@@ -4353,8 +4353,14 @@ app.post('/api/fuel-restock-orders', authenticate, authorize('Transport Manager'
 });
 
 // --- PROCUREMENT ---
-app.get('/api/procurement', authenticate, async (_req, res) => {
-  res.json(await prisma.procurementRequest.findMany({ orderBy: { createdAt: 'desc' } }));
+app.get('/api/procurement', authenticate, async (req, res) => {
+  const rows = await prisma.procurementRequest.findMany({ orderBy: { createdAt: 'desc' } });
+  // Storehouse masking (PRD §6): a cost-blind session gets the request, never
+  // the money on it — not the estimate, not what receiving booked.
+  if (!userSeesCost(req)) {
+    return res.json(rows.map((r: any) => { const { unitPrice, receivedUnitCost, ...visible } = r; return visible; }));
+  }
+  res.json(rows);
 });
 /*
  * PROCUREMENT-INTAKE-HARDENED (26 Oct 2026): the raw `req.body` pass-through
@@ -4365,7 +4371,7 @@ app.get('/api/procurement', authenticate, async (_req, res) => {
  * into a real instant, and falls back to a generated linkedId — the columns
  * the store board and the ledger read.
  */
-app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Procurement', 'Engineering'), async (req, res) => {
+app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer', 'Buyer', 'Engineering'), async (req, res) => {
   const b = req.body || {};
   const data: any = {};
   for (const key of ['partName', 'quantity', 'linkedId', 'truckReg', 'kind', 'unitPrice', 'vendor', 'status', 'requestedBy', 'note', 'source', 'sku', 'category', 'itemId']) {
@@ -4407,7 +4413,7 @@ app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transpor
     res.status(500).json({ error: e?.message || 'Could not raise the procurement request.' });
   }
 });
-app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
+app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer'), async (req, res) => {
   const before = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
   if (!before) return res.status(404).json({ error: 'Procurement request not found' });
   const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: req.body });
@@ -4454,7 +4460,11 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
  * writes the shelf at a weighted average cost, the Purchase movement, the PO's
  * actual figures, the scanned proof of purchase, and pings whoever asked.
  */
-const PROCUREMENT_ROLES = ['Procurement', 'Platform Admin', 'Transport Manager'];
+const PROCUREMENT_ROLES = [
+  'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk',
+  'Head of Procurement', 'Purchasing Officer', 'Buyer',
+  'Platform Admin', 'Transport Manager',
+];
 const DOC_KINDS = ['Receipt', 'Invoice', 'Waybill', 'Bill of Lading'];
 const DOC_MIME = ['application/pdf', 'image/png', 'image/jpeg'];
 

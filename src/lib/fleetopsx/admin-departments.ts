@@ -12,6 +12,7 @@ export const ADMIN_DEPARTMENTS = [
   "Engineering and Maintenance",
   "Head of Engineering",
   "Parts and Store",
+  "Procurement",
   "Accounts",
   "HR and Personnel",
   "Security",
@@ -46,6 +47,11 @@ export function departmentToRoleKey(department: string): string {
       return "Head of Engineering";
     case "Parts and Store":
       return "Parts & Store";
+    // The BUYING DESK is its own department (PRD §1–7): the officer who
+    // receives requests and files receipts, distinct from the store floor that
+    // hands parts out.
+    case "Procurement":
+      return "Procurement";
     case "Accounts":
       return "Accounts";
     case "HR and Personnel":
@@ -88,6 +94,15 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   "Engineering and Maintenance": ["Engineering"],
   "Head of Engineering": ["Head of Engineering", "Engineering Manager"],
   "Parts and Store": ["Parts & Store", "Parts and Store"],
+  Procurement: [
+    "Procurement",
+    "Procurement Officer",
+    "Procurement Manager",
+    "Procurement Clerk",
+    "Head of Procurement",
+    "Purchasing Officer",
+    "Buyer",
+  ],
   Accounts: ["Accounts", "Accountant"],
   "HR and Personnel": ["HR", "HR & Personnel", "HR and Personnel"],
   Security: ["Security", "Gate Security", "Gate"],

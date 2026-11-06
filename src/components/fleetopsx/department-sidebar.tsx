@@ -48,6 +48,7 @@ export type DepartmentKey =
   | "engineering"
   | "inventory"
   | "parts"
+  | "procurement"
   | "accounts"
   // The CAUGHT-NOTHING lane: a role no portal claims and the manager seats do
   // not own. It used to fall through to the Transport Manager's chrome — the
@@ -150,6 +151,20 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
+  // PROCUREMENT — its own department, its own rail, its own header. The buying
+  // desk opens on the desk itself: the inbox, the low-stock POs, receiving,
+  // vendors, price history and the receipts it files.
+  procurement: {
+    heading: "PROCUREMENT",
+    title: "Procurement Portal",
+    subtitle:
+      "Requisitions from every department, purchase receipts and the vendor paper trail.",
+    items: [
+      { label: "Procurement Desk", to: "/workspace/app/procurement", icon: PackageSearch },
+      { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
+    ],
+  },
   // The STORE DEPARTMENT as ITS OWN approved portal (Figma · Store Module, 25
   // Oct 2026): five pages, one name — "Store and Parts Inventory Portal". The
   // old combined Parts & Store board is gone for this department: the store
@@ -191,10 +206,13 @@ const DEPARTMENT_ROLES: Record<DepartmentKey, RegExp> = {
   // The STORE DEPARTMENT: a Parts & Store login gets ITS OWN portal, never
   // Engineering's shell and never the manager's dashboard. Parts & Inventory
   // is its own department — the thing the brief has said three times.
-  // PROCUREMENT rides the store loop too — PRD §5 makes it the buying desk of
-  // the same parts pipeline (it receives the out-of-stock escalation and buys
-  // the stock), so its lane is here, never the manager's chrome.
-  parts: /^(parts & store|parts and store|parts|store|storehouse|procurement)$/i,
+  parts: /^(parts & store|parts and store|parts|store|storehouse)$/i,
+  // PROCUREMENT IS ITS OWN DEPARTMENT (PRD §1–7, Nov 2026): the buying desk
+  // receives every desk's request, buys it, files the proof of purchase and
+  // owns the price trail. It is deliberately NOT the store floor — the store
+  // keeps the shelf, procurement keeps the money.
+  procurement:
+    /^(procurement( officer| manager| clerk| lead)?|head of procurement|purchasing( officer| manager)?|buyer|supply officer)$/i,
   // Never true: the generic lane is assigned by the shell picker, not by a role
   // spelling. Its ROLES entry exists only to satisfy the record.
   generic: /\bneverassigned\b/i,
@@ -234,6 +252,11 @@ export function shouldUsePartsStoreShell(roles: string[]) {
   return shouldUseDepartmentShell(roles, "parts");
 }
 
+/** The buying desk's own portal — never the store's, never the manager's. */
+export function shouldUseProcurementShell(roles: string[]) {
+  return shouldUseDepartmentShell(roles, "procurement");
+}
+
 /**
  * The Accounts desk's own portal.
  *
@@ -260,14 +283,7 @@ export function DepartmentSidebar({
 }) {
   const portal = DEPARTMENTS[department];
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // THE BUYING DESK IS FOR THE PEOPLE WHO SPEND: a store-floor seat keeps its
-  // own request queue and is not given a link the page would bounce it away
-  // from. Procurement, the TM and the admin see it.
-  const navItems = portal.items.filter(
-    (i) =>
-      i.to !== "/workspace/app/procurement" ||
-      authService.getRoles().some((r) => ["Procurement", "Transport Manager", "Platform Admin"].includes(r)),
-  );
+  const navItems = portal.items;
   const itemTos = navItems.map((i) => i.to);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);

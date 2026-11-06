@@ -42,6 +42,7 @@ import {
   shouldUseHrShell,
   shouldUseInventoryShell,
   shouldUsePartsStoreShell,
+  shouldUseProcurementShell,
   type DepartmentKey,
 } from "@/components/fleetopsx/department-sidebar";
 import { AppHeader } from "@/components/fleetopsx/app-header";
@@ -227,7 +228,11 @@ function computeChrome() {
             : // Parts & Inventory is ITS OWN department — its shell is picked
               // before the storehouse's, and neither ever resolves to the
               // manager's dashboard.
-              shouldUsePartsStoreShell(scoped)
+              // Procurement is its own department (PRD §1–7) — picked before the
+              // store's, so a buying-desk login never lands in the shelf's chrome.
+              shouldUseProcurementShell(scoped)
+              ? "procurement"
+              : shouldUsePartsStoreShell(scoped)
               ? "parts"
               : shouldUseInventoryShell(scoped)
                 ? "inventory"

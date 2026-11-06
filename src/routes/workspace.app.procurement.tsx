@@ -43,7 +43,17 @@ type Doc = { id: string; procurementId?: string | null; kind: string; fileName: 
 type Purchase = { id: string; sku: string; itemName: string; vendor?: string | null; unitCost?: number | null; quantity: number; value?: number | null; actedAt: string; reference?: string | null };
 type Upload = { kind: string; fileName: string; mimeType: string; dataUrl: string };
 
-const ROLES = ["Procurement", "Transport Manager", "Platform Admin"];
+const ROLES = [
+  "Procurement",
+  "Procurement Officer",
+  "Procurement Manager",
+  "Procurement Clerk",
+  "Head of Procurement",
+  "Purchasing Officer",
+  "Buyer",
+  "Transport Manager",
+  "Platform Admin",
+];
 const SOURCES = ["Store", "Engineering", "TM", "Procurement"];
 const STATUSES = ["All", "Requested", "Sourcing", "Procured", "Rejected"];
 

@@ -50,7 +50,16 @@ const ROLE_HOME: Record<string, string> = {
   // and lands on the shelf (the portal's second, working page). The landing
   // comes from [store-routes.ts], the same registry the nav links read, so a
   // page move takes every entry point at once.
-  Procurement: STORE_HOME,
+  // PROCUREMENT is its own department (PRD §1–7): the buying desk opens on the
+  // desk itself — the inbox, the low-stock POs, receiving and the paper trail —
+  // never on the store floor's shelf.
+  Procurement: "/workspace/app/procurement",
+  "Procurement Officer": "/workspace/app/procurement",
+  "Procurement Manager": "/workspace/app/procurement",
+  "Procurement Clerk": "/workspace/app/procurement",
+  "Head of Procurement": "/workspace/app/procurement",
+  "Purchasing Officer": "/workspace/app/procurement",
+  Buyer: "/workspace/app/procurement",
   // The store is its own department — a store login must land on the store's
   // own desk, not the Transport Manager's overview (it used to fall through to
   // the admin dashboard with the manager's chrome).
