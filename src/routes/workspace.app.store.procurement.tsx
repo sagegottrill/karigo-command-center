@@ -166,7 +166,12 @@ function ProcurementRequestsPage() {
     // Cost is masked from the storehouse (PRD §6): when the desk's price is not
     // on this session's copy of the PO, the card says so rather than showing a
     // misleading ₦0 for a part that was plainly paid for.
-    const unit = po.unitPrice ?? item?.unitCost ?? null;
+    // A stripped payload leaves the shelf cost absent, but a mapped service can
+    // still hand back 0 — and ₦0 reads as "this part was free" when the truth is
+    // "you are not shown the money". Only a positive figure is a real price; a
+    // zero or missing one stays masked.
+    const shelfUnit = Number(item?.unitCost);
+    const unit = po.unitPrice ?? (Number.isFinite(shelfUnit) && shelfUnit > 0 ? shelfUnit : null);
     const qty = Number(po.quantity ?? 0) || 0;
     return [{ name: labelName || label, sku: label, quantity: qty, price: unit == null ? null : unit * qty }];
   };
