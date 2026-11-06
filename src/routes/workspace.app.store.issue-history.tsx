@@ -20,6 +20,14 @@ import {
   type ItemFamily,
 } from "@/components/fleetopsx/store-portal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
+import {
+  CustomRangePicker,
+  PeriodFilter,
+  inWindow,
+  resolvePeriod,
+  useCustomRange,
+  windowLabel,
+} from "@/lib/fleetopsx/report-kit";
 import { authService, inventoryService } from "@/lib/fleetopsx/services";
 import type { InventoryItem, InventoryMovement } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
@@ -62,6 +70,15 @@ function IssueHistoryPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [reportFor, setReportFor] = useState<IssueCard | null>(null);
+  // The ledger's own time frame — presets, or a custom 1 – 15 Sept pair. Default
+  // is All time: a store manager opening this page must see every dispense it
+  // holds, then narrow down, never be silently handed "today, empty".
+  const [period, setPeriod] = useState("All time");
+  const rangeCustom = useCustomRange();
+  const range = useMemo(
+    () => resolvePeriod(period, rangeCustom.custom),
+    [period, rangeCustom.custom],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,15 +145,31 @@ function IssueHistoryPage() {
     [cards, optionFamily],
   );
 
+  /** The category, then the period — the dispense day itself, in local time. */
+  const windowed = useMemo(
+    () => familyCards.filter((c) => inWindow(c.lines[0]?.actedAt ?? c.date, range)),
+    [familyCards, range],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return familyCards;
-    return familyCards.filter((c) =>
+    if (!q) return windowed;
+    return windowed.filter((c) =>
       `${c.key} ${c.requestedBy} ${c.lines.map((l) => `${l.sku} ${l.itemName}`).join(" ")}`
         .toLowerCase()
         .includes(q),
     );
-  }, [familyCards, query]);
+  }, [windowed, query]);
+
+  const periodLabel = windowLabel(period, range);
+  /** Units actually signed out inside the current category + period. */
+  const unitsOut = useMemo(
+    () => filtered.reduce(
+      (sum, c) => sum + c.lines.reduce((n, l) => n + Math.abs(Number(l.quantity) || 0), 0),
+      0,
+    ),
+    [filtered],
+  );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -144,6 +177,10 @@ function IssueHistoryPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [
+      ["Petroline Transport Ltd — Parts Issue History"],
+      [`Category: ${familyOption}`, `Period: ${periodLabel}`],
+      [`Records: ${filtered.length}`, `Units issued: ${unitsOut}`],
+      [],
       [
         "Issue Date",
         "Truck",
@@ -167,7 +204,12 @@ function IssueHistoryPage() {
         ]),
       ),
     ];
-    downloadCsvBlob(csvOf(rows), `parts-issue-history-${familyOption.toLowerCase().replace(/\s+/g, "-")}`);
+    const slug = (v: string) =>
+      v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "all";
+    downloadCsvBlob(
+      csvOf(rows),
+      `parts-issue-history-${slug(familyOption)}-${slug(periodLabel)}`,
+    );
   };
 
   return (
@@ -188,21 +230,58 @@ function IssueHistoryPage() {
               <Dropdown
                 value={familyOption}
                 options={FAMILY_OPTIONS}
-                onChange={setFamilyOption}
+                onChange={(v) => {
+                  setFamilyOption(v);
+                  setPage(0);
+                }}
                 className="w-[168px]"
                 align="right"
               />
+              <PeriodFilter
+                value={period}
+                onChange={(v) => {
+                  setPeriod(v);
+                  setPage(0);
+                }}
+                custom={rangeCustom.custom}
+                customOpen={rangeCustom.open}
+                onToggleCustom={rangeCustom.setOpen}
+              >
+                <CustomRangePicker
+                  custom={rangeCustom.custom}
+                  onSet={rangeCustom.set}
+                  onClear={() => {
+                    rangeCustom.clear();
+                    setPage(0);
+                  }}
+                />
+              </PeriodFilter>
               <SearchField value={query} onChange={setQuery} />
             </div>
           </div>
+
+          {/* What the download will contain — said plainly, above the cards. */}
+          <p className="mt-2 text-[12.5px] text-[#5C6470]">
+            {familyOption} · {periodLabel} · {filtered.length}{" "}
+            {filtered.length === 1 ? "record" : "records"} · {unitsOut}{" "}
+            {unitsOut === 1 ? "unit" : "units"} issued
+          </p>
 
           {loading ? (
             <FigmaLoadingState label="Loading the dispense ledger…" />
           ) : filtered.length === 0 ? (
             <div className="py-10">
               <FigmaEmptyState
-                title="Nothing issued yet on this family"
-                body="Units appear here the moment Complete Handoff signs them out on the request queue — the record is written by the handoff itself."
+                title={
+                  cards.length === 0
+                    ? "Nothing issued yet on this family"
+                    : "Nothing issued in this period"
+                }
+                body={
+                  cards.length === 0
+                    ? "Units appear here the moment Complete Handoff signs them out on the request queue — the record is written by the handoff itself."
+                    : "This category holds issued parts, but none in the period you picked. Widen the period, or switch back to All time, to see the rest of the ledger."
+                }
               />
             </div>
           ) : (
