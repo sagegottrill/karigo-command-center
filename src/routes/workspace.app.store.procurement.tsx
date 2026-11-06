@@ -33,6 +33,12 @@ export const Route = createFileRoute("/workspace/app/store/procurement")({
       "Parts & Store",
       "Parts and Store",
       "Procurement",
+      "Procurement Officer",
+      "Procurement Manager",
+      "Procurement Clerk",
+      "Head of Procurement",
+      "Purchasing Officer",
+      "Buyer",
       "Inventory",
       "Transport Manager",
       "Platform Admin",
@@ -56,6 +62,20 @@ interface PoLine {
   quantity: number;
   price: number | null;
 }
+
+/** Money roles — the same nine titles the API treats as cost-visible. */
+const COST_ROLES = [
+  "Transport Manager",
+  "Platform Admin",
+  "Procurement",
+  "Procurement Officer",
+  "Procurement Manager",
+  "Procurement Clerk",
+  "Head of Procurement",
+  "Purchasing Officer",
+  "Buyer",
+];
+const seesCost = () => authService.getRoles().some((r: string) => COST_ROLES.includes(r));
 
 function pillFor(status: string): { label: string; tone: "amber" | "green" | "red" | "blue" } {
   switch (status) {
@@ -330,7 +350,29 @@ function PoCard({
 }) {
   const pill = pillFor(po.status);
   const [busy, setBusy] = useState(false);
+  const [unitDraft, setUnitDraft] = useState<string | null>(null);
+  const [savingUnit, setSavingUnit] = useState(false);
   const actionOpen = po.status === "Requested" || po.status === "Sourcing";
+  // The agreed unit price lives on the PO, not on the shelf: a buy of one part
+  // can be negotiated at a different figure than the last delivery left behind.
+  const saveUnitPrice = async () => {
+    const next = Number(unitDraft);
+    if (!Number.isFinite(next) || next < 0) {
+      toast.error("Enter the unit price, e.g. 1750.");
+      return;
+    }
+    setSavingUnit(true);
+    try {
+      await procurementService.update(po.id, { unitPrice: next });
+      await onProcured();
+      toast.success("Unit price saved.");
+      setUnitDraft(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The price did not save.");
+    } finally {
+      setSavingUnit(false);
+    }
+  };
   return (
     <div className="flex flex-col rounded-[12px] border border-[#E2E5E9] bg-white p-3">
       <div className="flex items-center justify-between gap-2">
@@ -386,6 +428,47 @@ function PoCard({
           </div>
         ))}
       </div>
+      {seesCost() && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-[8px] bg-[#F7F8FA] px-3 py-2">
+          <span className="text-[12px] font-medium text-[#5C6470]">Unit cost</span>
+          {unitDraft === null ? (
+            <button
+              type="button"
+              onClick={() => setUnitDraft(po.unitPrice != null ? String(po.unitPrice) : "")}
+              className="rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-1 text-[12px] font-semibold text-[#1B2432] hover:bg-[#F2F4F7]"
+              title={po.unitPrice != null ? "Edit the agreed unit price" : "No price agreed on this PO yet"}
+            >
+              {po.unitPrice != null ? formatNairaFull(po.unitPrice) : "Set price"}
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                inputMode="decimal"
+                value={unitDraft}
+                onChange={(e) => setUnitDraft(e.target.value)}
+                placeholder="Price per unit"
+                className="w-[120px] rounded-[6px] border border-[#C9CFD8] bg-white px-2 py-1 text-[12px] text-[#1B2432] outline-none focus:border-[#E2573B]"
+              />
+              <button
+                type="button"
+                disabled={savingUnit}
+                onClick={saveUnitPrice}
+                className="rounded-[6px] bg-[#E2573B] px-2 py-1 text-[12px] font-semibold text-white disabled:opacity-60"
+              >
+                {savingUnit ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnitDraft(null)}
+                className="rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-1 text-[12px] text-[#5C6470]"
+              >
+                Cancel
+              </button>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

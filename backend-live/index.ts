@@ -3679,6 +3679,7 @@ const PROCUREMENT_ROLES = ['Procurement', 'Procurement Officer', 'Procurement Ma
 /** Who may write the shelf: the store keeps the count, the buying desk and TM own the money. */
 const INVENTORY_WRITE_ROLES = ['Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', ...PROCUREMENT_ROLES];
 const COST_VISIBLE_ROLES = ['Transport Manager', 'Platform Admin', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer', 'Buyer'];
+const stripPoCost = (r: any) => { const { unitPrice, receivedUnitCost, ...visible } = r; return visible; };
 const userSeesCost = (req: any) => {
   const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
   return held.some((r) => COST_VISIBLE_ROLES.includes(r));
@@ -4423,6 +4424,17 @@ app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transpor
     // client sent none, so the row is still one source of truth on its board.
     data.linkedId = 'PO-' + Date.now().toString(36).toUpperCase();
   }
+  // The price follows the part: picking a shelf line that already carries a
+  // cost fills the agreed figure, so whoever raises the buy does not retype a
+  // number the shelf book already knows. A blank line stays blank.
+  if (data.unitPrice == null) {
+    const shelf = data.itemId
+      ? await prisma.inventoryItem.findUnique({ where: { id: String(data.itemId) } })
+      : data.sku
+        ? await prisma.inventoryItem.findFirst({ where: { sku: String(data.sku).trim() } })
+        : null;
+    if (shelf && Number(shelf.unitCost) > 0) data.unitPrice = shelf.unitCost;
+  }
   if (b.date !== undefined) {
     const raw = String(b.date ?? '').trim();
     if (raw) {
@@ -4435,7 +4447,10 @@ app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transpor
     // An empty/absent date falls through to the column default (now()).
   }
   try {
-    res.json(await prisma.procurementRequest.create({ data }));
+    // The reply is read by whoever raised it: a store session gets its PO back
+    // without the money, the same masking GET applies to the list.
+    const created = await prisma.procurementRequest.create({ data });
+    res.json(userSeesCost(req) ? created : stripPoCost(created));
   } catch (e: any) {
     console.error('POST /api/procurement failed:', e?.message || e);
     res.status(500).json({ error: e?.message || 'Could not raise the procurement request.' });
@@ -4455,8 +4470,16 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
   // Whitelist: the board may move the status and correct the agreed figures,
   // never write the receipt columns by hand.
   const patch: any = {};
-  for (const k of ['status', 'vendor', 'unitPrice', 'note', 'requestedBy']) {
+  for (const k of ['status', 'vendor', 'note', 'requestedBy']) {
     if (req.body?.[k] !== undefined) patch[k] = req.body[k];
+  }
+  // Money is a cost-role write: the store may move a PO's status, never its
+  // agreed price. The same nine roles that see unitCost keep this door.
+  if (req.body?.unitPrice !== undefined) {
+    if (!userSeesCost(req)) return res.status(403).json({ error: 'The unit price on a PO is set by Transport Manager and Procurement only.' });
+    const price = Number(req.body.unitPrice);
+    if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: 'unitPrice must be a non-negative number' });
+    patch.unitPrice = price;
   }
   const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: patch });
   if (req.body.status === 'Procured' && before.status !== 'Procured') {
@@ -4492,7 +4515,7 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
       await notify('Engineering', 'Part Procured', `Procurement request ${pr.id} (${pr.partName}) marked as Procured.`, 'success', undefined, { module: 'Engineering', eventKey: 'parts.procured', refId: pr.id, refLabel: pr.partName });
     }
   }
-  res.json(pr);
+  res.json(userSeesCost(req) ? pr : stripPoCost(pr));
 });
 
 // --- PROCUREMENT & DOCUMENTS (PRD, 6 Nov 2026) -----------------------------
