@@ -3675,6 +3675,9 @@ const inventoryStatus = (stock: number, reorderLevel: number) =>
 // count, give out, request. Every cost.write/entry path below checks this,
 // and GET strips prices from answers to other roles — a store session can
 // never read a unit cost over the wire, no matter which screen it uses.
+const PROCUREMENT_ROLES = ['Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer', 'Buyer'];
+/** Who may write the shelf: the store keeps the count, the buying desk and TM own the money. */
+const INVENTORY_WRITE_ROLES = ['Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', ...PROCUREMENT_ROLES];
 const COST_VISIBLE_ROLES = ['Transport Manager', 'Platform Admin', 'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk', 'Head of Procurement', 'Purchasing Officer', 'Buyer'];
 const userSeesCost = (req: any) => {
   const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
@@ -3704,7 +3707,7 @@ app.get('/api/inventory', authenticate, async (req, res) => {
 // MANUAL INPUT (Nov 2026): the old create spread req.body raw into Prisma — a
 // duplicate stock code 500'd (sku is @unique) and unknown UI fields poisoned the
 // write. Whitelist, validate and answer a duplicate with 409, mirroring PATCH.
-app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const ALLOWED_ITEM_FIELDS = ['sku', 'name', 'category', 'stock', 'reorderLevel', 'unitCost', 'vehicleCompatibility', 'supplier', 'location'];
   const body: any = {};
   for (const key of ALLOWED_ITEM_FIELDS) if (req.body?.[key] !== undefined) body[key] = req.body[key];
@@ -3733,7 +3736,7 @@ app.post('/api/inventory', authenticate, authorize('Platform Admin', 'Transport 
     throw e;
   }
 });
-app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.patch('/api/inventory/:id', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const existing = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Not found' });
   // Whitelist exactly the columns the store board edits. Spreading req.body
@@ -3778,7 +3781,7 @@ app.patch('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Trans
   }
   res.json(userSeesCost(req) ? updated : stripCost(updated));
 });
-app.delete('/api/inventory/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.delete('/api/inventory/:id', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   await prisma.inventoryItem.delete({ where: { id: req.params.id } });
   res.status(204).end();
 });
@@ -3804,7 +3807,7 @@ app.get('/api/inventory-movements', authenticate, async (req, res) => {
  * valued at the most recent thing actually paid for it — the same rule the
  * diesel tank is valued by.
  */
-app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory/:id/purchase', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const qty = Math.floor(Number(req.body.qty ?? 0));
@@ -3883,7 +3886,7 @@ app.post('/api/inventory/:id/purchase', authenticate, authorize('Platform Admin'
 });
 
 /** A correction that is neither a purchase nor an issue. */
-app.post('/api/inventory/:id/adjust', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory/:id/adjust', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const delta = Math.trunc(Number(req.body.delta ?? 0));
@@ -3913,7 +3916,7 @@ app.post('/api/inventory/:id/adjust', authenticate, authorize('Platform Admin', 
  * The shelf, in bulk: upserted by SKU. Onboarding a store one part at a time is
  * why an empty shelf stays empty.
  */
-app.post('/api/inventory/import', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory/import', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const rows = Array.isArray(req.body?.items) ? req.body.items : [];
   if (!rows.length) return res.status(400).json({ error: 'No rows to import.' });
   let created = 0;
@@ -4275,7 +4278,7 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
  * The store counting: a physical count that disagrees with the book. Filed to
  * the ledger as a variance and flagged to the Head of Inventory and the TM.
  */
-app.post('/api/inventory/:id/reconcile', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory/:id/reconcile', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const item = await prisma.inventoryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const observed = Math.trunc(Number(req.body.observed ?? 0));
@@ -4299,7 +4302,7 @@ app.post('/api/inventory/:id/reconcile', authenticate, authorize('Platform Admin
   res.json(updated);
 });
 
-app.post('/api/inventory/:id/release', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.post('/api/inventory/:id/release', authenticate, authorize(...INVENTORY_WRITE_ROLES), async (req, res) => {
   const qty = Number(req.body.qty ?? 0);
   const reqId = req.body.reqId as string | undefined;
   if (!reqId) return res.status(400).json({ error: 'Release requires a valid requisition ID.' });
@@ -4499,7 +4502,7 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
  * writes the shelf at a weighted average cost, the Purchase movement, the PO's
  * actual figures, the scanned proof of purchase, and pings whoever asked.
  */
-const PROCUREMENT_ROLES = [
+const VENDOR_WRITE_ROLES = [
   'Procurement', 'Procurement Officer', 'Procurement Manager', 'Procurement Clerk',
   'Head of Procurement', 'Purchasing Officer', 'Buyer',
   'Platform Admin', 'Transport Manager',
@@ -4510,7 +4513,7 @@ const DOC_MIME = ['application/pdf', 'image/png', 'image/jpeg'];
 app.get('/api/vendors', authenticate, async (_req, res) => {
   res.json(await prisma.vendor.findMany({ orderBy: { name: 'asc' } }));
 });
-app.post('/api/vendors', authenticate, authorize(...PROCUREMENT_ROLES), async (req: any, res) => {
+app.post('/api/vendors', authenticate, authorize(...VENDOR_WRITE_ROLES), async (req: any, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) return res.status(400).json({ error: 'A vendor needs a name.' });
   const data: any = { name };
@@ -4525,7 +4528,7 @@ app.post('/api/vendors', authenticate, authorize(...PROCUREMENT_ROLES), async (r
     });
   }
 });
-app.patch('/api/vendors/:id', authenticate, authorize(...PROCUREMENT_ROLES), async (req, res) => {
+app.patch('/api/vendors/:id', authenticate, authorize(...VENDOR_WRITE_ROLES), async (req, res) => {
   const data: any = {};
   for (const k of ['name', 'contactName', 'phone', 'email', 'location', 'notes', 'status']) {
     if (req.body?.[k] !== undefined) data[k] = String(req.body[k] ?? '').trim() || null;
@@ -4533,7 +4536,7 @@ app.patch('/api/vendors/:id', authenticate, authorize(...PROCUREMENT_ROLES), asy
   if (req.body?.name !== undefined && !data.name) return res.status(400).json({ error: 'A vendor needs a name.' });
   res.json(await prisma.vendor.update({ where: { id: req.params.id }, data }));
 });
-app.delete('/api/vendors/:id', authenticate, authorize(...PROCUREMENT_ROLES), async (req, res) => {
+app.delete('/api/vendors/:id', authenticate, authorize(...VENDOR_WRITE_ROLES), async (req, res) => {
   await prisma.vendor.delete({ where: { id: req.params.id } });
   res.status(204).end();
 });
@@ -4569,7 +4572,7 @@ app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
  * out, and the requesting desk told the part is available. Refuses a PO that
  * was already received so one delivery can never add its stock twice.
  */
-app.post('/api/procurement/:id/receive', authenticate, authorize(...PROCUREMENT_ROLES), async (req: any, res) => {
+app.post('/api/procurement/:id/receive', authenticate, authorize(...VENDOR_WRITE_ROLES), async (req: any, res) => {
   try {
     const po = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
     if (!po) return res.status(404).json({ error: 'Procurement request not found' });

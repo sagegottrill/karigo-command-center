@@ -38,6 +38,12 @@ export const Route = createFileRoute("/workspace/app/store/")({
       "Parts & Store",
       "Parts and Store",
       "Procurement",
+      "Procurement Officer",
+      "Procurement Manager",
+      "Procurement Clerk",
+      "Head of Procurement",
+      "Purchasing Officer",
+      "Buyer",
       "Inventory",
       "Transport Manager",
       "Platform Admin",
@@ -103,7 +109,17 @@ const currentUserName = () =>
  * the API strips unitCost from payloads to other roles, so removing the
  * columns here is for clarity, not the whole defence.
  */
-const COST_VISIBLE_ROLES = ["Transport Manager", "Platform Admin", "Procurement"];
+const COST_VISIBLE_ROLES = [
+  "Transport Manager",
+  "Platform Admin",
+  "Procurement",
+  "Procurement Officer",
+  "Procurement Manager",
+  "Procurement Clerk",
+  "Head of Procurement",
+  "Purchasing Officer",
+  "Buyer",
+];
 const userSeesCost = () =>
   authService.getRoles().some((r: string) => COST_VISIBLE_ROLES.includes(r));
 
