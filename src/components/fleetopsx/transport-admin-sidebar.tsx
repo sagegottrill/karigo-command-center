@@ -116,6 +116,8 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // authorisation queue + the shelf as card tiles. The store's own working
       // page stays at /parts for the department logins only.
       { label: "Part Inventory", to: "/workspace/app/part-inventory", icon: PackageSearch, liveDot: "partInventory" },
+      // The buying desk: requests in, receipts out, the paper trail beside it.
+      { label: "Procurement", to: "/workspace/app/procurement", icon: PackageSearch, liveDot: "partInventory" },
       { label: "Fuel Pricing", to: "/workspace/app/fuel-pricing", icon: Fuel },
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into. Shown as

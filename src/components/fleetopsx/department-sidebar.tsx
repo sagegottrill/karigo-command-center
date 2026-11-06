@@ -264,7 +264,15 @@ export function DepartmentSidebar({
 }) {
   const portal = DEPARTMENTS[department];
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const itemTos = portal.items.map((i) => i.to);
+  // THE BUYING DESK IS FOR THE PEOPLE WHO SPEND: a store-floor seat keeps its
+  // own request queue and is not given a link the page would bounce it away
+  // from. Procurement, the TM and the admin see it.
+  const navItems = portal.items.filter(
+    (i) =>
+      i.to !== "/workspace/app/procurement" ||
+      authService.getRoles().some((r) => ["Procurement", "Transport Manager", "Platform Admin"].includes(r)),
+  );
+  const itemTos = navItems.map((i) => i.to);
   const { tenantName, tenantLogo } = RootRoute.useRouteContext();
   const [showLogout, setShowLogout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -320,7 +328,7 @@ export function DepartmentSidebar({
                 {portal.heading}
               </span>
             )}
-            {portal.items.map((item) => {
+            {navItems.map((item) => {
               const active = isActiveRoute(pathname, item.to, itemTos);
               const Icon = item.icon;
               // Only the Inbox items carry a count — a badge on "Staff Records"
