@@ -1682,7 +1682,11 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
       eventKey: 'dispatch.' + String(trip.status).toLowerCase(),
       refId: trip.id,
       refLabel: dispatchRef(trip.id),
-      actionRoles: noticeMeta.action ?? [],
+      // The catalogue names its roles `actionRoles`; reading `action` here handed
+      // notify() an empty array every time, so no dispatch notice was ever an
+      // actionable task (actionRequired stayed false and the Approve affordance
+      // never appeared). Read what the catalogue actually sets.
+      actionRoles: noticeMeta.actionRoles ?? noticeMeta.action ?? [],
     });
   }
   res.json(trip);
