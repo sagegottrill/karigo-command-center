@@ -1211,6 +1211,8 @@ export const inventoryService = {
     severity?: string;
     inspectedBy?: string;
     assignedTo?: string;
+    /** One line per engineer: who does it, and the work they own. */
+    assignments?: Array<{ name: string; task: string }>;
     parts?: Array<{ part: string; itemId?: string; quantity: number; unitCost?: number }>;
   }) =>
     fetchApi<{ ok: boolean; group?: string | null }>("/engineering/inspections", {

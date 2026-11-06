@@ -156,10 +156,13 @@ export function InspectionDialog({
   const [wantParts, setWantParts] = useState(false);
   const [lines, setLines] = useState<PartLine[]>([]);
   const [saving, setSaving] = useState(false);
-  // Assign Engineer — the engineer who will handle the repair. Fed from the
-  // live staff register (Active accounts holding an Engineering role); free
-  // text is still allowed for a hands-on name not on any roster.
-  const [assignedTo, setAssignedTo] = useState("");
+  // Assign Engineer — a repair is rarely one pair of hands. Each line names an
+  // engineer and the work THEY own, so the job carries the split instead of a
+  // single name. Fed from the live staff register (Active accounts holding an
+  // Engineering role); free text is still allowed for a name on no roster.
+  const [assignments, setAssignments] = useState<Array<{ name: string; task: string }>>([
+    { name: "", task: "" },
+  ]);
   const [technicians, setTechnicians] = useState<string[]>([]);
 
   useEffect(() => {
@@ -184,6 +187,14 @@ export function InspectionDialog({
       toast.error("Add the spare parts the repair needs, or untick the request.");
       return;
     }
+    // A work line with nobody against it would leave the job half-assigned.
+    if (assignments.some((a) => !a.name.trim() && a.task.trim())) {
+      toast.error("Name the engineer who does that work, or clear the work line.");
+      return;
+    }
+    const crew = assignments
+      .map((a) => ({ name: a.name.trim(), task: a.task.trim() }))
+      .filter((a) => a.name);
     setSaving(true);
     try {
       const res = await inventoryService.logInspection({
@@ -193,7 +204,8 @@ export function InspectionDialog({
         defect: defect.trim(),
         severity,
         inspectedBy: by.trim(),
-        assignedTo: assignedTo.trim() || undefined,
+        assignedTo: crew.map((a) => a.name).join(", ") || undefined,
+        assignments: crew,
         parts: result === "issues" && wantParts ? lines : [],
       });
       toast.success(
@@ -345,21 +357,78 @@ export function InspectionDialog({
           </label>
 
           {result === "issues" ? (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] font-medium text-[#141A1F]">Assign Engineer</span>
-              <input
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                list="engineer-roster"
-                placeholder="Who repairs this — pick from the roster or type a name"
-                className={`${inputClass} bg-white`}
-              />
+            <div className="flex flex-col gap-2">
+              <span className="text-[14px] font-medium text-[#141A1F]">
+                Assign Engineer{assignments.length > 1 ? "s" : ""}
+              </span>
+              <p className="-mt-1 text-[12px] text-[#5C6470]">
+                One line per engineer — say which part of the repair each takes.
+              </p>
+              {assignments.map((row, i) => (
+                <div key={i} className="rounded-[8px] border border-[#E2E5E9] p-2.5">
+                  <div className="flex items-end gap-2">
+                    <label className="flex flex-1 flex-col gap-1">
+                      <span className="text-[12px] font-medium text-[#141A1F]">
+                        Engineer
+                      </span>
+                      <input
+                        value={row.name}
+                        onChange={(e) =>
+                          setAssignments((prev) =>
+                            prev.map((r, x) => (x === i ? { ...r, name: e.target.value } : r)),
+                          )
+                        }
+                        list="engineer-roster"
+                        placeholder="Pick from the roster or type a name"
+                        className={`${inputClass} bg-white`}
+                      />
+                    </label>
+                    {assignments.length > 1 ? (
+                      <button
+                        type="button"
+                        aria-label={`Remove engineer ${i + 1}`}
+                        onClick={() =>
+                          setAssignments((prev) => prev.filter((_, x) => x !== i))
+                        }
+                        className="mb-1 grid size-9 shrink-0 place-items-center rounded border border-[#E2E5E9] text-[#ED351D] hover:bg-[#FFF1EF]"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                  <label className="mt-2 flex flex-col gap-1">
+                    <span className="text-[12px] font-medium text-[#141A1F]">
+                      Work to be done
+                    </span>
+                    <input
+                      value={row.task}
+                      onChange={(e) =>
+                        setAssignments((prev) =>
+                          prev.map((r, x) => (x === i ? { ...r, task: e.target.value } : r)),
+                        )
+                      }
+                      placeholder="e.g. Replace the front wheel bearing"
+                      className={`${inputClass} bg-white`}
+                    />
+                  </label>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setAssignments((prev) => [...prev, { name: "", task: "" }])
+                }
+                className="flex h-9 items-center justify-center gap-1.5 rounded border border-dashed border-[#9AA2AC] text-[13px] font-medium text-[#1B2432] hover:border-[#ED351D] hover:text-[#ED351D]"
+              >
+                <Plus className="size-4" />
+                Add another engineer
+              </button>
               <datalist id="engineer-roster">
                 {technicians.map((n) => (
                   <option key={n} value={n} />
                 ))}
               </datalist>
-            </label>
+            </div>
           ) : null}
 
           <div className="flex items-center justify-end gap-2 pt-1">
@@ -477,6 +546,11 @@ export function InspectionReportCard({
         <p className="text-[#3C4653]">
           Inspected by: <span className="font-medium text-[#1B2432]">{job.inspectedBy || job.reportedBy || "—"}</span>
         </p>
+        {job.mechanic ? (
+          <p className="text-[#3C4653]">
+            Assigned to: <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
+          </p>
+        ) : null}
         <p className="flex items-center gap-2">
           <span className="text-[#5C6470]">Status:</span>
           <span

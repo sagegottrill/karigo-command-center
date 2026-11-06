@@ -1792,9 +1792,19 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
   const defect = String(req.body?.defect || '').trim();
   const severity = String(req.body?.severity || '').trim();
   const inspectedBy = String(req.body?.inspectedBy || req.user?.name || '').trim();
-  // ASSIGN-ENGINEER: the hands-on engineer the defect is given to — travels on
-  // the work order as `mechanic`, the field every surface already shows.
-  const assignedTo = String(req.body?.assignedTo || '').trim();
+  // ASSIGN-ENGINEER: a defect is rarely one pair of hands, so the dialog sends a
+  // crew — each engineer with the work they own. `mechanic` is the field every
+  // surface already prints, so the crew lands there as "Name — work; Name — work"
+  // and a single-name payload (older clients) still stores exactly as before.
+  const rawCrew = Array.isArray(req.body?.assignments) ? req.body.assignments : [];
+  const crew = rawCrew
+    .map((a: any) => ({ name: String(a?.name || '').trim(), task: String(a?.task || '').trim() }))
+    .filter((a: { name: string }) => a.name);
+  const assignedTo = crew.length
+    ? crew
+        .map((a: { name: string; task: string }) => (a.task ? `${a.name} — ${a.task}` : a.name))
+        .join('; ')
+    : String(req.body?.assignedTo || '').trim();
   const parts = Array.isArray(req.body?.parts) ? req.body.parts : [];
   if (!headId && !tailId) return res.status(400).json({ error: 'Choose the truck that was inspected.' });
   if (!['no-issues', 'issues'].includes(result)) return res.status(400).json({ error: 'result must be no-issues or issues.' });
@@ -1851,7 +1861,10 @@ app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 
         });
       }
     }
-    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
+    const crewLine = crew.length
+      ? ` Assigned to ${crew.map((a: { name: string }) => a.name).join(', ')}.`
+      : '';
+    await notify('Engineering', 'Defect logged — truck under maintenance', `${truckReg}: ${defect} (${severity || 'severity not set'}) — inspected by ${inspectedBy || by}.${crewLine}${group ? ` Parts ${group} awaiting HOE review.` : ''}`, 'warning', 'Engineering,Transport Manager,Platform Admin', { module: 'Engineering', eventKey: 'engineering.defect_logged', refId: job.id, refLabel: truckReg });
     res.status(201).json({ ok: true, result, job, group });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
