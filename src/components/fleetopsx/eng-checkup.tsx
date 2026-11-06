@@ -168,6 +168,9 @@ export function InspectionDialog({
   // rides on the work order's cost, which Accounts reads as External Labour
   // against the truck's plate; it is never a loose figure on the page.
   const [external, setExternal] = useState({ workshop: "", cost: "" });
+  /** What the outside workshop charges, as a number — read by the form and the
+   *  pinned action bar, which states the amount and the truck it is booked to. */
+  const externalCost = Number(external.cost.replace(/[^0-9.]/g, "")) || 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +202,6 @@ export function InspectionDialog({
     const crew = assignments
       .map((a) => ({ name: a.name.trim(), task: a.task.trim() }))
       .filter((a) => a.name);
-    const externalCost = Number(external.cost.replace(/[^0-9.]/g, "")) || 0;
     if (external.workshop.trim() && externalCost <= 0) {
       toast.error("Enter what the outside workshop charged for this truck.");
       return;
@@ -244,7 +246,7 @@ export function InspectionDialog({
       onClick={onClose}
     >
       <div
-        className="my-6 w-full max-w-[560px] overflow-hidden rounded-[12px] bg-white shadow-xl"
+        className="my-6 flex max-h-[calc(100vh-48px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[12px] bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between bg-[#1B2432] px-5 py-4">
@@ -261,7 +263,10 @@ export function InspectionDialog({
             <X className="size-5" />
           </button>
         </div>
-        <div className="flex flex-col gap-4 px-5 py-5">
+        {/* The body scrolls inside the capped modal so nothing — the crew lines,
+            the external-labour block, the spare parts — hides under the fold,
+            while the action bar below stays pinned and always reachable. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
           <label
             className={cn(
               "flex cursor-pointer gap-3 rounded-[8px] border p-3.5",
@@ -483,7 +488,29 @@ export function InspectionDialog({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2 pt-1">
+        </div>
+
+        {/* Pinned action bar — never scrolls away from the operator. The left
+            side states the money being booked and the truck it is booked to, so
+            the external-labour entry is confirmed against the right vehicle. */}
+        <div className="flex items-center justify-between gap-3 border-t border-[#E2E5E9] px-5 py-4">
+          <div className="min-w-0 text-[12.5px] text-[#5C6470]">
+            {result === "issues" && externalCost > 0 ? (
+              <>
+                <span className="font-semibold text-[#1B2432]">
+                  {externalCost.toLocaleString("en-NG", {
+                    style: "currency",
+                    currency: "NGN",
+                    maximumFractionDigits: 0,
+                  })}
+                </span>{" "}
+                external labour → {asset.reg || "this truck"}
+              </>
+            ) : (
+              <span className="truncate">{asset.reg || asset.label}</span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={onClose}
