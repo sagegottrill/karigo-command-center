@@ -4230,10 +4230,11 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
   // procurement starts before the shelf empties for the next truck. It fires
   // only on the downward crossing: once a line is low/empty, every later issue
   // on it no longer re-alerts.
-  if (
-    (stock <= item.reorderLevel || stock <= 0) &&
-    item.stock > Math.max(item.reorderLevel, 0)
-  ) {
+  // Reaching zero ALWAYS alerts (PRD §3's critical tier): a line already sitting
+  // at its threshold that is then emptied is the worst case, and the old guard
+  // — which only fired when stock started strictly above the threshold — stayed
+  // silent for exactly that case. Low stock still alerts only on the crossing.
+  if (stock <= 0 || (stock <= item.reorderLevel && item.stock > item.reorderLevel)) {
     // PRD §3 has two tiers: crossing the threshold is a low-stock alert, reaching
     // zero is a critical stockout and leads in red, not amber.
     await notify('Inventory', stock <= 0 ? 'Critical stockout' : 'Low stock alert',
@@ -4587,6 +4588,14 @@ app.post('/api/procurement/:id/receive', authenticate, authorize(...PROCUREMENT_
     const category = String(b.category || po.category || 'General').trim();
     const vendor = String(b.vendor || po.vendor || '').trim();
     if (!sku) return res.status(400).json({ error: 'The purchase needs a part to land on.' });
+    // PRD §7: a purchase always names its supplier, so receiving files it in the
+    // directory — the list fills itself from real buying instead of staying empty
+    // until someone types it in twice.
+    if (vendor) {
+      await prisma.vendor
+        .upsert({ where: { name: vendor }, update: {}, create: { name: vendor } })
+        .catch(() => null);
+    }
 
     // Proof of purchase is mandatory (PRD §5): receipt, invoice, waybill or B/L.
     const incoming = Array.isArray(b.documents) ? b.documents : [];
