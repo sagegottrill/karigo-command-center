@@ -108,6 +108,33 @@ function ProcurementRequestsPage() {
     };
   }, []);
 
+  // Real-time store sync (PRD §4): the moment Procurement books a receipt, the
+  // shelf numbers here update — no manual reload, no stale count on the floor.
+  useEffect(() => {
+    const refresh = async () => {
+      try {
+        const [poRes, itemRows] = await Promise.all([
+          procurementService.list(),
+          inventoryService.list(),
+        ]);
+        const rows = (
+          Array.isArray(poRes) ? poRes : ((poRes as { data?: unknown[] })?.data ?? [])
+        ) as PoRow[];
+        setPos(rows.filter((r) => r.kind !== "Fuel"));
+        setItems(itemRows);
+      } catch {
+        // Keep the last good view; the next tick tries again.
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 20_000);
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
   const optionFamily = familyFromOption(familyOption);
   const familyPos = useMemo(
     () => (optionFamily ? pos.filter((po) => familyOfPo(po, items) === optionFamily) : pos),

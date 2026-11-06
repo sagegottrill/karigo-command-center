@@ -96,6 +96,7 @@ function ProcurementPage() {
   // PRD §2: the inbox is multi-channel — Store, Engineering, TM and the desk's
   // own reorders, picked apart by the desk that asked.
   const [channel, setChannel] = useState("All");
+  const [raising, setRaising] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -119,6 +120,18 @@ function ProcurementPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // A live inbox (PRD §2): another desk's request, a receipt and the resulting
+  // shelf numbers appear without anyone pressing reload.
+  useEffect(() => {
+    const timer = window.setInterval(() => void load(), 20_000);
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [load]);
 
   const open = useMemo(() => requests.filter((r) => !["Procured", "Rejected"].includes(r.status)), [requests]);
   const lowStock = useMemo(() => items.filter((i) => i.stock <= i.reorderLevel), [items]);
@@ -276,6 +289,11 @@ function ProcurementPage() {
               ))}
             </div>
           )}
+          {tab === "Inbox" && (
+            <button onClick={() => setRaising(true)} className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#1B2432] px-3 py-2 text-[12.5px] font-semibold text-white">
+              <Plus className="size-3.5" /> Raise PO
+            </button>
+          )}
           {tab === "Vendors" && (
             <button onClick={() => setVendorDraft("new")} className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#1B2432] px-3 py-2 text-[12.5px] font-semibold text-white">
               <Plus className="size-3.5" /> Add vendor
@@ -315,6 +333,14 @@ function ProcurementPage() {
         <VendorModal
           draft={vendorDraft}
           onClose={() => setVendorDraft(null)}
+          onDone={load}
+        />
+      )}
+      {raising && (
+        <RaiseModal
+          items={items}
+          vendors={vendors}
+          onClose={() => setRaising(false)}
           onDone={load}
         />
       )}
@@ -704,6 +730,115 @@ function VendorModal({ draft, onClose, onDone }: { draft: Vendor | "new"; onClos
         <Field label="Email"><input value={form.email} onChange={set("email")} className={inputCls} /></Field>
         <Field label="Market location"><input value={form.location} onChange={set("location")} className={inputCls} placeholder="e.g. Ladipo Market, Lagos" /></Field>
         <Field label="Notes"><input value={form.notes} onChange={set("notes")} className={inputCls} placeholder="Terms, lead time" /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * RAISE A BUY (PRD §2): the desk starts a purchase itself — a one-off part for a
+ * specific repair, the TM's strategic order (bulk tyres, trackers, hardware), or
+ * a store consumable — and files it under the desk that asked, so the inbox
+ * channel counts stay truthful.
+ */
+function RaiseModal({ items, vendors, onClose, onDone }: { items: Item[]; vendors: Vendor[]; onClose: () => void; onDone: () => void }) {
+  const [source, setSource] = useState("Procurement");
+  const [name, setName] = useState("");
+  const [sku, setSku] = useState("");
+  const [qty, setQty] = useState("1");
+  const [cost, setCost] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [askedBy, setAskedBy] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Typing a shelf line's SKU or name links the buy to that line, so receiving
+  // lands on the same stock item the store counts.
+  const pick = (value: string) => {
+    const hit = items.find((i) => i.sku.toLowerCase() === value.toLowerCase() || i.name.toLowerCase() === value.toLowerCase());
+    setName(hit ? hit.name : value);
+    setSku(hit ? hit.sku : value);
+  };
+
+  const submit = async () => {
+    const qtyNum = Number(qty);
+    if (!name.trim()) { toast.error("What is being bought?"); return; }
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) { toast.error("Quantity must be a positive number."); return; }
+    const costNum = cost.trim() ? Number(cost) : null;
+    if (costNum !== null && (!Number.isFinite(costNum) || costNum < 0)) { toast.error("Estimated unit cost must be zero or more."); return; }
+    const shelf = items.find((i) => i.sku.toLowerCase() === (sku || name).trim().toLowerCase());
+    setBusy(true);
+    try {
+      await fetchApi("/procurement", {
+        method: "POST",
+        body: JSON.stringify({
+          partName: name.trim(),
+          sku: (sku || name).trim(),
+          category: shelf?.category,
+          itemId: shelf?.id,
+          quantity: qtyNum,
+          kind: "Part",
+          status: "Requested",
+          source,
+          vendor: vendor.trim() || null,
+          unitPrice: costNum,
+          requestedBy: askedBy.trim() || null,
+          note: note.trim() || null,
+        }),
+      });
+      toast.success(`${name} raised for ${source}.`);
+      onDone();
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not raise that purchase.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="Raise a purchase"
+      subtitle="A part, a one-off for a truck, or the TM's strategic order — it lands in the inbox under the desk that asked."
+      onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-[#E2E8F0] px-3 py-2 text-[12.5px] font-medium text-[#41556B]">Cancel</button>
+          <button onClick={submit} disabled={busy} className="rounded-lg bg-[#1B2432] px-3.5 py-2 text-[12.5px] font-semibold text-white disabled:opacity-60">
+            {busy ? "Raising…" : "Raise PO"}
+          </button>
+        </div>
+      }
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Requested by desk" hint="Which department's request this is.">
+          <select value={source} onChange={(e) => setSource(e.target.value)} className={inputCls}>
+            {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </Field>
+        <Field label="Asked by" hint="Optional — the person or seat wanting it.">
+          <input value={askedBy} onChange={(e) => setAskedBy(e.target.value)} className={inputCls} placeholder="e.g. TM, or a mechanic" />
+        </Field>
+        <Field label="Part or asset" hint="Type a shelf item or a new one-off part.">
+          <input value={name} onChange={(e) => pick(e.target.value)} list="raise-parts" className={inputCls} placeholder="e.g. Tyre 315/80R22.5" />
+          <datalist id="raise-parts">
+            {items.slice(0, 400).map((i) => <option key={i.id} value={i.name}>{i.sku}</option>)}
+          </datalist>
+        </Field>
+        <Field label="SKU / stock code" hint="Existing codes add to that line; a new code creates it on receiving.">
+          <input value={sku} onChange={(e) => setSku(e.target.value)} className={inputCls} placeholder="Matches the shelf" />
+        </Field>
+        <Field label="Quantity"><input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" className={inputCls} /></Field>
+        <Field label="Estimated unit cost (₦)" hint="Optional — what the buyer expects to pay.">
+          <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" className={inputCls} placeholder="e.g. 45000" />
+        </Field>
+        <Field label="Vendor" hint="Optional — the supplier to buy from.">
+          <input value={vendor} onChange={(e) => setVendor(e.target.value)} list="raise-vendors" className={inputCls} placeholder="Who supplies it" />
+          <datalist id="raise-vendors">{vendors.map((v) => <option key={v.id} value={v.name} />)}</datalist>
+        </Field>
+        <Field label="Note" hint="Why it's needed, which truck, or the reference.">
+          <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} placeholder="Optional" />
+        </Field>
       </div>
     </Modal>
   );
