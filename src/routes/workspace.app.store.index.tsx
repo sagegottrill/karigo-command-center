@@ -310,8 +310,22 @@ function StoreInventoryPage() {
                           {item.stock.toLocaleString("en-NG")}
                         </td>
                         {userSeesCost() && (
+                          // An unpriced line used to render an empty cell, which
+                          // read as "this column is not real". It now says so and
+                          // is the shortcut into the same Modify dialog.
                           <td className="py-3 pr-4 text-[13px] text-[#1B2432]">
-                            {item.unitCost > 0 ? formatNairaFull(item.unitCost) : ""}
+                            <button
+                              type="button"
+                              onClick={() => setModifyFor(item)}
+                              title={
+                                item.unitCost > 0
+                                  ? "Edit this line"
+                                  : "No unit cost on this line yet - click to set one"
+                              }
+                              className="rounded-[4px] px-1 py-0.5 text-left underline decoration-dotted decoration-[#C9CFD8] underline-offset-2 hover:bg-[#F7F8FA]"
+                            >
+                              {item.unitCost > 0 ? formatNairaFull(item.unitCost) : "— set price"}
+                            </button>
                           </td>
                         )}
                         <td className="py-3 pr-2">
