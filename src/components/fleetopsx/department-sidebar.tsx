@@ -161,6 +161,10 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       "Requisitions from every department, purchase receipts and the vendor paper trail.",
     items: [
       { label: "Procurement Desk", to: "/workspace/app/procurement", icon: PackageSearch },
+      // The desk own shelf book: unit price and cost on every line, typed
+      // here on a new line and editable on the ones already there. The store
+      // works the same rows on its own page, without money on it.
+      { label: "Inventory", to: "/workspace/app/procurement/inventory", icon: Package },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
