@@ -45,3 +45,9 @@ ssh_run.mjs
 
 # Local scratch (agent working files, never commit)
 .tmp_*/
+
+# Secrets & local credentials (never commit)
+.agents/mcp_config.json
+scripts/figma-sync.js
+figma_node_472_14549.json
+AGENT_SECRETS.example.md
