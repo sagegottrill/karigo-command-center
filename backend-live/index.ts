@@ -4436,7 +4436,7 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
   // Whitelist: the board may move the status and correct the agreed figures,
   // never write the receipt columns by hand.
   const patch: any = {};
-  for (const k of ['status', 'vendor', 'unitPrice', 'note', 'requestedBy', 'linkId']) {
+  for (const k of ['status', 'vendor', 'unitPrice', 'note', 'requestedBy']) {
     if (req.body?.[k] !== undefined) patch[k] = req.body[k];
   }
   const pr = await prisma.procurementRequest.update({ where: { id: req.params.id }, data: patch });
