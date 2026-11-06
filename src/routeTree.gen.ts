@@ -59,6 +59,7 @@ import { Route as WorkspaceAppPartInventoryRouteImport } from './routes/workspac
 import { Route as WorkspaceAppPartnerRequestsRouteImport } from './routes/workspace.app.partner-requests'
 import { Route as WorkspaceAppPartsRouteImport } from './routes/workspace.app.parts'
 import { Route as WorkspaceAppPasswordRequestRouteImport } from './routes/workspace.app.password-request'
+import { Route as WorkspaceAppProcurementRouteImport } from './routes/workspace.app.procurement'
 import { Route as WorkspaceAppRepairSpendRouteImport } from './routes/workspace.app.repair-spend'
 import { Route as WorkspaceAppTruckAvailabilityRouteImport } from './routes/workspace.app.truck-availability'
 import { Route as WorkspaceAppUnauthorizedRouteImport } from './routes/workspace.app.unauthorized'
@@ -347,6 +348,11 @@ const WorkspaceAppPasswordRequestRoute =
     path: '/password-request',
     getParentRoute: () => WorkspaceAppRoute,
   } as any)
+const WorkspaceAppProcurementRoute = WorkspaceAppProcurementRouteImport.update({
+  id: '/procurement',
+  path: '/procurement',
+  getParentRoute: () => WorkspaceAppRoute,
+} as any)
 const WorkspaceAppRepairSpendRoute = WorkspaceAppRepairSpendRouteImport.update({
   id: '/repair-spend',
   path: '/repair-spend',
@@ -497,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
+  '/workspace/app/procurement': typeof WorkspaceAppProcurementRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -562,6 +569,7 @@ export interface FileRoutesByTo {
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
+  '/workspace/app/procurement': typeof WorkspaceAppProcurementRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -631,6 +639,7 @@ export interface FileRoutesById {
   '/workspace/app/partner-requests': typeof WorkspaceAppPartnerRequestsRoute
   '/workspace/app/parts': typeof WorkspaceAppPartsRoute
   '/workspace/app/password-request': typeof WorkspaceAppPasswordRequestRoute
+  '/workspace/app/procurement': typeof WorkspaceAppProcurementRoute
   '/workspace/app/repair-spend': typeof WorkspaceAppRepairSpendRoute
   '/workspace/app/truck-availability': typeof WorkspaceAppTruckAvailabilityRoute
   '/workspace/app/unauthorized': typeof WorkspaceAppUnauthorizedRoute
@@ -702,6 +711,7 @@ export interface FileRouteTypes {
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
+    | '/workspace/app/procurement'
     | '/workspace/app/repair-spend'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
@@ -767,6 +777,7 @@ export interface FileRouteTypes {
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
+    | '/workspace/app/procurement'
     | '/workspace/app/repair-spend'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
@@ -835,6 +846,7 @@ export interface FileRouteTypes {
     | '/workspace/app/partner-requests'
     | '/workspace/app/parts'
     | '/workspace/app/password-request'
+    | '/workspace/app/procurement'
     | '/workspace/app/repair-spend'
     | '/workspace/app/truck-availability'
     | '/workspace/app/unauthorized'
@@ -1216,6 +1228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAppPasswordRequestRouteImport
       parentRoute: typeof WorkspaceAppRoute
     }
+    '/workspace/app/procurement': {
+      id: '/workspace/app/procurement'
+      path: '/procurement'
+      fullPath: '/workspace/app/procurement'
+      preLoaderRoute: typeof WorkspaceAppProcurementRouteImport
+      parentRoute: typeof WorkspaceAppRoute
+    }
     '/workspace/app/repair-spend': {
       id: '/workspace/app/repair-spend'
       path: '/repair-spend'
@@ -1394,6 +1413,7 @@ interface WorkspaceAppRouteChildren {
   WorkspaceAppPartnerRequestsRoute: typeof WorkspaceAppPartnerRequestsRoute
   WorkspaceAppPartsRoute: typeof WorkspaceAppPartsRoute
   WorkspaceAppPasswordRequestRoute: typeof WorkspaceAppPasswordRequestRoute
+  WorkspaceAppProcurementRoute: typeof WorkspaceAppProcurementRoute
   WorkspaceAppRepairSpendRoute: typeof WorkspaceAppRepairSpendRoute
   WorkspaceAppTruckAvailabilityRoute: typeof WorkspaceAppTruckAvailabilityRoute
   WorkspaceAppUnauthorizedRoute: typeof WorkspaceAppUnauthorizedRoute
@@ -1444,6 +1464,7 @@ const WorkspaceAppRouteChildren: WorkspaceAppRouteChildren = {
   WorkspaceAppPartnerRequestsRoute: WorkspaceAppPartnerRequestsRoute,
   WorkspaceAppPartsRoute: WorkspaceAppPartsRoute,
   WorkspaceAppPasswordRequestRoute: WorkspaceAppPasswordRequestRoute,
+  WorkspaceAppProcurementRoute: WorkspaceAppProcurementRoute,
   WorkspaceAppRepairSpendRoute: WorkspaceAppRepairSpendRoute,
   WorkspaceAppTruckAvailabilityRoute: WorkspaceAppTruckAvailabilityRoute,
   WorkspaceAppUnauthorizedRoute: WorkspaceAppUnauthorizedRoute,

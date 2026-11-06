@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   ChevronLeft, LayoutDashboard, LineChart,
-  Radar, ScrollText, ShieldCheck, Truck, Users, Bell, MoreVertical, LogOut
+  Radar, ScrollText, ShieldCheck, Truck, Users, Bell, MoreVertical, LogOut, Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/lib/fleetopsx/services";
@@ -58,6 +58,7 @@ export const NAV: NavItem[] = [
   { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: LineChart, group: "Tracking" },
   { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users, group: "People" },
   { label: "Gate", to: "/workspace/app/gate", icon: ShieldCheck, group: "Yard" },
+  { label: "Procurement", to: "/workspace/app/procurement", icon: Package, group: "Purchasing" },
   { label: "Notifications", to: "/workspace/app/notifications", icon: Bell, group: "Inbox" },
   { label: "Partner Requests", to: "/workspace/app/partner-requests", icon: CustomPasswordIcon, group: "User Management" },
   { label: "Add New Account", to: "/workspace/app/add-account", icon: CustomAddIcon, group: "User Management" },
@@ -68,7 +69,7 @@ export const NAV: NavItem[] = [
   { label: "Platform Admin", to: "/superadmin", icon: ShieldCheck, group: "Admin" },
 ];
 
-const GROUPS = ["Main", "Fleet Operations", "Tracking", "People", "Yard", "Inbox", "User Management", "Admin"];
+const GROUPS = ["Main", "Fleet Operations", "Tracking", "People", "Yard", "Purchasing", "Inbox", "User Management", "Admin"];
 
 export function AppSidebar({
   collapsed,

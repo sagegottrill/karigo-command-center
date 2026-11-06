@@ -4227,7 +4227,7 @@ app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, re
   ) {
     await notify('Inventory', stock <= 0 ? 'Stock depleted' : 'Low stock alert',
       `${item.name} dropped to ${stock} on the shelf (threshold: ${item.reorderLevel}) after ${qty} × ${requisition.part} was released to ${requisition.truckReg}. Initiate procurement to replenish the line.`,
-      'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant',
+      'warning', 'Transport Manager,Head of Inventory,Store Floor Attendant,Procurement',
       { module: 'Inventory', eventKey: 'inventory.low_stock', refId: item.id, refLabel: item.name, actionRoles: ['Transport Manager'] });
   }
   const releasedValue = qty * wac;
@@ -4365,16 +4365,25 @@ app.get('/api/procurement', authenticate, async (_req, res) => {
  * into a real instant, and falls back to a generated linkedId — the columns
  * the store board and the ledger read.
  */
-app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store'), async (req, res) => {
+app.post('/api/procurement', authenticate, authorize('Platform Admin', 'Transport Manager', 'Parts & Store', 'Procurement', 'Engineering'), async (req, res) => {
   const b = req.body || {};
   const data: any = {};
-  for (const key of ['partName', 'quantity', 'linkedId', 'truckReg', 'kind', 'unitPrice', 'vendor', 'status', 'requestedBy', 'note']) {
+  for (const key of ['partName', 'quantity', 'linkedId', 'truckReg', 'kind', 'unitPrice', 'vendor', 'status', 'requestedBy', 'note', 'source', 'sku', 'category', 'itemId']) {
     if (b[key] !== undefined && b[key] !== null) data[key] = b[key];
   }
   if (!String(data.partName ?? '').trim()) return res.status(400).json({ error: 'partName is required — what is being bought?' });
   const qty = Math.trunc(Number(b.quantity));
   if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'quantity must be a positive whole number' });
   data.quantity = qty;
+  // WHICH DESK ASKED (PRD §2): the inbox groups by origin, so the row records
+  // it. Absent a value the caller's own role decides — a store request, an
+  // engineering requisition and a TM order all land in the same inbox.
+  if (!String(data.source || '').trim()) {
+    const callerRole = String((req.user as any)?.role || '');
+    data.source = callerRole === 'Engineering' ? 'Engineering'
+      : callerRole === 'Transport Manager' ? 'TM'
+      : callerRole === 'Procurement' ? 'Procurement' : 'Store';
+  }
   if (!String(data.linkedId ?? '').trim()) {
     // The buying reference the board groups by — a generated PO tag when the
     // client sent none, so the row is still one source of truth on its board.
@@ -4436,6 +4445,171 @@ app.patch('/api/procurement/:id', authenticate, authorize('Platform Admin', 'Tra
     }
   }
   res.json(pr);
+});
+
+// --- PROCUREMENT & DOCUMENTS (PRD, 6 Nov 2026) -----------------------------
+/*
+ * The buying desk's own surface: vendors, the receipt that lands stock, and the
+ * purchase paper trail. Receiving is the one door a purchase comes through — it
+ * writes the shelf at a weighted average cost, the Purchase movement, the PO's
+ * actual figures, the scanned proof of purchase, and pings whoever asked.
+ */
+const PROCUREMENT_ROLES = ['Procurement', 'Platform Admin', 'Transport Manager'];
+const DOC_KINDS = ['Receipt', 'Invoice', 'Waybill', 'Bill of Lading'];
+const DOC_MIME = ['application/pdf', 'image/png', 'image/jpeg'];
+
+app.get('/api/vendors', authenticate, async (_req, res) => {
+  res.json(await prisma.vendor.findMany({ orderBy: { name: 'asc' } }));
+});
+app.post('/api/vendors', authenticate, authorize(...PROCUREMENT_ROLES), async (req: any, res) => {
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'A vendor needs a name.' });
+  const data: any = { name };
+  for (const k of ['contactName', 'phone', 'email', 'location', 'notes', 'status']) {
+    if (req.body?.[k] !== undefined) data[k] = String(req.body[k] ?? '').trim() || null;
+  }
+  try {
+    res.status(201).json(await prisma.vendor.create({ data }));
+  } catch (e: any) {
+    res.status(e?.code === 'P2002' ? 409 : 500).json({
+      error: e?.code === 'P2002' ? name + ' is already in the vendor directory.' : e?.message || 'Could not save the vendor.',
+    });
+  }
+});
+app.patch('/api/vendors/:id', authenticate, authorize(...PROCUREMENT_ROLES), async (req, res) => {
+  const data: any = {};
+  for (const k of ['name', 'contactName', 'phone', 'email', 'location', 'notes', 'status']) {
+    if (req.body?.[k] !== undefined) data[k] = String(req.body[k] ?? '').trim() || null;
+  }
+  if (req.body?.name !== undefined && !data.name) return res.status(400).json({ error: 'A vendor needs a name.' });
+  res.json(await prisma.vendor.update({ where: { id: req.params.id }, data }));
+});
+app.delete('/api/vendors/:id', authenticate, authorize(...PROCUREMENT_ROLES), async (req, res) => {
+  await prisma.vendor.delete({ where: { id: req.params.id } });
+  res.status(204).end();
+});
+
+/** Every purchase line ever booked — a part's price trail across vendors. */
+app.get('/api/vendors/price-history', authenticate, async (req, res) => {
+  const rows = await prisma.inventoryMovement.findMany({
+    where: { kind: 'Purchase' }, orderBy: { actedAt: 'desc' }, take: 500,
+  });
+  if (!userSeesCost(req)) return res.json(rows.map((m: any) => { const { unitCost, value, ...visible } = m; return visible; }));
+  res.json(rows);
+});
+
+app.get('/api/procurement/documents', authenticate, async (_req, res) => {
+  res.json(await prisma.procurementDocument.findMany({
+    select: { id: true, procurementId: true, kind: true, fileName: true, mimeType: true, size: true, vendor: true, uploadedBy: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  }));
+});
+app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
+  const doc = await prisma.procurementDocument.findUnique({ where: { id: req.params.id } });
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  res.json(doc);
+});
+
+/**
+ * RECEIVE A PURCHASE — quantity + unit cost in, shelf + ledger + PO + paperwork
+ * out, and the requesting desk told the part is available. Refuses a PO that
+ * was already received so one delivery can never add its stock twice.
+ */
+app.post('/api/procurement/:id/receive', authenticate, authorize(...PROCUREMENT_ROLES), async (req: any, res) => {
+  try {
+    const po = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
+    if (!po) return res.status(404).json({ error: 'Procurement request not found' });
+    if (po.status === 'Procured') return res.status(409).json({ error: 'This PO is already received — its stock was booked once already.' });
+    const b = req.body || {};
+    const qty = Math.trunc(Number(b.quantity ?? po.quantity));
+    if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'Quantity received must be a positive whole number.' });
+    const unitCost = Number(b.unitCost ?? po.unitPrice ?? 0);
+    if (!Number.isFinite(unitCost) || unitCost < 0) return res.status(400).json({ error: 'Unit cost must be zero or more.' });
+    const partName = String(b.name || po.partName || '').trim();
+    const sku = String(b.sku || po.sku || partName).trim();
+    const category = String(b.category || po.category || 'General').trim();
+    const vendor = String(b.vendor || po.vendor || '').trim();
+    if (!sku) return res.status(400).json({ error: 'The purchase needs a part to land on.' });
+
+    // Proof of purchase is mandatory (PRD §5): receipt, invoice, waybill or B/L.
+    const incoming = Array.isArray(b.documents) ? b.documents : [];
+    if (!incoming.length) return res.status(400).json({ error: 'Attach the receipt, invoice, waybill or bill of lading — no purchase is booked without its paperwork.' });
+    if (incoming.length > 6) return res.status(400).json({ error: 'Up to six documents per purchase.' });
+    const docs: any[] = [];
+    for (const d of incoming) {
+      const mimeType = String(d?.mimeType || '').toLowerCase();
+      const dataUrl = String(d?.dataUrl || '');
+      if (!DOC_MIME.includes(mimeType)) return res.status(400).json({ error: 'Documents must be PDF, JPEG or PNG.' });
+      if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'That upload is malformed — re-attach the file.' });
+      const bytes = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
+      if (bytes > 2500000) return res.status(400).json({ error: (d?.fileName || 'That file') + ' is over 2.5 MB — compress it and try again.' });
+      docs.push({
+        kind: DOC_KINDS.includes(String(d?.kind)) ? String(d.kind) : 'Receipt',
+        fileName: String(d?.fileName || 'document'), mimeType, size: bytes, dataUrl,
+        vendor: vendor || null, uploadedBy: actingUser(req),
+      });
+    }
+
+    // The shelf takes the quantity; its book price becomes the weighted average
+    // of everything ever paid for it (the tank's rule), so one expensive
+    // delivery cannot spike a truck's maintenance file.
+    const item = await prisma.inventoryItem.findFirst({ where: { sku } });
+    const existingQty = Math.max(0, item?.stock ?? 0);
+    const existingCost = item?.unitCost ?? 0;
+    const blended = existingQty + qty > 0 && unitCost > 0
+      ? (existingQty * existingCost + qty * unitCost) / (existingQty + qty)
+      : existingCost || unitCost;
+    const stock = existingQty + qty;
+    const reorderLevel = item?.reorderLevel ?? Math.max(2, Math.ceil(qty / 2));
+    const shelf = item
+      ? await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { stock, status: inventoryStatus(stock, reorderLevel), unitCost: blended, supplier: vendor || item.supplier },
+        })
+      : await prisma.inventoryItem.create({
+          data: {
+            name: partName || sku, sku, category, stock, reorderLevel, unitCost,
+            location: 'Store', supplier: vendor, vehicleCompatibility: '',
+            status: inventoryStatus(stock, reorderLevel),
+          },
+        });
+    const movement = await writeMovement({
+      itemId: shelf.id, itemName: shelf.name, sku: shelf.sku, kind: 'Purchase',
+      quantity: qty, unitCost, value: qty * unitCost, vendor,
+      reference: 'PO ' + po.linkedId, truckReg: po.truckReg || '',
+      note: String(b.note || '').trim() || ('Received against ' + po.linkedId),
+      actedBy: actingUser(req),
+    });
+    const saved = await prisma.procurementDocument.createMany({
+      data: docs.map((d) => ({ ...d, procurementId: po.id, movementId: movement?.id ?? null })),
+    });
+    const updated = await prisma.procurementRequest.update({
+      where: { id: po.id },
+      data: {
+        status: 'Procured', vendor: vendor || po.vendor, itemId: shelf.id, sku, category,
+        unitPrice: unitCost, receivedAt: new Date(), receivedBy: actingUser(req),
+        receivedQty: qty, receivedUnitCost: unitCost,
+      },
+    });
+
+    // Ping the desk that asked (PRD §4) — the inbox it came from hears first.
+    const desk = po.source === 'Engineering' ? 'Engineering'
+      : po.source === 'TM' ? 'Transport Manager'
+      : po.source === 'Procurement' ? 'Procurement' : 'Parts & Store';
+    await notify(
+      desk === 'Engineering' ? 'Engineering' : 'Inventory',
+      'Procured — back on the shelf',
+      `${partName} × ${qty} received against ${po.linkedId}${vendor ? ' from ' + vendor : ''} — now on the shelf for issue.`,
+      'success',
+      ['Parts & Store', desk, 'Procurement', 'Transport Manager', 'Head of Inventory'].join(','),
+      { module: 'Inventory', eventKey: 'parts.procured', refId: po.id, refLabel: partName },
+    );
+    res.json({ request: updated, item: shelf, documents: saved.count });
+  } catch (e: any) {
+    console.error('PO receive failed:', e?.message || e);
+    res.status(500).json({ error: e?.message || 'Could not receive that purchase.' });
+  }
 });
 
 // --- FUEL ---

@@ -267,8 +267,50 @@ model ProcurementRequest {
   note        String?
   status     String   @default("Requested")
   date       DateTime @default(now())
+  /// Which desk asked — Store | Engineering | TM | Procurement (the inbox's tabs).
+  source     String?  @default("Store")
+  /// The shelf line the receipt landed on, and the SKU it matched.
+  itemId     String?
+  sku        String?
+  category   String?
+  /// What receiving actually booked (a delivery can differ from the request).
+  receivedAt       DateTime?
+  receivedBy       String?
+  receivedQty      Int?
+  receivedUnitCost Float?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+/// The buying desk's supplier directory (PRD §7).
+model Vendor {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  contactName String?
+  phone       String?
+  email       String?
+  location    String?
+  notes       String?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Proof of purchase kept against the PO and the movement it paid for (PRD §5).
+model ProcurementDocument {
+  id            String   @id @default(uuid())
+  procurementId String?
+  movementId    String?
+  vendor        String?
+  kind          String
+  fileName      String
+  mimeType      String
+  size          Int
+  dataUrl       String
+  uploadedBy    String?
+  createdAt     DateTime @default(now())
+
+  @@index([procurementId])
 }
 
 model FuelRequisition {
