@@ -284,7 +284,7 @@ function StoreInventoryPage() {
               </div>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[760px] border-collapse">
+                <table className="w-full min-w-[700px] border-collapse">
                   <thead>
                     <tr className="text-left text-[12px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
                       <th className="py-3 pr-4">Code</th>
@@ -303,7 +303,7 @@ function StoreInventoryPage() {
                           {item.sku}
                         </td>
                         <td className="py-3 pr-4 text-[12.5px] leading-[17px] text-[#5C6470]">
-                          <span className="line-clamp-2 max-w-[360px]">{item.name}</span>
+                          <span className="line-clamp-2 max-w-[250px]">{item.name}</span>
                         </td>
                         <td className="py-3 pr-4 text-[12.5px] text-[#5C6470]">{item.category}</td>
                         <td className="py-3 pr-4 text-[13px] text-[#1B2432]">
@@ -324,7 +324,7 @@ function StoreInventoryPage() {
                               }
                               className="rounded-[4px] px-1 py-0.5 text-left underline decoration-dotted decoration-[#C9CFD8] underline-offset-2 hover:bg-[#F7F8FA]"
                             >
-                              {item.unitCost > 0 ? formatNairaFull(item.unitCost) : "— set price"}
+                              {item.unitCost > 0 ? formatNairaFull(item.unitCost) : "—"}
                             </button>
                           </td>
                         )}
