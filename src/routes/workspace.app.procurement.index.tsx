@@ -98,25 +98,29 @@ function ProcurementPage() {
   const [channel, setChannel] = useState("All");
   const [raising, setRaising] = useState(false);
 
+  // Each feed stands on its own: a single endpoint being down must not blank
+  // the whole desk, so every tab keeps whatever did arrive.
   const load = useCallback(async () => {
-    try {
-      const [po, inv, ven, doc, price] = await Promise.all([
-        fetchApi<Po[]>("/procurement"),
-        fetchApi<Item[]>("/inventory"),
-        fetchApi<Vendor[]>("/vendors"),
-        fetchApi<Doc[]>("/procurement/documents"),
-        fetchApi<Purchase[]>("/vendors/price-history"),
-      ]);
-      setRequests(Array.isArray(po) ? po : []);
-      setItems(Array.isArray(inv) ? inv : []);
-      setVendors(Array.isArray(ven) ? ven : []);
-      setDocs(Array.isArray(doc) ? doc : []);
-      setPurchases(Array.isArray(price) ? price : []);
-    } catch (e: any) {
-      toast.error(e?.message || "Could not load the procurement desk.");
-    } finally {
-      setLoading(false);
+    const [po, inv, ven, doc, price] = await Promise.allSettled([
+      fetchApi<Po[]>("/procurement"),
+      fetchApi<Item[]>("/inventory"),
+      fetchApi<Vendor[]>("/vendors"),
+      fetchApi<Doc[]>("/procurement/documents"),
+      fetchApi<Purchase[]>("/vendors/price-history"),
+    ]);
+    const rows = <T,>(r: PromiseSettledResult<T[]>): T[] =>
+      r.status === "fulfilled" && Array.isArray(r.value) ? r.value : [];
+    setRequests(rows(po));
+    setItems(rows(inv));
+    setVendors(rows(ven));
+    setDocs(rows(doc));
+    setPurchases(rows(price));
+    const failed = [po, inv, ven, doc, price].find((r) => r.status === "rejected");
+    if (failed) {
+      const why = failed.status === "rejected" ? failed.reason : null;
+      toast.error(why instanceof Error ? why.message : "Part of the desk did not load — retry in a moment.");
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
