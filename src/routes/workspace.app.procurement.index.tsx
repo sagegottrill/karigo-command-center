@@ -107,6 +107,7 @@ function ProcurementPage() {
   // own reorders, picked apart by the desk that asked.
   const [channel, setChannel] = useState("All");
   const [raising, setRaising] = useState(false);
+  const [filingDoc, setFilingDoc] = useState(false);
 
   // Each feed stands on its own: a single endpoint being down must not blank
   // the whole desk, so every tab keeps whatever did arrive.
@@ -318,6 +319,11 @@ function ProcurementPage() {
               <Download className="size-3.5" /> Export CSV
             </button>
           )}
+          {tab === "Documents" && (
+            <button onClick={() => setFilingDoc(true)} className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#1B2432] px-3 py-2 text-[12.5px] font-semibold text-white">
+              <Plus className="size-3.5" /> Upload document
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -355,6 +361,14 @@ function ProcurementPage() {
           items={items}
           vendors={vendors}
           onClose={() => setRaising(false)}
+          onDone={load}
+        />
+      )}
+      {filingDoc && (
+        <UploadDocumentModal
+          requests={requests}
+          vendors={vendors}
+          onClose={() => setFilingDoc(false)}
           onDone={load}
         />
       )}
@@ -514,7 +528,7 @@ function PriceHistory({ rows }: { rows: Purchase[] }) {
 
 function Documents({ rows, onOpen, requests }: { rows: Doc[]; onOpen: (id: string) => void; requests: Po[] }) {
   const poRef = (id?: string | null) => requests.find((r) => r.id === id)?.linkedId || "—";
-  if (!rows.length) return <p className="px-4 py-10 text-center text-[13px] text-[#6B7788]">No documents yet. Every received purchase carries its receipt, invoice, waybill or bill of lading here.</p>;
+  if (!rows.length) return <p className="px-4 py-10 text-center text-[13px] text-[#6B7788]">No documents yet. Received purchases file their receipt here, and Upload document takes one on its own.</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse text-left">
@@ -707,6 +721,137 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
 
       <div className="mt-3">
         <Field label="Note"><input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} placeholder="Optional — delivery note, invoice number" /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * FILE A PROOF OF PURCHASE WITHOUT RECEIVING ANYTHING.
+ *
+ * The Documents tab was read-only: a receipt could only reach it by riding a
+ * receive dialog. Real buying does not wait for that — the invoice comes by
+ * email a week later, the waybill travels with the driver. This files a scan
+ * against a PO or on its own, and shrinks it on the way in.
+ */
+function UploadDocumentModal({ requests, vendors, onClose, onDone }: { requests: Po[]; vendors: Vendor[]; onClose: () => void; onDone: () => void }) {
+  const [kind, setKind] = useState("Receipt");
+  const [poId, setPoId] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [files, setFiles] = useState<Upload[]>([]);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = async (list: FileList | null) => {
+    if (!list) return;
+    const next: Upload[] = [];
+    for (const f of Array.from(list)) {
+      try {
+        const doc = await prepareDocument(f);
+        next.push({ kind, fileName: doc.fileName, mimeType: doc.mimeType, dataUrl: doc.dataUrl, bytes: doc.bytes, originalBytes: doc.originalBytes });
+        if (doc.compressed) toast.success(`${f.name} shrunk from ${formatBytes(doc.originalBytes)} to ${formatBytes(doc.bytes)}.`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : `${f.name} could not be attached.`);
+      }
+    }
+    setFiles((prev) => [...prev, ...next].slice(0, 6));
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const submit = async () => {
+    if (!files.length) { toast.error("Attach the receipt, invoice, waybill or bill of lading first."); return; }
+    setBusy(true);
+    try {
+      for (const f of files) {
+        await fetchApi("/procurement/documents", {
+          method: "POST",
+          body: JSON.stringify({
+            kind, procurementId: poId || undefined, vendor: vendor.trim() || undefined,
+            fileName: f.fileName, mimeType: f.mimeType, dataUrl: f.dataUrl,
+          }),
+        });
+      }
+      toast.success(files.length === 1 ? "Document filed." : `${files.length} documents filed.`);
+      onDone();
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not file that document.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Received POs are offered too: an invoice often reaches the desk after the
+  // goods did, and it belongs to that purchase — not to nothing. The ones still
+  // open are listed first.
+  const settled = (r: Po) => ["Procured", "Rejected"].includes(r.status);
+  const choices = [...requests].sort((a, b) => Number(settled(a)) - Number(settled(b)));
+
+  return (
+    <Modal
+      title="Upload document"
+      subtitle="A receipt, invoice, waybill or bill of lading — attached to a PO, or filed on its own."
+      onClose={onClose}
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[12px] text-[#41556B]">
+            {files.length ? `${files.length} file${files.length === 1 ? "" : "s"} ready` : "Nothing attached yet"}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-[#E2E8F0] px-3 py-2 text-[12.5px] font-medium text-[#41556B]">Cancel</button>
+            <button onClick={submit} disabled={busy} className="rounded-lg bg-[#127A45] px-3.5 py-2 text-[12.5px] font-semibold text-white disabled:opacity-60">
+              {busy ? "Filing…" : "File document"}
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Document type">
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>
+            {["Receipt", "Invoice", "Waybill", "Bill of Lading"].map((k) => <option key={k}>{k}</option>)}
+          </select>
+        </Field>
+        <Field label="Vendor" hint="Who it is from — filled from the PO when you pick one.">
+          <input value={vendor} onChange={(e) => setVendor(e.target.value)} list="doc-vendor-names" className={inputCls} placeholder="e.g. Ladipo Parts Ltd" />
+          <datalist id="doc-vendor-names">{vendors.map((v) => <option key={v.id} value={v.name} />)}</datalist>
+        </Field>
+        <Field label="Purchase order" hint="Optional — file it against the buy it belongs to.">
+          <select value={poId} onChange={(e) => {
+            setPoId(e.target.value);
+            const po = requests.find((r) => r.id === e.target.value);
+            if (po?.vendor) setVendor(po.vendor);
+          }} className={inputCls}>
+            <option value="">Not linked to a PO</option>
+            {choices.map((r) => (
+              <option key={r.id} value={r.id}>{r.linkedId} · {r.partName}{r.status === "Procured" ? " (received)" : ""}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-[#E7ECF2] bg-[#FBFCFD] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-[12px] font-semibold text-[#1B2432]">The scan</p>
+            <p className="text-[11px] text-[#6B7788]">PDF, JPEG or PNG. A photo or scan is shrunk to a readable size before it is stored.</p>
+          </div>
+          <button onClick={() => fileRef.current?.click()} className="rounded-lg bg-[#1B2432] px-2.5 py-1.5 text-[11.5px] font-semibold text-white">Attach file</button>
+        </div>
+        <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => void addFiles(e.target.files)} />
+        {files.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {files.map((f, i) => (
+              <li key={`${f.fileName}-${i}`} className="flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] text-[#41556B]">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="size-3.5 text-[#8896A6]" />{f.fileName}
+                  {f.bytes ? <span className="text-[#8896A6]">· {formatBytes(f.bytes)}</span> : null}
+                </span>
+                <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-[#B42318]">Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </Modal>
   );

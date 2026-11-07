@@ -4591,6 +4591,45 @@ app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
 });
 
 /**
+ * FILE A PROOF OF PURCHASE ON ITS OWN — the receipt the desk scans today for a
+ * purchase booked last week, the waybill that arrives before the goods, the
+ * invoice a vendor emails later. The documents tab used to be read-only, so
+ * paperwork had nowhere to go unless a receive dialog was open at that moment.
+ * It may name a PO, or stand alone with its vendor.
+ */
+app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_ROLES), express.json({ limit: '8mb' }), async (req: any, res) => {
+  try {
+    const body = req.body || {};
+    const mimeType = String(body.mimeType || '').toLowerCase();
+    const dataUrl = String(body.dataUrl || '');
+    if (!DOC_MIME.includes(mimeType)) return res.status(400).json({ error: 'Documents must be PDF, JPEG or PNG.' });
+    if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'That upload is malformed — re-attach the file.' });
+    const bytes = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
+    if (bytes > 2500000) return res.status(400).json({ error: (body.fileName || 'That file') + ' is over 2.5 MB — compress it and try again.' });
+    const procurementId = body.procurementId ? String(body.procurementId) : null;
+    let vendor = String(body.vendor || '').trim() || null;
+    if (procurementId) {
+      const po = await prisma.procurementRequest.findUnique({ where: { id: procurementId }, select: { id: true, vendor: true } });
+      if (!po) return res.status(404).json({ error: 'That PO does not exist — pick the buy this document belongs to, or file it unattached.' });
+      vendor = vendor || po.vendor || null;
+    }
+    const doc = await prisma.procurementDocument.create({
+      data: {
+        procurementId, vendor,
+        kind: DOC_KINDS.includes(String(body.kind)) ? String(body.kind) : 'Receipt',
+        fileName: String(body.fileName || 'document'),
+        mimeType, size: bytes, dataUrl,
+        uploadedBy: actingUser(req),
+      },
+    });
+    const { dataUrl: _bytes, ...meta } = doc as any;
+    res.status(201).json(meta);
+  } catch (e: any) {
+    res.status(500).json({ error: 'That document could not be filed — try again.' });
+  }
+});
+
+/**
  * RECEIVE A PURCHASE — quantity + unit cost in, shelf + ledger + PO + paperwork
  * out, and the requesting desk told the part is available. Refuses a PO that
  * was already received so one delivery can never add its stock twice.
