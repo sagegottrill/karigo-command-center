@@ -587,6 +587,51 @@ function SortHeader({
 }
 
 /**
+ * Turn sheet lines into the writes the shelf needs.
+ *
+ * One part, one line: a sheet that lists the same Part Name under two Part
+ * Numbers (the ledger does — SP1015 and SP01015 are both "V Arm Kit") writes to
+ * the line the shelf already holds, quantities added. Only a part the shelf has
+ * never held is created, under the first number the sheet gives it.
+ */
+const planImport = (lines: SheetLine[], current: InventoryItem[]) => {
+  const bySku = new Map<string, InventoryItem>();
+  const byName = new Map<string, InventoryItem>();
+  for (const item of current) {
+    bySku.set(item.sku.trim().toUpperCase(), item);
+    byName.set(normName(item.name), item);
+  }
+  const chosenCode = new Map<string, string>();
+  const grouped = new Map<
+    string,
+    { sku: string; name: string; category: string; stock: number; unitCost: number; reorderLevel: number }
+  >();
+  for (const line of lines) {
+    const nameKey = normName(line.name);
+    const target =
+      bySku.get(line.sku.trim().toUpperCase()) ?? byName.get(nameKey);
+    if (!chosenCode.has(nameKey)) chosenCode.set(nameKey, target?.sku ?? line.sku);
+    const key = (target?.sku ?? chosenCode.get(nameKey) ?? line.sku).toUpperCase();
+    const planned = grouped.get(key);
+    if (planned) {
+      planned.stock += line.stock;
+      planned.unitCost = Math.max(planned.unitCost, line.unitCost);
+      continue;
+    }
+    grouped.set(key, {
+      sku: target?.sku ?? line.sku,
+      name: target?.name ?? line.name,
+      category: line.category || target?.category || "General",
+      stock: line.stock,
+      unitCost: line.unitCost,
+      reorderLevel: line.reorderLevel ?? target?.reorderLevel ?? 5,
+    });
+  }
+  const payload = [...grouped.values()];
+  return { payload, folded: lines.length - payload.length };
+};
+
+/**
  * IMPORT FROM EXCEL — the buying desk's whole ledger, uploaded.
  *
  * The store's sheet (Part Number, Part Name, Unit, Currency, Unit Quantity,
@@ -609,25 +654,13 @@ function ImportInventoryModal({
   >(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const bySku = useMemo(() => {
-    const map = new Map<string, InventoryItem>();
-    for (const item of current) map.set(item.sku.trim().toUpperCase(), item);
-    return map;
-  }, [current]);
-
-  const duplicateNameCount = useMemo(() => {
-    if (!parsed) return 0;
-    const seen = new Set<string>();
-    let duplicates = 0;
-    for (const line of parsed.lines) {
-      const key = normName(line.name);
-      if (seen.has(key)) duplicates += 1;
-      else seen.add(key);
-    }
-    return duplicates;
-  }, [parsed]);
+  const plan = useMemo(
+    () => (parsed ? planImport(parsed.lines, current) : null),
+    [parsed, current],
+  );
 
   const take = async (list: FileList | null) => {
     const file = list?.[0];
@@ -648,7 +681,7 @@ function ImportInventoryModal({
       const { lines, hasQuantityColumn } = readSheetLines(sheet);
       if (!lines.length) {
         toast.error(
-          "No readable rows. The sheet needs a 'Part Number' and a 'Part Name' column.",
+          "That sheet has no lines under its headings yet — or it needs 'Part Number' and 'Part Name' columns.",
         );
         return;
       }
@@ -663,15 +696,28 @@ function ImportInventoryModal({
     }
   };
 
+  /**
+   * The template is the sheet this importer reads, header for header. It is
+   * deliberately EMPTY below the headings: sample rows would be imported as
+   * real parts (or overwrite real ones), so the how-to lives on a second sheet.
+   */
   const downloadTemplate = () => {
     const sheet = XLSX.utils.aoa_to_sheet([
       ["Part Number", "Part Name", "Unit", "Currency", "Unit Quantity", "Cost", "Category"],
-      ["SP0001", "Air System Regulator", "PCS", "NGN", 0, 0, "SPARE PARTS"],
-      ["SP0003", "17mm Compressor Bolt", "PCS", "NGN", 7, 2142.86, "SPARE PARTS"],
     ]);
     sheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 18 }];
+    const instructions = XLSX.utils.aoa_to_sheet([
+      ["How to fill this sheet"],
+      ["1. One row per part on the 'Inventory' sheet. Do not rename the headings."],
+      ["2. Part Number is the key: an existing number updates that shelf line."],
+      ["3. Unit Quantity is the count on the shelf; Cost is the price of ONE unit."],
+      ["4. Same part listed twice under two numbers is folded into one line on import."],
+      ["5. Rows without a Part Number and Part Name are skipped."],
+    ]);
+    instructions["!cols"] = [{ wch: 100 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, "Inventory");
+    XLSX.utils.book_append_sheet(workbook, instructions, "How to fill");
     const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
     const url = URL.createObjectURL(
       new Blob([bytes], {
@@ -681,8 +727,12 @@ function ImportInventoryModal({
     const link = document.createElement("a");
     link.href = url;
     link.download = "fleetopsx-inventory-template.xlsx";
+    link.rel = "noopener";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    // Revoking at once can cancel the download in some browsers; give it a beat.
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
     toast.success("Template downloaded — fill it and upload it back here.");
   };
 
@@ -696,59 +746,19 @@ function ImportInventoryModal({
       return;
     }
     setBusy(true);
-    // NO SECOND LINE FOR THE SAME PART: a sheet that lists one part under two
-    // Part Numbers (SP1015 and SP01015 both read "V Arm Kit") is folded into
-    // the line the shelf already knows, with the quantities added. Only a part
-    // the shelf has never held gets created, under its own number.
-    const byName = new Map<string, InventoryItem>();
-    for (const item of current) byName.set(normName(item.name), item);
-    // A part the shelf has never held still has to be grouped by name, so the
-    // first number the sheet uses becomes the line and the rest fold into it.
-    const chosenCode = new Map<string, string>();
-    const grouped = new Map<
-      string,
-      {
-        sku: string;
-        name: string;
-        category: string;
-        stock: number;
-        unitCost: number;
-        reorderLevel: number;
-      }
-    >();
-    for (const line of parsed.lines) {
-      const byCode = bySku.get(line.sku.toUpperCase());
-      const nameKey = normName(line.name);
-      const bySameName = byName.get(nameKey);
-      const target = byCode ?? bySameName;
-      const firstCode = chosenCode.get(nameKey);
-      if (!firstCode) chosenCode.set(nameKey, target?.sku ?? line.sku);
-      const key = (target?.sku ?? firstCode ?? line.sku).toUpperCase();
-      const current_ = grouped.get(key);
-      if (current_) {
-        current_.stock += line.stock;
-        current_.unitCost = Math.max(current_.unitCost, line.unitCost);
-        continue;
-      }
-      grouped.set(key, {
-        sku: target?.sku ?? line.sku,
-        name: target?.name ?? line.name,
-        category: line.category || target?.category || "General",
-        stock: line.stock,
-        unitCost: line.unitCost,
-        reorderLevel: line.reorderLevel ?? target?.reorderLevel ?? 5,
-      });
-    }
-    const payload = [...grouped.values()];
-    const folded = parsed.lines.length - payload.length;
+    const { payload, folded } = planImport(parsed.lines, current);
     let created = 0;
     let updated = 0;
     try {
       for (let at = 0; at < payload.length; at += 200) {
+        setProgress(
+          `Writing ${Math.min(at + 200, payload.length).toLocaleString("en-NG")} of ${payload.length.toLocaleString("en-NG")}…`,
+        );
         const result = await inventoryService.importItems(payload.slice(at, at + 200));
         created += Number(result.created ?? 0);
         updated += Number(result.updated ?? 0);
       }
+      setProgress("");
       await onDone(
         `${created.toLocaleString("en-NG")} line(s) added, ${updated.toLocaleString("en-NG")} updated${
           folded > 0 ? `, ${folded.toLocaleString("en-NG")} duplicate name(s) folded into one line` : ""
@@ -824,8 +834,8 @@ function ImportInventoryModal({
             <p className="min-w-0 truncate text-[13px] font-medium text-[#1B2432]">{parsed.name}</p>
             <p className="text-[11.5px] text-[#5C6470]">
               {(parsed.size / 1024).toFixed(0)} KB · {parsed.lines.length.toLocaleString("en-NG")} line(s)
-              {duplicateNameCount > 0
-                ? ` · ${duplicateNameCount.toLocaleString("en-NG")} duplicate name(s) will fold into one line`
+              {plan && plan.folded > 0
+                ? ` · ${plan.folded.toLocaleString("en-NG")} duplicate name(s) will fold into one line`
                 : ""}
             </p>
           </div>
@@ -865,13 +875,15 @@ function ImportInventoryModal({
         </div>
       )}
 
+      {progress && (
+        <p className="mt-3 text-center text-[12px] font-medium text-[#5C6470]">{progress}</p>
+      )}
+
       <div className="mt-4">
         <ModalActions
           onCancel={onClose}
           submitLabel={
-            parsed
-              ? `Import ${(parsed.lines.length - duplicateNameCount).toLocaleString("en-NG")} line(s)`
-              : "Import"
+            plan ? `Import ${plan.payload.length.toLocaleString("en-NG")} line(s)` : "Import"
           }
           busy={busy}
           onAction={commit}
