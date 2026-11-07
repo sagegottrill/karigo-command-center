@@ -74,6 +74,8 @@ const SHEET_FIELDS = {
   reorderLevel: ["Reorder Level", "Reorder", "Minimum", "Min Qty"],
 };
 
+const normName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+
 /** "₦1,234.50" and "2142.857142857143" both have to land as numbers. */
 const numCell = (value: unknown) => {
   const cleaned = String(value ?? "").replace(/[^0-9.\-]/g, "");
@@ -205,9 +207,10 @@ function ProcurementInventoryPage() {
             Procurement Inventory
           </h1>
           <p className="mt-1 max-w-[620px] text-[13px] leading-[19px] text-[#5C6470]">
-            The same shelf the store works, with the money on it. Set or change the unit
-            price of any line — the cost of what sits there follows the quantity
-            automatically. The store's own inventory never shows these figures.
+            The same shelf the store works, with the money on it — in the stock sheet's
+            own words: Part Number, Part Name, Category, Unit Quantity and Cost. Cost is what
+            one unit costs; Stock Value is the quantity times that cost. Import the .xlsx
+            to fill all of it in one go, or set a line's cost by hand.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -257,12 +260,12 @@ function ProcurementInventoryPage() {
           <table className="w-full min-w-[820px] border-collapse">
             <thead>
               <tr className="text-left text-[11.5px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
-                <SortHeader label="Code" sortKey="sku" sort={sort} onSort={toggleSort} className="py-3 pl-4 pr-3" />
-                <SortHeader label="Description" sortKey="name" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
+                <SortHeader label="Part Number" sortKey="sku" sort={sort} onSort={toggleSort} className="py-3 pl-4 pr-3" />
+                <SortHeader label="Part Name" sortKey="name" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
                 <SortHeader label="Category" sortKey="category" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
-                <SortHeader label="Qty" sortKey="stock" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
-                <SortHeader label="Unit price" sortKey="unitCost" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
-                <SortHeader label="Cost" sortKey="value" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Unit Quantity" sortKey="stock" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Cost" sortKey="unitCost" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Stock Value" sortKey="value" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
                 <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
                 <th className="w-[92px] py-3 pr-4" />
               </tr>
@@ -284,14 +287,14 @@ function ProcurementInventoryPage() {
                     <button
                       type="button"
                       onClick={() => setEditing(item)}
-                      title="Set or change this line's unit price"
+                      title="Set or change this line's cost — the sheet's Cost column"
                       className={`rounded-[5px] px-1 py-0.5 text-[12.5px] font-semibold underline decoration-dotted decoration-[#C9CFD8] underline-offset-2 hover:bg-[#F7F8FA] ${
                         Number(item.unitCost ?? 0) > 0 ? "text-[#1B2432]" : "text-[#8A94A3]"
                       }`}
                     >
                       {Number(item.unitCost ?? 0) > 0
                         ? formatNairaFull(Number(item.unitCost))
-                        : "Set price"}
+                        : "Set cost"}
                     </button>
                   </td>
                   <td className="py-3 pr-3 text-right text-[12.5px] font-medium text-[#1B2432]">
@@ -498,7 +501,7 @@ function InventoryForm({
             placeholder="e.g. Spare Parts"
           />
         </ModalField>
-        <ModalField label="Quantity:">
+        <ModalField label="Unit Quantity:">
           <input
             type="number"
             min={0}
@@ -507,7 +510,7 @@ function InventoryForm({
             onChange={(e) => setStock(e.target.value)}
           />
         </ModalField>
-        <ModalField label="Unit Price:" required>
+        <ModalField label="Cost per unit:" required>
           <input
             inputMode="decimal"
             className={inputClass}
@@ -527,8 +530,7 @@ function InventoryForm({
         </ModalField>
       </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">
-        <span className="text-[13px] font-semibold text-[#1B2432]">Cost of this line:</span>
+      <div className="mt-3 flex items-center justify-between rounded-[8px] bg-[#EAF7F3] px-4 py-3">          <span className="text-[13px] font-semibold text-[#1B2432]">Stock value of this line:</span>
         <span className="text-[13.5px] font-semibold text-[#1B2432]">
           {cost > 0 ? formatNairaFull(cost) : "—"}
           <span className="ml-2 text-[11.5px] font-medium text-[#7C8794]">
@@ -615,6 +617,18 @@ function ImportInventoryModal({
     return map;
   }, [current]);
 
+  const duplicateNameCount = useMemo(() => {
+    if (!parsed) return 0;
+    const seen = new Set<string>();
+    let duplicates = 0;
+    for (const line of parsed.lines) {
+      const key = normName(line.name);
+      if (seen.has(key)) duplicates += 1;
+      else seen.add(key);
+    }
+    return duplicates;
+  }, [parsed]);
+
   const take = async (list: FileList | null) => {
     const file = list?.[0];
     if (!file) return;
@@ -682,17 +696,51 @@ function ImportInventoryModal({
       return;
     }
     setBusy(true);
-    const payload = parsed.lines.map((line) => {
-      const existing = bySku.get(line.sku.toUpperCase());
-      return {
-        sku: line.sku,
-        name: line.name,
-        category: line.category,
+    // NO SECOND LINE FOR THE SAME PART: a sheet that lists one part under two
+    // Part Numbers (SP1015 and SP01015 both read "V Arm Kit") is folded into
+    // the line the shelf already knows, with the quantities added. Only a part
+    // the shelf has never held gets created, under its own number.
+    const byName = new Map<string, InventoryItem>();
+    for (const item of current) byName.set(normName(item.name), item);
+    // A part the shelf has never held still has to be grouped by name, so the
+    // first number the sheet uses becomes the line and the rest fold into it.
+    const chosenCode = new Map<string, string>();
+    const grouped = new Map<
+      string,
+      {
+        sku: string;
+        name: string;
+        category: string;
+        stock: number;
+        unitCost: number;
+        reorderLevel: number;
+      }
+    >();
+    for (const line of parsed.lines) {
+      const byCode = bySku.get(line.sku.toUpperCase());
+      const nameKey = normName(line.name);
+      const bySameName = byName.get(nameKey);
+      const target = byCode ?? bySameName;
+      const firstCode = chosenCode.get(nameKey);
+      if (!firstCode) chosenCode.set(nameKey, target?.sku ?? line.sku);
+      const key = (target?.sku ?? firstCode ?? line.sku).toUpperCase();
+      const current_ = grouped.get(key);
+      if (current_) {
+        current_.stock += line.stock;
+        current_.unitCost = Math.max(current_.unitCost, line.unitCost);
+        continue;
+      }
+      grouped.set(key, {
+        sku: target?.sku ?? line.sku,
+        name: target?.name ?? line.name,
+        category: line.category || target?.category || "General",
         stock: line.stock,
-        reorderLevel: line.reorderLevel ?? existing?.reorderLevel ?? 5,
         unitCost: line.unitCost,
-      };
-    });
+        reorderLevel: line.reorderLevel ?? target?.reorderLevel ?? 5,
+      });
+    }
+    const payload = [...grouped.values()];
+    const folded = parsed.lines.length - payload.length;
     let created = 0;
     let updated = 0;
     try {
@@ -702,7 +750,9 @@ function ImportInventoryModal({
         updated += Number(result.updated ?? 0);
       }
       await onDone(
-        `${created.toLocaleString("en-NG")} line(s) added, ${updated.toLocaleString("en-NG")} updated from ${parsed.name}.`,
+        `${created.toLocaleString("en-NG")} line(s) added, ${updated.toLocaleString("en-NG")} updated${
+          folded > 0 ? `, ${folded.toLocaleString("en-NG")} duplicate name(s) folded into one line` : ""
+        } from ${parsed.name}.`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The upload did not land.");
@@ -774,16 +824,19 @@ function ImportInventoryModal({
             <p className="min-w-0 truncate text-[13px] font-medium text-[#1B2432]">{parsed.name}</p>
             <p className="text-[11.5px] text-[#5C6470]">
               {(parsed.size / 1024).toFixed(0)} KB · {parsed.lines.length.toLocaleString("en-NG")} line(s)
+              {duplicateNameCount > 0
+                ? ` · ${duplicateNameCount.toLocaleString("en-NG")} duplicate name(s) will fold into one line`
+                : ""}
             </p>
           </div>
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="text-left text-[10.5px] uppercase tracking-[0.4px] text-[#7C8794]">
-                <th className="px-4 py-2">Code</th>
-                <th className="px-2 py-2">Description</th>
+                <th className="px-4 py-2">Part Number</th>
+                <th className="px-2 py-2">Part Name</th>
                 <th className="px-2 py-2">Category</th>
-                <th className="px-2 py-2 text-right">Qty</th>
-                <th className="px-4 py-2 text-right">Unit price</th>
+                <th className="px-2 py-2 text-right">Unit Quantity</th>
+                <th className="px-4 py-2 text-right">Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -815,7 +868,11 @@ function ImportInventoryModal({
       <div className="mt-4">
         <ModalActions
           onCancel={onClose}
-          submitLabel={parsed ? `Import ${parsed.lines.length.toLocaleString("en-NG")} line(s)` : "Import"}
+          submitLabel={
+            parsed
+              ? `Import ${(parsed.lines.length - duplicateNameCount).toLocaleString("en-NG")} line(s)`
+              : "Import"
+          }
           busy={busy}
           onAction={commit}
         />
