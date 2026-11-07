@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -75,8 +77,13 @@ const jsonBody = express.json({ limit: '4mb' });
  * scanned licence: that route parses its own body with a higher ceiling,
  * because a 10 MB document is normal for a photographed licence.
  */
+/**
+ * Routes that carry a scanned file parse their own body with a higher ceiling;
+ * everything else keeps the 4 MB guard.
+ */
+const OWN_BODY_ROUTES = /^\/api\/drivers\/[^/]+\/licence$|^\/api\/procurement\/documents$|^\/api\/procurement\/[^/]+\/receive$/;
 app.use((req, res, next) =>
-  req.method === 'POST' && /^\/api\/drivers\/[^/]+\/licence$/.test(req.path)
+  req.method === 'POST' && OWN_BODY_ROUTES.test(req.path)
     ? next()
     : jsonBody(req, res, next),
 );
@@ -4532,6 +4539,53 @@ const VENDOR_WRITE_ROLES = [
 ];
 const DOC_KINDS = ['Receipt', 'Invoice', 'Waybill', 'Bill of Lading'];
 const DOC_MIME = ['application/pdf', 'image/png', 'image/jpeg'];
+/**
+ * PROOF OF PURCHASE LIVES ON THE SERVER'S OWN DISK.
+ *
+ * Receipts used to sit inside the database as base64 text, which inflates every
+ * scan by a third and grows the one file the whole platform depends on. They now
+ * land in DOCS_ROOT on this VPS — no bucket, no third-party storage — and the
+ * row keeps only a `file:YYYY-MM/uuid.jpg` pointer with its size and type.
+ * Rows written before this change still carry an inline data URL and keep working.
+ * Set PROCUREMENT_DOCS_DIR to move the folder (a second drive, say).
+ */
+const DOC_MAX_BYTES = 10 * 1024 * 1024;
+const DOCS_ROOT = process.env.PROCUREMENT_DOCS_DIR || '/var/www/fleetopsx-docs';
+const DOC_POINTER = 'file:';
+
+/** Resolve a stored pointer inside DOCS_ROOT, refusing any path that escapes it. */
+function docDiskPath(relative: string) {
+  const root = path.resolve(DOCS_ROOT);
+  const full = path.resolve(root, String(relative || '').replace(/^\/+/, ''));
+  if (full !== root && !full.startsWith(root + path.sep)) {
+    throw new Error('Document path escapes the document store.');
+  }
+  return full;
+}
+
+/** Decode an uploaded data URL straight onto disk; the row keeps the pointer. */
+async function storeDocument(dataUrl: string, mimeType: string) {
+  const comma = dataUrl.indexOf(',');
+  const buffer = Buffer.from(dataUrl.slice(comma + 1), 'base64');
+  const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType === 'image/png' ? 'png' : 'jpg';
+  const relative = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
+  const full = docDiskPath(relative);
+  await fs.mkdir(path.dirname(full), { recursive: true });
+  await fs.writeFile(full, buffer);
+  return { ref: DOC_POINTER + relative, bytes: buffer.length };
+}
+
+/** Turn a stored pointer back into the data URL the desk's Open button expects. */
+async function withDocumentBody(doc: any) {
+  const ref = typeof doc?.dataUrl === 'string' ? doc.dataUrl : '';
+  if (!ref.startsWith(DOC_POINTER)) return doc; // legacy inline rows
+  try {
+    const buffer = await fs.readFile(docDiskPath(ref.slice(DOC_POINTER.length)));
+    return { ...doc, dataUrl: `data:${doc.mimeType || 'application/octet-stream'};base64,${buffer.toString('base64')}` };
+  } catch {
+    return { ...doc, dataUrl: null, missing: true };
+  }
+}
 
 app.get('/api/vendors', authenticate, async (_req, res) => {
   res.json(await prisma.vendor.findMany({ orderBy: { name: 'asc' } }));
@@ -4587,7 +4641,9 @@ app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
   if (!userSeesCost(req)) return res.status(403).json({ error: 'Proof of purchase is a costing document — Procurement, the TM and the admin read it.' });
   const doc = await prisma.procurementDocument.findUnique({ where: { id: req.params.id } });
   if (!doc) return res.status(404).json({ error: 'Document not found' });
-  res.json(doc);
+  const body = await withDocumentBody(doc);
+  if (body.missing) return res.status(410).json({ error: 'That file is no longer on the server — re-upload it.' });
+  res.json(body);
 });
 
 /**
@@ -4597,7 +4653,7 @@ app.get('/api/procurement/documents/:id', authenticate, async (req, res) => {
  * paperwork had nowhere to go unless a receive dialog was open at that moment.
  * It may name a PO, or stand alone with its vendor.
  */
-app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_ROLES), express.json({ limit: '8mb' }), async (req: any, res) => {
+app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_ROLES), express.json({ limit: '16mb' }), async (req: any, res) => {
   try {
     const body = req.body || {};
     const mimeType = String(body.mimeType || '').toLowerCase();
@@ -4605,7 +4661,7 @@ app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_R
     if (!DOC_MIME.includes(mimeType)) return res.status(400).json({ error: 'Documents must be PDF, JPEG or PNG.' });
     if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'That upload is malformed — re-attach the file.' });
     const bytes = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
-    if (bytes > 2500000) return res.status(400).json({ error: (body.fileName || 'That file') + ' is over 2.5 MB — compress it and try again.' });
+    if (bytes > DOC_MAX_BYTES) return res.status(400).json({ error: (body.fileName || 'That file') + ' is over 10 MB — compress it and try again.' });
     const procurementId = body.procurementId ? String(body.procurementId) : null;
     let vendor = String(body.vendor || '').trim() || null;
     if (procurementId) {
@@ -4613,15 +4669,24 @@ app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_R
       if (!po) return res.status(404).json({ error: 'That PO does not exist — pick the buy this document belongs to, or file it unattached.' });
       vendor = vendor || po.vendor || null;
     }
-    const doc = await prisma.procurementDocument.create({
-      data: {
-        procurementId, vendor,
-        kind: DOC_KINDS.includes(String(body.kind)) ? String(body.kind) : 'Receipt',
-        fileName: String(body.fileName || 'document'),
-        mimeType, size: bytes, dataUrl,
-        uploadedBy: actingUser(req),
-      },
-    });
+    // The bytes go to the disk; the row keeps the pointer, the size and the type.
+    const stored = await storeDocument(dataUrl, mimeType);
+    let doc: any;
+    try {
+      doc = await prisma.procurementDocument.create({
+        data: {
+          procurementId, vendor,
+          kind: DOC_KINDS.includes(String(body.kind)) ? String(body.kind) : 'Receipt',
+          fileName: String(body.fileName || 'document'),
+          mimeType, size: stored.bytes, dataUrl: stored.ref,
+          uploadedBy: actingUser(req),
+        },
+      });
+    } catch (e) {
+      // Never leave an orphan file behind when the row is refused.
+      await fs.unlink(docDiskPath(stored.ref.slice(DOC_POINTER.length))).catch(() => null);
+      throw e;
+    }
     const { dataUrl: _bytes, ...meta } = doc as any;
     res.status(201).json(meta);
   } catch (e: any) {
@@ -4634,7 +4699,7 @@ app.post('/api/procurement/documents', authenticate, authorize(...VENDOR_WRITE_R
  * out, and the requesting desk told the part is available. Refuses a PO that
  * was already received so one delivery can never add its stock twice.
  */
-app.post('/api/procurement/:id/receive', authenticate, authorize(...VENDOR_WRITE_ROLES), async (req: any, res) => {
+app.post('/api/procurement/:id/receive', authenticate, authorize(...VENDOR_WRITE_ROLES), express.json({ limit: '16mb' }), async (req: any, res) => {
   try {
     const po = await prisma.procurementRequest.findUnique({ where: { id: req.params.id } });
     if (!po) return res.status(404).json({ error: 'Procurement request not found' });
@@ -4673,10 +4738,12 @@ app.post('/api/procurement/:id/receive', authenticate, authorize(...VENDOR_WRITE
       if (!DOC_MIME.includes(mimeType)) return res.status(400).json({ error: 'Documents must be PDF, JPEG or PNG.' });
       if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'That upload is malformed — re-attach the file.' });
       const bytes = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
-      if (bytes > 2500000) return res.status(400).json({ error: (d?.fileName || 'That file') + ' is over 2.5 MB — compress it and try again.' });
+      if (bytes > DOC_MAX_BYTES) return res.status(400).json({ error: (d?.fileName || 'That file') + ' is over 10 MB — compress it and try again.' });
+      // Same rule as a standalone upload: disk for the bytes, pointer in the row.
+      const stored = await storeDocument(dataUrl, mimeType);
       docs.push({
         kind: DOC_KINDS.includes(String(d?.kind)) ? String(d.kind) : 'Receipt',
-        fileName: String(d?.fileName || 'document'), mimeType, size: bytes, dataUrl,
+        fileName: String(d?.fileName || 'document'), mimeType, size: stored.bytes, dataUrl: stored.ref,
         vendor: vendor || null, uploadedBy: actingUser(req),
       });
     }

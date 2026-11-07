@@ -12,8 +12,8 @@
  * the caller is told to scan as JPEG when one is too big.
  */
 
-/** The server's per-document ceiling (2.5 MB of real bytes, not base64). */
-export const DOC_MAX_BYTES = 2_500_000;
+/** The server's per-document ceiling — bytes on its own disk, not base64 text. */
+export const DOC_MAX_BYTES = 10_000_000;
 
 /** Long edge of a shrunk scan. A receipt line stays sharp when zoomed in. */
 const MAX_EDGE = 1800;
@@ -110,7 +110,7 @@ export async function prepareDocument(file: File): Promise<PreparedDocument> {
   if (mimeType === "application/pdf") {
     if (file.size > DOC_MAX_BYTES) {
       throw new Error(
-        `${file.name} is ${formatBytes(file.size)} — that PDF is too big to store. ` +
+        `${file.name} is ${formatBytes(file.size)} — that PDF is over the 10 MB limit. ` +
           `Scan it as a JPEG or a PNG and the platform will shrink it for you.`,
       );
     }
