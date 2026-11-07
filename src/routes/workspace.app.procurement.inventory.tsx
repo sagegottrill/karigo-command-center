@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
+import { ArrowDown, ArrowUp, FileSpreadsheet, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   CardShell,
@@ -49,13 +50,93 @@ const PAGE_SIZE = 12;
 const valueOf = (item: InventoryItem) =>
   Number(item.stock ?? 0) * Number(item.unitCost ?? 0);
 
+type SortKey = "sku" | "name" | "category" | "stock" | "unitCost" | "value" | "status";
+type SortState = { key: SortKey; dir: "asc" | "desc" };
+
+const STATUS_RANK: Record<string, number> = { "Out of Stock": 0, "Low Stock": 1, "In Stock": 2 };
+
+const statusOf = (item: InventoryItem) =>
+  Number(item.stock) <= 0 ? "Out of Stock" : item.status === "Low Stock" ? "Low Stock" : "In Stock";
+
+/**
+ * The desks type these columns in every spelling there is — "Part No",
+ * "PartNumber", "Part Number" — so headers are matched on their letters alone.
+ */
+const normHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+const SHEET_FIELDS = {
+  sku: ["Part Number", "Part No", "PartNumber", "SKU", "Code", "Item Code", "Stock Code"],
+  name: ["Part Name", "PartName", "Name", "Description", "Item Description", "Item"],
+  category: ["Category", "Group", "Type"],
+  stock: ["Unit Quantity", "Quantity", "Qty", "Stock", "Balance", "Units"],
+  unitCost: ["Cost", "Unit Cost", "Unit Price", "Price", "Rate"],
+  unit: ["Unit", "UOM"],
+  reorderLevel: ["Reorder Level", "Reorder", "Minimum", "Min Qty"],
+};
+
+/** "₦1,234.50" and "2142.857142857143" both have to land as numbers. */
+const numCell = (value: unknown) => {
+  const cleaned = String(value ?? "").replace(/[^0-9.\-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+type SheetLine = {
+  sku: string;
+  name: string;
+  category: string;
+  stock: number;
+  unitCost: number;
+  unit: string;
+  reorderLevel: number | null;
+};
+
+/**
+ * Read the first sheet into shelf lines, skipping any title rows above the real
+ * header. Returns the header's own truth too (does it carry a quantity column?)
+ * so the upload can refuse a sheet that would zero out the shelf.
+ */
+const readSheetLines = (sheet: XLSX.WorkSheet) => {
+  const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
+  const headerIndex = aoa.findIndex((row) =>
+    row.some((cell) => /part\s*(number|no)|sku|item\s*code/i.test(String(cell ?? ""))),
+  );
+  const headerRow = (headerIndex >= 0 ? aoa[headerIndex] : aoa[0]) ?? [];
+  const body = aoa.slice((headerIndex >= 0 ? headerIndex : 0) + 1);
+  const hasHeader = (names: readonly string[]) =>
+    headerRow.some((cell) => names.some((name) => normHeader(String(cell ?? "")) === normHeader(name)));
+  const read = (row: unknown[], names: readonly string[]) => {
+    for (const name of names) {
+      const at = headerRow.findIndex((cell) => normHeader(String(cell ?? "")) === normHeader(name));
+      if (at >= 0) return row[at];
+    }
+    return "";
+  };
+  const lines: SheetLine[] = body
+    .map((row) => ({
+      sku: String(read(row, SHEET_FIELDS.sku) ?? "").trim(),
+      name: String(read(row, SHEET_FIELDS.name) ?? "").trim(),
+      category: String(read(row, SHEET_FIELDS.category) ?? "").trim() || "General",
+      stock: Math.max(0, Math.trunc(numCell(read(row, SHEET_FIELDS.stock)))),
+      unitCost: Math.max(0, Math.round(numCell(read(row, SHEET_FIELDS.unitCost)) * 100) / 100),
+      unit: String(read(row, SHEET_FIELDS.unit) ?? "").trim(),
+      reorderLevel: hasHeader(SHEET_FIELDS.reorderLevel)
+        ? Math.trunc(numCell(read(row, SHEET_FIELDS.reorderLevel))) || 0
+        : null,
+    }))
+    .filter((line) => line.sku && line.name);
+  return { lines, hasQuantityColumn: hasHeader(SHEET_FIELDS.stock) };
+};
+
 function ProcurementInventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
+  const [sort, setSort] = useState<SortState>({ key: "sku", dir: "asc" });
 
   const load = async () => {
     try {
@@ -83,9 +164,36 @@ function ProcurementInventoryPage() {
     );
   }, [items, query]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  /** Click a header to sort by it; click it again to turn the order around. */
+  const toggleSort = (key: SortKey) =>
+    setSort((current) => ({ key, dir: current.key === key && current.dir === "asc" ? "desc" : "asc" }));
+
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    const direction = sort.dir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      switch (sort.key) {
+        case "stock":
+          return (Number(a.stock) - Number(b.stock)) * direction;
+        case "unitCost":
+          return (Number(a.unitCost ?? 0) - Number(b.unitCost ?? 0)) * direction;
+        case "value":
+          return (valueOf(a) - valueOf(b)) * direction;
+        case "status":
+          return ((STATUS_RANK[statusOf(a)] ?? 3) - (STATUS_RANK[statusOf(b)] ?? 3)) * direction;
+        default:
+          return String(a[sort.key] ?? "").localeCompare(String(b[sort.key] ?? ""), "en", {
+            numeric: true,
+            sensitivity: "base",
+          }) * direction;
+      }
+    });
+    return list;
+  }, [filtered, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const rows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const rows = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const totalCost = filtered.reduce((sum, i) => sum + valueOf(i), 0);
   const priced = filtered.filter((i) => Number(i.unitCost ?? 0) > 0).length;
 
@@ -102,13 +210,22 @@ function ProcurementInventoryPage() {
             automatically. The store's own inventory never shows these figures.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setNewOpen(true)}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-[#1B2432] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#2A3547]"
-        >
-          <Plus className="h-4 w-4" /> Input New Inventory
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-2 rounded-[8px] border border-[#E2E5E9] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1B2432] hover:bg-[#F7F8FA]"
+          >
+            <FileSpreadsheet className="h-4 w-4" /> Import from Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => setNewOpen(true)}
+            className="inline-flex items-center gap-2 rounded-[8px] bg-[#1B2432] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#2A3547]"
+          >
+            <Plus className="h-4 w-4" /> Input New Inventory
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -140,13 +257,13 @@ function ProcurementInventoryPage() {
           <table className="w-full min-w-[820px] border-collapse">
             <thead>
               <tr className="text-left text-[11.5px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
-                <th className="py-3 pl-4 pr-3">Code</th>
-                <th className="py-3 pr-3">Description</th>
-                <th className="py-3 pr-3">Category</th>
-                <th className="py-3 pr-3 text-right">Qty</th>
-                <th className="py-3 pr-3 text-right">Unit price</th>
-                <th className="py-3 pr-3 text-right">Cost</th>
-                <th className="py-3 pr-3">Status</th>
+                <SortHeader label="Code" sortKey="sku" sort={sort} onSort={toggleSort} className="py-3 pl-4 pr-3" />
+                <SortHeader label="Description" sortKey="name" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
+                <SortHeader label="Category" sortKey="category" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
+                <SortHeader label="Qty" sortKey="stock" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Unit price" sortKey="unitCost" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Cost" sortKey="value" sort={sort} onSort={toggleSort} className="py-3 pr-3" align="right" />
+                <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="py-3 pr-3" />
                 <th className="w-[92px] py-3 pr-4" />
               </tr>
             </thead>
@@ -181,15 +298,7 @@ function ProcurementInventoryPage() {
                     {valueOf(item) > 0 ? formatNairaFull(valueOf(item)) : "—"}
                   </td>
                   <td className="py-3 pr-3">
-                    <StockChip
-                      status={
-                        Number(item.stock) <= 0
-                          ? "Out of Stock"
-                          : item.status === "Low Stock"
-                            ? "Low Stock"
-                            : "In Stock"
-                      }
-                    />
+                    <StockChip status={statusOf(item)} />
                   </td>
                   <td className="py-3 pr-4 text-right">
                     <button
@@ -240,6 +349,17 @@ function ProcurementInventoryPage() {
         </div>
       </CardShell>
 
+      {importOpen && (
+        <ImportInventoryModal
+          current={items}
+          onClose={() => setImportOpen(false)}
+          onDone={async (summary) => {
+            setImportOpen(false);
+            await load();
+            toast.success(summary);
+          }}
+        />
+      )}
       {newOpen && (
         <InventoryForm
           mode="new"
@@ -423,6 +543,281 @@ function InventoryForm({
           submitLabel={mode === "new" ? "Save and Upload to List" : "Save Changes"}
           busy={busy}
           onAction={save}
+        />
+      </div>
+    </ModalShell>
+  );
+}
+
+/** A column heading that sorts the shelf: one click for direction, again to reverse. */
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+  align,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: "right";
+}) {
+  const active = sort.key === sortKey;
+  const Icon = sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th className={`${className ?? ""} ${align === "right" ? "text-right" : ""}`}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        title={`Sort by ${label.toLowerCase()}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-[0.5px] transition-colors hover:text-[#1B2432] ${
+          active ? "text-[#1B2432]" : ""
+        } ${align === "right" ? "flex-row-reverse" : ""}`}
+      >
+        <span>{label}</span>
+        <Icon className={`h-3 w-3 ${active ? "opacity-100" : "opacity-30"}`} />
+      </button>
+    </th>
+  );
+}
+
+/**
+ * IMPORT FROM EXCEL — the buying desk's whole ledger, uploaded.
+ *
+ * The store's sheet (Part Number, Part Name, Unit, Currency, Unit Quantity,
+ * Cost, Category) is the one this maps. Quantity and unit price are read from
+ * the sheet, so pricing a 2,000-line shelf no longer means 2,000 clicks. A
+ * sheet without a quantity column is refused outright: importing it would set
+ * every line to zero.
+ */
+function ImportInventoryModal({
+  current,
+  onClose,
+  onDone,
+}: {
+  current: InventoryItem[];
+  onClose: () => void;
+  onDone: (summary: string) => Promise<void>;
+}) {
+  const [parsed, setParsed] = useState<
+    { name: string; size: number; lines: SheetLine[]; hasQuantityColumn: boolean } | null
+  >(null);
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const bySku = useMemo(() => {
+    const map = new Map<string, InventoryItem>();
+    for (const item of current) map.set(item.sku.trim().toUpperCase(), item);
+    return map;
+  }, [current]);
+
+  const take = async (list: FileList | null) => {
+    const file = list?.[0];
+    if (!file) return;
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      toast.error(`"${file.name}" is not a sheet. Upload an .xlsx, .xls or .csv file.`);
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error(`"${file.name}" is over the 20mb limit.`);
+      return;
+    }
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+      if (!sheet) throw new Error("empty workbook");
+      const { lines, hasQuantityColumn } = readSheetLines(sheet);
+      if (!lines.length) {
+        toast.error(
+          "No readable rows. The sheet needs a 'Part Number' and a 'Part Name' column.",
+        );
+        return;
+      }
+      setParsed({ name: file.name, size: file.size, lines, hasQuantityColumn });
+      if (!hasQuantityColumn) {
+        toast.error(
+          "This sheet has no quantity column — add 'Unit Quantity' so the upload cannot zero the shelf.",
+        );
+      }
+    } catch {
+      toast.error(`Could not read "${file.name}". Is it a valid Excel sheet?`);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ["Part Number", "Part Name", "Unit", "Currency", "Unit Quantity", "Cost", "Category"],
+      ["SP0001", "Air System Regulator", "PCS", "NGN", 0, 0, "SPARE PARTS"],
+      ["SP0003", "17mm Compressor Bolt", "PCS", "NGN", 7, 2142.86, "SPARE PARTS"],
+    ]);
+    sheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 18 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Inventory");
+    const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    const url = URL.createObjectURL(
+      new Blob([bytes], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "fleetopsx-inventory-template.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Template downloaded — fill it and upload it back here.");
+  };
+
+  const commit = async () => {
+    if (!parsed) {
+      toast.error("Attach the Excel sheet first.");
+      return;
+    }
+    if (!parsed.hasQuantityColumn) {
+      toast.error("Add a 'Unit Quantity' column to the sheet before importing.");
+      return;
+    }
+    setBusy(true);
+    const payload = parsed.lines.map((line) => {
+      const existing = bySku.get(line.sku.toUpperCase());
+      return {
+        sku: line.sku,
+        name: line.name,
+        category: line.category,
+        stock: line.stock,
+        reorderLevel: line.reorderLevel ?? existing?.reorderLevel ?? 5,
+        unitCost: line.unitCost,
+      };
+    });
+    let created = 0;
+    let updated = 0;
+    try {
+      for (let at = 0; at < payload.length; at += 200) {
+        const result = await inventoryService.importItems(payload.slice(at, at + 200));
+        created += Number(result.created ?? 0);
+        updated += Number(result.updated ?? 0);
+      }
+      await onDone(
+        `${created.toLocaleString("en-NG")} line(s) added, ${updated.toLocaleString("en-NG")} updated from ${parsed.name}.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The upload did not land.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="Import Inventory from Excel"
+      subtitle="Quantity and unit price per line, straight from the stock sheet"
+      onClose={onClose}
+      width="max-w-[720px]"
+    >
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          void take(e.dataTransfer.files);
+        }}
+        className={`flex flex-col items-center gap-3 rounded-[10px] border-2 border-dashed px-5 py-7 text-center ${
+          dragging ? "border-[#C6432A] bg-[#FDF2F1]" : "border-[#E2E5E9] bg-white"
+        }`}
+      >
+        <div className="grid size-10 place-items-center rounded-full border border-[#E2E5E9] text-[#1B2432]">
+          <FileSpreadsheet className="size-4" />
+        </div>
+        <p className="text-[13.5px] text-[#1B2432]">Drag &amp; drop the stock sheet here</p>
+        <div className="flex items-center gap-3 text-[11.5px] text-[#9AA2AC]">
+          <span className="h-px w-16 bg-[#E9ECF0]" /> OR <span className="h-px w-16 bg-[#E9ECF0]" />
+        </div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="h-[36px] rounded-[8px] bg-[#1B2432] px-4 text-[13px] font-medium text-white hover:bg-[#2A3849]"
+        >
+          Browse File
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          hidden
+          onChange={(e) => {
+            void take(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <p className="text-[12px] text-[#8A94A3]">
+          Columns matched: Part Number · Part Name · Unit · Currency · Unit Quantity · Cost · Category
+        </p>
+        <button
+          type="button"
+          onClick={downloadTemplate}
+          className="text-[12px] font-semibold text-[#C6432A] underline decoration-dotted underline-offset-2"
+        >
+          Download the template
+        </button>
+      </div>
+
+      {parsed && (
+        <div className="mt-3 overflow-hidden rounded-[8px] border border-[#E2E5E9]">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F7F8FA] px-4 py-2.5">
+            <p className="min-w-0 truncate text-[13px] font-medium text-[#1B2432]">{parsed.name}</p>
+            <p className="text-[11.5px] text-[#5C6470]">
+              {(parsed.size / 1024).toFixed(0)} KB · {parsed.lines.length.toLocaleString("en-NG")} line(s)
+            </p>
+          </div>
+          <table className="w-full border-collapse text-[12px]">
+            <thead>
+              <tr className="text-left text-[10.5px] uppercase tracking-[0.4px] text-[#7C8794]">
+                <th className="px-4 py-2">Code</th>
+                <th className="px-2 py-2">Description</th>
+                <th className="px-2 py-2">Category</th>
+                <th className="px-2 py-2 text-right">Qty</th>
+                <th className="px-4 py-2 text-right">Unit price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parsed.lines.slice(0, 5).map((line) => (
+                <tr key={line.sku} className="border-t border-[#EFF1F4]">
+                  <td className="px-4 py-2 font-semibold text-[#1B2432]">{line.sku}</td>
+                  <td className="max-w-[220px] truncate px-2 py-2 text-[#5C6470]">{line.name}</td>
+                  <td className="px-2 py-2 text-[#5C6470]">{line.category}</td>
+                  <td className="px-2 py-2 text-right text-[#1B2432]">
+                    {line.stock.toLocaleString("en-NG")}
+                  </td>
+                  <td className="px-4 py-2 text-right text-[#1B2432]">
+                    {line.unitCost > 0 ? formatNairaFull(line.unitCost) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="border-t border-[#EFF1F4] bg-[#FFF8E6] px-4 py-2 text-[11.5px] text-[#7A5B12]">
+            {parsed.lines.length > 5
+              ? `+ ${(parsed.lines.length - 5).toLocaleString("en-NG")} more line(s). `
+              : ""}
+            Lines already on the shelf are matched by Part Number — the sheet's quantity and unit price
+            replace what is there.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <ModalActions
+          onCancel={onClose}
+          submitLabel={parsed ? `Import ${parsed.lines.length.toLocaleString("en-NG")} line(s)` : "Import"}
+          busy={busy}
+          onAction={commit}
         />
       </div>
     </ModalShell>

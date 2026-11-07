@@ -3937,20 +3937,32 @@ app.post('/api/inventory/import', authenticate, authorize(...INVENTORY_WRITE_ROL
       skipped.push(name || sku || 'a row with no name or SKU');
       continue;
     }
+    const existing = await prisma.inventoryItem.findUnique({ where: { sku } });
     const stock = Math.trunc(Number(row.stock ?? 0)) || 0;
-    const reorderLevel = Math.trunc(Number(row.reorderLevel ?? 5)) || 0;
+    const rawReorder = row.reorderLevel;
+    const reorderLevel =
+      rawReorder === undefined || rawReorder === null || String(rawReorder).trim() === ''
+        ? (existing?.reorderLevel ?? 5)
+        : Math.trunc(Number(rawReorder)) || 0;
+    const text = (value: unknown) => String(value ?? '').trim();
     const data = {
       name,
-      category: String(row.category || 'General').trim() || 'General',
+      // A sheet that omits a column never erases what the shelf already knows:
+      // only the values it actually carries are written.
+      category: text(row.category) || existing?.category || 'General',
       stock,
       reorderLevel,
-      unitCost: Number(row.unitCost ?? 0) || 0,
-      location: String(row.location || 'Main Store').trim() || 'Main Store',
-      supplier: String(row.supplier || '').trim(),
-      vehicleCompatibility: String(row.vehicleCompatibility || row.compatibility || '').trim(),
+      // The money side belongs to Procurement / TM. A cost-blind upload (the
+      // store's) keeps the price the shelf already had instead of zeroing it.
+      unitCost: userSeesCost(req)
+        ? (Number(row.unitCost ?? 0) || 0)
+        : (existing?.unitCost ?? 0),
+      location: text(row.location) || existing?.location || 'Main Store',
+      supplier: text(row.supplier) || existing?.supplier || '',
+      vehicleCompatibility:
+        text(row.vehicleCompatibility ?? row.compatibility) || existing?.vehicleCompatibility || '',
       status: inventoryStatus(stock, reorderLevel),
     };
-    const existing = await prisma.inventoryItem.findUnique({ where: { sku } });
     if (existing) {
       await prisma.inventoryItem.update({ where: { sku }, data });
       updated += 1;
