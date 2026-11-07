@@ -206,12 +206,6 @@ function ProcurementInventoryPage() {
           <h1 className="text-[26px] font-semibold leading-tight text-[#1B2432]">
             Procurement Inventory
           </h1>
-          <p className="mt-1 max-w-[620px] text-[13px] leading-[19px] text-[#5C6470]">
-            The same shelf the store works, with the money on it — in the stock sheet's
-            own words: Part Number, Part Name, Category, Unit Quantity and Cost. Cost is what
-            one unit costs; Stock Value is the quantity times that cost. Import the .xlsx
-            to fill all of it in one go, or set a line's cost by hand.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -773,7 +767,6 @@ function ImportInventoryModal({
   return (
     <ModalShell
       title="Import Inventory from Excel"
-      subtitle="Quantity and unit price per line, straight from the stock sheet"
       onClose={onClose}
       width="max-w-[720px]"
     >
@@ -869,8 +862,7 @@ function ImportInventoryModal({
             {parsed.lines.length > 5
               ? `+ ${(parsed.lines.length - 5).toLocaleString("en-NG")} more line(s). `
               : ""}
-            Lines already on the shelf are matched by Part Number — the sheet's quantity and unit price
-            replace what is there.
+            Existing Part Numbers are updated.
           </p>
         </div>
       )}

@@ -856,10 +856,6 @@ function MaintenanceReportView({
         <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">
           Standardized Fleet Maintenance Report
         </h2>
-        <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-          Official maintenance report for truck heads and tails, formatted with details, diagnostic,
-          timestamps and resolve date.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[440px_1fr]">
@@ -1075,10 +1071,6 @@ function HoeReviewDesk({
         <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
           Head of Engineering Approval
         </h3>
-        <p className="mt-1 text-[12.5px] text-[#8E95A1]">
-          Requests the workshop raised, waiting on this desk before the Transport Manager authorises
-          them
-        </p>
       </div>
 
       {empty ? (

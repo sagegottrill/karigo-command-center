@@ -205,7 +205,6 @@ function StoreInventoryPage() {
     <>
       <StorePageShell
         title="Store Inventory"
-        subtitle="Upload and monitor stock level and unit pricing of spare parts, lubricants, tires, rims, and batteries."
         actions={
           <>
             <button

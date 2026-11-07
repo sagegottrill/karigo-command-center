@@ -158,10 +158,6 @@ function AuditTrailPage() {
       {/* Page head — the same calm custody-desk framing every admin page opens with */}
       <div className="mb-5 flex flex-col gap-1">
         <h1 className="text-[20px] font-semibold tracking-[0.2px] text-[#1B2432]">Audit Trail</h1>
-        <p className="text-[13px] text-[#5C6470]">
-          Every change, every actor, every sign-in — recorded server-side, categorized, and
-          searchable here. The trail itself is read-only by design.
-        </p>
       </div>
 
       {/* Tabs */}

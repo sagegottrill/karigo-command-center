@@ -263,10 +263,6 @@ function InventoryDesk() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Inventory Desk</h2>
-            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              the physical half of the parts loop — pick, sign, hand over; flag what the shelf
-              cannot cover
-            </p>
             {!canWork ? (
               <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                 View only — the store floor and Head of Inventory work this board
@@ -347,10 +343,6 @@ function InventoryDesk() {
           <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="flex flex-col gap-1">
               <h3 className="text-[16px] font-medium text-[#1B2432]">Pending handoffs</h3>
-              <p className="text-[12px] text-[#5C6470]">
-                Approved tickets in the order they were raised — a flag pauses the truck until
-                procurement restocks
-              </p>
             </div>
             <div className="relative ml-auto w-full max-w-[320px]">
               <Search
@@ -530,9 +522,7 @@ function InventoryDesk() {
                 Handoff — {signing.part} ×{signing.quantity.toLocaleString("en-NG")}
               </h3>
               <p className="mt-1 text-[12px] text-[#5C6470]">
-                {truckLine(signing.truckReg)} · mechanic {signing.mechanic || "unassigned"}. On
-                Complete Handoff the stock is deducted at weighted-average cost and the value posts
-                to this truck's maintenance file.
+                {truckLine(signing.truckReg)} · mechanic {signing.mechanic || "unassigned"}
               </p>
             </div>
             <SignaturePad onChange={setSignature} />
@@ -573,10 +563,6 @@ function InventoryDesk() {
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
                 Inbound stock — goods receipt
               </h3>
-              <p className="mt-1 text-[12px] text-[#5C6470]">
-                Receiving stock re-prices the line at weighted average — never at the last price —
-                and resumes any handoff the delivery covers.
-              </p>
             </div>
             <label className="flex flex-col gap-1.5">
               <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
@@ -682,8 +668,7 @@ function InventoryDesk() {
                 Count — {reconFor.name}
               </h3>
               <p className="mt-1 text-[12px] text-[#5C6470]">
-                Book says {reconFor.stock.toLocaleString("en-NG")}. A disagreement is filed as a variance flag to you and
-                the Transport Manager — it cannot be quietly absorbed.
+                Book says {reconFor.stock.toLocaleString("en-NG")}.
               </p>
             </div>
             <label className="flex flex-col gap-1.5">

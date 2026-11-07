@@ -207,9 +207,6 @@ export function TmVouchers() {
         <h2 className="text-[22px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[26px]">
           Direct Cost Vouchers
         </h2>
-        <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-          Manage direct cost disbursal to trucks.
-        </p>
       </div>
 
       {/* The day's commitments, by the six things a dispatch can be paid. */}

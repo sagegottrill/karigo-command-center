@@ -56,7 +56,7 @@ function ReportCard({
   onExport,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: React.ReactNode;
   /** The Excel-style totals row printed under the table. */
   summary?: React.ReactNode;
@@ -67,7 +67,7 @@ function ReportCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-[3px]">
           <h3 className="text-[18px] font-semibold tracking-[0.4px] text-[#1B2432]">{title}</h3>
-          <p className="text-[12px] text-[#5C6470]">{subtitle}</p>
+          {subtitle ? <p className="text-[12px] text-[#5C6470]">{subtitle}</p> : null}
         </div>
         {onExport ? (
           <button
@@ -586,7 +586,6 @@ function AnalyticsPage() {
 
           <ReportCard
             title="Lifecycle Mix"
-            subtitle="Where every dispatch in the window stands, with the money and litres in each stage"
             onExport={exportStatus}
           >
             <Table columns={["Stage", "Dispatches", "Direct cost", "Dispensed"]}>
@@ -758,7 +757,6 @@ function AnalyticsPage() {
 
           <ReportCard
             title="Fuel & Tank"
-            subtitle="What was dispensed, what was delivered into the tank, and what stands"
             summary={fuelSummary}
           >
             <Table

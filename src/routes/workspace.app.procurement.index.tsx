@@ -247,9 +247,6 @@ function ProcurementPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-[#1B2432]">Procurement</h1>
-          <p className="mt-1 text-[13px] text-[#6B7788]">
-            Every desk's buying request in one inbox — received stock lands on the shelf at the price actually paid, with the receipt kept against the PO.
-          </p>
         </div>
         <div className="flex gap-2">
           <Stat label="Open requests" value={open.length} />
@@ -528,7 +525,7 @@ function PriceHistory({ rows }: { rows: Purchase[] }) {
 
 function Documents({ rows, onOpen, requests }: { rows: Doc[]; onOpen: (id: string) => void; requests: Po[] }) {
   const poRef = (id?: string | null) => requests.find((r) => r.id === id)?.linkedId || "—";
-  if (!rows.length) return <p className="px-4 py-10 text-center text-[13px] text-[#6B7788]">No documents yet. Received purchases file their receipt here, and Upload document takes one on its own.</p>;
+  if (!rows.length) return <p className="px-4 py-10 text-center text-[13px] text-[#6B7788]">No documents yet.</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse text-left">
@@ -680,7 +677,7 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
           </select>
         </Field>
         <Field label="Quantity received"><input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" className={inputCls} /></Field>
-        <Field label="Unit cost (₦)" hint="The price actually paid — it sets the shelf's weighted average.">
+        <Field label="Unit cost (₦)" hint="Price actually paid.">
           <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" className={inputCls} placeholder="e.g. 18500" />
         </Field>
         <Field label="Vendor">
@@ -693,7 +690,7 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-[12px] font-semibold text-[#1B2432]">Proof of purchase</p>
-            <p className="text-[11px] text-[#6B7788]">Receipt, invoice, waybill or bill of lading — PDF, JPEG or PNG. Scans are shrunk to a readable size before they are stored.</p>
+            <p className="text-[11px] text-[#6B7788]">PDF, JPEG or PNG.</p>
           </div>
           <div className="flex items-center gap-2">
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-8 rounded-lg border border-[#E2E8F0] bg-white px-2 text-[11.5px]">
@@ -790,7 +787,7 @@ function UploadDocumentModal({ requests, vendors, onClose, onDone }: { requests:
   return (
     <Modal
       title="Upload document"
-      subtitle="A receipt, invoice, waybill or bill of lading — attached to a PO, or filed on its own."
+      subtitle="PDF, JPEG or PNG."
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -974,7 +971,6 @@ function RaiseModal({ items, vendors, onClose, onDone }: { items: Item[]; vendor
   return (
     <Modal
       title="Raise a purchase"
-      subtitle="A part, a one-off for a truck, or the TM's strategic order — it lands in the inbox under the desk that asked."
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">

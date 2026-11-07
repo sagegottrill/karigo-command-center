@@ -216,7 +216,6 @@ function IssueHistoryPage() {
     <>
       <StorePageShell
         title="Requests Issue History"
-        subtitle="Every part the store floor dispensed — the day it left the shelf and the truck that took it."
       >
         <CardShell className="px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -420,7 +419,6 @@ function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => v
 
       <ModalShell
         title="Parts issue Report"
-        subtitle="The store's dispense record for one handoff"
         onClose={onClose}
         width="max-w-[540px]"
       >

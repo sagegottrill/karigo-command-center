@@ -1676,10 +1676,6 @@ function AnalyticsBoard({
         <h2 className="text-[22px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432] md:text-[26px]">
           Analytics
         </h2>
-        <p className="text-[11px] uppercase tracking-[0.4px] text-[#5C6470]">
-          The department's money as pictures — every chart reads the same filtered figures, so the
-          pictures can never disagree.
-        </p>
       </div>
 
       {/* The filter rack. */}

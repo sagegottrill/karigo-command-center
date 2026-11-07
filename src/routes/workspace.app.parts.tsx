@@ -725,10 +725,6 @@ function PartsAndStore() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-[5px]">
             <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Parts &amp; Store</h2>
-            <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
-              the shelf the workshop draws from, and every part it has asked the Transport Manager
-              to approve
-            </p>
             {!canEdit && (
               <span className="mt-1 w-fit rounded bg-[#F1F2F4] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
                 View only — Engineering &amp; Maintenance maintains the store
@@ -1083,11 +1079,6 @@ function PartsAndStore() {
           <div className="mb-4 flex flex-wrap items-center gap-5 border-b border-[#E2E5E9] pb-5">
             <div className="flex flex-col gap-1">
               <h3 className="text-[16px] font-medium text-[#1B2432]">Released from the store</h3>
-              <p className="text-[12px] text-[#5C6470]">
-                Goods consumed by the workshop, rolled up part by part — the releases, the
-                units signed out and what each part cost the fleet · same window as the
-                requests above
-              </p>
             </div>
             <PeriodFilter
               value={requestPeriod}
@@ -1480,10 +1471,6 @@ function PartsAndStore() {
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
                 {editing ? "Edit part" : "Add a part to the store"}
               </h3>
-              <p className="mt-1 text-[12px] text-[#5C6470]">
-                The unit cost prices every request raised against this line, and the stock is what
-                approval draws down.
-              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1554,10 +1541,6 @@ function PartsAndStore() {
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
                 Import the store's Excel ledger
               </h3>
-              <p className="mt-1 text-[12px] text-[#5C6470]">
-                One upload, however many lines. The .xlsx is read in the browser, shown back here
-                for a look, then saved — existing SKUs are updated in place, new SKUs are created.
-              </p>
             </div>
 
             {!importRows ? (
@@ -1683,10 +1666,6 @@ function PartsAndStore() {
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
                 Record purchase — {purchasing.name}
               </h3>
-              <p className="mt-1 text-[12px] text-[#5C6470]">
-                Stock in from a vendor. The price you enter becomes the line's unit cost, and the
-                vendor is remembered for the next reorder.
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded bg-[#F1F2F4] px-3 py-2 text-[13px] text-[#5C6470]">
@@ -1810,10 +1789,6 @@ function PartsAndStore() {
               <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">
                 {historyFor.name} — movement history
               </h3>
-              <p className="mt-1 text-[12px] text-[#5C6470]">
-                Every recorded movement of this line: where each unit came from, what was paid for
-                it, and which truck drew it out.
-              </p>
             </div>
 
             {historyRows === null ? (

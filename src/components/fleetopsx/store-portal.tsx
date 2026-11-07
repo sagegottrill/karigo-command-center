@@ -38,8 +38,8 @@ export function StorePageShell({
 }: {
   /** The h1 headline — exactly as the approved frame words it. */
   title: string;
-  /** The uppercase one-liner under the headline. */
-  subtitle: string;
+  /** The uppercase one-liner under the headline; omitted when the page needs none. */
+  subtitle?: string;
   /** Right-hand action buttons; omitted when the page is report-only. */
   actions?: ReactNode;
   /** The page's cards/tables, mounted under the headline block. */
@@ -52,9 +52,11 @@ export function StorePageShell({
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-[280px]">
             <h1 className="text-[26px] font-semibold tracking-[0.4px] text-[#1B2432]">{title}</h1>
-            <p className="mt-1 max-w-[520px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
-              {subtitle}
-            </p>
+            {subtitle ? (
+              <p className="mt-1 max-w-[520px] text-[12.5px] font-medium uppercase leading-[18px] tracking-[0.4px] text-[#9AA2AC]">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
           {actions ? (
             <div className="flex flex-wrap items-center justify-end gap-3">{actions}</div>

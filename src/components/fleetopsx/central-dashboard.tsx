@@ -252,7 +252,7 @@ function SectionHeader({
 }: {
   icon: typeof ClipboardList;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children?: React.ReactNode;
 }) {
   return (
@@ -266,9 +266,11 @@ function SectionHeader({
             <h2 className="text-[19px] font-semibold leading-6 tracking-[0.2px] text-[#1B2432] md:text-[21px]">
               {title}
             </h2>
-            <p className="mt-1 text-[10px] font-medium uppercase leading-4 tracking-[0.6px] text-[#8E95A1]">
-              {subtitle}
-            </p>
+            {subtitle ? (
+              <p className="mt-1 text-[10px] font-medium uppercase leading-4 tracking-[0.6px] text-[#8E95A1]">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
         </div>
         {children ? (
@@ -2107,7 +2109,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={ClipboardList}
           title="Partner Requests"
-          subtitle="Dispatch demand pipeline, pending cost & lubricant commitments, dispatch and decline audit"
         >
           <PeriodNote>{range.note}</PeriodNote>
           <AuditButton onClick={() => setAudit("requests")} />
@@ -2298,10 +2299,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
                 <p className="py-3 text-[12px] text-white/60">No truck is on the road right now.</p>
               ) : (
                 <>
-                  <p className="pb-2 text-[10px] leading-4 text-white/50">
-                    Live fleet — every request, whenever it was raised. A truck on the road today is
-                    a live fact, not one that belongs to the selected window.
-                  </p>
                   {stats.requests.lists.live.map(dispatchedRow)}
                 </>
               )}
@@ -2413,7 +2410,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Wallet}
           title="Cost Overview"
-          subtitle="Cost = disbursed road expense + dispensed diesel + gas · Indirect = external labour + store issues (spare parts, tyres, lubricant, battery, rim) · today and this window"
         >
           <PeriodNote>{range.note}</PeriodNote>
         </SectionHeader>
@@ -2570,7 +2566,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Navigation}
           title="Fleet Registry (Truck Head & Truck Tail)"
-          subtitle="Active personnel headcount, immediate dispatch availability, in-transit drivers & approved leave · live now, not the selected period"
         >
           <ToneTabs
             tabs={FLEET_SEGMENTS.map((s) => ({
@@ -2703,7 +2698,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={Users}
           title="Staff Registry (Driver Roster)"
-          subtitle="Active driver headcount, immediate dispatch availability, in-transit drivers & approved leave · live now, not the selected period"
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <LiveMetricTile
@@ -2760,7 +2754,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
         <SectionHeader
           icon={MapPinned}
           title="Dispatch Live Tracking"
-          subtitle="Live tracking telemetry, location progress checkpoints and driver telemetry"
         />
 
         <div className={cn("rounded-[10px] bg-white p-4 md:p-5", CARD_SHADOW)}>
@@ -3738,11 +3731,6 @@ export function CentralDashboard({ data }: { data: OverviewData }) {
           </div>
         ) : gateAuditTab === "exit" ? (
           <div className="flex flex-col gap-4">
-            <p className="text-[13px] text-[#5C6470]">
-              Dispatches the Transport Manager has released but the gate has not logged out. Waiting
-              is measured from the moment of release, so the queue cannot be mistaken for a delay
-              caused by dispatch.
-            </p>
             {sec.pendingExits.list.length === 0 ? (
               <p className="py-4 text-center text-[13px] text-[#8E95A1]">
                 Every released dispatch has been logged out.
