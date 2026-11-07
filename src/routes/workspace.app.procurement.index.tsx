@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Download, FileText, Plus, Trash2, X } from "lucide-react";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
 import { authService } from "@/lib/fleetopsx/services";
+import { formatBytes, prepareDocument } from "@/lib/fleetopsx/scan-document";
 
 /**
  * PROCUREMENT — the buying desk (PRD, Nov 2026).
@@ -41,7 +42,16 @@ type Item = { id: string; sku: string; name: string; category: string; stock: nu
 type Vendor = { id: string; name: string; contactName?: string | null; phone?: string | null; email?: string | null; location?: string | null; notes?: string | null; status?: string };
 type Doc = { id: string; procurementId?: string | null; kind: string; fileName: string; mimeType: string; size: number; vendor?: string | null; uploadedBy?: string | null; createdAt: string };
 type Purchase = { id: string; sku: string; itemName: string; vendor?: string | null; unitCost?: number | null; quantity: number; value?: number | null; actedAt: string; reference?: string | null };
-type Upload = { kind: string; fileName: string; mimeType: string; dataUrl: string };
+type Upload = {
+  kind: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  /** What this attachment costs storage after shrinking. */
+  bytes?: number;
+  /** What it arrived as, when the browser shrank it. */
+  originalBytes?: number;
+};
 
 const ROLES = [
   "Procurement",
@@ -576,15 +586,24 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
     if (!list) return;
     const next: Upload[] = [];
     for (const f of Array.from(list)) {
-      if (!["application/pdf", "image/png", "image/jpeg"].includes(f.type)) { toast.error(`${f.name} is not a PDF, JPEG or PNG.`); continue; }
-      if (f.size > 2_500_000) { toast.error(`${f.name} is over 2.5 MB.`); continue; }
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = reject;
-        r.readAsDataURL(f);
-      });
-      next.push({ kind, fileName: f.name, mimeType: f.type, dataUrl });
+      try {
+        // A scan arrives as camera pixels; the page is all the desk needs, so
+        // the browser shrinks it here and the database stores the readable one.
+        const doc = await prepareDocument(f);
+        next.push({
+          kind,
+          fileName: doc.fileName,
+          mimeType: doc.mimeType,
+          dataUrl: doc.dataUrl,
+          bytes: doc.bytes,
+          originalBytes: doc.originalBytes,
+        });
+        if (doc.compressed) {
+          toast.success(`${f.name} shrunk from ${formatBytes(doc.originalBytes)} to ${formatBytes(doc.bytes)}.`);
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : `${f.name} could not be attached.`);
+      }
     }
     setFiles((prev) => [...prev, ...next].slice(0, 6));
     if (fileRef.current) fileRef.current.value = "";
@@ -602,7 +621,10 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
     try {
       await fetchApi(`/procurement/${po.id}/receive`, {
         method: "POST",
-        body: JSON.stringify({ name, sku: sku || name, category, quantity: qtyNum, unitCost: costNum, vendor, note, documents: files }),
+        body: JSON.stringify({
+          name, sku: sku || name, category, quantity: qtyNum, unitCost: costNum, vendor, note,
+          documents: files.map(({ kind: k, fileName, mimeType, dataUrl }) => ({ kind: k, fileName, mimeType, dataUrl })),
+        }),
       });
       toast.success(`${name} received — the shelf and ledger are updated.`);
       onDone();
@@ -657,7 +679,7 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-[12px] font-semibold text-[#1B2432]">Proof of purchase</p>
-            <p className="text-[11px] text-[#6B7788]">Receipt, invoice, waybill or bill of lading — PDF, JPEG or PNG, up to 2.5 MB each.</p>
+            <p className="text-[11px] text-[#6B7788]">Receipt, invoice, waybill or bill of lading — PDF, JPEG or PNG. Scans are shrunk to a readable size before they are stored.</p>
           </div>
           <div className="flex items-center gap-2">
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-8 rounded-lg border border-[#E2E8F0] bg-white px-2 text-[11.5px]">
@@ -671,7 +693,11 @@ function ReceiveModal({ po, vendors, onClose, onDone }: { po: Po; vendors: Vendo
           <ul className="mt-2 space-y-1">
             {files.map((f, i) => (
               <li key={`${f.fileName}-${i}`} className="flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] text-[#41556B]">
-                <span className="flex items-center gap-1.5"><FileText className="size-3.5 text-[#8896A6]" />{f.fileName}<span className="text-[#8896A6]">· {f.kind}</span></span>
+                <span className="flex items-center gap-1.5">
+                  <FileText className="size-3.5 text-[#8896A6]" />{f.fileName}
+                  <span className="text-[#8896A6]">· {f.kind}</span>
+                  {f.bytes ? <span className="text-[#8896A6]">· {formatBytes(f.bytes)}</span> : null}
+                </span>
                 <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-[#B42318]">Remove</button>
               </li>
             ))}
