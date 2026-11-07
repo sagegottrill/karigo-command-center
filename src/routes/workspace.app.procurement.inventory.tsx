@@ -131,7 +131,7 @@ function ProcurementInventoryPage() {
               setQuery(e.target.value);
               setPage(0);
             }}
-            placeholder="Search code, name or shelf"
+            placeholder="Search code, name or category"
             className="w-[260px] rounded-[8px] border border-[#E2E5E9] bg-white px-3 py-2 text-[13px] text-[#1B2432] outline-none focus:border-[#C9CFD8]"
           />
         </div>
@@ -142,7 +142,7 @@ function ProcurementInventoryPage() {
               <tr className="text-left text-[11.5px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
                 <th className="py-3 pl-4 pr-3">Code</th>
                 <th className="py-3 pr-3">Description</th>
-                <th className="py-3 pr-3">Shelf</th>
+                <th className="py-3 pr-3">Category</th>
                 <th className="py-3 pr-3 text-right">Qty</th>
                 <th className="py-3 pr-3 text-right">Unit price</th>
                 <th className="py-3 pr-3 text-right">Cost</th>
@@ -370,7 +370,7 @@ function InventoryForm({
             placeholder="e.g. 10mm Washer"
           />
         </ModalField>
-        <ModalField label="Shelf / Category:">
+        <ModalField label="Category:">
           <input
             className={inputClass}
             value={category}
