@@ -48,6 +48,36 @@ export function isEngineeringManager() {
   return authService.getRoles().some((r: any) => ENGINEERING_MANAGER_ROLES.includes(r));
 }
 
+/**
+ * Who may RAISE a part / lubricant request.
+ *
+ * The Head of Engineering and the Engineering Manager decide the requests, so
+ * they do not raise the ones they sign off — the server refuses their create
+ * calls. The board must not offer them the button either: it used to, and the
+ * submit died as a 403 with nothing landing on the HOE desk (or any other).
+ */
+export const ENGINEERING_RAISE_ROLES = [
+  "Engineering",
+  "Engineering & Maintenance",
+  "Engineering and Maintenance",
+  "Platform Admin",
+  "Transport Manager",
+  "Fleet Operations",
+  "Fleet Field Ops",
+  "Fleet Field Operations",
+  // The desks that can open the Parts & Inventory board raise through it too —
+  // their ask walks the same HOE → TM → store chain.
+  "Parts & Store",
+  "Parts and Store",
+  "Inventory",
+  "Procurement",
+];
+
+export function rolesCanRaiseRequests() {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => ENGINEERING_RAISE_ROLES.includes(r));
+}
+
 export function rolesCanWorkOnTrucks() {
   if (typeof window === "undefined") return false;
   return authService.getRoles().some((r: any) => ENGINEERING_OWNER_ROLES.includes(r));

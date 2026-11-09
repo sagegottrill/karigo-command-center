@@ -41,7 +41,7 @@ import {
 } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 import { csvRow } from "@/lib/fleetopsx/csv";
-import { hasAssignment, queueOrder, queueOrderFifo } from "@/lib/fleetopsx/status-buckets";
+import { hasAssignment, queueOrder } from "@/lib/fleetopsx/status-buckets";
 import type { Driver, Trip, TruckHead, TruckTail } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -163,11 +163,13 @@ function fleetStatusOf(trip: Trip): FleetStatus {
 /**
  * The order the TM reads this table in: the dispatch sitting on HIS approval
  * (amber) first, then what Fleet Ops still has to schedule, then what is already
- * on the board. Finished and rejected work sinks to the bottom. Inside the
- * waiting ranks the queue runs OLDEST FIRST — first in, first served — so a
- * request raised on the 24th can never sit below one raised on the 28th (the
- * client's explicit rule); moving and closed ranks run newest first. See the
- * sort on `listing` below.
+ * on the board. Finished and rejected work sinks to the bottom.
+ *
+ * INSIDE EVERY RANK: NEWEST FIRST. The client reversed the old FIFO rule on the
+ * waiting ranks (9 Nov 2026) — "the last one registered by the fleet operation
+ * team should come on top" — and the page holds 20 rows, so a request that has
+ * just landed must not be pushed under everything already handled. See the sort
+ * on `listing` below.
  */
 const FLEET_QUEUE_RANK: Record<string, number> = {
   "Awaiting Approval": 0,
@@ -368,19 +370,14 @@ function FleetDispatchRequests() {
     () =>
       trips
         .filter((t) => isDispatchRequest(t))
-        .sort((a, b) => {
-          const rankA = fleetQueueRank(a);
-          const rankB = fleetQueueRank(b);
-          // Still waiting on a person (Awaiting Approval, then Approved)? The
-          // queue is served FIFO — oldest request on top — so the long-standing
-          // row is always the next one the TM actions. Everything already moving
-          // or closed stays newest-first: the row you just closed stays in view.
-          const order =
-            rankA === rankB && rankA <= (FLEET_QUEUE_RANK.Approved ?? 5)
-              ? queueOrderFifo
-              : queueOrder;
-          return order({ rank: rankA, at: a.createdAt }, { rank: rankB, at: b.createdAt });
-        }),
+        .sort((a, b) =>
+          // One rule for every rank, waiting rows included: the newest dispatch
+          // registered is the one at the top (client, 9 Nov 2026).
+          queueOrder(
+            { rank: fleetQueueRank(a), at: a.createdAt },
+            { rank: fleetQueueRank(b), at: b.createdAt },
+          ),
+        ),
     [trips],
   );
 

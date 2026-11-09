@@ -29,6 +29,7 @@ import {
   ENGINEERING_ACCESS_ROLES,
   indexWorkOrdersByTruck,
   isEngineeringManager,
+  rolesCanRaiseRequests,
   rolesCanWorkOnTrucks,
   truckLabel,
 } from "@/lib/fleetopsx/engineering-helpers";
@@ -139,6 +140,8 @@ function EngineeringRequestsPage() {
     .getRoles()
     .some((r: string) => ["Transport Manager", "Platform Admin"].includes(r));
   const canWork = authService.getRoles().some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r));
+  // Raising is the workshop's job; the HOE seat only decides what arrives.
+  const canRaise = rolesCanRaiseRequests();
   // The HOE approval desk belongs to the Engineering Manager's account. The
   // workshop role keeps its raise/inspect work; the Platform Admin reads the
   // whole department as supervisor, so it decides everywhere.
@@ -199,8 +202,17 @@ function EngineeringRequestsPage() {
     [fuel],
   );
 
-  /** The head of engineering's queue: what is still Awaiting HOE Review. */
-  const hoeParts = useMemo(() => groups.filter((g) => g.stage === "Awaiting HOE Review"), [groups]);
+  /**
+   * The head of engineering's queue: what is still Awaiting HOE Review, the
+   * request registered last on top so the newest ask is the one he reads first.
+   */
+  const hoeParts = useMemo(
+    () =>
+      groups
+        .filter((g) => g.stage === "Awaiting HOE Review")
+        .sort((a, b) => String(b.date).localeCompare(String(a.date))),
+    [groups],
+  );
   const hoeLube = useMemo(() => engFuel.filter((f) => f.status === "Requested"), [engFuel]);
 
   /** The Figma queue: only the group the TM authorises — with a real target. */
@@ -684,7 +696,8 @@ function EngineeringRequestsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={!canWork}
+            disabled={!canRaise}
+            title={canRaise ? undefined : "Requests are raised by the workshop — this seat reviews them"}
             onClick={() => setLubeForm(true)}
             className="h-10 rounded bg-[#1B2432] px-4 text-[14px] font-medium text-white hover:bg-[#2a3547] disabled:opacity-40"
           >
@@ -692,7 +705,8 @@ function EngineeringRequestsPage() {
           </button>
           <button
             type="button"
-            disabled={!canWork}
+            disabled={!canRaise}
+            title={canRaise ? undefined : "Requests are raised by the workshop — this seat reviews them"}
             onClick={() => setPartsForm(true)}
             className="h-10 rounded bg-[#ED351D] px-4 text-[14px] font-medium text-white hover:bg-[#d62e19] disabled:opacity-40"
           >

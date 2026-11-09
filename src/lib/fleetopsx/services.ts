@@ -1157,26 +1157,38 @@ export const inventoryService = {
       asList(res as any).map(mapInventoryRequisition),
     ),
   /**
-   * The workshop asking the store for a part against a job.
+   * A part request raised outside the workshop's own board — the Parts &
+   * Inventory desk (Fleet Operations, the store, or the TM asking on a job).
+   *
+   * It travels the SAME chain the engineering board uses: the line is written
+   * as a one-line group onto the Head of Engineering's desk (Awaiting HOE
+   * Review), never straight into the store's or the TM's queue. It used to post
+   * the legacy single-line ticket, which was saved as `Pending` — a status the
+   * HOE desk does not read, so the request never reached the approver.
    *
    * `unitCost` is snapshotted onto the request, so the approval queue keeps the
    * price the request was raised at even if the store item is re-priced later.
    */
   createRequisition: (input: any) =>
-    fetchApi<unknown>("/inventory-requisitions", {
+    fetchApi<{ group: string; lines: unknown[] }>("/inventory-requisitions/group", {
       method: "POST",
       body: JSON.stringify({
-        workOrder: input.workOrder || "",
+        targetType: input.targetType || (input.truckReg ? "Truck Head" : "Workshop"),
         truckReg: input.truckReg || "",
-        mechanic: input.mechanic || "",
-        part: input.part,
-        itemId: input.itemId || null,
-        quantity: Number(input.quantity) || 0,
-        unitCost: Number(input.unitCost) || 0,
-        reason: input.reason || "",
-        status: "Pending",
+        description: input.reason || input.description || `Parts requested: ${input.part}`,
+        requestedBy: input.requestedBy || input.mechanic || "",
+        workOrder: input.workOrder || "",
+        lines: [
+          {
+            part: input.part,
+            itemId: input.itemId || null,
+            quantity: Number(input.quantity) || 0,
+            unitCost: Number(input.unitCost) || 0,
+            reason: input.reason || "",
+          },
+        ],
       }),
-    }).then((res) => mapInventoryRequisition(res as any)),
+    }),
   /**
    * The Transport Manager's decision on a pending request.
    *

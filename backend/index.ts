@@ -3841,7 +3841,7 @@ app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
  * independently) sharing a requestGroup, and every line lands on the Head of
  * Engineering's desk as Awaiting HOE Review — never directly with the store.
  */
-app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+app.post('/api/inventory-requisitions/group', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Parts & Store', 'Parts and Store', 'Inventory', 'Procurement'), async (req: any, res) => {
   const targetType = String(req.body?.targetType || '').trim();
   const truckReg = String(req.body?.truckReg || '').trim();
   const description = String(req.body?.description || '').trim();

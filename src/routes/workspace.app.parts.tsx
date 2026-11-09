@@ -21,6 +21,7 @@ import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
 import {
   ENGINEERING_ACCESS_ROLES,
+  rolesCanRaiseRequests,
   rolesCanWorkOnTrucks,
   truckLabel,
 } from "@/lib/fleetopsx/engineering-helpers";
@@ -344,6 +345,10 @@ function PartsAndStore() {
    * the ticket to the store floor; rejecting must name a reason.
    */
   const canDecide = authService.getRoles().includes("Transport Manager");
+  // Raising walks the same chain as the engineering board (HOE → TM → store),
+  // so the button is offered to exactly the seats the server accepts — a store
+  // seat that only shelves stock is not one of them.
+  const canRaise = rolesCanRaiseRequests();
 
   const decide = async (request: InventoryRequisition, approve: boolean) => {
     // The chain runs HOE → TM → store: the Transfer Manager only decides what
@@ -757,11 +762,17 @@ function PartsAndStore() {
             </button>
             <button
               type="button"
+              disabled={!canRaise}
+              title={
+                canRaise
+                  ? undefined
+                  : "This seat reviews requests — the workshop, Fleet Operations and the store raise them"
+              }
               onClick={() => {
                 setRaiseJob(null);
                 setRaiseOpen(true);
               }}
-              className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19]"
+              className="flex h-8 items-center gap-1.5 rounded bg-[#ED351D] px-3 text-[14px] font-medium tracking-[0.4px] text-white hover:bg-[#d62e19] disabled:opacity-40"
             >
               <Plus className="size-4" />
               Request Parts
@@ -965,7 +976,7 @@ function PartsAndStore() {
                   title="No parts request yet"
                   body={
                     canEdit
-                      ? "When a job needs a part, raise it from the job on Work Orders — the Transport Manager approves it before the store releases it."
+                      ? "When a job needs a part, raise it from the job on Work Orders — the Head of Engineering reviews it, then the Transport Manager approves it before the store releases it."
                       : "The workshop has not asked the store for a part yet."
                   }
                 />
@@ -1396,13 +1407,17 @@ function PartsAndStore() {
                               void openHistory(item);
                             },
                           },
-                          {
-                            label: "Request more of this",
-                            onSelect: () => {
-                              setRaiseJob(openJobs[0] ?? null);
-                              setRaiseOpen(true);
-                            },
-                          },
+                          ...(canRaise
+                            ? [
+                                {
+                                  label: "Request more of this",
+                                  onSelect: () => {
+                                    setRaiseJob(openJobs[0] ?? null);
+                                    setRaiseOpen(true);
+                                  },
+                                },
+                              ]
+                            : []),
                         ]}
                         open={menuFor === item.id}
                         onOpenChange={(open) => setMenuFor(open ? item.id : null)}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { resolveTruck, truckLabel } from "@/lib/fleetopsx/engineering-helpers";
-import { inventoryService } from "@/lib/fleetopsx/services";
+import { authService, inventoryService } from "@/lib/fleetopsx/services";
 import { cn } from "@/lib/utils";
 import type { InventoryItem, TruckHead, WorkOrder } from "@/lib/fleetopsx/types";
 
@@ -18,6 +18,10 @@ import type { InventoryItem, TruckHead, WorkOrder } from "@/lib/fleetopsx/types"
  * draws the stock down). Typing a part the store does not hold is allowed and
  * normal — that is exactly the request the store cannot cover, which is what the
  * TM's inventory alerts are for.
+ *
+ * Whoever raises it here (Fleet Operations, the store, the TM), the ticket is a
+ * one-line group on the Head of Engineering's desk first — the same chain the
+ * engineering board runs — so the approver always sees what was asked for.
  */
 export function RaisePartsRequestModal({
   open,
@@ -80,12 +84,17 @@ export function RaisePartsRequestModal({
       toast.error("How many are needed?");
       return;
     }
+    if (!reason.trim()) {
+      toast.error("Say why the part is needed — the Head of Engineering reviews this.");
+      return;
+    }
     setSaving(true);
     try {
       await inventoryService.createRequisition({
         workOrder: job?.id ?? "",
         truckReg: job?.truckReg ?? "",
-        mechanic: job?.mechanic && job.mechanic !== "Unassigned" ? job.mechanic : "",
+        targetType: job ? "Truck Head" : "Workshop",
+        requestedBy: authService.getCurrentUser()?.name || "",
         part: part.trim(),
         itemId: matchedItem?.id ?? "",
         quantity: Number(quantity),
@@ -93,7 +102,7 @@ export function RaisePartsRequestModal({
         reason: reason.trim(),
       });
       toast.success(
-        `${part.trim()} requested${job ? ` for ${truckOf(job)}` : ""} — awaiting the Transport Manager's approval.`,
+        `${part.trim()} requested${job ? ` for ${truckOf(job)}` : ""} — awaiting the Head of Engineering's review.`,
       );
       onCreated();
       onClose();
@@ -125,7 +134,8 @@ export function RaisePartsRequestModal({
           <div className="flex flex-col gap-1">
             <h3 className="text-[18px] font-medium leading-6 text-[#1B2432]">Request parts</h3>
             <p className="text-[12px] tracking-[0.4px] text-[#5C6470]">
-              The request goes to the Transport Manager for approval before the store releases it.
+              The request goes to the Head of Engineering for review, then to the Transport
+              Manager, before the store releases it.
             </p>
           </div>
           <button
@@ -215,7 +225,9 @@ export function RaisePartsRequestModal({
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">Reason</span>
+            <span className="text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
+              Reason <span className="text-[#ED351D]">*</span>
+            </span>
             <input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
