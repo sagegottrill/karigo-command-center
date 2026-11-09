@@ -31,6 +31,10 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
   // The account's second half: a partner created as a Loader runs a loading
   // site, so the shell offers its yard board beside the requesting tabs.
   const [isLoader, setIsLoader] = useState(false);
+  // A LOADER works a yard, it raises no request and reads no partner's dispatch
+  // list: an account tagged only "Partner Loader" gets the yard board alone.
+  // A partner that both requests and loads keeps the requesting tabs.
+  const [yardOnly, setYardOnly] = useState(false);
   const [logoSrc, setLogoSrc] = useState(tenantLogo || "/figma/petroline-logo.png");
   const [companyName, setCompanyName] = useState("Partner");
   const [userEmail, setUserEmail] = useState("");
@@ -48,7 +52,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    setIsLoader(authService.getRoles().includes("Partner Loader"));
+    const roles = authService.getRoles();
+    setIsLoader(roles.includes("Partner Loader"));
+    setYardOnly(roles.includes("Partner Loader") && !roles.includes("Partner Requester"));
     const currentUser = authService.getCurrentUser();
     setCompanyName(currentUser?.partnerCompanyName || currentUser?.name || "Partner");
     setUserEmail(currentUser?.email || "");
@@ -109,7 +115,9 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
       !loadingSiteActive &&
       pathname.includes("/customer-portal/"));
   const requestActive = pathname.endsWith("/request");
-  const showBack = !pathname.includes("/dashboard") && !pathname.includes("/login");
+  // A yard-only account has no dashboard to go back to — the board IS its home.
+  const showBack =
+    !yardOnly && !pathname.includes("/dashboard") && !pathname.includes("/login");
 
   const displayInitials = mounted ? userInitials : "PT";
   const displayCompany = mounted ? companyName : "Partner";
@@ -128,29 +136,37 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         </Link>
         <nav className="flex flex-1 flex-col items-center py-5">
           <div className="flex w-[224px] flex-col gap-[5px]">
-            <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">
-              Transport Request
-            </span>
-            <Link
-              to="/workspace/customer-portal/dashboard"
-              className={cn(
-                "flex h-8 items-center gap-2 rounded p-2",
-                dashActive ? "bg-[#ED351D]" : "hover:bg-white/5",
-              )}
-            >
-              <LayoutDashboard className="size-4 text-white" strokeWidth={1.5} />
-              <span className="text-[14px] tracking-[0.4px] text-white">Dashboard</span>
-            </Link>
-            <Link
-              to="/workspace/customer-portal/request"
-              className={cn(
-                "flex h-8 items-center gap-2 rounded p-2",
-                requestActive ? "bg-[#ED351D]" : "hover:bg-white/5",
-              )}
-            >
-              <Truck className="size-4 text-white" strokeWidth={1.5} />
-              <span className="text-[14px] tracking-[0.4px] text-white">New Request</span>
-            </Link>
+            {!yardOnly ? (
+              <>
+                <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">
+                  Transport Request
+                </span>
+                <Link
+                  to="/workspace/customer-portal/dashboard"
+                  className={cn(
+                    "flex h-8 items-center gap-2 rounded p-2",
+                    dashActive ? "bg-[#ED351D]" : "hover:bg-white/5",
+                  )}
+                >
+                  <LayoutDashboard className="size-4 text-white" strokeWidth={1.5} />
+                  <span className="text-[14px] tracking-[0.4px] text-white">Dashboard</span>
+                </Link>
+                <Link
+                  to="/workspace/customer-portal/request"
+                  className={cn(
+                    "flex h-8 items-center gap-2 rounded p-2",
+                    requestActive ? "bg-[#ED351D]" : "hover:bg-white/5",
+                  )}
+                >
+                  <Truck className="size-4 text-white" strokeWidth={1.5} />
+                  <span className="text-[14px] tracking-[0.4px] text-white">New Request</span>
+                </Link>
+              </>
+            ) : (
+              <span className="text-[11.4px] uppercase tracking-[0.4px] text-white/70">
+                Loading Site
+              </span>
+            )}
             {isLoader ? (
               <Link
                 to="/workspace/customer-portal/loading-site"
@@ -280,30 +296,47 @@ export function PartnerPortalShell({ children }: { children: ReactNode }) {
         <div className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</div>
 
         <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[64px] items-stretch border-t border-[#344256] bg-[#1B2432] lg:hidden">
-          <Link
-            to="/workspace/customer-portal/dashboard"
-            className={cn(
-              "relative flex flex-1 flex-col items-center justify-center gap-0.5",
-              dashActive ? "text-white" : "text-white/50",
-            )}
-          >
-            <LayoutDashboard className="size-5" strokeWidth={1.5} />
-            <span className="text-[10px] font-medium">Dashboard</span>
-            {dashActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
-          </Link>
-          <Link
-            to="/workspace/customer-portal/request"
-            className={cn(
-              "relative flex flex-1 flex-col items-center justify-center gap-0.5",
-              requestActive ? "text-white" : "text-white/50",
-            )}
-          >
-            <Truck className="size-5" strokeWidth={1.5} />
-            <span className="text-[10px] font-medium">New Request</span>
-            {requestActive ? (
-              <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" />
-            ) : null}
-          </Link>
+          {yardOnly ? null : (
+            <Link
+              to="/workspace/customer-portal/dashboard"
+              className={cn(
+                "relative flex flex-1 flex-col items-center justify-center gap-0.5",
+                dashActive ? "text-white" : "text-white/50",
+              )}
+            >
+              <LayoutDashboard className="size-5" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Dashboard</span>
+              {dashActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
+            </Link>
+          )}
+          {yardOnly || isLoader ? (
+            <Link
+              to="/workspace/customer-portal/loading-site"
+              className={cn(
+                "relative flex flex-1 flex-col items-center justify-center gap-0.5",
+                loadingSiteActive ? "text-white" : "text-white/50",
+              )}
+            >
+              <PackageCheck className="size-5" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Loading Site</span>
+              {loadingSiteActive ? <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" /> : null}
+            </Link>
+          ) : null}
+          {yardOnly ? null : (
+            <Link
+              to="/workspace/customer-portal/request"
+              className={cn(
+                "relative flex flex-1 flex-col items-center justify-center gap-0.5",
+                requestActive ? "text-white" : "text-white/50",
+              )}
+            >
+              <Truck className="size-5" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">New Request</span>
+              {requestActive ? (
+                <span className="absolute bottom-1 h-0.5 w-8 rounded bg-white" />
+              ) : null}
+            </Link>
+          )}
         </nav>
       </div>
     </div>

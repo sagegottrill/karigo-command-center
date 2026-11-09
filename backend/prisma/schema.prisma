@@ -571,3 +571,26 @@ model PushToken {
 
   @@index([userId])
 }
+
+/// A driver signed for his load at a partner loading site (mobile/web Loading Site portal).
+/// Also written when the yard only taps "Done loading" — signature stays empty then.
+model LoadingPickup {
+  id            String   @id
+  tripId        String
+  site          String
+  /// The site name reduced to letters and digits, so "Saba Factory" and "saba-factory" match.
+  siteKey       String
+  company       String?
+  truckReg      String?
+  tailNumber    String?
+  driverName    String?
+  driverPhone   String?
+  /// The driver signature (data URL) — empty when the yard marked it loaded without one.
+  signature     String
+  confirmedBy   String
+  confirmedById String?
+  confirmedAt   DateTime @default(now())
+
+  @@unique([tripId, siteKey])
+  @@index([company, siteKey])
+}

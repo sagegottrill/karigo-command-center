@@ -3036,6 +3036,387 @@ app.delete('/api/partner-sites', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+// --- THE LOADING SITE'S OWN BOARD (one yard, the trucks coming to it) ---
+// A yard's crew — a partner account created as a Loader (Add Partner → Loader),
+// or our own Loading department — works ONE loading site. It sees the trucks
+// coming there today, tomorrow and later, and the button that says the truck
+// is loaded. It is NOT the partner's request list: a loader raises nothing and
+// reads no other company's request, only what is due at its own yard.
+const LOADING_SITE_ROLES = ['Loading', 'Loading Operations', 'Partner Loader', 'Customer Portals (External)', 'Platform Admin', 'Transport Manager', 'Fleet Operations'];
+/** Statuses that still owe a load at the yard. */
+const LOADING_WAITING = ['Scheduled', 'En Route', 'Delayed'];
+const LOADING_TZ = 'Africa/Lagos';
+const lagosDay = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: LOADING_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+function parseLoadingStamp(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const d = new Date(raw.replace(/, /, ' '));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+/** The yard's calendar day: an evening arrival is today in Lagos, not UTC's tomorrow. */
+function loadingDayOf(value) {
+  const d = value instanceof Date ? value : parseLoadingStamp(value);
+  return d ? lagosDay(d) : null;
+}
+function heldRoles(req) {
+  const roles: string[] = Array.isArray(req?.user?.roles) ? req.user.roles : [];
+  const single = String(req?.user?.role || '').trim();
+  return single && !roles.includes(single) ? [...roles, single] : roles;
+}
+function isPartnerLoader(req) {
+  return heldRoles(req).includes('Partner Loader');
+}
+/** Every partner's yards — the list a staff Loading account picks its site from. */
+async function allLoadingPartnerSites() {
+  const rows: any[] = await prisma.$queryRawUnsafe('SELECT "loadingSites" FROM "User" WHERE "loadingSites" IS NOT NULL AND "loadingSites" <> \'\'');
+  const merged: string[] = [];
+  for (const row of rows) {
+    for (const site of splitSites(row.loadingSites)) {
+      if (!merged.some((m) => m.toLowerCase() === site.toLowerCase())) merged.push(site);
+    }
+  }
+  return merged;
+}
+/** The sites this account runs: its own assigned list, else its company's yards. */
+async function loadingSitesFor(req) {
+  const roles = heldRoles(req);
+  const external = roles.includes('Customer Portals (External)');
+  const company = external ? ((await partnerCompanyForUser(req.user.id, req.user.email, req.user.role)) || null) : null;
+  const rows: any[] = await prisma.$queryRawUnsafe('SELECT "loadingSites" FROM "User" WHERE "id" = $1', String(req.user.id));
+  const own = splitSites(rows[0]?.loadingSites);
+  const sites = own.length > 0 ? own : company ? await readPartnerSites(company) : await allLoadingPartnerSites();
+  return { sites, company };
+}
+/** The yard named in the request, when it is one this account runs. */
+function pickLoadingSite(asked, sites: string[]) {
+  const key = siteKey(asked);
+  if (!key) return '';
+  return sites.find((s) => siteKey(s) === key) || '';
+}
+/**
+ * The yard an account opens on. Its own name first ("ENL" → the ENL account),
+ * then the longest site name found inside the account's name or username.
+ */
+function ownLoadingSite(user, sites: string[]) {
+  const names = [user?.name, String(user?.email || '').split('@')[0]].map(siteKey).filter(Boolean);
+  if (names.length === 0) return '';
+  const exact = sites.find((s) => names.includes(siteKey(s)));
+  if (exact) return exact;
+  let best = '';
+  for (const s of sites) {
+    const k = siteKey(s);
+    if (k.length >= 3 && names.some((n) => n.includes(k)) && k.length > siteKey(best).length) best = s;
+  }
+  return best;
+}
+/** A trip loads at a yard when its loadingSite list (or its pickup) names it. */
+function tripLoadsAt(trip, key: string) {
+  if (!key) return false;
+  const parts = String(trip?.loadingSite || '')
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (trip?.pickup) parts.push(String(trip.pickup));
+  return parts.some((p) => siteKey(p) === key);
+}
+async function driverPhoneBy() {
+  const drivers = await prisma.driver.findMany({ select: { name: true, phone: true } });
+  return (name) => {
+    const k = String(name || '').trim().toLowerCase();
+    if (!k) return null;
+    const d = drivers.find((x: any) => String(x.name || '').trim().toLowerCase() === k);
+    return d?.phone || null;
+  };
+}
+/**
+ * The load is on the truck: write the same "Loading" checkpoint POST /api/tracking
+ * writes, so Tracking, the Transport Manager and the partner all read one truth.
+ * A dispatch Security has not logged out yet is NOT moved by a yard click — the
+ * gate owns the departure — but the load is recorded either way.
+ */
+async function moveLoadedAtSite(trip, site: string) {
+  const key = siteKey(site);
+  const siblings = await prisma.trackingCheckpoint.findMany({ where: { tripId: trip.id } });
+  const already = siblings.find((cp: any) => String(cp.leg).trim().toLowerCase() === 'loading' && siteKey(cp.location) === key);
+  if (!already) await prisma.trackingCheckpoint.create({ data: { tripId: trip.id, location: site, leg: 'Loading' } });
+  const undispatched = String(trip.status || '').trim() === 'Scheduled';
+  const next = undispatched ? null : statusFromLeg(trip.status, 'Loading');
+  if (!next) return { status: trip.status, statusMoved: false, undispatched };
+  await prisma.trip.update({ where: { id: trip.id }, data: { status: next } });
+  void coupleTruckRegistry({ ...trip, status: next }, 'out');
+  return { status: next, statusMoved: true, undispatched: false };
+}
+async function loadingPickupsAt(siteKeyValue: string, company: string | null) {
+  if (!siteKeyValue) return [];
+  const rows: any[] = company
+    ? await prisma.$queryRawUnsafe(
+        'SELECT * FROM "LoadingPickup" WHERE "siteKey" = $1 AND "company" ILIKE $2 ORDER BY "confirmedAt" DESC LIMIT 200',
+        siteKeyValue,
+        company,
+      )
+    : await prisma.$queryRawUnsafe(
+        'SELECT * FROM "LoadingPickup" WHERE "siteKey" = $1 ORDER BY "confirmedAt" DESC LIMIT 200',
+        siteKeyValue,
+      );
+  return rows;
+}
+
+/** The board: trucks due at THIS yard today / tomorrow / later, and what loaded here. */
+app.get('/api/loading-site', authenticate, authorize(...LOADING_SITE_ROLES), async (req, res) => {
+  try {
+    const { sites, company } = await loadingSitesFor(req);
+    if (heldRoles(req).includes('Customer Portals (External)') && !company) {
+      return res.status(400).json({ error: 'No partner company for this account.' });
+    }
+    const loader = isPartnerLoader(req);
+    const asked = String(req.query?.site || '').trim();
+    const site = pickLoadingSite(asked, sites) || ownLoadingSite(req.user, sites) || sites[0] || '';
+    const key = siteKey(site);
+    // Only a requesting partner's own dispatches are cut to its company; a yard
+    // loads whoever the fleet sends.
+    const ownTrucksOnly = !!company && !loader;
+
+    const trips = await prisma.trip.findMany({
+      where: {
+        status: { in: LOADING_WAITING },
+        ...(ownTrucksOnly ? { customer: { equals: company, mode: 'insensitive' } } : {}),
+      },
+    });
+    const here = trips.filter((t: any) => tripLoadsAt(t, key));
+    const pickups = await loadingPickupsAt(key, ownTrucksOnly ? company : null);
+    const signedOrDone = new Set(pickups.map((p: any) => String(p.tripId)));
+    // Loaded here already through the tracking board (no yard record): not waiting either.
+    const checkpoints = here.length
+      ? await prisma.trackingCheckpoint.findMany({ where: { tripId: { in: here.map((t: any) => t.id) } } })
+      : [];
+    const loadedHere = new Set(
+      checkpoints
+        .filter((c: any) => String(c.leg).trim().toLowerCase() === 'loading' && siteKey(c.location) === key)
+        .map((c: any) => String(c.tripId)),
+    );
+
+    const now = new Date();
+    const today = lagosDay(now);
+    const tomorrow = lagosDay(new Date(now.getTime() + 86400000));
+    const waiting = here
+      .filter((t: any) => !signedOrDone.has(String(t.id)) && !loadedHere.has(String(t.id)) && LOADING_WAITING.includes(String(t.status)))
+      .map((t: any) => {
+        // Once the gate has stamped the departure the truck is on its way here —
+        // due now, however long the road took. Before that, the Transport
+        // Manager's planned dispatch date is what the yard plans around, so a
+        // truck promised for tomorrow sits in tomorrow's list, not today's.
+        const departed = parseLoadingStamp(t.startTime);
+        const planned = parseLoadingStamp(t.estimatedDate);
+        const sent = departed || planned || parseLoadingStamp(t.createdAt);
+        const day = loadingDayOf(departed) || loadingDayOf(planned);
+        const bucket = !day || day <= today ? 'today' : day === tomorrow ? 'tomorrow' : 'upcoming';
+        return {
+          tripId: t.id,
+          reference: dispatchRef(t.id),
+          status: t.status,
+          truckReg: t.truckReg || null,
+          tailNumber: t.tailNumber || null,
+          tailType: t.tailType || null,
+          driverName: t.driverName || null,
+          driverPhone: null,
+          dropoff: t.dropoff || null,
+          customer: t.customer || null,
+          scheduledFor: sent ? sent.toISOString() : null,
+          day: bucket,
+          _sort: sent ? sent.getTime() : 0,
+        };
+      })
+      .sort((a: any, b: any) => a._sort - b._sort)
+      .map(({ _sort, ...row }: any) => row);
+
+    const phoneOf = await driverPhoneBy();
+    for (const row of waiting) row.driverPhone = phoneOf(row.driverName);
+
+    const counts = {
+      waiting: waiting.length,
+      today: waiting.filter((w: any) => w.day === 'today').length,
+      tomorrow: waiting.filter((w: any) => w.day === 'tomorrow').length,
+      upcoming: waiting.filter((w: any) => w.day === 'upcoming').length,
+      pickedUp: pickups.length,
+      loadedToday: pickups.filter((p: any) => loadingDayOf(p.confirmedAt) === today).length,
+    };
+    res.json({
+      company,
+      sites,
+      site,
+      loader,
+      waiting,
+      pickedUp: pickups.map((p: any) => ({ ...p, reference: dispatchRef(p.tripId), signed: !!p.signature })),
+      counts,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('GET /api/loading-site failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** One yard record — the receipt behind a row (signature included). */
+app.get('/api/loading-site/pickups/:id', authenticate, authorize(...LOADING_SITE_ROLES), async (req, res) => {
+  try {
+    const rows: any[] = await prisma.$queryRawUnsafe('SELECT * FROM "LoadingPickup" WHERE "id" = $1', String(req.params.id));
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Pickup not found.' });
+    const { sites, company } = await loadingSitesFor(req);
+    if (heldRoles(req).includes('Customer Portals (External)')) {
+      const mine = isPartnerLoader(req)
+        ? sites.some((s) => siteKey(s) === row.siteKey)
+        : samePartnerCompany(row.company, company);
+      if (!mine) return res.status(404).json({ error: 'Pickup not found.' });
+    }
+    res.json({ ...row, reference: dispatchRef(row.tripId), signed: !!row.signature });
+  } catch (err: any) {
+    console.error('GET /api/loading-site/pickups/:id failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** The truck is loaded — one click at the yard. No signature is needed to move it on. */
+app.post('/api/loading-site/loaded', authenticate, authorize(...LOADING_SITE_ROLES), async (req, res) => {
+  try {
+    const tripId = String(req.body?.tripId || '').trim();
+    const site = String(req.body?.site || '').trim().replace(/\s+/g, ' ');
+    if (!tripId || !site) return res.status(400).json({ error: 'A dispatch and a loading site are required.' });
+    const { sites, company } = await loadingSitesFor(req);
+    const key = siteKey(site);
+    if (!sites.some((s) => siteKey(s) === key)) {
+      return res.status(403).json({ error: 'That is not one of your loading sites.' });
+    }
+    const trip: any = await prisma.trip.findUnique({ where: { id: tripId } });
+    if (!trip) return res.status(404).json({ error: 'Dispatch not found.' });
+    if (!tripLoadsAt(trip, key)) return res.status(403).json({ error: 'This dispatch does not load at your site.' });
+    if (heldRoles(req).includes('Customer Portals (External)') && !isPartnerLoader(req) && !samePartnerCompany(trip.customer, company)) {
+      return res.status(403).json({ error: 'This dispatch belongs to another company.' });
+    }
+    const existing = await loadingPickupsAt(key, null);
+    const already = existing.find((p: any) => String(p.tripId) === tripId);
+    if (already) {
+      return res.json({ ...already, reference: dispatchRef(tripId), signed: !!already.signature, duplicate: true, status: trip.status, statusMoved: false });
+    }
+    const phoneOf = await driverPhoneBy();
+    const actor = String(req.user?.name || req.user?.email || 'Loading site');
+    const inserted: any[] = await prisma.$queryRawUnsafe(
+      'INSERT INTO "LoadingPickup" ("id", "tripId", "site", "siteKey", "company", "truckReg", "tailNumber", "driverName", "driverPhone", "signature", "confirmedBy", "confirmedById", "confirmedAt") ' +
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, (now() AT TIME ZONE 'UTC')) " +
+        'ON CONFLICT ("tripId", "siteKey") DO NOTHING RETURNING *',
+      crypto.randomUUID(),
+      tripId,
+      site,
+      key,
+      trip.customer || company || null,
+      trip.truckReg || null,
+      trip.tailNumber || null,
+      trip.driverName || null,
+      phoneOf(trip.driverName),
+      '',
+      actor,
+      String(req.user.id),
+    );
+    const row = inserted[0] || (await loadingPickupsAt(key, null)).find((p: any) => String(p.tripId) === tripId);
+    const moved = await moveLoadedAtSite(trip, site);
+    void notify(
+      'Operations',
+      'Load Picked Up',
+      `${dispatchRef(tripId)}: ${trip.truckReg || 'the truck'} is loaded at ${site}${row?.driverName ? ` — driver ${row.driverName}` : ''}. Marked by ${actor}.`,
+      'success',
+      `Transport Manager,Fleet Operations,Tracking,Loading${trip.customer ? `,Partner:${trip.customer}` : ''}`,
+      { module: 'Loading', eventKey: 'loading.pickup', refId: tripId, refLabel: dispatchRef(tripId) },
+    );
+    res.status(201).json({ ...row, reference: dispatchRef(tripId), signed: false, duplicate: false, status: moved.status, statusMoved: moved.statusMoved, undispatched: moved.undispatched });
+  } catch (err: any) {
+    console.error('POST /api/loading-site/loaded failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** The driver signs too: the same load, with a receipt attached. */
+app.post('/api/loading-site/pickups', authenticate, authorize(...LOADING_SITE_ROLES), async (req, res) => {
+  try {
+    const tripId = String(req.body?.tripId || '').trim();
+    const site = String(req.body?.site || '').trim().replace(/\s+/g, ' ');
+    const signature = String(req.body?.signature || '');
+    if (!tripId || !site) return res.status(400).json({ error: 'A dispatch and a loading site are required.' });
+    if (!/^data:image\//.test(signature)) {
+      return res.status(400).json({ error: 'The driver must sign before the pickup is confirmed.' });
+    }
+    if (signature.length > 400000) {
+      return res.status(413).json({ error: 'The signature is too large — clear it and sign again.' });
+    }
+    const { sites, company } = await loadingSitesFor(req);
+    const key = siteKey(site);
+    if (!sites.some((s) => siteKey(s) === key)) {
+      return res.status(403).json({ error: 'That is not one of your loading sites.' });
+    }
+    const trip: any = await prisma.trip.findUnique({ where: { id: tripId } });
+    if (!trip) return res.status(404).json({ error: 'Dispatch not found.' });
+    if (!tripLoadsAt(trip, key)) return res.status(403).json({ error: 'This dispatch does not load at your site.' });
+    if (heldRoles(req).includes('Customer Portals (External)') && !isPartnerLoader(req) && !samePartnerCompany(trip.customer, company)) {
+      return res.status(403).json({ error: 'This dispatch belongs to another company.' });
+    }
+    const phoneOf = await driverPhoneBy();
+    const driverName = String(req.body?.driverName || trip.driverName || '').trim() || null;
+    const driverPhone = String(req.body?.driverPhone || '').trim() || phoneOf(driverName);
+    const actor = String(req.user?.name || req.user?.email || 'Loading site');
+    // A yard marked loaded on its phone first, then the driver signed: the same
+    // row takes the signature — never a second record for one truck at one site.
+    const existing = (await loadingPickupsAt(key, null)).find((p: any) => String(p.tripId) === tripId);
+    let row = existing;
+    if (existing) {
+      if (existing.signature) {
+        return res.json({ ...existing, reference: dispatchRef(tripId), signed: true, duplicate: true });
+      }
+      const updated: any[] = await prisma.$queryRawUnsafe(
+        'UPDATE "LoadingPickup" SET "signature" = $1, "driverName" = COALESCE($2, "driverName"), "driverPhone" = COALESCE($3, "driverPhone"), "confirmedBy" = $4 WHERE "id" = $5 RETURNING *',
+        signature,
+        driverName,
+        driverPhone,
+        actor,
+        existing.id,
+      );
+      row = updated[0] || existing;
+    } else {
+      const inserted: any[] = await prisma.$queryRawUnsafe(
+        'INSERT INTO "LoadingPickup" ("id", "tripId", "site", "siteKey", "company", "truckReg", "tailNumber", "driverName", "driverPhone", "signature", "confirmedBy", "confirmedById", "confirmedAt") ' +
+          "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, (now() AT TIME ZONE 'UTC')) " +
+          'ON CONFLICT ("tripId", "siteKey") DO NOTHING RETURNING *',
+        crypto.randomUUID(),
+        tripId,
+        site,
+        key,
+        trip.customer || company || null,
+        trip.truckReg || null,
+        trip.tailNumber || null,
+        driverName,
+        driverPhone,
+        signature,
+        actor,
+        String(req.user.id),
+      );
+      row = inserted[0] || (await loadingPickupsAt(key, null)).find((p: any) => String(p.tripId) === tripId);
+    }
+    const moved = await moveLoadedAtSite(trip, site);
+    void notify(
+      'Operations',
+      'Load Picked Up',
+      `${dispatchRef(tripId)}: ${trip.truckReg || 'the truck'} collected its load at ${site}. Driver ${driverName || '—'} signed; confirmed by ${actor}.`,
+      'success',
+      `Transport Manager,Fleet Operations,Tracking,Loading${trip.customer ? `,Partner:${trip.customer}` : ''}`,
+      { module: 'Loading', eventKey: 'loading.pickup', refId: tripId, refLabel: dispatchRef(tripId) },
+    );
+    res.status(201).json({ ...row, reference: dispatchRef(tripId), signed: true, duplicate: false, status: moved.status, statusMoved: moved.statusMoved, undispatched: moved.undispatched });
+  } catch (err: any) {
+    console.error('POST /api/loading-site/pickups failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+// --- end the loading site's own board ---
+
 // checkpoint-departure-patch
 /**
  * The trip status each tracking leg moves a dispatch to, and how far along that

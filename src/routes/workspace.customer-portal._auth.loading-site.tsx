@@ -27,12 +27,19 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/loading-s
  * its sites, whoever they haul for, and the pickups the driver has signed —
  * with the confirmation that puts the "Loaded" stamp on the dispatch.
  */
+const DAY_LABEL: Record<LoadingSiteBoard["waiting"][number]["day"], string> = {
+  today: "Today",
+  tomorrow: "Tomorrow",
+  upcoming: "Upcoming",
+};
+
 function LoadingSitePortal() {
   const [board, setBoard] = useState<LoadingSiteBoard | null>(null);
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState<LoadingSiteBoard["waiting"][number] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [marking, setMarking] = useState<string | null>(null);
 
   const load = useCallback(async (site?: string) => {
     const res = await loadingSiteService.board(site || undefined);
@@ -60,6 +67,36 @@ function LoadingSitePortal() {
       .finally(() => setLoading(false));
   };
 
+  /**
+   * DONE LOADING — one click. The truck leaves the waiting list and the dispatch
+   * reads loaded everywhere (the same "Loading" checkpoint Tracking writes).
+   */
+  const markLoaded = async (row: LoadingSiteBoard["waiting"][number]) => {
+    const site = board?.site || selectedSite;
+    if (!site) {
+      toast.error("This account has no loading site yet.");
+      return;
+    }
+    setMarking(row.tripId);
+    try {
+      const res = await loadingSiteService.markLoaded({ tripId: row.tripId, site });
+      if (res.duplicate) {
+        toast.info(`${row.reference} was already marked loaded at this site.`);
+      } else if (res.undispatched) {
+        toast.success(`Load recorded for ${row.reference}. Security has not logged it out of the gate yet.`);
+      } else if (res.statusMoved) {
+        toast.success(`${row.reference} is loaded — the dispatch now reads ${res.status}.`);
+      } else {
+        toast.success(`${row.reference} is loaded at ${site}.`);
+      }
+      await load(selectedSite);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The load was not saved.");
+    } finally {
+      setMarking(null);
+    }
+  };
+
   return (
     <PartnerPortalShell>
       <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-7">
@@ -69,8 +106,9 @@ function LoadingSitePortal() {
             <p className="text-[13px] text-[#5C6470]">
               {board?.site ? (
                 <>
-                  The trucks waiting to load at{" "}
-                  <span className="font-medium text-[#1B2432]">{board.site}</span>.
+                  Trucks coming to load at{" "}
+                  <span className="font-medium text-[#1B2432]">{board.site}</span> — today,
+                  tomorrow and later.
                 </>
               ) : (
                 "Waiting on your site."
@@ -97,78 +135,113 @@ function LoadingSitePortal() {
           <FigmaLoadingState label="Reading the yard…" />
         ) : !board ? null : (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:max-w-[420px]">
-              <Counter label="Waiting to load" value={board.counts.waiting} tone="pending" />
-              <Counter label="Signed pickups" value={board.counts.pickedUp} tone="done" />
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Counter label="Today" value={board.counts.today} tone="pending" />
+              <Counter label="Tomorrow" value={board.counts.tomorrow} tone="pending" />
+              <Counter label="Upcoming" value={board.counts.upcoming} tone="pending" />
+              <Counter label="Loaded here today" value={board.counts.loadedToday} tone="done" />
             </div>
 
             <h3 className="mt-7 flex items-center gap-2 text-[16px] font-semibold text-[#1B2432]">
-              <Truck className="size-4 text-[#ED351D]" /> Waiting to load
+              <Truck className="size-4 text-[#ED351D]" /> Trucks coming to this site
+              <span className="rounded-full bg-[#FDECEA] px-2 py-0.5 text-[12px] font-medium text-[#ED351D]">
+                {board.counts.waiting} waiting
+              </span>
             </h3>
             {board.waiting.length === 0 ? (
-              <EmptyHint text="Nothing waiting right now — every truck dispatched here is on the signed list." />
+              <EmptyHint text="Nothing is coming to this site right now — every truck sent here has loaded." />
             ) : (
-              <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                {board.waiting.map((t) => (
-                  <div
-                    key={t.tripId}
-                    className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[15px] font-semibold text-[#1B2432]">
-                          Dispatch {t.reference}
-                        </p>
-                        <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                          {t.truckReg || "Truck unassigned"}
-                          {t.tailNumber ? ` · ${t.tailNumber}` : ""}
-                          {t.tailType ? ` (${t.tailType})` : ""}
-                        </p>
+              <div className="mt-3 flex flex-col gap-5">
+                {(["today", "tomorrow", "upcoming"] as const).map((day) => {
+                  const rows = board.waiting.filter((t) => t.day === day);
+                  if (rows.length === 0) return null;
+                  return (
+                    <div key={day}>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
+                        {DAY_LABEL[day]} · {rows.length}
+                      </p>
+                      <div className="mt-2 grid gap-3 xl:grid-cols-2">
+                        {rows.map((t) => (
+                          <div
+                            key={t.tripId}
+                            className="rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[15px] font-semibold text-[#1B2432]">
+                                  Dispatch {t.reference}
+                                </p>
+                                <p className="mt-0.5 text-[13px] text-[#5C6470]">
+                                  {t.truckReg || "Truck unassigned"}
+                                  {t.tailNumber ? ` · ${t.tailNumber}` : ""}
+                                  {t.tailType ? ` (${t.tailType})` : ""}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-[#FDECEA] px-2.5 py-1 text-[12px] font-medium text-[#ED351D]">
+                                {t.status}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-[13px] text-[#344256]">
+                              Cargo for {t.customer || t.dropoff || "—"} · Driver{" "}
+                              <span className="font-medium">{t.driverName || "—"}</span>
+                            </p>
+                            {t.scheduledFor ? (
+                              <p className="mt-1 text-[12px] text-[#8E95A1]">
+                                Sent to this site {fmtStampDayTime(t.scheduledFor)}
+                              </p>
+                            ) : null}
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                              {t.driverPhone ? (
+                                <a
+                                  href={`tel:${t.driverPhone}`}
+                                  className="flex items-center gap-1.5 text-[13px] font-medium text-[#1B2432] hover:text-[#ED351D]"
+                                >
+                                  <Phone className="size-4" /> {t.driverPhone}
+                                </a>
+                              ) : (
+                                <span className="text-[13px] text-[#8E95A1]">No phone on file</span>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirming(t)}
+                                  title="Attach the driver's signature to this load"
+                                  className="flex h-9 items-center gap-1.5 rounded-[6px] border border-[#E2E5E9] px-2.5 text-[13px] font-medium text-[#5C6470] hover:text-[#1B2432]"
+                                >
+                                  <PenLine className="size-4" /> Sign
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={marking === t.tripId}
+                                  onClick={() => void markLoaded(t)}
+                                  className="flex h-9 items-center gap-1.5 rounded-[6px] bg-[#ED351D] px-3.5 text-[13.5px] font-medium text-white hover:bg-[#d62e19] disabled:opacity-60"
+                                >
+                                  <PackageCheck className="size-4" />
+                                  {marking === t.tripId ? "Saving…" : "Done loading"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <span className="rounded-full bg-[#FDECEA] px-2.5 py-1 text-[12px] font-medium text-[#ED351D]">
-                        {t.status}
-                      </span>
                     </div>
-                    <p className="mt-2 text-[13px] text-[#344256]">
-                      Cargo for {t.dropoff || "—"} · Driver{" "}
-                      <span className="font-medium">{t.driverName || "—"}</span>
-                    </p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      {t.driverPhone ? (
-                        <a
-                          href={`tel:${t.driverPhone}`}
-                          className="flex items-center gap-1.5 text-[13px] font-medium text-[#1B2432] hover:text-[#ED351D]"
-                        >
-                          <Phone className="size-4" /> {t.driverPhone}
-                        </a>
-                      ) : (
-                        <span className="text-[13px] text-[#8E95A1]">No phone on file</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setConfirming(t)}
-                        className="flex h-9 items-center gap-2 rounded-[6px] bg-[#ED351D] px-3.5 text-[13.5px] font-medium text-white hover:bg-[#d62e19]"
-                      >
-                        <PenLine className="size-4" /> Confirm Pickup
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             <h3 className="mt-7 flex items-center gap-2 text-[16px] font-semibold text-[#1B2432]">
-              <PackageCheck className="size-4 text-[#2BB673]" /> Signed pickups
+              <PackageCheck className="size-4 text-[#2BB673]" /> Loaded at this site
             </h3>
             {board.pickedUp.length === 0 ? (
-              <EmptyHint text="No pickup has been signed at this site yet." />
+              <EmptyHint text="No load has been marked at this site yet." />
             ) : (
               <div className="mt-3 overflow-hidden rounded-[10px] border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
                 <div className="hidden grid-cols-[110px_1fr_140px_1fr_130px] items-center gap-3 border-b border-[#E2E5E9] bg-[#F1F3F5] px-4 py-2.5 text-[12px] uppercase tracking-[0.4px] text-[#5C6470] lg:grid">
                   <span>Dispatch</span>
                   <span>Truck</span>
                   <span>Driver</span>
-                  <span>Confirmed</span>
+                  <span>Marked loaded</span>
                   <span className="text-right">Signature</span>
                 </div>
                 {board.pickedUp.map((p) => (
@@ -190,8 +263,8 @@ function LoadingSitePortal() {
             setConfirming(null);
             toast.success(
               duplicate
-                ? "This truck was already signed at this site."
-                : "Load picked up — the dispatch now reads Loaded.",
+                ? "This truck was already marked loaded at this site."
+                : "Signature saved — the load is confirmed at this site.",
             );
             void load(selectedSite).catch(() => undefined);
           }}
@@ -219,6 +292,8 @@ const fmtStampTime = (v: string) => {
     ? ""
     : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 };
+const fmtStampDayTime = (v: string) =>
+  `${fmtStampDate(v)}${fmtStampTime(v) ? ` · ${fmtStampTime(v)}` : ""}`;
 
 function Counter({
   label,
@@ -275,7 +350,7 @@ function PickupRow({ pickup: p }: { pickup: LoadingSitePickup }) {
             className="h-12 w-[130px] rounded border border-[#E2E5E9] bg-white object-contain"
           />
         ) : (
-          <span className="text-[12px] text-[#8E95A1]">—</span>
+          <span className="text-[12px] text-[#8E95A1]">Not signed</span>
         )}
       </span>
     </div>

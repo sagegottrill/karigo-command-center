@@ -846,12 +846,18 @@ export interface LoadingSitePickup {
   signature?: string | null;
   confirmedBy?: string | null;
   confirmedAt?: string;
+  /** true when the driver signed; false when the yard only marked it loaded. */
+  signed?: boolean;
 }
+
+/** Which day's work a truck belongs to at the yard (Lagos calendar days). */
+export type LoadingSiteDay = "today" | "tomorrow" | "upcoming";
 
 export interface LoadingSiteBoard {
   company: string | null;
   sites: string[];
   site: string | null;
+  loader: boolean;
   waiting: Array<{
     tripId: string;
     reference: string;
@@ -862,9 +868,20 @@ export interface LoadingSiteBoard {
     driverName: string | null;
     driverPhone: string | null;
     dropoff: string | null;
+    customer: string | null;
+    /** When the truck was sent to this yard (ISO), the day it is due here. */
+    scheduledFor: string | null;
+    day: LoadingSiteDay;
   }>;
   pickedUp: LoadingSitePickup[];
-  counts: { waiting: number; pickedUp: number };
+  counts: {
+    waiting: number;
+    today: number;
+    tomorrow: number;
+    upcoming: number;
+    pickedUp: number;
+    loadedToday: number;
+  };
 }
 
 const rawLoadingPickup = (p: Record<string, unknown>): LoadingSitePickup => ({
@@ -880,6 +897,7 @@ const rawLoadingPickup = (p: Record<string, unknown>): LoadingSitePickup => ({
   signature: p.signature == null ? null : String(p.signature),
   confirmedBy: p.confirmedBy == null ? null : String(p.confirmedBy),
   confirmedAt: p.confirmedAt == null ? undefined : String(p.confirmedAt),
+  signed: p.signature == null ? undefined : Boolean(String(p.signature)),
 });
 
 export const loadingSiteService = {
@@ -891,6 +909,7 @@ export const loadingSiteService = {
       company: res?.company ?? null,
       sites: Array.isArray(res?.sites) ? res.sites.map(String) : [],
       site: res?.site ? String(res.site) : null,
+      loader: Boolean(res?.loader),
       waiting: (Array.isArray(res?.waiting) ? res.waiting : []).map(
         (t: Record<string, unknown>) => ({
           tripId: String(t.tripId ?? ""),
@@ -902,18 +921,53 @@ export const loadingSiteService = {
           driverName: t.driverName == null ? null : String(t.driverName),
           driverPhone: t.driverPhone == null ? null : String(t.driverPhone),
           dropoff: t.dropoff == null ? null : String(t.dropoff),
+          customer: t.customer == null ? null : String(t.customer),
+          scheduledFor: t.scheduledFor == null ? null : String(t.scheduledFor),
+          day:
+            t.day === "tomorrow" || t.day === "upcoming"
+              ? (t.day as LoadingSiteDay)
+              : ("today" as LoadingSiteDay),
         }),
       ),
       pickedUp: (Array.isArray(res?.pickedUp) ? res.pickedUp : []).map(rawLoadingPickup),
       counts: {
         waiting: Number(res?.counts?.waiting ?? 0),
+        today: Number(res?.counts?.today ?? 0),
+        tomorrow: Number(res?.counts?.tomorrow ?? 0),
+        upcoming: Number(res?.counts?.upcoming ?? 0),
         pickedUp: Number(res?.counts?.pickedUp ?? 0),
+        loadedToday: Number(res?.counts?.loadedToday ?? 0),
       },
     })),
 
   /** One signed pickup — the details view behind a card. */
   pickup: (id: string) =>
     fetchApi<Record<string, unknown>>(`/loading-site/pickups/${id}`).then(rawLoadingPickup),
+
+  /**
+   * The truck is loaded — one click at the yard. Writes the same "Loading"
+   * checkpoint the tracking board writes, so the dispatch reads Loaded (or En
+   * Route) everywhere; a dispatch Security has not logged out yet is recorded
+   * but not moved. A repeat click returns the first record, never a second one.
+   */
+  markLoaded: (input: { tripId: string; site: string }) =>
+    fetchApi<Record<string, unknown>>("/loading-site/loaded", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then(
+      (res: any): LoadingSitePickup & {
+        duplicate?: boolean;
+        status?: string;
+        statusMoved?: boolean;
+        undispatched?: boolean;
+      } => ({
+        ...rawLoadingPickup(res ?? {}),
+        duplicate: Boolean(res?.duplicate),
+        status: res?.status == null ? undefined : String(res.status),
+        statusMoved: Boolean(res?.statusMoved),
+        undispatched: Boolean(res?.undispatched),
+      }),
+    ),
 
   /**
    * The driver signs, the site confirms: the truck is loaded. The server

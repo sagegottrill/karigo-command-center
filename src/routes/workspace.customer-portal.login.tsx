@@ -18,7 +18,11 @@ export const Route = createFileRoute("/workspace/customer-portal/login")({
     if (typeof window === "undefined") return;
     if (!hasLiveSession()) return;
     if (isPartnerSession()) {
-      throw redirect({ to: "/workspace/customer-portal/dashboard" });
+      const held = authService.getRoles();
+      const yardOnly = held.includes("Partner Loader") && !held.includes("Partner Requester");
+      throw redirect({
+        to: yardOnly ? "/workspace/customer-portal/loading-site" : "/workspace/customer-portal/dashboard",
+      });
     }
     // Staff JWT on Partner Sign In — clear so the login form is usable.
     clearPortalSession();
@@ -78,7 +82,12 @@ function CustomerLogin() {
         return;
       }
       void keepSignedIn;
-      enterAuthenticatedApp("/workspace/customer-portal/dashboard");
+      // A Loader lands on its yard — the trucks coming to its site — not on a
+      // partner request list it has no business raising.
+      const yardOnly = user.roles.includes("Partner Loader") && !user.roles.includes("Partner Requester");
+      enterAuthenticatedApp(
+        yardOnly ? "/workspace/customer-portal/loading-site" : "/workspace/customer-portal/dashboard",
+      );
     } catch (err) {
       setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Sign-in failed. Check API connectivity.");
