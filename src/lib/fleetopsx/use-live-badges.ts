@@ -16,6 +16,13 @@ export type LiveBadges = {
   fleetDispatchPending: number;
   /** Unread chat messages across this user's dispatch threads. */
   unreadMessages: number;
+  /**
+   * Unread notifications PER SENDING DEPARTMENT (the notification centre's own
+   * module names) — so a rail item can say "Engineering has 1" the way the
+   * inbox does. The department items used to read a hard 0, which is why a
+   * parts alert sat unread in the centre while Engineering showed no dot.
+   */
+  moduleUnread: Record<string, number>;
 };
 
 const EMPTY: LiveBadges = {
@@ -24,6 +31,7 @@ const EMPTY: LiveBadges = {
   passwordRequestsPending: 0,
   fleetDispatchPending: 0,
   unreadMessages: 0,
+  moduleUnread: {},
 };
 
 // ---- Module-level singleton store: ONE poller per page, shared by every
@@ -50,11 +58,27 @@ async function refresh() {
     const roles = authService.getRoles();
     const isPartner = roles.includes("Customer Portals (External)");
 
-    // 1. Unread notifications — everyone (server scopes by role)
+    // 1. Unread notifications — everyone (server scopes by role). The summary
+    //    carries the per-department split in the same call, so the rail can put
+    //    the alert on the department that sent it without a second request.
     const unreadP = notificationService
-      .getUnreadCount()
-      .then((n) => ["unread", n] as const)
-      .catch(() => ["unread", 0] as const);
+      .summary()
+      .then(
+        (s) =>
+          [
+            "summary",
+            {
+              unread: Number(s?.unread ?? 0),
+              modules: Object.fromEntries(
+                (Array.isArray(s?.modules) ? s.modules : []).map((m: any) => [
+                  String(m.module),
+                  Number(m.unread ?? 0),
+                ]),
+              ),
+            },
+          ] as const,
+      )
+      .catch(() => ["summary", { unread: 0, modules: {} }] as const);
 
     // 2 + 3. Trip-derived badges — internal roles only (partner users can't list trips).
     //         One shared /trips call feeds both counters.
@@ -93,7 +117,10 @@ async function refresh() {
     const results = await Promise.all([unreadP, requestsP, dispatchP, passwordP, messagesP]);
     const next: LiveBadges = { ...current };
     for (const [key, value] of results) {
-      if (key === "unread") next.unreadNotifications = value;
+      if (key === "summary") {
+        next.unreadNotifications = value.unread;
+        next.moduleUnread = value.modules;
+      }
       if (key === "requests") next.partnerRequestsPending = value;
       if (key === "dispatch") next.fleetDispatchPending = value;
       if (key === "password") next.passwordRequestsPending = value;

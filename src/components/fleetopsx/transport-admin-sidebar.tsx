@@ -36,8 +36,22 @@ type AdminNavItem = {
   label: string;
   to: string;
   icon: typeof LayoutDashboard;
-  /** Which live badge count drives the orange dot (only rendered when > 0). */
-  liveDot?: "partnerRequests" | "fleetDispatch" | "passwordRequests" | "unread" | "messages" | "partInventory" | "engineeringRequests";
+  /**
+   * Which live badge count drives the orange dot (only rendered when > 0).
+   *
+   * `module:<name>` reads the unread count of the notifications that department
+   * SENT — the same number the notification centre shows against it — so a rail
+   * item never sits silent while an alert from that desk is waiting to be read.
+   */
+  liveDot?:
+    | "partnerRequests"
+    | "fleetDispatch"
+    | "passwordRequests"
+    | "unread"
+    | "messages"
+    | "partInventory"
+    | "engineeringRequests"
+    | `module:${string}`;
   /** Rendered indented beneath the item above — e.g. Internal Request under New Request. */
   sub?: boolean;
 };
@@ -101,13 +115,23 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // not decide which trucks exist.
       { label: "Manage Fleet", to: "/workspace/app/fleet-registry", icon: Truck },
       // Tracking Operations board: the TM watches every truck on the road here.
-      { label: "Tracking Operations", to: "/workspace/app/active-dispatch", icon: Navigation },
+      {
+        label: "Tracking Operations",
+        to: "/workspace/app/active-dispatch",
+        icon: Navigation,
+        liveDot: "module:Tracking",
+      },
       { label: "Live Tracking", to: "/workspace/app/live-tracking", icon: MapPinCheck },
       // The gate house: every departure and return Security logged. The TM reads
       // this log — a truck that has not left, or never came back, is his problem —
       // but the stamps themselves stay with Security.
-      { label: "Gate Security", to: "/workspace/app/gate", icon: ShieldCheck },
-      { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users },
+      {
+        label: "Gate Security",
+        to: "/workspace/app/gate",
+        icon: ShieldCheck,
+        liveDot: "module:Gate Security",
+      },
+      { label: "HR & Personnel", to: "/workspace/app/hr", icon: Users, liveDot: "module:HR & Personnel" },
       // THE ONE ENGINEERING PLACE — the merged board: the authorization desk,
       // the maintenance queues, log and report are sections of one page, so the
       // sidebar names the department once (the live dot reads its queue).
@@ -122,8 +146,18 @@ const ADMIN_GROUPS: AdminNavGroup[] = [
       // The department's own ledger: litres in the tank, litres dispensed, and
       // what the Transport Manager's rate turned them into. Shown as
       // "Diesel & Gas" — the department used to be labeled "Lubricant".
-      { label: "Diesel & Gas", to: "/workspace/app/lubricant", icon: Droplets },
-      { label: "Accounts", to: "/workspace/app/accounts", icon: CircleDollarSign },
+      {
+        label: "Diesel & Gas",
+        to: "/workspace/app/lubricant",
+        icon: Droplets,
+        liveDot: "module:Fuel & Lubricant",
+      },
+      {
+        label: "Accounts",
+        to: "/workspace/app/accounts",
+        icon: CircleDollarSign,
+        liveDot: "module:Accounts",
+      },
     ],
   },
   {
@@ -171,8 +205,9 @@ export function TransportAdminSidebar({
   const [mounted, setMounted] = useState(false);
   const badges = useLiveBadges();
 
-  const liveDotCount = (dot?: AdminNavItem["liveDot"]) =>
-    dot === "partnerRequests"
+  const liveDotCount = (dot?: AdminNavItem["liveDot"]) => {
+    if (dot?.startsWith("module:")) return badges.moduleUnread[dot.slice("module:".length)] ?? 0;
+    return dot === "partnerRequests"
       ? badges.partnerRequestsPending
       : dot === "fleetDispatch"
         ? badges.fleetDispatchPending
@@ -182,7 +217,12 @@ export function TransportAdminSidebar({
             ? badges.unreadNotifications
             : dot === "messages"
               ? badges.unreadMessages
-              : 0; // partInventory / engineeringRequests read live on their own pages
+              : dot === "partInventory"
+                ? badges.moduleUnread.Inventory ?? 0
+                : dot === "engineeringRequests"
+                  ? badges.moduleUnread.Engineering ?? 0
+                  : 0;
+  };
 
   useEffect(() => {
     setMounted(true);

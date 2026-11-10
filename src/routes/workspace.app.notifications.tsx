@@ -37,22 +37,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/workspace/app/notifications")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
-    const allowed = [
-      "Transport Manager",
-      "Fleet Operations",
-      "Diesel",
-      "Engineering",
-      "Parts & Store",
-      "Accounts",
-      "HR",
-      "Security",
-      "Tracking",
-      "Loading",
-      "Driver",
-      "Customer Portals (External)",
-      "Platform Admin",
-    ];
-    if (!authService.getRoles().some((role: string) => allowed.includes(role))) {
+    // Every signed-in desk reads its OWN notification center — the server scopes
+    // the rows by role and company. The old allow-list of role spellings left out
+    // Procurement (and every newer spelling), so the buying desk saw a badge of 1
+    // on its rail, clicked it, and was told it was unauthorized to read the alert
+    // it had just been sent.
+    if (authService.getRoles().length === 0) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
