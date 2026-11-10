@@ -73,6 +73,12 @@ try {
 
   const lines = await prisma.inventoryRequisition.findMany({ where: { truckReg: REG } });
   console.log('requisition after    ->', lines.map((l) => `${l.status} / ${l.decisionNote}`));
+
+  // The check-up itself is the workshop's work: oversight may not file one.
+  const insp = await call('/engineering/inspections', TM, 'POST', {
+    headId: 'nonexistent', result: 'no-issues', truckReg: REG,
+  });
+  console.log('tm files inspection  ->', insp.status, JSON.stringify(insp.data).slice(0, 120));
 } finally {
   await prisma.inventoryRequisition.deleteMany({ where: { truckReg: REG } });
   if (wo) await prisma.workOrder.delete({ where: { id: wo } }).catch(() => {});

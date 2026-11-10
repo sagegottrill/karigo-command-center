@@ -83,6 +83,28 @@ export function rolesCanWorkOnTrucks() {
   return authService.getRoles().some((r: any) => ENGINEERING_OWNER_ROLES.includes(r));
 }
 
+/**
+ * Who may put a returning truck through a check-up.
+ *
+ * The workshop and the yard crew do the physical inspection; the Transport
+ * Manager and the Head of Engineering read the result. He used to be handed an
+ * Inspect button on all 43 returning trucks, which is the workshop's work, and
+ * the server accepted his inspection when he pressed it.
+ */
+export const ENGINEERING_INSPECT_ROLES = [
+  "Engineering",
+  "Engineering & Maintenance",
+  "Engineering and Maintenance",
+  "Fleet Field Ops",
+  "Fleet Field Operations",
+  "Platform Admin",
+];
+
+export function rolesCanInspectTrucks() {
+  if (typeof window === "undefined") return false;
+  return authService.getRoles().some((r: any) => ENGINEERING_INSPECT_ROLES.includes(r));
+}
+
 /** Status → its pill, in the portal's own tones. */
 export function statusPillClass(status: WorkOrderStatus) {
   switch (status) {

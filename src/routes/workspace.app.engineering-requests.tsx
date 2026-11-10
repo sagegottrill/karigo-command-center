@@ -27,9 +27,9 @@ import {
 import { liveListFuelRequests, liveSetFuelRequestStatus } from "@/lib/fleetopsx/live-api";
 import { fuelBadge, groupRequisitions, type RequestGroup } from "@/lib/fleetopsx/request-status";
 import {
-  ENGINEERING_ACCESS_ROLES,
   indexWorkOrdersByTruck,
   isEngineeringManager,
+  rolesCanInspectTrucks,
   rolesCanRaiseRequests,
   rolesCanWorkOnTrucks,
   truckLabel,
@@ -146,7 +146,9 @@ function EngineeringRequestsPage() {
   const canTM = authService
     .getRoles()
     .some((r: string) => ["Transport Manager", "Platform Admin"].includes(r));
-  const canWork = authService.getRoles().some((r: string) => ENGINEERING_ACCESS_ROLES.includes(r));
+  // Inspecting a returning truck is the workshop's work, not oversight's: the
+  // Transport Manager reads the verdict, he does not walk the yard.
+  const canInspect = rolesCanInspectTrucks();
   // Raising is the workshop's job; the HOE seat only decides what arrives.
   const canRaise = rolesCanRaiseRequests();
   // The HOE approval desk belongs to the Engineering Manager's account. The
@@ -565,7 +567,7 @@ function EngineeringRequestsPage() {
             {checkupAssets.slice(0, 5).map((a) => (
               <div key={a.kind + a.id} className="flex items-center justify-between gap-3 py-2.5">
                 <span className="text-[14px] font-medium text-[#1B2432]">{a.label}</span>
-                {canWork ? (
+                {canInspect ? (
                   <button
                     type="button"
                     onClick={() => setInspecting(a)}
@@ -620,7 +622,7 @@ function EngineeringRequestsPage() {
                   {a.kind === "head" ? "Truck Head" : "Truck Tail"} • Check Up
                 </p>
               </div>
-              {canWork ? (
+              {canInspect ? (
                 <button
                   type="button"
                   onClick={() => setInspecting(a)}
