@@ -6,62 +6,27 @@ import { PartnerPortalShell } from "@/components/fleetopsx/partner-portal-shell"
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { displayRequestedTruckType } from "@/lib/fleetopsx/display-ids";
 import { displayRequestId } from "@/lib/fleetopsx/request-id";
-import { countBuckets, partnerPortalOrder } from "@/lib/fleetopsx/status-buckets";
+import {
+  partnerPortalOrder,
+  toPartnerUiStatus,
+  type PartnerUiStatus,
+} from "@/lib/fleetopsx/status-buckets";
 import { authService, tripService } from "@/lib/fleetopsx/services";
 import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
-import type { Trip, TripStatus } from "@/lib/fleetopsx/types";
+import type { Trip } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/customer-portal/_auth/dashboard")({
   component: PartnerPortalDashboard,
 });
 
-type PartnerUiStatus =
-  "Pending" | "Seen" | "Assigned" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
-
-function toPartnerStatus(trip: {
-  status: TripStatus;
-  partnerNote?: string | null;
-  truckReg?: string | null;
-  headId?: string | null;
-  driverName?: string | null;
-}): PartnerUiStatus {
-  const status = trip.status;
-  switch (status) {
-    case "Requested":
-    case "Draft":
-      // The TM sent this one back — it must never read Pending again, which is
-      // the word for a request nobody has looked at yet.
-      return trip.partnerNote?.trim() ? "Returned" : "Pending";
-    case "Awaiting Approval":
-    case "Approved":
-    case "Approved for Dispatch":
-      // TM's FIRST approval = acknowledged only (Seen); the word becomes
-      // "Assigned" the moment Fleet Operations hangs a vehicle on it, and
-      // "Scheduled" after the final approval (Fortune, 31 Oct 2026).
-      return trip.truckReg || trip.headId || trip.driverName ? "Assigned" : "Seen";
-    case "Scheduled":
-      return "Scheduled";
-    case "Stopped":
-      return "Declined";
-    case "Completed":
-    // The TM's field endings close the run — partners read them as Completed.
-    case "Returned to Customer":
-    case "Returned to Fleet Ops":
-      return "Completed";
-    case "En Route":
-    case "Loaded":
-    case "Offloading":
-    case "Returning":
-    case "Delayed":
-      return "In transit";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-}
-
+/**
+ * The partner's word for a request comes from the SHARED mapper, not a copy of
+ * it. This page used to carry its own switch that read `truckReg` raw, so a
+ * dispatch whose truck was still the literal "TBD" showed "Assigned" here while
+ * the Transport Manager's own tables showed "Seen" — the same request, two
+ * answers, for exactly the reason status-buckets.ts exists.
+ */
 function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
@@ -102,7 +67,7 @@ function formatTripDate(value: string | undefined) {
  * A partner can withdraw only a request nobody has acted on yet — mirrors the
  * server rule, so the Delete action disappears once the TM has handled it.
  */
-function isWithdrawable(status: TripStatus | string): boolean {
+function isWithdrawable(status: string): boolean {
   return ["Requested", "Draft", "Awaiting Approval", "Approved", "Approved for Dispatch", "Stopped"].includes(
     status,
   );
@@ -177,15 +142,15 @@ function PartnerPortalDashboard() {
     if (sortKey === "date" && sortOrder === "Descending") {
       return [...result].sort((a, b) =>
         partnerPortalOrder(
-          { status: toPartnerStatus(a), at: a.createdAt },
-          { status: toPartnerStatus(b), at: b.createdAt },
+          { status: toPartnerUiStatus(a), at: a.createdAt },
+          { status: toPartnerUiStatus(b), at: b.createdAt },
         ),
       );
     }
     const dir = sortOrder === "Descending" ? -1 : 1;
     return [...result].sort((a, b) => {
-      const statusA = toPartnerStatus(a);
-      const statusB = toPartnerStatus(b);
+      const statusA = toPartnerUiStatus(a);
+      const statusB = toPartnerUiStatus(b);
       let cmp = 0;
       switch (sortKey) {
         case "id":
@@ -215,18 +180,21 @@ function PartnerPortalDashboard() {
     });
   }, [requests, searchQuery, sortKey, sortOrder]);
 
-  // Partner cards via shared buckets — identical semantics to the staff
-  // dashboards (a truck Stopped en route is "In transit", not "Declined").
-  const partnerCounts = countBuckets(requests);
+  // The cards count the SAME WORD the rows print, one per card. They used to
+  // count the staff buckets instead, so a partner whose only request was
+  // "Assigned" saw a "Seen 1" card above a row that said Assigned — two answers
+  // to one question, on the partner's own page.
+  const uiStatuses = requests.map((t) => toPartnerUiStatus(t));
+  const countOf = (word: PartnerUiStatus) => uiStatuses.filter((x) => x === word).length;
   const totalRequests = requests.length;
-  const inTransit = partnerCounts.inTransit;
-  const pending = partnerCounts.pending;
-  // First approval (acknowledged, awaiting final approval) is "Seen";
-  // "Scheduled" counts only the TM's second approval (on the dispatch board).
-  const seen = partnerCounts.approved + partnerCounts.awaiting;
-  const scheduled = partnerCounts.scheduled;
-  const declined = partnerCounts.declined;
-  const completed = partnerCounts.completed;
+  const inTransit = countOf("In transit");
+  const pending = countOf("Pending");
+  const returned = countOf("Returned");
+  const seen = countOf("Seen");
+  const assigned = countOf("Assigned");
+  const scheduled = countOf("Scheduled");
+  const declined = countOf("Declined");
+  const completed = countOf("Completed");
 
   const handleDelete = async () => {
     if (!deleteModalOpen) return;
@@ -253,7 +221,18 @@ function PartnerPortalDashboard() {
    * yet, OR the Transport Manager sent it back for correction (which returns it
    * to Requested with a note). Mirrors the server's own edit rule.
    */
-  const isEditable = (status: TripStatus | string) =>
+  /**
+   * The Transport Manager's note, read the way the request's own status reads
+   * it. A note on a DECLINED request is a decline reason — it used to render as
+   * "Returned by the Transport Manager" under a Declined pill, which told the
+   * partner their request was still fixable when it was dead.
+   */
+  const noteKind = (trip: Trip): "returned" | "declined" | "note" => {
+    const word = toPartnerUiStatus(trip);
+    return word === "Returned" ? "returned" : word === "Declined" ? "declined" : "note";
+  };
+
+  const isEditable = (status: string) =>
     [
       "Requested",
       "Draft",
@@ -380,7 +359,9 @@ function PartnerPortalDashboard() {
       hint: inTransit > 0 ? "Look out for your delivery" : undefined,
     },
     { label: "Pending", value: pending },
+    { label: "Returned", value: returned },
     { label: "Seen", value: seen },
+    { label: "Assigned", value: assigned },
     { label: "Scheduled", value: scheduled },
     { label: "Declined", value: declined },
     { label: "Completed", value: completed },
@@ -390,7 +371,7 @@ function PartnerPortalDashboard() {
     <PartnerPortalShell>
       <main className="box-border flex w-full max-w-none flex-1 flex-col gap-5 p-4 md:gap-[30px] md:p-[30px]">
         {/* Stat cards — responsive grid fills content width from lg (sidebar) up */}
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 lg:gap-[14px] 2xl:grid-cols-7">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 lg:gap-[14px] 2xl:grid-cols-8">
           {statCards.map((card) => (
             <div
               key={card.label}
@@ -475,7 +456,7 @@ function PartnerPortalDashboard() {
             {/* Mobile cards — Figma 294:8644 (with the design's per-card action menu) */}
             <div className="flex flex-col gap-3 lg:hidden">
               {filteredRequests.map((r) => {
-                const uiStatus = toPartnerStatus(r);
+                const uiStatus = toPartnerUiStatus(r);
                 return (
                   <div
                     key={r.id}
@@ -553,7 +534,11 @@ function PartnerPortalDashboard() {
                     {r.partnerNote ? (
                       <div className="mb-3 rounded-[8px] border border-[#F5B5AA] bg-[#FDECEA] p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.4px] text-[#B42318]">
-                          Returned by the Transport Manager
+                          {noteKind(r) === "declined"
+                            ? "Declined by the Transport Manager"
+                            : noteKind(r) === "returned"
+                              ? "Returned by the Transport Manager"
+                              : "Note from the Transport Manager"}
                         </p>
                         <p className="mt-0.5 line-clamp-2 text-[12.5px] text-[#7A271A]">
                           {r.partnerNote}
@@ -607,7 +592,7 @@ function PartnerPortalDashboard() {
                   </thead>
                   <tbody>
                     {filteredRequests.map((r) => {
-                      const uiStatus = toPartnerStatus(r);
+                      const uiStatus = toPartnerUiStatus(r);
                       return (
                         <tr
                           key={r.id}
@@ -647,7 +632,11 @@ function PartnerPortalDashboard() {
                                   title={`Transport Manager: ${r.partnerNote}`}
                                   className="inline-flex h-[22px] items-center rounded bg-[#FDECEA] px-2 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#B42318]"
                                 >
-                                  Action
+                                  {noteKind(r) === "declined"
+                                    ? "Reason"
+                                    : noteKind(r) === "returned"
+                                      ? "Action"
+                                      : "Note"}
                                 </span>
                               ) : null}
                               <RowActionMenu

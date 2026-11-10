@@ -274,6 +274,15 @@ export function partnerPortalOrder(
  * `Scheduled` is the FINAL approval, when the dispatch is on the board.
  * There is no "Approved" state in the pipeline — Pending, Seen, Assigned,
  * Scheduled, In transit, Completed, Declined.
+ *
+ * How these line up with the internal words (toInternalUiStatus) — one rung
+ * each, so a partner and a TM looking at the same trip are reading the same
+ * fact in their own vocabulary rather than two different stories:
+ *   Pending ↔ Pending      Seen ↔ Approved (no crew yet)
+ *   Assigned ↔ Awaiting Approval (crewed, TM has still to release it)
+ *   Scheduled ↔ Scheduled  In transit ↔ In Transit
+ *   Completed ↔ Completed and the TM's two field endings
+ *   Declined ↔ Declined    Returned ↔ Pending + the TM's correction note
  */
 export type PartnerUiStatus =
   "Pending" | "Seen" | "Assigned" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
@@ -334,27 +343,103 @@ export function approvedStampOf(
   return trip.dispatchedAt ?? null;
 }
 
-/** Dispatch History display label (internal staff view). */
-export type HistoryUiStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
+/**
+ * THE internal vocabulary for a dispatch status — board, Dispatch History, the
+ * dispatch details panel and its printed copy, the gate list, the tracking board
+ * and the role dashboards all print this word and nothing else.
+ *
+ * It used to be several vocabularies. The Fleet Ops board said "Awaiting
+ * Approval" and "Approved"; Dispatch History folded both into "Scheduled"; the
+ * details panel printed the raw DB status; the gate and the tracking board
+ * printed "Loaded" / "En Route" / "Approved for Dispatch". One dispatch could
+ * therefore be described three ways on three screens — and the client hit the
+ * worst of it: a board row reading "Scheduled" whose own timeline said the
+ * Transport Manager had still to approve the dispatch.
+ *
+ * Each word here is a DISTINCT stage, so nobody has to guess which one a
+ * dispatch is actually in:
+ *   Pending            — with the Transport Manager, nobody has actioned it
+ *   Approved           — he approved the request; Fleet Ops has still to crew it
+ *   Awaiting Approval  — Fleet Ops crewed it; he has still to release the dispatch
+ *   Sent Back          — he returned the crewed dispatch to Fleet Ops
+ *   Scheduled          — released, on the board, not yet moving
+ *   In Transit         — out of the yard (loading / running / offloading)
+ *   Completed          — delivered and closed
+ *   Returned to …      — the TM's field endings, kept as words of their own
+ *   Declined           — rejected (DB status `Stopped`)
+ */
+export type InternalUiStatus =
+  | "Pending"
+  | "Approved"
+  | "Awaiting Approval"
+  | "Sent Back"
+  | "Scheduled"
+  | "In Transit"
+  | "Completed"
+  | "Returned to Customer"
+  | "Returned to Fleet Ops"
+  | "Declined";
 
-export function toHistoryUiStatus(
-  trip: Pick<Trip, "status" | "headId" | "truckReg" | "driverId" | "driverName">,
-): HistoryUiStatus {
-  switch (tripBucket(trip)) {
-    case "inTransit":
-      return "In Transit";
-    case "scheduled":
-    case "approved":
-    case "awaiting":
-      // Once the Transport Manager has approved it, it is scheduled work — on
-      // the board and no longer waiting on anybody. "Pending" is reserved for a
-      // request he has not approved at all.
-      return "Scheduled";
-    case "pending":
+/** Every internal word, in lifecycle order — filter menus and CSVs read this. */
+export const INTERNAL_UI_STATUSES: InternalUiStatus[] = [
+  "Pending",
+  "Approved",
+  "Awaiting Approval",
+  "Sent Back",
+  "Scheduled",
+  "In Transit",
+  "Completed",
+  "Returned to Customer",
+  "Returned to Fleet Ops",
+  "Declined",
+];
+
+/** Pill colours, shared so the same word never wears two colours. */
+export const INTERNAL_STATUS_CLASS: Record<InternalUiStatus, string> = {
+  Pending: "bg-[#FC0] text-[#1B2432]",
+  Approved: "bg-[#34C759] text-white",
+  "Awaiting Approval": "bg-[#FC0] text-[#1B2432]",
+  "Sent Back": "bg-[#141A1F] text-white",
+  Scheduled: "bg-[#CB30E0] text-white",
+  "In Transit": "bg-[#30B0C7] text-white",
+  Completed: "bg-[#007AFF] text-white",
+  "Returned to Customer": "bg-[#627084] text-white",
+  "Returned to Fleet Ops": "bg-[#627084] text-white",
+  Declined: "bg-[#ED351D] text-white",
+};
+
+export function toInternalUiStatus(trip: {
+  status: Trip["status"] | string;
+  sendBackReason?: string | null;
+}): InternalUiStatus {
+  const status = String(trip.status ?? "").trim();
+  // A dispatch the TM sent back to Fleet Ops is not a green approval: the send
+  // back wipes the crew and costs and hands the config back for re-assignment.
+  if (status === "Approved" && trip.sendBackReason?.trim()) return "Sent Back";
+  if (status === "Stopped") return "Declined";
+  // One word for the whole on-road stretch — loading, running, offloading and
+  // the drive home all read "In Transit".
+  if (IN_TRANSIT_STATUSES.includes(status)) return "In Transit";
+  switch (status) {
+    case "Requested":
+    case "Draft":
       return "Pending";
-    case "completed":
+    case "Approved":
+    case "Approved for Dispatch":
+      return "Approved";
+    case "Awaiting Approval":
+      return "Awaiting Approval";
+    case "Scheduled":
+      return "Scheduled";
+    case "Completed":
       return "Completed";
-    case "declined":
-      return "Declined";
+    case "Returned to Customer":
+      return "Returned to Customer";
+    case "Returned to Fleet Ops":
+      return "Returned to Fleet Ops";
+    default:
+      // An unknown status stays visible rather than vanishing off every board.
+      return "Pending";
   }
 }
+

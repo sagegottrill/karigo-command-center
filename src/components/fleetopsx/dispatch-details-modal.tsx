@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Printer } from "lucide-react";
 import { ExportMenu } from "@/components/fleetopsx/export-menu";
 import { csvCell } from "@/lib/fleetopsx/csv";
+import { toInternalUiStatus } from "@/lib/fleetopsx/status-buckets";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -125,7 +126,9 @@ export function dispatchFields(
   return {
     ticket: ticketId(trip),
     partner,
-    status: trip.status,
+    // The printed sheet carries the same word every screen shows, not the
+    // raw database status.
+    status: toInternalUiStatus(trip),
     dateRequested: formatDateTimeStamp(trip.createdAt),
     dateApproved: formatDateTimeStamp(trip.dispatchedAt),
     customer: [

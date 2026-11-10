@@ -50,7 +50,8 @@ import {
   shareTicketJpeg,
   type TicketImageInput,
 } from "@/lib/fleetopsx/ticket-image";
-import type { Driver, Trip, TripStatus } from "@/lib/fleetopsx/types";
+import type { Driver, Trip } from "@/lib/fleetopsx/types";
+import { toPartnerUiStatus, type PartnerUiStatus } from "@/lib/fleetopsx/status-buckets";
 import { csvCell } from "@/lib/fleetopsx/csv";
 import { cn } from "@/lib/utils";
 
@@ -67,16 +68,6 @@ export const Route = createFileRoute("/workspace/customer-portal/_auth/$requestI
   component: PartnerRequestDetailsPage,
 });
 
-type PartnerUiStatus =
-  "Pending" | "Seen" | "Scheduled" | "Declined" | "In transit" | "Completed" | "Returned";
-
-/**
- * Split joined site strings so each site is its own field (Figma 356:9825).
- *
- * A site the PARTNER has saved opens as a plain pick; one they no longer have on
- * their list opens as an added site holding its own name, so correcting a request
- * can never silently drop the yard it was raised with.
- */
 function sitesToDrafts(sites: string[], saved: string[]): PartnerLoadingSiteDraft[] {
   if (sites.length === 0) {
     return [{ id: crypto.randomUUID(), type: "", customValue: "" }];
@@ -84,41 +75,11 @@ function sitesToDrafts(sites: string[], saved: string[]): PartnerLoadingSiteDraf
   return sites.map((site) => loadingSiteDraftFor(site, saved, () => crypto.randomUUID()));
 }
 
-function toPartnerStatus(trip: {
-  status: TripStatus;
-  partnerNote?: string | null;
-}): PartnerUiStatus {
-  // Partner semantics — mirrors status-buckets.toPartnerUiStatus, EXCEPT that
-  // the TM's FIRST approval is only "Seen" (orange): the partner sees
-  // "Scheduled" (green) only after the second/final approval.
-  switch (trip.status) {
-    case "Requested":
-    case "Draft":
-      // The TM sent this one back for correction — never read Pending again,
-      // the word for a request nobody has looked at yet.
-      return trip.partnerNote?.trim() ? "Returned" : "Pending";
-    case "Awaiting Approval":
-    case "Approved":
-    case "Approved for Dispatch":
-      return "Seen";
-    case "Scheduled":
-      return "Scheduled";
-    case "Stopped":
-      return "Declined";
-    case "Completed":
-    // The TM's field endings close the run — partners read them as Completed.
-    case "Returned to Customer":
-    case "Returned to Fleet Ops":
-      return "Completed";
-    case "En Route":
-    case "Loaded":
-    case "Offloading":
-    case "Returning":
-    case "Delayed":
-      return "In transit";
-  }
-}
-
+/**
+ * The partner's word for the request is the SHARED mapper (status-buckets.ts).
+ * This page carried its own copy that had no "Assigned" rung, so a trucked-up
+ * dispatch read "Seen" here while the partner's own list called it "Assigned".
+ */
 function partnerStatusClass(status: PartnerUiStatus) {
   switch (status) {
     case "Pending":
@@ -129,6 +90,10 @@ function partnerStatusClass(status: PartnerUiStatus) {
       return "border border-[#ED351D] bg-[#FDECEA] text-[#B42318]";
     case "Seen":
       return "bg-[#F99E1F] text-white";
+    // A truck is committed — the same word the partner's list shows, and the
+    // same colour the list gives it.
+    case "Assigned":
+      return "bg-[#30B0C7] text-white";
     case "Scheduled":
       return "bg-[#0ACF83] text-white";
     case "Declined":
@@ -204,27 +169,30 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
   // Two-step approval: the TM's first approval only marks the request "Seen"
   // (orange). "Scheduled" (green) happens after final approval, when the trip
   // is on the dispatch board.
-  const dispatched = [
-    "Scheduled",
-    "Loaded",
-    "En Route",
-    "Delayed",
-    "Offloading",
-    "Returning",
-    "Completed",
-  ].includes(trip.status);
+  // The run is over — including the Transport Manager's two field endings, which
+  // close a dispatch exactly like Completed. Before this, a partner whose trip
+  // was ended "Returned to Customer" saw a green Completed pill over a timeline
+  // still waiting at Loading.
+  const closed =
+    trip.status === "Completed" ||
+    trip.status === "Returned to Customer" ||
+    trip.status === "Returned to Fleet Ops";
+
+  const dispatched =
+    closed ||
+    ["Scheduled", "Loaded", "En Route", "Delayed", "Offloading", "Returning"].includes(trip.status);
 
   const loading = trip.status === "Loaded" ? "current" : dispatched ? "done" : "pending";
   const inTransit =
     trip.status === "En Route" || trip.status === "Delayed"
       ? "current"
-      : ["Offloading", "Returning", "Completed"].includes(trip.status)
+      : closed || ["Offloading", "Returning"].includes(trip.status)
         ? "done"
         : "pending";
   const atDestination =
     trip.status === "Offloading"
       ? "current"
-      : ["Returning", "Completed"].includes(trip.status)
+      : closed || trip.status === "Returning"
         ? "done"
         : "pending";
   // RETURN IS THE GATE'S WORD (21 Oct 2026): the partner timeline used to show
@@ -232,8 +200,8 @@ function partnerRequestTimeline(trip: Trip): PartnerTimelineStep[] {
   // which read as the truck home while it was still on the road. From here the
   // road ends at Offloaded; "Returned" is done only when the dispatch is
   // Completed — closed by Security's gate with the truck physically in the yard.
-  const offloaded = trip.status === "Completed" ? "done" : trip.status === "Offloading" ? "current" : "pending";
-  const returned = trip.status === "Completed" ? "done" : "pending";
+  const offloaded = closed ? "done" : trip.status === "Offloading" ? "current" : "pending";
+  const returned = closed ? "done" : "pending";
 
   const steps: PartnerTimelineStep[] = [
     { label: "Request Submitted", state: "done", at: submittedAt },
@@ -480,7 +448,7 @@ function PartnerRequestDetailsPage() {
       return step;
     });
   }, [trip, checkpoints]);
-  const uiStatus = trip ? toPartnerStatus(trip) : "Pending";
+  const uiStatus = trip ? toPartnerUiStatus(trip) : "Pending";
   const truckParts = (trip?.truckReg || "")
     .split(" / ")
     .map((p) => p.trim())

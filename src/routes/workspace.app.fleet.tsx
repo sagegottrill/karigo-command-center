@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PAGE_SIZE } from "@/lib/fleetopsx/pagination";
-import { IN_TRANSIT_STATUSES } from "@/lib/fleetopsx/status-buckets";
+import { INTERNAL_STATUS_CLASS, toInternalUiStatus } from "@/lib/fleetopsx/status-buckets";
+import type { InternalUiStatus } from "@/lib/fleetopsx/status-buckets";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -107,20 +108,11 @@ function isDispatchRequest(trip: Trip) {
  * Every status this table can DISPLAY on a row — the pill column is the source
  * of truth, and the filter below must never offer fewer words than the rows
  * carry.
+ *
+ * It is the SHARED internal word (status-buckets.ts), so a row here cannot
+ * describe a dispatch differently from Dispatch History or the details panel.
  */
-type FleetStatus =
-  | "Awaiting Approval"
-  | "Approved"
-  | "Sent Back"
-  | "Scheduled"
-  | "In Transit"
-  | "Completed"
-  // The field endings (Fortune, 28 Oct): a partner can cancel a trip that is
-  // already on the road; the TM closes the run with the word that says where
-  // the vehicle went.
-  | "Returned to Customer"
-  | "Returned to Fleet Ops"
-  | "Declined";
+type FleetStatus = InternalUiStatus;
 
 /**
  * What the red filter offers, in the order the work arrives: the dispatch sitting
@@ -145,19 +137,7 @@ const STATUS_FILTERS: Array<"All" | FleetStatus> = [
 ];
 
 function fleetStatusOf(trip: Trip): FleetStatus {
-  // A dispatch the Transport Manager sent back to Fleet Ops is not sitting in
-  // the approved queue: the send-back wipes the truck, driver and costs (NOT
-  // NULL columns → "") and hands the config back for re-assignment. Presenting
-  // such a row as a green "Approved" with empty Driver / Truck Head cells read
-  // as a broken approval — it is a SENT-BACK row, and the reason travels with
-  // it (e.g. "CANCELL BY CUSTOMER").
-  if (trip.status === "Approved" && trip.sendBackReason?.trim()) return "Sent Back";
-  if (trip.status === "Stopped") return "Declined";
-  if (trip.status === "Approved for Dispatch") return "Approved";
-  // The truck has left: one word for the whole on-road stretch, so the row reads
-  // the same whether it is loading, running or offloading.
-  if (IN_TRANSIT_STATUSES.includes(trip.status)) return "In Transit";
-  return trip.status as FleetStatus;
+  return toInternalUiStatus(trip);
 }
 
 /**
@@ -193,6 +173,7 @@ function fleetQueueRank(trip: Trip): number {
 
 /** Plain-language meaning of each dispatch status, shown on hover. */
 const STATUS_HINT: Record<FleetStatus, string> = {
+  Pending: "The partner raised this request — nobody has actioned it yet.",
   "Awaiting Approval":
     "Fleet Ops has configured this dispatch — approve it to put the truck on the road.",
   Approved: "Approved and waiting on Fleet Ops to schedule the truck.",
@@ -209,26 +190,9 @@ const STATUS_HINT: Record<FleetStatus, string> = {
 };
 
 function StatusPill({ status, note }: { status: FleetStatus; note?: string }) {
-  const cls =
-    status === "Declined"
-      ? "bg-[#ED351D] text-white"
-      : // Sent back is Fleet Ops work again — dark, not the green of approval.
-        status === "Sent Back"
-        ? "bg-[#141A1F] text-white"
-        : status === "Approved"
-        ? "bg-[#34C759] text-white"
-        : status === "Completed"
-          ? "bg-[#007AFF] text-white"
-          : status === "Scheduled"
-            ? "bg-[#CB30E0] text-white"
-            : status === "In Transit"
-              ? "bg-[#30B0C7] text-white"
-              : // The field endings read as closed-but-different: sober slate,
-                // not the delivery blue.
-                status === "Returned to Customer" || status === "Returned to Fleet Ops"
-                ? "bg-[#627084] text-white"
-                : // Amber needs dark text: white on #FC0 was barely legible.
-                  "bg-[#FC0] text-[#1B2432]";
+  // Colours come from the shared map, so a word wears the same colour here as
+  // it does in Dispatch History and the details panel.
+  const cls = INTERNAL_STATUS_CLASS[status];
   return (
     <span
       title={

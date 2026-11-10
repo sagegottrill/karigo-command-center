@@ -1,6 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { formatNaira } from "@/lib/fleetopsx/services";
-import { ACTIVE_DISPATCH_BUCKETS, FO_QUEUE_BUCKETS, countBuckets, isInBucket } from "@/lib/fleetopsx/status-buckets";
+import {
+  ACTIVE_DISPATCH_BUCKETS,
+  FO_QUEUE_BUCKETS,
+  countBuckets,
+  isInBucket,
+  toInternalUiStatus,
+} from "@/lib/fleetopsx/status-buckets";
 import { dailyActivity } from "@/lib/fleetopsx/daily-stats";
 import { DailyCaptureBand, useDailyClock } from "./daily-capture";
 import { StatusBadge } from "./status-badge";
@@ -143,7 +149,7 @@ export function FleetManagerDashboard({ trips, trucks }: DashboardProps) {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={t.status} />
+                  <StatusBadge status={toInternalUiStatus(t)} />
                   <Link to="/workspace/app/dispatch">
                     <Button size="sm" className="bg-[#ED351D] text-white hover:bg-[#ED351D]/90">
                       Assign

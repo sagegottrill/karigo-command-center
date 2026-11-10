@@ -16,7 +16,13 @@ import {
 } from "@/lib/fleetopsx/display-ids";
 import { driverForTrip, type TripDriverMatch } from "@/lib/fleetopsx/driver-duty";
 import { formatMovementStamp } from "@/lib/fleetopsx/display-dates";
-import { hasAssignment } from "@/lib/fleetopsx/status-buckets";
+import {
+  INTERNAL_STATUS_CLASS,
+  hasAssignment,
+  toInternalUiStatus,
+  tripBucket,
+} from "@/lib/fleetopsx/status-buckets";
+import type { InternalUiStatus } from "@/lib/fleetopsx/status-buckets";
 import {
   CustomRangePicker,
   PeriodFilter,
@@ -73,80 +79,34 @@ export const Route = createFileRoute("/workspace/app/dispatch-history")({
   component: DispatchHistoryPage,
 });
 
-/** Every state the history table can print on a row. */
-type DisplayStatus = "In Transit" | "Pending" | "Scheduled" | "Declined" | "Completed";
-
 /**
- * Every state the history table can print is selectable — the pill column is
- * the source of truth, so the filter never offers fewer words than the rows
- * carry. (In Transit and Completed were once dropped from this menu; the
- * client asked for the full set back.)
+ * Every state the history table can print on a row — the SHARED internal words
+ * (status-buckets.ts), so a dispatch reads the same here as on the Fleet Ops
+ * board, in the details panel and at the gate.
+ *
+ * Pending and Declined are not in the menu because they are not on the page:
+ * a request the Transport Manager has not approved, and a rejected one, never
+ * became dispatches (see the filter in `filteredTrips`).
  */
-const HISTORY_STATUS_FILTERS = [
+const HISTORY_STATUS_FILTERS: ReadonlyArray<InternalUiStatus | "All"> = [
   "All",
-  "In Transit",
-  "Pending",
+  "Awaiting Approval",
+  "Sent Back",
+  "Approved",
   "Scheduled",
-  "Declined",
+  "In Transit",
   "Completed",
-] as const;
+  "Returned to Customer",
+  "Returned to Fleet Ops",
+];
 
-const STATUS_STYLES: Record<DisplayStatus, string> = {
-  "In Transit": "bg-[#A259FF] text-white",
-  Pending: "bg-[#FC0] text-[#1B2432]",
-  // Booked and on the board, not yet moving — its own word, not "Pending":
-  // the Transport Manager has already final-approved these, so calling them
-  // pending read as work still waiting on somebody.
-  Scheduled: "bg-[#007AFF] text-white",
-  Declined: "bg-[#FF383C] text-white",
-  Completed: "bg-[#34C759] text-white",
-};
-
-function toDisplayStatus(status: Trip["status"]): DisplayStatus {
-  switch (status) {
-    case "En Route":
-    case "Loaded":
-    case "Offloading":
-    case "Returning":
-    case "Delayed":
-      return "In Transit";
-    // Pending means exactly one thing for Fleet Ops: the Transport Manager has
-    // not approved it yet. The moment he does — whether Fleet Ops has assigned a
-    // truck yet or not — the dispatch is scheduled work, not a pending request.
-    case "Requested":
-    case "Draft":
-      return "Pending";
-    case "Approved":
-    case "Approved for Dispatch":
-    case "Scheduled":
-      return "Scheduled";
-    // Fleet Ops has hung a truck on it and the Transport Manager has NOT
-    // confirmed — that is work waiting on him, not booked work. It used to read
-    // "Scheduled" here while the timeline said "Dispatch Approved by TM — in
-    // progress", so the same page told two stories.
-    case "Awaiting Approval":
-      return "Pending";
-    case "Stopped":
-      return "Declined";
-    case "Completed":
-    // The TM's field endings close the run (Fordune choice at the board, 28 Oct) —
-    // history reads them as completed work either way.
-    case "Returned to Customer":
-    case "Returned to Fleet Ops":
-      return "Completed";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-}
-
-function StatusPill({ status }: { status: DisplayStatus }) {
+function StatusPill({ status }: { status: InternalUiStatus }) {
   return (
     <span
       className={cn(
         "inline-flex h-[22px] items-center rounded px-3 text-[12px] font-medium tracking-[0.4px] shadow-[0px_1px_4px_rgba(12,12,13,0.1)]",
-        STATUS_STYLES[status],
+        // Shared colours: the same word wears the same colour on every board.
+        INTERNAL_STATUS_CLASS[status],
       )}
     >
       {status}
@@ -275,18 +235,17 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
 
   const status = String(trip.status);
   const assigned = hasAssignment(trip);
-  const leftYard = [
-    "Loaded",
-    "En Route",
-    "Delayed",
-    "Offloading",
-    "Returning",
-    "Completed",
-  ].includes(status);
-  const moving = ["En Route", "Delayed", "Offloading", "Returning", "Completed"].includes(status);
-  const arrived = ["Offloading", "Returning", "Completed"].includes(status);
-  const offloaded = ["Returning", "Completed"].includes(status);
-  const returned = status === "Completed";
+  // The run is CLOSED for Completed and for the Transport Manager's two field
+  // endings (Returned to Customer / Returned to Fleet Ops). They used to fall
+  // through every list below, so a finished dispatch drew a timeline with no
+  // road on it at all under a "Returned to Fleet Ops" pill.
+  const closed = tripBucket(trip) === "completed";
+  const leftYard =
+    closed || ["Loaded", "En Route", "Delayed", "Offloading", "Returning"].includes(status);
+  const moving = closed || ["En Route", "Delayed", "Offloading", "Returning"].includes(status);
+  const arrived = closed || ["Offloading", "Returning"].includes(status);
+  const offloaded = closed || status === "Returning";
+  const returned = closed;
 
   const loading = newestCheckpoint(checkpoints, "Loading");
   const transit = newestCheckpoint(checkpoints, "In Transit");
@@ -374,7 +333,7 @@ function DispatchDetail({
   onBack: () => void;
 }) {
   const driver = driverMatch?.driver;
-  const displayStatus = toDisplayStatus(trip.status);
+  const displayStatus = toInternalUiStatus(trip);
   /**
    * The driver as the design writes him — name with his staff number in
    * brackets, "Marcus Sterling (SL-00829)" — and his phone on its own row.
@@ -794,7 +753,7 @@ function DispatchHistoryPage() {
       // dead — neither belongs on this page (it made a returned request read as a
       // pending dispatch). Only approved-and-beyond rows are listed.
       if (["Requested", "Draft", "Stopped"].includes(String(t.status))) return false;
-      if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
+      if (statusFilter !== "All" && toInternalUiStatus(t) !== statusFilter) return false;
       // The window answers the DATE THE PAGE SHOWS: a row matches when it was
       // dispatched (or departed) in the window, OR raised in it — so a
       // dispatch sent today under a Sept request is found by "Today" too.
@@ -807,7 +766,7 @@ function DispatchHistoryPage() {
         dispatchId(t),
         formatHistoryDate(t),
         companyName(t),
-        toDisplayStatus(t.status),
+        toInternalUiStatus(t),
         t.status,
         t.driverName ?? "",
         headCell(t),
@@ -818,7 +777,7 @@ function DispatchHistoryPage() {
     // somebody (the Transport Manager). Everything already approved reads
     // Scheduled below it, newest first, same as the working queues.
     return rows.sort((a, b) => {
-      const rank = (t: Trip) => (toDisplayStatus(t.status) === "Pending" ? 0 : 1);
+      const rank = (t: Trip) => (toInternalUiStatus(t) === "Awaiting Approval" ? 0 : 1);
       const byRank = rank(a) - rank(b);
       if (byRank !== 0) return byRank;
       return dateValue(b) - dateValue(a);
@@ -842,7 +801,7 @@ function DispatchHistoryPage() {
           t.tailType ?? "",
           t.dropoff,
           dispatchId(t),
-          toDisplayStatus(t.status),
+          toInternalUiStatus(t),
           who,
           driver?.employeeId ?? "",
           driver?.phone ?? "",
@@ -962,7 +921,7 @@ function DispatchHistoryPage() {
 
         <div className="flex flex-col gap-2.5 md:hidden">
           {filteredTrips.map((trip) => {
-            const status = toDisplayStatus(trip.status);
+            const status = toInternalUiStatus(trip);
             return (
               <button
                 key={`m-${trip.id}`}
@@ -1020,7 +979,7 @@ function DispatchHistoryPage() {
 
         <div className="hidden md:block">
           {filteredTrips.map((trip) => {
-            const status = toDisplayStatus(trip.status);
+            const status = toInternalUiStatus(trip);
             return (
               <button
                 key={trip.id}
@@ -1078,13 +1037,13 @@ function DispatchHistoryPage() {
               {
                 label: "Completed",
                 value: String(
-                  filteredTrips.filter((t) => toDisplayStatus(t.status) === "Completed").length,
+                  filteredTrips.filter((t) => tripBucket(t) === "completed").length,
                 ),
               },
               {
                 label: "In transit",
                 value: String(
-                  filteredTrips.filter((t) => toDisplayStatus(t.status) === "In Transit").length,
+                  filteredTrips.filter((t) => toInternalUiStatus(t) === "In Transit").length,
                 ),
               },
               {

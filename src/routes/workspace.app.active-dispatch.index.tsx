@@ -12,6 +12,7 @@ import {
   enrichDriver,
 } from "@/lib/fleetopsx/display-ids";
 import { driverForTrip } from "@/lib/fleetopsx/driver-duty";
+import { toInternalUiStatus } from "@/lib/fleetopsx/status-buckets";
 import { formatMovementStamp, formatTableDate } from "@/lib/fleetopsx/display-dates";
 import { dispatchSearchText, matchesQuery } from "@/lib/fleetopsx/search-match";
 import {
@@ -706,7 +707,7 @@ function ActiveDispatchPage() {
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <span className="truncate text-[12px] font-medium text-[#344256]">{row.driverName || "—"}</span>
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">{row.status}</span>
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">{toInternalUiStatus({ status: row.status })}</span>
                   </div>
                 </button>
               );
