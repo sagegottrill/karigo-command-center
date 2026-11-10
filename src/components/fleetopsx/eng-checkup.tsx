@@ -369,7 +369,7 @@ export function InspectionDialog({
             <input
               value={by}
               onChange={(e) => setBy(e.target.value)}
-              placeholder="Engr. David Doe"
+              placeholder="Maintainer David Doe"
               className={inputClass}
             />
           </label>

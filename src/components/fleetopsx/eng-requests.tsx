@@ -345,7 +345,7 @@ export function PartsRequestDialog({
         <input
           value={by}
           onChange={(e) => setBy(e.target.value)}
-          placeholder="e.g. Engr. Joe"
+          placeholder="e.g. Maintainer Joe"
           className="h-10 rounded-lg border border-[#D3D7DE] px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
         />
       </label>
@@ -585,7 +585,7 @@ export function LubricantRequestDialog({
         <input
           value={by}
           onChange={(e) => setBy(e.target.value)}
-          placeholder="e.g. Engr. Joe"
+          placeholder="e.g. Maintainer Joe"
           className="h-10 rounded-lg border border-[#D3D7DE] px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
         />
       </label>

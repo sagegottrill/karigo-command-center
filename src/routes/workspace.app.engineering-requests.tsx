@@ -681,7 +681,7 @@ function EngineeringRequestsPage() {
                   const job = openFor(a);
                   return job?.mechanic ? (
                     <p className="mt-1.5 text-[12px] text-[#5C6470]">
-                      Assigned engineer:{" "}
+                      Maintainer:{" "}
                       <span className="font-medium text-[#1B2432]">{job.mechanic}</span>
                     </p>
                   ) : null;
@@ -783,7 +783,7 @@ function EngineeringRequestsPage() {
     <div className="flex w-full flex-col gap-5 bg-[#F1F2F4] p-4 pb-28 md:p-[30px] md:pb-[30px]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-[5px] md:max-w-[520px]">
-          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Engineering</h2>
+          <h2 className="text-[24px] font-medium leading-8 text-[#1B2432]">Maintenance</h2>
           <p className="text-[11.4px] font-normal uppercase leading-4 tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
             Parts and lubricant requests, the maintenance cycle, and the official report
           </p>
@@ -1215,7 +1215,7 @@ function HoeReviewDesk({
                       </p>
                       <p className="mt-0.5 text-[13px] text-[#5C6470]">
                         Requested by:{" "}
-                        <span className="text-[#344256]">Engr. {g.requestedBy || "\u2014"}</span>
+                        <span className="text-[#344256]">Maintainer {g.requestedBy || "\u2014"}</span>
                       </p>
                     </div>
                     <button
@@ -1282,7 +1282,7 @@ function HoeReviewDesk({
                       </p>
                       <p className="mt-0.5 text-[13px] text-[#5C6470]">
                         Requested by:{" "}
-                        <span className="text-[#344256]">Engr. {r.requestedBy || "\u2014"}</span>
+                        <span className="text-[#344256]">Maintainer {r.requestedBy || "\u2014"}</span>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1615,7 +1615,7 @@ function EngineeringRequestsBoard({
                       </p>
                       <p className="mt-0.5 text-[13px] text-[#344256]">
                         Requested by:{" "}
-                        <span className="font-medium">Engr. {g.requestedBy || "\u2014"}</span>
+                        <span className="font-medium">Maintainer {g.requestedBy || "\u2014"}</span>
                       </p>
                     </div>
                     <DecisionButtons
@@ -1626,7 +1626,7 @@ function EngineeringRequestsBoard({
                       onPrint={() =>
                         printRequestSlip(
                           `Request ${g.key} — ${g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}`,
-                          `Requested by Engr. ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
+                          `Requested by Maintainer ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
                           g.description,
                           g.lines.map((l) => [
                             l.part,
@@ -1680,7 +1680,7 @@ function EngineeringRequestsBoard({
                         </p>
                         <p className="mt-0.5 text-[13px] text-[#344256]">
                           Requested by:{" "}
-                          <span className="font-medium">Engr. {g.requestedBy || "\u2014"}</span>
+                          <span className="font-medium">Maintainer {g.requestedBy || "\u2014"}</span>
                         </p>
                       </div>
                       <DecisionButtons
@@ -1691,7 +1691,7 @@ function EngineeringRequestsBoard({
                         onPrint={() =>
                           printRequestSlip(
                             `Request ${g.key} — ${g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}`,
-                            `Requested by Engr. ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
+                            `Requested by Maintainer ${g.requestedBy || "\u2014"} • ${String(g.date).slice(0, 10)} • ${g.stage}`,
                             g.description,
                             g.lines.map((l) => {
                               const it = itemById(l.itemId);
@@ -1751,7 +1751,7 @@ function EngineeringRequestsBoard({
                         </p>
                         <p className="mt-0.5 text-[13px] text-[#344256]">
                           Requested by:{" "}
-                          <span className="font-medium">Engr. {r.requestedBy || "\u2014"}</span>
+                          <span className="font-medium">Maintainer {r.requestedBy || "\u2014"}</span>
                         </p>
                       </div>
                       <DecisionButtons
@@ -1762,7 +1762,7 @@ function EngineeringRequestsBoard({
                         onPrint={() =>
                           printRequestSlip(
                             `${r.reference} — ${r.fuelType}`,
-                            `Requested by Engr. ${r.requestedBy || "\u2014"} • ${r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || "\u2014"} • ${String(r.createdAt).slice(0, 10)}`,
+                            `Requested by Maintainer ${r.requestedBy || "\u2014"} • ${r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || "\u2014"} • ${String(r.createdAt).slice(0, 10)}`,
                             r.purpose || "",
                             [
                               [

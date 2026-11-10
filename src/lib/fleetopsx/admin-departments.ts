@@ -9,7 +9,9 @@ export const ADMIN_DEPARTMENTS = [
   "Loading Operations",
   "Lubricant",
   "Fuel Management",
-  "Engineering and Maintenance",
+  // The workshop is MAINTENANCE on screen, and its people are maintainers; the
+  // role key the API checks stays "Engineering".
+  "Maintenance",
   "Head of Engineering",
   "Parts and Store",
   "Procurement",
@@ -39,7 +41,7 @@ export function departmentToRoleKey(department: string): string {
       return "Loading";
     case "Lubricant":
       return "Lubricant";
-    case "Engineering and Maintenance":
+    case "Maintenance":
       return "Engineering";
     // The ENGINEERING MANAGER is its own seat: he approves what the workshop
     // raises and does not need a workshop login to do it.
@@ -91,7 +93,7 @@ const DEPARTMENT_ROLE_ALIASES: Record<string, string[]> = {
   // in the right place.
   Lubricant: ["Lubricant", "Lubricant Manager", "Lubricant Operations", "Fuel Manager"],
   "Fuel Management": ["Fleet Operations", "Fuel Manager", "Lubricant"],
-  "Engineering and Maintenance": ["Engineering"],
+  Maintenance: ["Engineering", "Engineering and Maintenance", "Engineering & Maintenance"],
   "Head of Engineering": ["Head of Engineering", "Engineering Manager"],
   "Parts and Store": ["Parts & Store", "Parts and Store"],
   Procurement: [

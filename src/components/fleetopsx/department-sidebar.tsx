@@ -109,11 +109,15 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
     ],
   },
   engineering: {
-    heading: "ENGINEERING",
-    title: "Engineering & Maintenance Portal",
+    // The desk is MAINTENANCE; the people at it are maintainers. "Engineering"
+    // is the role key the API checks, not what the department is called on
+    // screen — two names for one desk is how the workshop and its head got
+    // confused.
+    heading: "MAINTENANCE",
+    title: "Maintenance Portal",
     subtitle: "Requests, maintenance queues and the fleet report — one page",
     items: [
-      { label: "Engineering", to: "/workspace/app/engineering-requests", icon: LayoutGrid },
+      { label: "Maintenance", to: "/workspace/app/engineering-requests", icon: LayoutGrid },
       { label: "Truck Availability", to: "/workspace/app/truck-availability", icon: Truck },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
       { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
