@@ -113,8 +113,19 @@ function LoginPage() {
         enterAuthenticatedApp(getRoleHome(chosenRole));
         return;
       }
-      // Multi-role users pick the department to open first (switchable later in the header)
+      // Partner accounts never pick a department: their portal is decided by the
+      // tags on the account (a Loader opens its yard, a Requester its dashboard).
+      // Being shown "Partner / Partner Loader" was the wrong-flow complaint.
       const roles = (user.roles ?? []).filter(Boolean);
+      if (roles.includes("Customer Portals (External)")) {
+        const yardOnly = roles.includes("Partner Loader") && !roles.includes("Partner Requester");
+        setActiveRole(yardOnly ? "Partner Loader" : "Customer Portals (External)");
+        enterAuthenticatedApp(
+          yardOnly ? "/workspace/customer-portal/loading-site" : "/workspace/customer-portal/dashboard",
+        );
+        return;
+      }
+      // Multi-role users pick the department to open first (switchable later in the header)
       if (roles.length > 1) {
         setPendingRoles(roles);
         setSelectedRole(roles[0]);

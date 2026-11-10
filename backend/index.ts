@@ -1055,7 +1055,13 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     // A partner may clear the TM's note once they have corrected the request.
     'partnerNote',
   ];
-  const PARTNER_EDITABLE_STATUSES = ['Requested', 'Awaiting Approval'];
+  // A partner owns a request until a truck is actually committed to it. That
+  // covers fresh requests, TM-seen requests (no truck yet) and requests waiting
+  // on the final dispatch approval.
+  const PARTNER_EDITABLE_STATUSES = [
+    'Requested', 'Draft', 'Awaiting Approval', 'Approved', 'Approved for Dispatch',
+  ];
+  let partnerReopensRequest = false;
   if (isPartner) {
     const existing = await prisma.trip.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: 'Request not found' });
@@ -1066,8 +1072,12 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
     if (!PARTNER_EDITABLE_STATUSES.includes(existing.status)) {
       return res
         .status(403)
-        .json({ error: 'This request can no longer be modified — it has already been processed.' });
+        .json({ error: 'This request can no longer be modified — it has already been dispatched.' });
     }
+    // A correction on a request the TM has only SEEN puts it back in his queue
+    // as a fresh request, with no stale approval stamp advertising a dispatch
+    // that never happened.
+    partnerReopensRequest = ['Approved', 'Approved for Dispatch'].includes(existing.status);
   }
 
   // Explicitly prevent overriding ID or timestamps; drop client-only fields the Trip model
@@ -1084,6 +1094,11 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   // loadingSite is a String column; a list payload is joined, never rejected.
   if (Array.isArray(data.loadingSite)) {
     data.loadingSite = data.loadingSite.filter(Boolean).join(', ') || null;
+  }
+  if (partnerReopensRequest) {
+    data.status = 'Requested';
+    data.approvedAt = null;
+    data.dispatchedAt = null;
   }
   const before = await prisma.trip.findUnique({ where: { id: req.params.id } });
   // A DECLINED request is CLOSED. No later action may move it back onto the
@@ -1665,11 +1680,12 @@ app.delete('/api/trips/:id', authenticate, async (req: any, res) => {
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   const isPartner = req.user.role === 'Customer Portals (External)';
   if (isPartner) {
-    // Partners may withdraw their OWN request while it is still pending.
+    // Partners may withdraw their OWN request until a truck is committed — or
+    // clear a declined one off their list. A dispatched run stays in history.
     const partnerName = await partnerCompanyForUser(req.user.id, req.user.email, req.user.role);
     if (
       !samePartnerCompany(trip.customer, partnerName) ||
-      !['Requested', 'Awaiting Approval'].includes(trip.status)
+      !['Requested', 'Draft', 'Awaiting Approval', 'Approved', 'Approved for Dispatch', 'Stopped'].includes(trip.status)
     ) {
       return res.status(403).json({ error: 'Only pending requests you created can be deleted.' });
     }

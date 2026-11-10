@@ -103,7 +103,9 @@ function formatTripDate(value: string | undefined) {
  * server rule, so the Delete action disappears once the TM has handled it.
  */
 function isWithdrawable(status: TripStatus | string): boolean {
-  return status === "Requested" || status === "Awaiting Approval";
+  return ["Requested", "Draft", "Awaiting Approval", "Approved", "Approved for Dispatch", "Stopped"].includes(
+    status,
+  );
 }
 
 function isPartnerTrip(trip: Trip, companyName: string | undefined) {
@@ -252,7 +254,18 @@ function PartnerPortalDashboard() {
    * to Requested with a note). Mirrors the server's own edit rule.
    */
   const isEditable = (status: TripStatus | string) =>
-    ["Requested", "Draft", "Awaiting Approval"].includes(status);
+    [
+      "Requested",
+      "Draft",
+      // TM approved the request but no truck is committed yet — the partner may
+      // still correct it (editing re-opens it as a fresh request).
+      "Approved",
+      "Approved for Dispatch",
+      "Awaiting Approval",
+      // Returned or declined: the partner corrects and resends (editing revives
+      // it as Requested) or clears it from the list.
+      "Stopped",
+    ].includes(status);
 
   const openSortModal = () => {
     setDraftSortKey(sortKey);

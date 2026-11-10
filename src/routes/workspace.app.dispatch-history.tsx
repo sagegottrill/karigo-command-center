@@ -291,11 +291,15 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
   // Return stage, so the last stop of the road is the offload. "Returned" is
   // the dispatch being Completed — which only Security's gate (or the TM) does.
 
+  const scheduled = status === "Scheduled";
   const steps: Array<Omit<TimelineStep, "state"> & { done: boolean }> = [
     { label: "Request Submitted", done: true, at: trip.createdAt },
     {
+      // The TM's FIRST approval, read from its own stamp — a Fleet Ops
+      // assignment does NOT mean the request was approved (assignment is what
+      // the TM is being asked to confirm).
       label: "Request Approved",
-      done: Boolean(trip.approvedAt) || assigned || leftYard,
+      done: Boolean(trip.approvedAt) || leftYard || scheduled,
       at: trip.approvedAt ?? undefined,
     },
     {
@@ -309,9 +313,18 @@ function fleetDispatchTimeline(trip: Trip, checkpoints: LocationCheckpoint[]): T
         : undefined,
     },
     {
+      // The final TM approval that puts a crewed request on the board. Until it
+      // lands, a dispatch sits on "Awaiting Approval" and must read as pending
+      // on Fleet Ops' own timeline.
+      label: "Dispatch Approved by TM",
+      done: scheduled || leftYard,
+      at: scheduled || leftYard ? (trip.dispatchedAt ?? undefined) : undefined,
+    },
+    {
+      // Leaving the yard is the GATE's stamp, not the approval stamp.
       label: "Left the Yard",
-      done: Boolean(trip.dispatchedAt) || leftYard,
-      at: trip.dispatchedAt ?? undefined,
+      done: leftYard || Boolean(trip.gateOutBy),
+      at: trip.gateOutBy ?? (leftYard ? trip.dispatchedAt ?? undefined : undefined),
     },
     { label: "Loading", done: leftYard || Boolean(loading), at: loading?.at, stage: "Loading" },
     { label: "In Transit", done: moving || Boolean(transit), at: transit?.at, stage: "In Transit" },
@@ -771,6 +784,11 @@ function DispatchHistoryPage() {
 
   const filteredTrips = useMemo(() => {
     const rows = trips.filter((t) => {
+      // HISTORY IS DISPATCHES, NOT REQUESTS. A request the Transport Manager has
+      // not approved yet never reached Fleet Operations, and a declined one is
+      // dead — neither belongs on this page (it made a returned request read as a
+      // pending dispatch). Only approved-and-beyond rows are listed.
+      if (["Requested", "Draft", "Stopped"].includes(String(t.status))) return false;
       if (statusFilter !== "All" && toDisplayStatus(t.status) !== statusFilter) return false;
       // The window answers the DATE THE PAGE SHOWS: a row matches when it was
       // dispatched (or departed) in the window, OR raised in it — so a

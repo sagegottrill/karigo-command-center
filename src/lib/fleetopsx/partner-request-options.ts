@@ -55,8 +55,18 @@ export function loadingSiteChoiceGroups(
 ): { heading: string | null; options: string[] }[] {
   const groups: { heading: string | null; options: string[] }[] =
     PARTNER_LOADING_LOCATION_GROUPS.map((g) => ({ heading: g.port, options: [...g.sites] }));
-  const named = new Set(PARTNER_LOADING_LOCATION_GROUPS.flatMap((g) => g.sites));
-  const own = savedSites.filter((s) => !named.has(s));
+  // A saved yard that differs from a named one only by case/punctuation/spacing
+  // ("Happy home" vs "Happy Home", "Ijesha.1" vs "Ijesha 1") is the SAME yard —
+  // it must not appear twice in the picker.
+  const siteKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const named = new Set(PARTNER_LOADING_LOCATION_GROUPS.flatMap((g) => g.sites).map(siteKey));
+  const seen = new Set<string>();
+  const own = savedSites.filter((s) => {
+    const key = siteKey(s);
+    if (!key || named.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   if (own.length > 0) groups.push({ heading: "Your saved sites", options: own });
   return groups;
 }
