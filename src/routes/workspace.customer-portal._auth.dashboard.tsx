@@ -262,9 +262,8 @@ function PartnerPortalDashboard() {
       "Approved",
       "Approved for Dispatch",
       "Awaiting Approval",
-      // Returned or declined: the partner corrects and resends (editing revives
-      // it as Requested) or clears it from the list.
-      "Stopped",
+      // A declined request is closed: the partner may withdraw it from the list
+      // (see isWithdrawable), not edit a request the TM already answered.
     ].includes(status);
 
   const openSortModal = () => {
