@@ -242,6 +242,11 @@ model InventoryRequisition {
   targetType String?
   /// The Head of Engineering's stamp when the request passes HOE review.
   reviewedBy String?
+  /// The ENGINEERING desk's receipt of the physical part after the store
+  /// released it. Released is the store's word; Received is the workshop's —
+  /// the truck cannot be declared ready while a part is still in transit.
+  receivedBy String?
+  receivedAt DateTime?
   reviewedAt DateTime?
   status     String   @default("Pending")
   date       DateTime @default(now())

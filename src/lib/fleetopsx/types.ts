@@ -503,7 +503,10 @@ export interface InventoryRequisition {
     | "Awaiting Admin Approval"
     | "Awaiting Pickup"
     | "Awaiting Procurement"
+    /** The store has handed the part over (signed, stock deducted). */
     | "Released"
+    /** The workshop has physically received it — the receipt, not the handover. */
+    | "Received"
     | "Rejected";
   /** Lines of one multi-line request share a group (EG-XXXXXX); empty on legacy rows. */
   requestGroup: string;

@@ -123,6 +123,8 @@ function EngineeringRequestsPage() {
   /** Bulk-tank standing levels, keyed "Diesel" | "Gas" — the lubricant rows' stock figure. */
   const [lubStock, setLubStock] = useState<Record<string, number>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** The line currently being received by the workshop (one at a time). */
+  const [receivingId, setReceivingId] = useState<string | null>(null);
   const [partsForm, setPartsForm] = useState(false);
   const [lubeForm, setLubeForm] = useState(false);
 
@@ -191,17 +193,21 @@ function EngineeringRequestsPage() {
    * here and the alert that sent them can never disagree for long.
    */
   useEffect(() => {
+    // The 20-second tick only burns a request while the page is actually on
+    // screen; coming back to the tab or the window always re-reads, because
+    // that is the moment the reader is looking at the counts again.
     const quiet = () => {
       if (document.visibilityState !== "visible") return;
       void refresh().catch(() => {});
     };
+    const onReturn = () => void refresh().catch(() => {});
     const id = window.setInterval(quiet, 20_000);
-    window.addEventListener("focus", quiet);
-    document.addEventListener("visibilitychange", quiet);
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
     return () => {
       window.clearInterval(id);
-      window.removeEventListener("focus", quiet);
-      document.removeEventListener("visibilitychange", quiet);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
     };
   }, [refresh]);
 
@@ -407,6 +413,27 @@ function EngineeringRequestsPage() {
       toast.error(err instanceof Error ? err.message : "Could not return the truck.");
     } finally {
       setCompletingBusy(false);
+    }
+  };
+
+  /**
+   * THE WORKSHOP'S RECEIPT.
+   *
+   * The store's handover leaves a line "Released" — stock gone, a signature on
+   * the ticket. That is the store's word, not proof the part reached the truck.
+   * Receiving is engineering's own word, recorded by name and time, and the
+   * truck is not signed off as ready until every line it waits on is in hand.
+   */
+  const receivePart = async (row: InventoryRequisition) => {
+    setReceivingId(row.id);
+    try {
+      await inventoryService.receiveRequisition(row.id);
+      toast.success(`${row.part} received — written to the workshop's record.`);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The receipt was not saved.");
+    } finally {
+      setReceivingId(null);
     }
   };
 
@@ -627,16 +654,19 @@ function EngineeringRequestsPage() {
       ) : (
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {filterAssets(maintAssets).map((a) => {
-            const awaiting = requisitions.filter(
-              (p) =>
-                p.truckReg === a.reg &&
-                [
-                  "Awaiting HOE Review",
-                  "Awaiting Admin Approval",
-                  "Awaiting Pickup",
-                  "Awaiting Procurement",
-                ].includes(p.status),
+            const mine = requisitions.filter((p) => p.truckReg === a.reg);
+            const awaiting = mine.filter((p) =>
+              [
+                "Awaiting HOE Review",
+                "Awaiting Admin Approval",
+                "Awaiting Pickup",
+                "Awaiting Procurement",
+              ].includes(p.status),
             );
+            /** Handed over by the store, not yet acknowledged by the workshop. */
+            const inTransit = mine.filter((p) => p.status === "Released");
+            /** Everything that still stands between this truck and the road. */
+            const outstanding = [...awaiting, ...inTransit];
             return (
               <div key={a.kind + a.id} className="rounded-[8px] border border-[#E2E5E9] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -666,15 +696,54 @@ function EngineeringRequestsPage() {
                     ({awaiting.length} awaiting approval)
                   </p>
                 ) : null}
-                {canWork ? (
-                  <button
-                    type="button"
-                    onClick={() => setCompleting(a)}
-                    className="mt-3 h-10 w-full rounded bg-[#34C759] text-[14px] font-medium text-white hover:bg-[#2cab4e]"
+                {inTransit.map((p) => (
+                  <div
+                    key={p.id}
+                    className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#E2E5E9] bg-[#F7F8FA] px-3 py-2"
                   >
-                    Complete Repairs and Set as Available
-                  </button>
-                ) : null}
+                    <p className="text-[12px] text-[#344256]">
+                      Delivered by the store:{" "}
+                      <span className="font-medium">{p.part}</span> ×{p.releasedQty ?? p.quantity} —
+                      awaiting your receipt
+                    </p>
+                    <button
+                      type="button"
+                      disabled={receivingId === p.id}
+                      onClick={() => void receivePart(p)}
+                      className="h-8 rounded bg-[#1B2432] px-3 text-[12.5px] font-medium text-white hover:bg-[#2a3547] disabled:opacity-50"
+                    >
+                      {receivingId === p.id ? "Receiving…" : "Receive"}
+                    </button>
+                  </div>
+                ))}
+                {canHoe ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={outstanding.length > 0 || completingBusy}
+                      title={
+                        outstanding.length > 0
+                          ? "Parts for this truck are still outstanding — receive them before it goes back on the road."
+                          : "Confirm the repair is complete and the truck can leave the workshop."
+                      }
+                      onClick={() => setCompleting(a)}
+                      className="mt-3 h-10 w-full rounded bg-[#34C759] text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Ready to Go
+                    </button>
+                    {outstanding.length > 0 ? (
+                      <p className="mt-1.5 text-[11.5px] text-[#B26A00]">
+                        {outstanding.length} part{outstanding.length === 1 ? "" : "s"} still
+                        outstanding — receive the delivery first.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-3 rounded-md bg-[#F1F3F5] px-3 py-2 text-[11.5px] text-[#5C6470]">
+                    The Head of Engineering confirms when this truck is ready to go. Receive
+                    the store's delivery here; he signs it off.
+                  </p>
+                )}
               </div>
             );
           })}

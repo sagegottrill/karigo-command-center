@@ -1415,6 +1415,12 @@ export const inventoryService = {
       body: JSON.stringify({ status: "Rejected", decisionNote }),
     }),
   /**
+   * The workshop's own receipt — the store's "Released" says the part left the
+   * shelf, this says it reached the truck. Recorded per line, by name.
+   */
+  receiveRequisition: (id: string) =>
+    fetchApi<unknown>(`/inventory-requisitions/${id}/receive`, { method: "POST" }),
+  /**
    * A grouped engineering request: one header (target + description) with many
    * store lines. Lines land on the Head of Engineering's desk, never the store's.
    */

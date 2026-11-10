@@ -17,6 +17,7 @@ export type RequestStage =
   | "Awaiting Admin Approval"
   | "Store Queue"
   | "Issued"
+  | "Received"
   | "Rejected"
   | "Legacy";
 
@@ -28,6 +29,7 @@ const PILL = {
   "Parts Issued": "bg-[#E2E5E9] text-[#5C6470]",
   Rejected: "bg-[#ED351D]/10 text-[#ED351D]",
   Pending: "bg-[#F99E1F]/15 text-[#B26A00]",
+  Received: "bg-[#34C759]/15 text-[#0A8F4D]",
 };
 
 /** The badge the design prints for one ticket. */
@@ -49,6 +51,10 @@ export function requisitionBadge(r: Pick<InventoryRequisition, "status" | "relea
       return r.releasedValue != null || r.itemId
         ? { label: "Parts Issued", pill: PILL["Parts Issued"] }
         : { label: "Approved by Admin", pill: PILL["Approved by Admin"] };
+    // The workshop's receipt — the last link in the chain, after the store's
+    // handover and before the truck may be declared ready.
+    case "Received":
+      return { label: "Received by Workshop", pill: PILL["Received"] };
     case "Rejected":
       return { label: "Rejected", pill: PILL.Rejected };
     default:

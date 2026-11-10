@@ -563,8 +563,10 @@ export function MaintenanceCompleteDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-[#1B2432] px-5 py-4">
-          <h3 className="text-[17px] font-semibold text-white">Return Vehicle to Available</h3>
-          <p className="text-[12px] text-white/60">{asset.label} • confirm the repair is complete</p>
+          <h3 className="text-[17px] font-semibold text-white">Ready to Go</h3>
+          <p className="text-[12px] text-white/60">
+            {asset.label} • Head of Engineering confirms the repair is done
+          </p>
         </div>
         <div className="flex flex-col gap-3 px-5 py-5">
           <label className="flex flex-col gap-1.5">
@@ -591,7 +593,7 @@ export function MaintenanceCompleteDialog({
               onClick={() => onConfirm(notes.trim())}
               className="h-10 rounded bg-[#34C759] px-4 text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:opacity-60"
             >
-              {busy ? "Returning…" : "Confirm — Set as Available"}
+              {busy ? "Marking ready…" : "Confirm — Ready to Go"}
             </button>
           </div>
         </div>
