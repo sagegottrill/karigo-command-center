@@ -118,9 +118,14 @@ function toDisplayStatus(status: Trip["status"]): DisplayStatus {
       return "Pending";
     case "Approved":
     case "Approved for Dispatch":
-    case "Awaiting Approval":
     case "Scheduled":
       return "Scheduled";
+    // Fleet Ops has hung a truck on it and the Transport Manager has NOT
+    // confirmed — that is work waiting on him, not booked work. It used to read
+    // "Scheduled" here while the timeline said "Dispatch Approved by TM — in
+    // progress", so the same page told two stories.
+    case "Awaiting Approval":
+      return "Pending";
     case "Stopped":
       return "Declined";
     case "Completed":
