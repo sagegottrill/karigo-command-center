@@ -3923,6 +3923,44 @@ app.delete('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transpor
   res.status(204).end();
 });
 
+/*
+ * GROUNDING-ETA — the reason a truck is off the road and the date it is back.
+ *
+ * Engineering's own board listed every grounded truck with no fault and no
+ * promise attached, so "why is this one still in the yard and when does it
+ * return" could only be answered by walking over to the workshop. The Head of
+ * Engineering is the seat that commits the date — the workshop raises jobs and
+ * spends parts, but the return-to-service promise to the Transport Manager is
+ * his. Kept on the asset, not on the job, because most grounded trucks have no
+ * work order raised yet.
+ */
+app.patch('/api/engineering/grounding', authenticate, authorize('Platform Admin', 'Head of Engineering', 'Engineering Manager'), async (req, res) => {
+  const kind = String(req.body?.kind || '').trim();
+  const id = String(req.body?.id || '').trim();
+  if (!id || !['head', 'tail'].includes(kind)) return res.status(400).json({ error: 'Send the asset kind (head or tail) and its id.' });
+  const data: any = {};
+  if (typeof req.body?.reason === 'string') data.holdReason = req.body.reason.trim() || null;
+  const rawDate = req.body?.expectedReadyAt;
+  if (rawDate !== undefined) {
+    if (rawDate === null || String(rawDate).trim() === '') data.expectedReadyAt = null;
+    else {
+      const when = new Date(String(rawDate));
+      if (Number.isNaN(when.getTime())) return res.status(400).json({ error: 'Expected resolution must be a real date.' });
+      data.expectedReadyAt = when;
+    }
+  }
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Nothing to save.' });
+  try {
+    const row = kind === 'head'
+      ? await prisma.truck.update({ where: { id }, data })
+      : await prisma.tail.update({ where: { id }, data });
+    res.json(row);
+  } catch (e: any) {
+    if (String(e?.code) === 'P2025') return res.status(404).json({ error: 'That truck is not on the register.' });
+    throw e;
+  }
+});
+
 // --- DRIVERS ---
 // driver-onboarding-hardening
 const DRIVER_FIELDS = ['name', 'phone', 'staffId', 'truckReg', 'truckReg2', 'category', 'status', 'licenseNumber', 'licenseExpiry', 'department', 'guarantorName', 'guarantorPhone', 'licenseDocName'];

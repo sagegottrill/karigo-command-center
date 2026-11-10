@@ -254,6 +254,17 @@ export const fleetService = {
    */
   setTailType: (id: string, type: string) =>
     fetchApi(`/tails/${id}`, { method: "PATCH", body: JSON.stringify({ type }) }),
+  /**
+   * The Head of Engineering's promise on a grounded truck: why it is in the
+   * yard, and the date it is back. `expectedReadyAt: null` clears the date.
+   */
+  setGrounding: (input: {
+    kind: "head" | "tail";
+    id: string;
+    reason?: string;
+    expectedReadyAt?: string | null;
+  }) =>
+    fetchApi("/engineering/grounding", { method: "PATCH", body: JSON.stringify(input) }),
   /** A head's operating category (UPCOUNTRY, LOCAL, Pick Up, Short Body…). */
   setHeadCategory: (id: string, category: string) =>
     fetchApi(`/trucks/${id}`, { method: "PATCH", body: JSON.stringify({ category }) }),

@@ -113,6 +113,12 @@ export interface TruckHead {
   standardEfficiency: number;
   lat: number;
   lng: number;
+  /**
+   * The two columns Engineering owes the Transport Manager while a truck is
+   * grounded: why it is in the yard, and the date it is promised back.
+   */
+  holdReason?: string;
+  expectedReadyAt?: string;
 }
 
 export interface TruckTail {
@@ -124,6 +130,8 @@ export interface TruckTail {
   location: string;
   lat: number;
   lng: number;
+  holdReason?: string;
+  expectedReadyAt?: string;
 }
 
 /** The DB carries both "Active" (the register's seed word) and "Available"

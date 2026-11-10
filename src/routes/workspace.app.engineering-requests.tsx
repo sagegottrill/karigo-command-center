@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
+  GroundingDialog,
   InspectionDialog,
   InspectionReportCard,
   MaintenanceCompleteDialog,
@@ -137,6 +138,9 @@ function EngineeringRequestsPage() {
   /** The request the Transport Manager is correcting before he authorizes it. */
   const [editingGroup, setEditingGroup] = useState<RequestGroup | null>(null);
   const [inspecting, setInspecting] = useState<CheckAsset | null>(null);
+  /** The truck whose expected resolution the Head of Engineering is setting. */
+  const [grounding, setGrounding] = useState<CheckAsset | null>(null);
+  const [groundingBusy, setGroundingBusy] = useState(false);
   const [completing, setCompleting] = useState<CheckAsset | null>(null);
   /** Opened from the Transport Manager's override, not the workshop's sign-off. */
   const [overriding, setOverriding] = useState<CheckAsset | null>(null);
@@ -410,6 +414,80 @@ function EngineeringRequestsPage() {
     return direct ?? null;
   };
 
+  /**
+   * THE TWO COLUMNS THE TRANSPORT MANAGER READS ON A GROUNDED TRUCK.
+   *
+   * What is wrong with it, and when it is back. Engineering commits both on the
+   * asset, because most trucks in the yard have no work order raised yet; when
+   * one does, its defect and its own estimate stand in.
+   */
+  const groundingOf = (a: CheckAsset) => {
+    const row =
+      a.kind === "head" ? heads.find((h) => h.id === a.id) : tails.find((t) => t.id === a.id);
+    const job = openFor(a);
+    return {
+      reason: row?.holdReason?.trim() || job?.defect?.trim() || "",
+      expectedReadyAt: row?.expectedReadyAt || job?.estimatedReadyAt || "",
+    };
+  };
+
+  /** `18 Nov 2026` — the promise, in the day the yard works in. */
+  const etaLabel = (value: string) => {
+    if (!value) return "";
+    const when = new Date(value);
+    if (Number.isNaN(when.getTime())) return value.slice(0, 10);
+    return when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  /** The two columns, plus the Head of Engineering's own control over them. */
+  const groundingLines = (a: CheckAsset) => {
+    const { reason, expectedReadyAt } = groundingOf(a);
+    return (
+      <div className="mt-1.5">
+        <p className="text-[12px] text-[#5C6470]">
+          Reason:{" "}
+          <span className="font-medium text-[#1B2432]">{reason || "No fault logged yet"}</span>
+        </p>
+        <p className="text-[12px] text-[#5C6470]">
+          Expected resolution:{" "}
+          {expectedReadyAt ? (
+            <span className="font-medium text-[#1B2432]">{etaLabel(expectedReadyAt)}</span>
+          ) : (
+            <span className="font-medium text-[#B26A00]">No date set</span>
+          )}
+        </p>
+        {canSignOff ? (
+          <button
+            type="button"
+            onClick={() => setGrounding(a)}
+            className="mt-1 text-[12px] font-medium text-[#2F6BD8] underline"
+          >
+            {expectedReadyAt ? "Change the expected resolution" : "Set expected resolution"}
+          </button>
+        ) : null}
+      </div>
+    );
+  };
+
+  const saveGrounding = async (asset: CheckAsset, reason: string, when: string) => {
+    setGroundingBusy(true);
+    try {
+      await fleetService.setGrounding({
+        kind: asset.kind,
+        id: asset.id,
+        reason,
+        expectedReadyAt: when ? new Date(`${when}T12:00:00`).toISOString() : null,
+      });
+      toast.success(`${asset.label} — reason and expected resolution saved.`);
+      setGrounding(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The expected resolution was not saved.");
+    } finally {
+      setGroundingBusy(false);
+    }
+  };
+
   const completeRepairs = async (asset: CheckAsset, notes: string, override = false) => {
     setCompletingBusy(true);
     try {
@@ -621,6 +699,7 @@ function EngineeringRequestsPage() {
                 <p className="text-[12px] text-[#8E95A1]">
                   {a.kind === "head" ? "Truck Head" : "Truck Tail"} • Check Up
                 </p>
+                {groundingLines(a)}
               </div>
               {canInspect ? (
                 <button
@@ -698,6 +777,7 @@ function EngineeringRequestsPage() {
                     Under Maintenance
                   </span>
                 </div>
+                {groundingLines(a)}
                 {(() => {
                   const job = openFor(a);
                   return job?.mechanic ? (
@@ -893,6 +973,16 @@ function EngineeringRequestsPage() {
       {section === "queue" ? hubQueue : null}
       {section === "log" ? hubLog : null}
 
+      {grounding ? (
+        <GroundingDialog
+          asset={grounding}
+          reason={groundingOf(grounding).reason}
+          expectedReadyAt={groundingOf(grounding).expectedReadyAt}
+          busy={groundingBusy}
+          onClose={() => (groundingBusy ? null : setGrounding(null))}
+          onSave={(reason, when) => void saveGrounding(grounding, reason, when)}
+        />
+      ) : null}
       {inspecting ? (
         <InspectionDialog
           asset={inspecting}

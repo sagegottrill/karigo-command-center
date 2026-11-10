@@ -176,6 +176,10 @@ model Truck {
   category     String?
   destination  String?
   status       String   @default("Active")
+  /// Why this truck is off the road, in the Head of Engineering's own words,
+  /// and the date he commits it back to the Transport Manager.
+  holdReason      String?
+  expectedReadyAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -186,6 +190,9 @@ model Tail {
   type      String?
   destination String?
   status    String   @default("Available")
+  /// Why this tail is off the road and when Engineering expects it back.
+  holdReason      String?
+  expectedReadyAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

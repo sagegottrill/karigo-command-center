@@ -79,6 +79,8 @@ export function mapTruckHead(t: Record<string, unknown>): TruckHead {
     lng: Number(t["lng"] ?? 3.3792),
   };
   if (cabCode) mapped.capNumber = cabCode;
+  if (t["holdReason"]) mapped.holdReason = String(t["holdReason"]);
+  if (t["expectedReadyAt"]) mapped.expectedReadyAt = String(t["expectedReadyAt"]);
   return enrichTruckHead(mapped);
 }
 
@@ -109,6 +111,8 @@ export function mapTail(t: Record<string, unknown>): TruckTail {
     location: String(t["destination"] ?? t["location"] ?? "Depot"),
     lat: Number(t["lat"] ?? 6.5244),
     lng: Number(t["lng"] ?? 3.3792),
+    ...(t["holdReason"] ? { holdReason: String(t["holdReason"]) } : {}),
+    ...(t["expectedReadyAt"] ? { expectedReadyAt: String(t["expectedReadyAt"]) } : {}),
   };
 }
 

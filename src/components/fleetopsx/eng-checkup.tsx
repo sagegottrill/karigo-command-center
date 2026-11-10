@@ -537,6 +537,99 @@ export function InspectionDialog({
   );
 }
 
+/**
+ * The Head of Engineering's promise on a grounded truck.
+ *
+ * The Transport Manager's check-up and maintenance queues carry two columns
+ * per truck — what is wrong with it and the date it is back. Neither the fault
+ * nor the promise existed on a truck with no work order raised, which is most
+ * of the yard, so Engineering commits both here.
+ */
+export function GroundingDialog({
+  asset,
+  reason,
+  expectedReadyAt,
+  busy,
+  onClose,
+  onSave,
+}: {
+  asset: CheckAsset;
+  reason: string;
+  expectedReadyAt: string;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (reason: string, expectedReadyAt: string) => void;
+}) {
+  const [fault, setFault] = useState(reason);
+  const [date, setDate] = useState(expectedReadyAt ? expectedReadyAt.slice(0, 10) : "");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Expected resolution for ${asset.label}`}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[480px] overflow-hidden rounded-[12px] bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-[#1B2432] px-5 py-4">
+          <h3 className="text-[17px] font-semibold text-white">Expected resolution</h3>
+          <p className="text-[12px] text-white/60">
+            {asset.label} • why it is in the yard and when it is back on the road
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 px-5 py-5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[14px] font-medium text-[#141A1F]">
+              Reason the truck is off the road
+            </span>
+            <textarea
+              value={fault}
+              onChange={(e) => setFault(e.target.value)}
+              rows={3}
+              placeholder="Brake chamber leaking; replacement in the store, fitment Friday."
+              className="w-full rounded border border-[#1B2432] px-3 py-2 text-[14px] text-[#141A1F] outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[14px] font-medium text-[#141A1F]">
+              Expected date of resolution
+            </span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-10 w-full rounded border border-[#1B2432] px-3 text-[14px] text-[#141A1F] outline-none"
+            />
+          </label>
+          <p className="-mt-1 text-[11.5px] text-[#5C6470]">
+            The Transport Manager sees both on his check-up and maintenance lists.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 rounded border border-[#D3D7DE] px-4 text-[14px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={busy || !fault.trim() || !date}
+              onClick={() => onSave(fault.trim(), date)}
+              className="h-10 rounded bg-[#2F6BD8] px-4 text-[14px] font-medium text-white hover:bg-[#2a5fbf] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? "Saving…" : "Save expected resolution"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The return-to-available handshake: completion notes, then the truck is freed. */
 export function MaintenanceCompleteDialog({
   asset,
