@@ -179,6 +179,32 @@ function EngineeringRequestsPage() {
       .finally(() => setLoading(false));
   }, [refresh]);
 
+  /**
+   * KEEP THE BOARD HONEST.
+   *
+   * This page used to read its queues once, when the tab opened, and never
+   * again. The notification bell polls every 10 seconds, so a parts request
+   * raised at 13:53 showed up as an alert while this desk — opened earlier in
+   * the morning — still printed "HOE Review (0)" and "0" over an empty list.
+   * Read as a lost notification; it was a frozen page. Re-read quietly every
+   * 20 seconds and the moment the reader comes back to the tab, so the counts
+   * here and the alert that sent them can never disagree for long.
+   */
+  useEffect(() => {
+    const quiet = () => {
+      if (document.visibilityState !== "visible") return;
+      void refresh().catch(() => {});
+    };
+    const id = window.setInterval(quiet, 20_000);
+    window.addEventListener("focus", quiet);
+    document.addEventListener("visibilitychange", quiet);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", quiet);
+      document.removeEventListener("visibilitychange", quiet);
+    };
+  }, [refresh]);
+
   /** The store shelf lookup the lubricant tab uses to name its oil lines. */
   const itemById = useCallback((id: string) => items.find((i) => i.id === id), [items]);
   /** Oil-shelf lines (Motor Oil draws) — the requisitions that belong on the
