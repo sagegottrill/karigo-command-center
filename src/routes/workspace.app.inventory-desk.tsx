@@ -7,6 +7,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { SignaturePad } from "@/components/fleetopsx/signature-pad";
 import { formatDateLines } from "@/lib/fleetopsx/display-dates";
 import { displayHeadCap } from "@/lib/fleetopsx/display-ids";
+import { printCollectionNote } from "@/lib/fleetopsx/collection-note";
 import { ENGINEERING_ACCESS_ROLES, truckLabel } from "@/lib/fleetopsx/engineering-helpers";
 import { isStorekeeper } from "@/lib/fleetopsx/admin-departments";
 import {
@@ -167,6 +168,25 @@ function InventoryDesk() {
       toast.success(
         `${signing.part} released to ${signing.truckReg} — ${formatNairaFull(result.releasedValue ?? 0)} posted to the truck.`,
       );
+      // The paper that proves the part was collected, with the signature on it.
+      printCollectionNote({
+        reference:
+          signing.workOrder || `PRT-${signing.id.replace(/[^0-9a-zA-Z]/g, "").slice(0, 6).toUpperCase()}`,
+        issuedAt: new Date().toISOString(),
+        issuedBy: authService.getCurrentUser()?.name || "Store officer",
+        collectedBy: signing.mechanic,
+        truck: signing.truckReg,
+        description: signing.description || signing.reason,
+        signature,
+        lines: [
+          {
+            sku: signing.part,
+            name: signing.part,
+            quantity: Number(signing.releasedQty ?? signing.quantity) || 0,
+            unitPrice: Number(signing.unitCost) || 0,
+          },
+        ],
+      });
       setSigning(null);
       setSignature(null);
       void load().catch(() => {});

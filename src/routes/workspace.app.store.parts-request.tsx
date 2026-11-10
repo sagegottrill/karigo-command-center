@@ -1,5 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { BatteryCharging, CircleDot, Coins, Droplets, Package, Wrench } from "lucide-react";
+import {
+  BatteryCharging,
+  CircleDot,
+  Coins,
+  Droplets,
+  Package,
+  Printer,
+  Wrench,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -25,6 +33,7 @@ import {
 } from "@/components/fleetopsx/store-portal";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import { authService, formatNairaFull, inventoryService } from "@/lib/fleetopsx/services";
+import { printCollectionNote } from "@/lib/fleetopsx/collection-note";
 import type { InventoryItem, InventoryRequisition } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -380,8 +389,7 @@ function PartsRequestPage() {
         <IssuePartsModal
           card={issueFor}
           onClose={() => setIssueFor(null)}
-          onDone={async () => {
-            setIssueFor(null);
+          onIssued={async () => {
             toast.success("The parts are issued — the stock movement posts to the ledger.");
             await load();
           }}
@@ -473,14 +481,18 @@ function RequestCardView({ card, onIssue }: { card: RequestCard; onIssue: () => 
 function IssuePartsModal({
   card,
   onClose,
-  onDone,
+  onIssued,
 }: {
   card: RequestCard;
   onClose: () => void;
-  onDone: () => Promise<void>;
+  /** Posted to the ledger — the page reloads, the modal stays for the paper. */
+  onIssued: () => Promise<void>;
 }) {
   const [sign, setSign] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // What actually left the shelf, so the note lists the parts that were issued
+  // — not the ones a failed retry left behind.
+  const [issued, setIssued] = useState<{ at: string; lines: RequestCard["lines"] } | null>(null);
   const lines = card.lines.filter((l) => l.status === "Awaiting Pickup");
 
   const confirm = async () => {
@@ -489,24 +501,46 @@ function IssuePartsModal({
       return;
     }
     setBusy(true);
-    let failed = 0;
+    const done: RequestCard["lines"] = [];
     for (const line of lines) {
       try {
         await inventoryService.completeHandoff(line.id, sign, line.quantity);
+        done.push(line);
       } catch {
-        failed += 1;
+        /* reported below, and the line stays on the card for a retry */
       }
     }
-    if (failed === 0) {
-      await onDone();
-      return;
+    setBusy(false);
+    if (done.length > 0) {
+      setIssued({ at: new Date().toISOString(), lines: done });
+      await onIssued();
     }
+    if (done.length === lines.length) return;
     toast.error(
-      failed === lines.length
+      done.length === 0
         ? "The release did not post — check stock and retry."
-        : `${lines.length - failed} of ${lines.length} line(s) issued; the rest refused — retry from the card.`,
+        : `${done.length} of ${lines.length} line(s) issued; the rest refused — retry from the card.`,
     );
-    await onDone();
+  };
+
+  const printNote = () => {
+    const officer = authService.getCurrentUser();
+    const ok = printCollectionNote({
+      reference: ticketIdOf(card.key),
+      issuedAt: issued?.at ?? new Date().toISOString(),
+      issuedBy: officer?.name || "Store officer",
+      collectedBy: card.requestedBy,
+      truck: (issued?.lines ?? lines)[0]?.truckReg || null,
+      description: card.description,
+      signature: sign,
+      lines: (issued?.lines ?? lines).map((l) => ({
+        sku: l.part,
+        name: card.shelf.get(l.itemId ?? "")?.name || l.part,
+        quantity: l.quantity,
+        unitPrice: l.unitCost ?? 0,
+      })),
+    });
+    if (!ok) toast.error("Allow pop-ups for this site to print the collection note.");
   };
 
   return (
@@ -544,20 +578,54 @@ function IssuePartsModal({
         ))}
       </div>
 
-      <div className="mt-4">
-        <p className="mb-1.5 text-[13.5px] font-medium text-[#1B2432]">
-          Mechanic's signature<span className="text-[#ED351D]"> *</span>
-        </p>
-        <SignaturePad onChange={setSign} className="h-[150px] w-full" />
-      </div>
+      {issued ? (
+        <div className="mt-4 rounded-[8px] border border-[#BFE3CC] bg-[#F1F9F4] px-4 py-3">
+          <p className="text-[13.5px] font-semibold text-[#1B7A43]">
+            Issued — {issued.lines.reduce((n, l) => n + l.quantity, 0)} unit(s) off the
+            shelf.
+          </p>
+          <p className="mt-1 text-[12px] text-[#5C6470]">
+            The movement is posted to the ledger. Print the collection note now — it is
+            the record that this person walked away with these parts, with their
+            signature on it.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <p className="mb-1.5 text-[13.5px] font-medium text-[#1B2432]">
+            Mechanic's signature<span className="text-[#ED351D]"> *</span>
+          </p>
+          <SignaturePad onChange={setSign} className="h-[150px] w-full" />
+        </div>
+      )}
 
-      <div className="mt-4">
-        <ModalActions
-          onCancel={onClose}
-          submitLabel="Complete Handoff"
-          busy={busy}
-          onAction={confirm}
-        />
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-[38px] rounded-[8px] border border-[#E2E5E9] px-4 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
+        >
+          {issued ? "Close" : "Cancel"}
+        </button>
+        {issued ? (
+          <button
+            type="button"
+            onClick={printNote}
+            className="flex h-[38px] items-center gap-2 rounded-[8px] bg-[#1B2432] px-4 text-[13px] font-medium text-white hover:bg-[#2A3849]"
+          >
+            <Printer className="size-4" />
+            Print collection note
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={busy}
+            className="h-[38px] rounded-[8px] bg-[#1B2432] px-4 text-[13px] font-medium text-white hover:bg-[#2A3849] disabled:opacity-50"
+          >
+            {busy ? "Issuing…" : "Complete Handoff"}
+          </button>
+        )}
       </div>
     </ModalShell>
   );

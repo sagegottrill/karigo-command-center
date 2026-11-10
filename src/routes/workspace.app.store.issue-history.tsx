@@ -29,7 +29,8 @@ import {
   windowLabel,
 } from "@/lib/fleetopsx/report-kit";
 import { authService, inventoryService } from "@/lib/fleetopsx/services";
-import type { InventoryItem, InventoryMovement } from "@/lib/fleetopsx/types";
+import { printCollectionNote } from "@/lib/fleetopsx/collection-note";
+import type { InventoryItem, InventoryMovement, InventoryRequisition } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/workspace/app/store/issue-history")({
@@ -60,11 +61,14 @@ interface IssueCard {
   requestedBy: string;
   family: ItemFamily;
   lines: InventoryMovement[];
+  /** The signed ticket behind the movement — it holds the collector's signature. */
+  requisition?: InventoryRequisition;
 }
 
 function IssueHistoryPage() {
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [requisitions, setRequisitions] = useState<InventoryRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
   const [query, setQuery] = useState("");
@@ -83,12 +87,15 @@ function IssueHistoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [movementRows, itemRows] = await Promise.all([
+      const [movementRows, itemRows, reqRows] = await Promise.all([
         inventoryService.movements(),
         inventoryService.list().catch(() => [] as InventoryItem[]),
+        // The signed tickets: the only place the collector's signature survives.
+        inventoryService.requisitions().catch(() => [] as InventoryRequisition[]),
       ]);
       setMovements(movementRows);
       setItems(itemRows);
+      setRequisitions(reqRows);
     } catch {
       toast.error("Could not reach the movement ledger. Retry in a moment.");
       setMovements([]);
@@ -103,6 +110,7 @@ function IssueHistoryPage() {
 
   const cards = useMemo<IssueCard[]>(() => {
     const itemBySku = new Map(items.map((i) => [i.sku, i]));
+    const reqById = new Map(requisitions.map((r) => [r.id, r]));
     // The group key is the day and the truck: the physical handoff the store
     // signed for. The reference (a requisition group when present) keeps a
     // multi-line request on one card inside the same day+truck window.
@@ -134,10 +142,11 @@ function IssueHistoryPage() {
         requestedBy: first.actedBy,
         family: familyOf ?? "parts",
         lines: lines.sort((a, b) => a.itemName.localeCompare(b.itemName)),
+        requisition: reqById.get(first.reference) || undefined,
       });
     });
     return cards.sort((a, b) => b.date.localeCompare(a.date));
-  }, [movements, items]);
+  }, [movements, items, requisitions]);
 
   const optionFamily = familyFromOption(familyOption);
   const familyCards = useMemo(
@@ -328,7 +337,11 @@ function IssueCardView({ card, onPrint }: { card: IssueCard; onPrint: () => void
           Print
         </button>
       </div>
-      <p className="mt-1 text-[12px] text-[#5C6470]">Requested by: {card.requestedBy || "—"}</p>
+      {/* The card is the evidence of a handover: the person who took the parts
+          is the mechanic on the ticket, not whoever pressed the button. */}
+      <p className="mt-1 text-[12px] text-[#5C6470]">
+        Collected by: {card.requisition?.mechanic || card.requestedBy || "—"}
+      </p>
 
       <div className="mt-2 flex-1 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
         <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] font-medium text-[#5C6470]">
@@ -357,108 +370,88 @@ function IssueCardView({ card, onPrint }: { card: IssueCard; onPrint: () => void
 /* ------------------------------------------------- the printable report § */
 
 function IssueReportModal({ card, onClose }: { card: IssueCard; onClose: () => void }) {
+  const officer = authService.getCurrentUser();
+  const signed = card.requisition?.signature || null;
+  const collectedBy = card.requisition?.mechanic || card.requestedBy;
+
   const printNow = () => {
-    window.print();
+    const ok = printCollectionNote({
+      reference: card.key,
+      issuedAt: card.requisition?.handoffAt || card.lines[0]?.actedAt || card.date,
+      issuedBy: card.lines[0]?.actedBy || officer?.name || "Store officer",
+      collectedBy,
+      truck: card.truck === "STORE" ? null : card.truck,
+      description: card.requisition?.description || null,
+      signature: signed,
+      lines: card.lines.map((l) => ({
+        sku: l.sku,
+        name: l.itemName,
+        quantity: Math.abs(Number(l.quantity) || 0),
+        unitPrice: l.unitCost ?? 0,
+      })),
+    });
+    if (!ok) toast.error("Allow pop-ups for this site to print the collection note.");
   };
 
   return (
-    <>
-      {/* Print-only sheet: while printing, everything else on the page is
-          hidden and ONLY this record shows. */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          .issue-print-sheet, .issue-print-sheet * { visibility: visible !important; }
-          .issue-print-sheet {
-            position: absolute !important;
-            left: 0; top: 0; width: 100%;
-            padding: 24px;
-            background: #fff;
-            color: #1b2432;
-          }
-        }
-      `}</style>
-
-      <div className="issue-print-sheet hidden">
-        <div style={{ borderBottom: "2px solid #1b2432", paddingBottom: 8, marginBottom: 16 }}>
-          <p style={{ fontWeight: 700, fontSize: 16 }}>
-            Petroline Transport Ltd — Parts Issue Report
-          </p>
-          <p style={{ fontSize: 12 }}>Store and Parts Inventory Portal</p>
-        </div>
-        <p style={{ fontSize: 13, fontWeight: 600 }}>{card.key}</p>
-        <p style={{ fontSize: 12, margin: "4px 0 12px" }}>Issued by: {card.requestedBy || "—"}</p>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr>
-              <th style={{ border: "1px solid #1b2432", padding: 6, textAlign: "left" }}>
-                Parts Requested
-              </th>
-              <th style={{ border: "1px solid #1b2432", padding: 6, width: 100 }}>Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {card.lines.map((l) => (
-              <tr key={l.id}>
-                <td style={{ border: "1px solid #1b2432", padding: 6 }}>
-                  <strong>{l.sku}</strong>
-                  <br />
-                  {l.itemName}
-                </td>
-                <td style={{ border: "1px solid #1b2432", padding: 6, textAlign: "center" }}>
-                  {Math.abs(Number(l.quantity) || 0)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p style={{ fontSize: 11, margin: "12px 0" }}>
-          Issued from the Store and Parts Inventory Portal · Petroline Transport Ltd
+    <ModalShell title="Collection evidence" onClose={onClose} width="max-w-[540px]">
+      <div className="rounded-[8px] bg-[#F7F8FA] px-4 py-3">
+        <p className="text-[13px] font-semibold text-[#1B2432]">{card.key}</p>
+        <p className="mt-0.5 text-[12px] text-[#5C6470]">
+          Collected by: {collectedBy || "—"}
+        </p>
+        <p className="text-[12px] text-[#5C6470]">
+          Issued by: {card.lines[0]?.actedBy || "—"}
         </p>
       </div>
 
-      <ModalShell
-        title="Parts issue Report"
-        onClose={onClose}
-        width="max-w-[540px]"
-      >
-        <div className="rounded-[8px] bg-[#F7F8FA] px-4 py-3">
-          <p className="text-[13px] font-semibold text-[#1B2432]">{card.key}</p>
-          <p className="mt-0.5 text-[12px] text-[#5C6470]">
-            Requested by: {card.requestedBy || "—"}
-          </p>
+      <div className="mt-3 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
+        <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-2 text-[12px] font-medium text-[#5C6470]">
+          <span>Parts Requested</span>
+          <span>Quantity</span>
         </div>
-
-        <div className="mt-3 overflow-hidden rounded-[8px] border border-[#EFF1F4]">
-          <div className="flex items-center justify-between bg-[#F7F8FA] px-3 py-2 text-[12px] font-medium text-[#5C6470]">
-            <span>Parts Requested</span>
-            <span>Quantity</span>
-          </div>
-          {card.lines.map((l) => (
-            <div
-              key={l.id}
-              className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className={cn("text-[12.5px] font-semibold text-[#1B2432]")}>{l.sku}</p>
-                <p className="line-clamp-2 text-[11px] text-[#5C6470]">{l.itemName}</p>
-              </div>
-              <span className="grid h-[26px] min-w-[30px] place-items-center rounded-[6px] border border-[#E2E5E9] px-2 text-[12px] font-semibold text-[#1B2432]">
-                {Math.abs(Number(l.quantity) || 0)}
-              </span>
+        {card.lines.map((l) => (
+          <div
+            key={l.id}
+            className="flex items-center justify-between gap-2 border-t border-[#EFF1F4] px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className={cn("text-[12.5px] font-semibold text-[#1B2432]")}>{l.sku}</p>
+              <p className="line-clamp-2 text-[11px] text-[#5C6470]">{l.itemName}</p>
             </div>
-          ))}
-        </div>
+            <span className="grid h-[26px] min-w-[30px] place-items-center rounded-[6px] border border-[#E2E5E9] px-2 text-[12px] font-semibold text-[#1B2432]">
+              {Math.abs(Number(l.quantity) || 0)}
+            </span>
+          </div>
+        ))}
+      </div>
 
-        <div className="mt-4">
-          <ModalActions
-            onCancel={onClose}
-            submitLabel="Print Record"
-            onAction={printNow}
-            busy={false}
+      {signed ? (
+        <div className="mt-3 rounded-[8px] border border-[#EFF1F4] bg-white px-3 py-2">
+          <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#5C6470]">
+            Signature on the ticket
+          </p>
+          <img
+            src={signed}
+            alt={`${collectedBy || "Collector"} signature`}
+            className="mt-1 h-[64px] w-full object-contain"
           />
         </div>
-      </ModalShell>
-    </>
+      ) : (
+        <p className="mt-3 text-[12px] text-[#5C6470]">
+          This dispense has no captured signature on the ticket — the note prints a
+          blank line for the collector to sign by hand.
+        </p>
+      )}
+
+      <div className="mt-4">
+        <ModalActions
+          onCancel={onClose}
+          submitLabel="Print evidence"
+          onAction={printNow}
+          busy={false}
+        />
+      </div>
+    </ModalShell>
   );
 }
