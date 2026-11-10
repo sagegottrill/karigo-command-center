@@ -88,6 +88,59 @@ app.use((req, res, next) =>
     : jsonBody(req, res, next),
 );
 
+/*
+ * EXTERNAL-ALLOWLIST (10 Nov 2026): a partner account may only reach the API
+ * surface its OWN portal uses.
+ *
+ * Dozens of internal routes were `authenticate`-only, so a partner token could
+ * read the parts inventory, the expense ledger, the staff directory, the vendor
+ * list and — worst — /api/dashboard/overview, which returns EVERY company's
+ * dispatches. Those reads are not a partner's business, and the leak was silent
+ * because the partner UI never links to them.
+ *
+ * External accounts are now refused unless the path is named below. Internal
+ * staff are untouched, and unauthenticated requests pass through to the route's
+ * own 401 so the error stays honest.
+ */
+const PARTNER_API_ALLOW: RegExp[] = [
+  /^\/api\/auth(\/|$)/,
+  /^\/api\/health$/,
+  /^\/api\/tenants(\/|$)/,
+  /^\/api\/trips(\/|$)/,
+  /^\/api\/partner-sites$/,
+  /^\/api\/notifications(\/|$)/,
+  /^\/api\/conversations(\/|$)/,
+  /^\/api\/chat(\/|$)/,
+  /^\/api\/loading-site(\/|$)/,
+  // One dispatch's own checkpoints (and a loader's loading leg) — NOT
+  // /api/tracking/recent, which is the whole fleet's live feed.
+  /^\/api\/tracking(\/(?!recent$)[^/]+)?$/,
+  /^\/api\/drivers$/,
+  /^\/api\/forgot-password(\/|$)/,
+  /^\/api\/password-requests?(\/|$)/,
+];
+const isExternalAccount = (payload: any): boolean => {
+  const roles = String(payload?.roles || '')
+    .split(',')
+    .map((r: string) => r.trim())
+    .filter(Boolean);
+  return payload?.role === 'Customer Portals (External)' || roles.includes('Customer Portals (External)');
+};
+app.use('/api', (req: any, res: any, next: any) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return next();
+  let payload: any;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return next();
+  }
+  if (!isExternalAccount(payload)) return next();
+  const path = String(req.originalUrl || req.url || '').split('?')[0];
+  if (PARTNER_API_ALLOW.some((re) => re.test(path))) return next();
+  return res.status(403).json({ error: 'Forbidden: this endpoint is not part of the partner portal.' });
+});
+
 const authenticate = (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -901,7 +954,13 @@ app.post('/api/tenants', authenticate, authorize('Transport Manager', 'Platform 
 });
 
 app.patch('/api/tenants/:id', authenticate, authorize('Transport Manager', 'Platform Admin'), async (req, res) => {
-  res.json(await prisma.tenant.update({ where: { id: req.params.id }, data: req.body }));
+  // Whitelist: a tenant row is branding, never an arbitrary column write.
+  const TENANT_FIELDS = ['name', 'logo', 'slug', 'primaryColor', 'address', 'phone', 'email'];
+  const tenantData: any = {};
+  for (const key of TENANT_FIELDS) {
+    if ((req.body || {})[key] !== undefined) tenantData[key] = req.body[key];
+  }
+  res.json(await prisma.tenant.update({ where: { id: req.params.id }, data: tenantData }));
 });
 
 app.delete('/api/tenants/:id', authenticate, authorize('Transport Manager', 'Platform Admin'), async (req, res) => {
@@ -2707,8 +2766,27 @@ async function gateCycleDriverOnTrip(driverName) {
 app.get('/api/gate', authenticate, async (_req, res) => {
   res.json(await prisma.gateEntry.findMany({ orderBy: { timestamp: 'desc' } }));
 });
-app.post('/api/gate', authenticate, authorize('Security', 'Gate Security', 'Gate', 'Platform Admin', 'Transport Manager'), async (req, res) => {
-  const entry = await prisma.gateEntry.create({ data: req.body });
+app.post('/api/gate', authenticate, authorize('Security', 'Gate Security', 'Gate', 'Platform Admin', 'Transport Manager'), async (req: any, res) => {
+  // An unvalidated body used to reach Prisma and answer 500 (missing purpose),
+  // which reads to the guard as "the gate is broken" with no way forward.
+  const body = req.body || {};
+  const type = String(body.type || '').trim();
+  const truckReg = String(body.truckReg || body.truck || '').trim();
+  const driver = String(body.driver || '').trim();
+  const purpose = String(body.purpose || '').trim();
+  if (!type) return res.status(400).json({ error: 'Say whether this is an Entry or a Departure.' });
+  if (!truckReg) return res.status(400).json({ error: 'The truck plate or cap number is required.' });
+  if (!driver) return res.status(400).json({ error: 'The driver is required.' });
+  const entry = await prisma.gateEntry.create({
+    data: {
+      type,
+      truckReg,
+      driver,
+      purpose,
+      status: String(body.status || 'Logged'),
+      ...(body.timestamp ? { timestamp: new Date(body.timestamp) } : {}),
+    },
+  });
   /*
    * CYCLE END. The gate's Return stamp is the one moment a trip is provably
    * over: the truck is physically back in the yard. Nothing used to read it, so
@@ -3519,7 +3597,15 @@ app.get('/api/tracking/recent', authenticate, async (_req, res) => {
   }
 });
 
-app.get('/api/tracking/:tripId', authenticate, async (req, res) => {
+app.get('/api/tracking/:tripId', authenticate, async (req: any, res) => {
+  // A partner follows ITS OWN dispatch's road — never another company's.
+  if (isExternalAccount(req.user)) {
+    const trip = await prisma.trip.findUnique({ where: { id: req.params.tripId }, select: { customer: true } });
+    const company = await partnerCompanyForUser(req.user.id, req.user.email, req.user.role);
+    if (!trip || !samePartnerCompany(trip.customer, company)) {
+      return res.status(404).json({ error: 'Dispatch not found.' });
+    }
+  }
   const checkpoints = await prisma.trackingCheckpoint.findMany({
     where: { tripId: req.params.tripId },
     orderBy: { at: 'desc' }
@@ -3747,7 +3833,39 @@ async function nextFreeDriverId(): Promise<string> {
   return 'P' + String(n).padStart(4, '0');
 }
 
-app.get('/api/drivers', authenticate, async (_req, res) => {
+app.get('/api/drivers', authenticate, async (_req: any, res) => {
+  // A partner only ever needs the man driving ITS OWN dispatch — the name, the
+  // staff number and the phone to call. The rota's licences, guarantors and
+  // duty states are staff data and never leave the portal.
+  if (isExternalAccount(_req.user)) {
+    const company = await partnerCompanyForUser(_req.user.id, _req.user.email, _req.user.role);
+    if (!company) return res.json([]);
+    const trips = await prisma.trip.findMany({
+      where: { customer: { equals: company, mode: 'insensitive' } },
+      select: { driverName: true },
+      distinct: ['driverName'],
+    });
+    const names = trips
+      .map((t) => String(t.driverName || '').trim())
+      .filter((n) => n && !/^(unassigned|tbd)$/i.test(n));
+    if (!names.length) return res.json([]);
+    const roster = await prisma.driver.findMany({ where: { name: { in: names } } });
+    return res.json(
+      roster.map((d) => ({
+        id: d.id,
+        name: d.name,
+        staffId: (d as any).staffId ?? null,
+        phone: d.phone ?? null,
+        status: d.status ?? null,
+        department: null,
+        licenseNumber: null,
+        licenseExpiry: null,
+        guarantorName: null,
+        guarantorPhone: null,
+        createdAt: d.createdAt,
+      })),
+    );
+  }
   const [drivers, openTrips, trucks] = await Promise.all([
     prisma.driver.findMany({ orderBy: { createdAt: 'desc' } }),
     prisma.trip.findMany({
@@ -5266,7 +5384,12 @@ app.patch('/api/fuel/:id', authenticate, authorize('Platform Admin', 'Transport 
   // expense ledger forever.
   const before = await prisma.fuelRequisition.findUnique({ where: { id: req.params.id } });
   if (!before) return res.status(404).json({ error: 'Fuel record not found' });
-  const fuel = await prisma.fuelRequisition.update({ where: { id: req.params.id }, data: req.body });
+  const FUEL_REQ_FIELDS = ['status', 'vehicle', 'litres', 'purpose', 'note', 'authorizedBy', 'declineReason', 'driver', 'plate', 'department'];
+  const fuelData: any = {};
+  for (const key of FUEL_REQ_FIELDS) {
+    if ((req.body || {})[key] !== undefined) fuelData[key] = req.body[key];
+  }
+  const fuel = await prisma.fuelRequisition.update({ where: { id: req.params.id }, data: fuelData });
   const approvedNow = req.body.status === 'Approved' && before.status !== 'Approved';
   if (approvedNow) {
     const dup = await prisma.expense.findFirst({
