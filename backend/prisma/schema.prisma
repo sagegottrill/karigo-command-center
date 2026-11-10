@@ -560,6 +560,40 @@ model InventoryMovement {
   updatedAt DateTime @updatedAt
 }
 
+/// Permission to put stock back on a shelf line.
+///
+/// A reorder is not a shelf edit: the buying desk raises the request, the
+/// Transport Manager approves it, and only then does the quantity land on
+/// InventoryItem. "Modify" cannot raise a stock number on its own.
+model RestockRequest {
+  id            String   @id @default(uuid())
+  /// The shelf line being restocked; name and SKU are copied so the record
+  /// still reads after the line is renamed or removed.
+  itemId        String
+  sku           String
+  itemName      String
+  /// How many units the desk wants to add.
+  quantity      Int
+  /// Price per unit the desk expects to pay. Null leaves the line's own cost
+  /// untouched when the request is approved.
+  unitPrice     Float?
+  note          String?
+  /// Pending | Approved | Rejected | Withdrawn
+  status        String   @default("Pending")
+  requestedBy   String
+  requestedById String?
+  decidedBy     String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  /// What the shelf actually took when the request was approved.
+  appliedQty    Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([itemId])
+}
+
 
 /// A phone that receives push notifications for a user (FleetOpsX mobile).
 model PushToken {

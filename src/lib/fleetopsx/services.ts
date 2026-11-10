@@ -1165,6 +1165,52 @@ export const engineeringService = {
     }),
 };
 
+/** One restock ask, as the shelf board and the TM's queue read it. */
+export type RestockRequestRow = {
+  id: string;
+  itemId: string;
+  sku: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number | null;
+  note: string | null;
+  status: "Pending" | "Approved" | "Rejected" | "Withdrawn" | string;
+  requestedBy: string;
+  requestedById: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  appliedQty: number | null;
+  createdAt: string;
+  /** Live shelf numbers for the line, when it is still on the shelf. */
+  currentStock?: number | null;
+  reorderLevel?: number | null;
+  shelfStatus?: string | null;
+  onShelf?: boolean;
+};
+
+const mapRestockRequest = (raw: any): RestockRequestRow => ({
+  id: String(raw?.id ?? ""),
+  itemId: String(raw?.itemId ?? ""),
+  sku: String(raw?.sku ?? ""),
+  itemName: String(raw?.itemName ?? ""),
+  quantity: Number(raw?.quantity ?? 0),
+  unitPrice: raw?.unitPrice == null ? null : Number(raw.unitPrice),
+  note: raw?.note == null ? null : String(raw.note),
+  status: String(raw?.status ?? "Pending"),
+  requestedBy: String(raw?.requestedBy ?? ""),
+  requestedById: raw?.requestedById == null ? null : String(raw.requestedById),
+  decidedBy: raw?.decidedBy == null ? null : String(raw.decidedBy),
+  decidedAt: raw?.decidedAt == null ? null : String(raw.decidedAt),
+  decisionNote: raw?.decisionNote == null ? null : String(raw.decisionNote),
+  appliedQty: raw?.appliedQty == null ? null : Number(raw.appliedQty),
+  createdAt: String(raw?.createdAt ?? ""),
+  currentStock: raw?.currentStock == null ? null : Number(raw.currentStock),
+  reorderLevel: raw?.reorderLevel == null ? null : Number(raw.reorderLevel),
+  shelfStatus: raw?.shelfStatus == null ? null : String(raw.shelfStatus),
+  onShelf: raw?.onShelf === undefined ? undefined : Boolean(raw.onShelf),
+});
+
 export const inventoryService = {
   list: () =>
     fetchApi<unknown[]>("/inventory").then((res) => asList(res as any).map(mapInventoryItem)),
@@ -1211,6 +1257,33 @@ export const inventoryService = {
     fetchApi<unknown[]>(
       `/inventory-movements${itemId ? `?itemId=${encodeURIComponent(itemId)}` : ""}`,
     ).then((res) => asList(res as any).map(mapInventoryMovement)),
+  /**
+   * RESTOCK PERMISSION — the buying desk asks, the Transport Manager approves.
+   *
+   * A shelf quantity never rises on a "Modify" any more; it rises when one of
+   * these requests comes back Approved. The read carries the line's live stock
+   * so the queue (and the shelf board) can show what is waiting.
+   */
+  restockRequests: () =>
+    fetchApi<RestockRequestRow[]>("/restock-requests").then((res) =>
+      Array.isArray(res) ? res.map(mapRestockRequest) : [],
+    ),
+  raiseRestock: (input: {
+    itemId: string;
+    quantity: number;
+    unitPrice?: number | null;
+    note?: string;
+  }) =>
+    fetchApi<RestockRequestRow>("/restock-requests", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then(mapRestockRequest),
+  decideRestock: (id: string, input: { decision: "Approved" | "Rejected" | "Withdrawn"; note?: string }) =>
+    fetchApi<RestockRequestRow>(`/restock-requests/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }).then(mapRestockRequest),
+
   /** The shelf, in bulk, upserted by SKU. */
   importItems: (items: Array<Record<string, unknown>>) =>
     fetchApi<{ created: number; updated: number; skipped: string[] }>("/inventory/import", {

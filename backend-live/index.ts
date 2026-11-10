@@ -4332,6 +4332,15 @@ app.patch('/api/inventory/:id', authenticate, authorize(...INVENTORY_WRITE_ROLES
   }
   const stock = body.stock != null ? Number(body.stock) : existing.stock;
   const reorderLevel = body.reorderLevel != null ? Number(body.reorderLevel) : existing.reorderLevel;
+  // A SHELF NUMBER ONLY GOES UP ON AN APPROVED RESTOCK. Editing the quantity was
+  // the quiet way to restock without a request, a buyer or a permission — the
+  // "Modify" door now writes corrections and write-offs, and the Transport
+  // Manager's approval (or their own hand) is the only way up.
+  if (stock > existing.stock && !heldRoles(req).some((r) => RESTOCK_DECIDE_ROLES.includes(r))) {
+    return res.status(403).json({
+      error: `Stock only goes up on a restock the Transport Manager approved — raise a restock request for ${existing.sku} instead of editing the quantity.`,
+    });
+  }
   const status = stock === 0 ? 'Out of Stock' : stock <= reorderLevel ? 'Low Stock' : 'In Stock';
   const updated = await prisma.inventoryItem.update({ where: { id: req.params.id }, data: { ...body, stock, reorderLevel, status } });
   // Editing a stock number is a movement like any other: it goes on the ledger,
@@ -4370,6 +4379,200 @@ app.get('/api/inventory-movements', authenticate, async (req, res) => {
   // session gets the ledger with the money columns removed.
   if (!userSeesCost(req)) return res.json(rows.map((m: any) => { const { unitCost, value, ...visible } = m; return visible; }));
   res.json(rows);
+});
+
+// --- RESTOCK PERMISSION: the TM approves a shelf number going up -------------
+//
+// A reorder used to be a "Modify" on the shelf line: the buying desk typed a
+// bigger number and the book agreed with it, with no purchase, no vendor and
+// nobody's permission. Restocking is now a REQUEST — raised here, decided by
+// the Transport Manager, and only an approved request moves the quantity. The
+// PATCH below refuses a stock increase for everyone else, so the same rule
+// holds even if a client skips the screen.
+const RESTOCK_RAISE_ROLES = [...PROCUREMENT_ROLES];
+const RESTOCK_DECIDE_ROLES = ['Transport Manager', 'Platform Admin'];
+
+/** Each row carries the line's live shelf numbers, so the queue reads at a glance. */
+async function restockRows(where?: any) {
+  const rows = await prisma.restockRequest.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+  const items = rows.length
+    ? await prisma.inventoryItem.findMany({
+        where: { id: { in: rows.map((r: any) => r.itemId) } },
+        select: { id: true, stock: true, unitCost: true, reorderLevel: true, status: true },
+      })
+    : [];
+  const byId = new Map(items.map((i: any) => [i.id, i]));
+  return rows.map((r: any) => {
+    const item: any = byId.get(r.itemId);
+    return {
+      ...r,
+      currentStock: item ? item.stock : null,
+      reorderLevel: item ? item.reorderLevel : null,
+      shelfStatus: item ? item.status : 'Removed',
+      onShelf: !!item,
+    };
+  });
+}
+
+app.get('/api/restock-requests', authenticate, authorize(...RESTOCK_RAISE_ROLES, ...RESTOCK_DECIDE_ROLES, 'Parts & Store'), async (_req, res) => {
+  try {
+    res.json(await restockRows());
+  } catch (err: any) {
+    console.error('GET /api/restock-requests failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** Raise it: which line, how many, at what price, and why. */
+app.post('/api/restock-requests', authenticate, authorize(...RESTOCK_RAISE_ROLES), async (req: any, res) => {
+  try {
+    const itemId = String(req.body?.itemId || '').trim();
+    const quantity = Math.trunc(Number(req.body?.quantity));
+    const rawPrice = req.body?.unitPrice;
+    const unitPrice = rawPrice === undefined || rawPrice === null || rawPrice === '' ? null : Number(rawPrice);
+    if (!itemId) return res.status(400).json({ error: 'Pick the shelf line you want to restock.' });
+    if (!Number.isFinite(quantity) || quantity <= 0) return res.status(400).json({ error: 'How many units should be added? Use a positive whole number.' });
+    if (unitPrice !== null && (!Number.isFinite(unitPrice) || unitPrice < 0)) return res.status(400).json({ error: 'Unit price must be a non-negative number.' });
+    const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+    if (!item) return res.status(404).json({ error: 'That line is not on the shelf.' });
+    // One open ask per line: two pending requests for the same part would let
+    // the shelf take the same delivery twice.
+    const open = await prisma.restockRequest.findFirst({ where: { itemId, status: 'Pending' } });
+    if (open) {
+      return res.status(409).json({ error: `${item.sku} already has a restock request waiting for the Transport Manager.` });
+    }
+    const row = await prisma.restockRequest.create({
+      data: {
+        itemId: item.id,
+        sku: item.sku,
+        itemName: item.name,
+        quantity,
+        unitPrice,
+        note: String(req.body?.note || '').trim() || null,
+        status: 'Pending',
+        requestedBy: actingUser(req),
+        requestedById: String(req.user?.id || '') || null,
+      },
+    });
+    void notify(
+      'Inventory',
+      'Restock approval needed',
+      `${actingUser(req)} asked to add ${quantity.toLocaleString()} × ${item.name} (${item.sku}) to the shelf — the line reads ${item.stock.toLocaleString()} today. Approve it on the Procurement Desk before anything is bought.`,
+      'warning',
+      'Transport Manager,Platform Admin',
+      { module: 'Inventory', eventKey: 'inventory.restock_requested', refId: row.id, refLabel: item.sku, actionRoles: ['Transport Manager'] },
+    );
+    res.status(201).json({ ...row, currentStock: item.stock, reorderLevel: item.reorderLevel, shelfStatus: item.status, onShelf: true });
+  } catch (err: any) {
+    console.error('POST /api/restock-requests failed:', err?.message || err);
+    res.status(500).json({ error: 'The restock request was not saved.' });
+  }
+});
+
+/**
+ * Decide it — and on approval, actually land the units.
+ *
+ * Approval is the only path that adds stock without a purchase row of its own:
+ * it writes the movement, re-values the line by the weighted average (when a
+ * price was given) and tells the desk that asked. Reject and withdraw change
+ * nothing on the shelf.
+ */
+app.patch('/api/restock-requests/:id', authenticate, async (req: any, res) => {
+  try {
+    const decision = String(req.body?.decision || '').trim();
+    if (!['Approved', 'Rejected', 'Withdrawn'].includes(decision)) {
+      return res.status(400).json({ error: 'decision must be Approved, Rejected or Withdrawn.' });
+    }
+    const row = await prisma.restockRequest.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: 'Restock request not found.' });
+    if (row.status !== 'Pending') return res.status(409).json({ error: `This request is already ${row.status.toLowerCase()}.` });
+    const roles = heldRoles(req);
+    const canDecide = roles.some((r) => RESTOCK_DECIDE_ROLES.includes(r));
+    const isRequester = row.requestedById && String(row.requestedById) === String(req.user?.id || '');
+    if (decision === 'Withdrawn') {
+      // The desk that asked may take it back; a manager may clear it too.
+      if (!isRequester && !canDecide && !roles.some((r) => RESTOCK_RAISE_ROLES.includes(r))) {
+        return res.status(403).json({ error: 'Only the desk that raised this request can withdraw it.' });
+      }
+      const withdrawn = await prisma.restockRequest.update({
+        where: { id: row.id },
+        data: { status: 'Withdrawn', decidedBy: actingUser(req), decidedAt: new Date(), decisionNote: String(req.body?.note || '').trim() || null },
+      });
+      return res.json({ ...withdrawn, currentStock: null, onShelf: false });
+    }
+    if (!canDecide) {
+      return res.status(403).json({ error: 'Only the Transport Manager approves or rejects a restock.' });
+    }
+    const note = String(req.body?.note || '').trim() || null;
+    if (decision === 'Rejected') {
+      const rejected = await prisma.restockRequest.update({
+        where: { id: row.id },
+        data: { status: 'Rejected', decidedBy: actingUser(req), decidedAt: new Date(), decisionNote: note },
+      });
+      void notify(
+        'Inventory',
+        'Restock declined',
+        `${actingUser(req)} declined the restock of ${row.quantity.toLocaleString()} × ${row.itemName} (${row.sku})${note ? ` — ${note}` : ''}.`,
+        'error',
+        'Procurement,Transport Manager',
+        { module: 'Inventory', eventKey: 'inventory.restock_rejected', refId: row.id, refLabel: row.sku },
+      );
+      return res.json({ ...rejected, onShelf: false });
+    }
+    const item = await prisma.inventoryItem.findUnique({ where: { id: row.itemId } });
+    if (!item) return res.status(409).json({ error: 'That shelf line has been removed — the request cannot be applied.' });
+    const qty = Math.max(0, Math.trunc(row.quantity));
+    const price = Number(row.unitPrice ?? 0) || 0;
+    const existingQty = Math.max(0, item.stock);
+    const existingCost = item.unitCost ?? 0;
+    // Same valuation rule as a purchase: the shelf is worth the blend of what
+    // was already there and what this delivery costs.
+    const wac =
+      price > 0 && existingQty + qty > 0
+        ? (existingQty * existingCost + qty * price) / (existingQty + qty)
+        : existingCost || price;
+    const stock = existingQty + qty;
+    const updatedItem = await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: {
+        stock,
+        status: inventoryStatus(stock, item.reorderLevel),
+        unitCost: price > 0 ? wac : existingCost,
+      },
+    });
+    await writeMovement({
+      itemId: item.id,
+      itemName: item.name,
+      sku: item.sku,
+      kind: 'Purchase',
+      quantity: qty,
+      unitCost: price,
+      value: qty * price,
+      reference: `RST-${row.id.slice(0, 8).toUpperCase()}`,
+      note: `Restock approved by ${actingUser(req)}${row.note ? ` — ${row.note}` : ''}`,
+      actedBy: actingUser(req),
+    });
+    const approved = await prisma.restockRequest.update({
+      where: { id: row.id },
+      data: { status: 'Approved', decidedBy: actingUser(req), decidedAt: new Date(), decisionNote: note, appliedQty: qty },
+    });
+    void notify(
+      'Inventory',
+      'Restock approved',
+      `${actingUser(req)} approved ${qty.toLocaleString()} × ${item.name} (${item.sku}). The shelf now reads ${stock.toLocaleString()}.`,
+      'success',
+      'Procurement,Transport Manager,Parts & Store',
+      { module: 'Inventory', eventKey: 'inventory.restock_approved', refId: row.id, refLabel: item.sku },
+    );
+    res.json({ ...approved, currentStock: updatedItem.stock, reorderLevel: updatedItem.reorderLevel, shelfStatus: updatedItem.status, onShelf: true });
+  } catch (err: any) {
+    console.error('PATCH /api/restock-requests failed:', err?.message || err);
+    res.status(500).json({ error: 'The restock decision was not saved.' });
+  }
 });
 
 /**

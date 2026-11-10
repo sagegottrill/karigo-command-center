@@ -15,7 +15,27 @@ import { formatBytes, prepareDocument } from "@/lib/fleetopsx/scan-document";
  * price trail, and the proof-of-purchase documents tied to the PO they paid for.
  */
 
-type Tab = "Inbox" | "Low stock" | "Vendors" | "Price history" | "Documents";
+type Tab = "Inbox" | "Low stock" | "Restock" | "Vendors" | "Price history" | "Documents";
+
+/** A restock ask, as the approving queue reads it. */
+type RestockAsk = {
+  id: string;
+  sku: string;
+  itemName: string;
+  quantity: number;
+  unitPrice?: number | null;
+  note?: string | null;
+  status: string;
+  requestedBy: string;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  decisionNote?: string | null;
+  appliedQty?: number | null;
+  createdAt: string;
+  currentStock?: number | null;
+  reorderLevel?: number | null;
+  onShelf?: boolean;
+};
 
 type Po = {
   id: string;
@@ -95,6 +115,7 @@ function ProcurementPage() {
   const [tab, setTab] = useState<Tab>("Inbox");
   const [requests, setRequests] = useState<Po[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [restocks, setRestocks] = useState<RestockAsk[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -112,12 +133,13 @@ function ProcurementPage() {
   // Each feed stands on its own: a single endpoint being down must not blank
   // the whole desk, so every tab keeps whatever did arrive.
   const load = useCallback(async () => {
-    const [po, inv, ven, doc, price] = await Promise.allSettled([
+    const [po, inv, ven, doc, price, asks] = await Promise.allSettled([
       fetchApi<Po[]>("/procurement"),
       fetchApi<Item[]>("/inventory"),
       fetchApi<Vendor[]>("/vendors"),
       fetchApi<Doc[]>("/procurement/documents"),
       fetchApi<Purchase[]>("/vendors/price-history"),
+      fetchApi<RestockAsk[]>("/restock-requests"),
     ]);
     const rows = <T,>(r: PromiseSettledResult<T[]>): T[] =>
       r.status === "fulfilled" && Array.isArray(r.value) ? r.value : [];
@@ -126,6 +148,7 @@ function ProcurementPage() {
     setVendors(rows(ven));
     setDocs(rows(doc));
     setPurchases(rows(price));
+    setRestocks(rows(asks));
     const failed = [po, inv, ven, doc, price].find((r) => r.status === "rejected");
     if (failed) {
       const why = failed.status === "rejected" ? failed.reason : null;
@@ -234,9 +257,33 @@ function ProcurementPage() {
     URL.revokeObjectURL(url);
   };
 
+  const pendingRestocks = restocks.filter((r) => r.status === "Pending");
+  /** Only the Transport Manager (or Platform Admin) decides a restock. */
+  const canDecideRestock = authService
+    .getRoles()
+    .some((r: string) => r === "Transport Manager" || r === "Platform Admin");
+
+  const decideRestock = async (ask: RestockAsk, decision: "Approved" | "Rejected") => {
+    try {
+      await fetchApi(`/restock-requests/${ask.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision }),
+      });
+      toast.success(
+        decision === "Approved"
+          ? `${ask.sku} restocked — ${ask.quantity} units added to the shelf.`
+          : `Restock of ${ask.sku} declined.`,
+      );
+      void load();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not save that decision.");
+    }
+  };
+
   const tabs: Array<{ key: Tab; count: number }> = [
     { key: "Inbox", count: open.length },
     { key: "Low stock", count: lowStock.length },
+    { key: "Restock", count: pendingRestocks.length },
     { key: "Vendors", count: vendors.length },
     { key: "Price history", count: purchases.length },
     { key: "Documents", count: docs.length },
@@ -251,6 +298,11 @@ function ProcurementPage() {
         <div className="flex gap-2">
           <Stat label="Open requests" value={open.length} />
           <Stat label="Low / out" value={lowStock.length} tone={lowStock.length ? "warn" : undefined} />
+          <Stat
+            label="Restock approvals"
+            value={pendingRestocks.length}
+            tone={pendingRestocks.length ? "warn" : undefined}
+          />
           <Stat label="Vendors" value={vendors.length} />
         </div>
       </div>
@@ -329,6 +381,18 @@ function ProcurementPage() {
           <Inbox rows={inbox} onReceive={setReceiving} onAdvance={advance} />
         ) : tab === "Low stock" ? (
           <LowStock rows={lowStock} onRaise={raiseFromShelf} />
+        ) : tab === "Restock" ? (
+          <RestockQueue
+            rows={restocks.filter(
+              (r) =>
+                !search ||
+                [r.sku, r.itemName, r.requestedBy, r.status].some((v) =>
+                  String(v ?? "").toLowerCase().includes(search),
+                ),
+            )}
+            canDecide={canDecideRestock}
+            onDecide={decideRestock}
+          />
         ) : tab === "Vendors" ? (
           <Vendors rows={vendors.filter((v) => !search || v.name.toLowerCase().includes(search))} onEdit={setVendorDraft} onDeleted={load} />
         ) : tab === "Price history" ? (
@@ -459,6 +523,128 @@ function LowStock({ rows, onRaise }: { rows: Item[]; onRaise: (i: Item) => void 
           Showing the 300 most urgent of {rows.length.toLocaleString()} lines below their reorder level.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * THE PERMISSION QUEUE — restock requests waiting on the Transport Manager.
+ *
+ * Approving one is what puts the units on the shelf (the server writes the
+ * quantity and the ledger line); declining leaves the shelf untouched and tells
+ * the desk that asked. Pending first, decisions below.
+ */
+function RestockQueue({
+  rows,
+  canDecide,
+  onDecide,
+}: {
+  rows: RestockAsk[];
+  canDecide: boolean;
+  onDecide: (ask: RestockAsk, decision: "Approved" | "Rejected") => void;
+}) {
+  if (!rows.length) {
+    return (
+      <p className="px-4 py-10 text-center text-[13px] text-[#6B7788]">
+        No restock requests. The buying desk raises them from Procurement → Inventory.
+      </p>
+    );
+  }
+  const ordered = [...rows].sort((a, b) => {
+    if ((a.status === "Pending") !== (b.status === "Pending")) return a.status === "Pending" ? -1 : 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[880px] border-collapse text-left">
+        <thead>
+          <tr>
+            <Th>Part</Th>
+            <Th>On shelf</Th>
+            <Th>Add</Th>
+            <Th>Est. cost</Th>
+            <Th>Asked by</Th>
+            <Th>Status</Th>
+            <Th>Action</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordered.map((r) => (
+            <tr key={r.id} className="border-b border-[#F2F5F8] last:border-0">
+              <td className="px-4 py-2.5">
+                <p className="text-[12.5px] font-medium text-[#1B2432]">{r.itemName}</p>
+                <p className="text-[11px] text-[#8896A6]">
+                  {r.sku}
+                  {r.note ? " · " + r.note : ""}
+                </p>
+              </td>
+              <td className="px-4 py-2.5 text-[12px] text-[#41556B]">
+                {r.currentStock == null ? "—" : r.currentStock.toLocaleString("en-NG")}
+                {r.reorderLevel != null ? (
+                  <p className="text-[10.5px] text-[#8896A6]">reorder at {r.reorderLevel}</p>
+                ) : null}
+              </td>
+              <td className="px-4 py-2.5 text-[12px] font-semibold text-[#1B2432]">
+                +{r.quantity.toLocaleString("en-NG")}
+              </td>
+              <td className="px-4 py-2.5 text-[12px] text-[#41556B]">
+                {r.unitPrice ? money(r.quantity * r.unitPrice) : "to quote"}
+              </td>
+              <td className="px-4 py-2.5 text-[12px] text-[#41556B]">
+                {r.requestedBy}
+                <p className="text-[10.5px] text-[#8896A6]">{when(r.createdAt)}</p>
+              </td>
+              <td className="px-4 py-2.5">
+                <span
+                  className={
+                    "rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
+                    (r.status === "Approved"
+                      ? "bg-[#E9F7EF] text-[#127A45]"
+                      : r.status === "Rejected"
+                        ? "bg-[#FDECEC] text-[#B42318]"
+                        : r.status === "Withdrawn"
+                          ? "bg-[#EEF2F7] text-[#41556B]"
+                          : "bg-[#FFF7E6] text-[#8A5A00]")
+                  }
+                >
+                  {r.status === "Pending" ? "Awaiting approval" : r.status}
+                </span>
+                {r.decidedBy ? (
+                  <p className="text-[10.5px] text-[#8896A6]">{r.decidedBy}</p>
+                ) : null}
+              </td>
+              <td className="px-4 py-2.5">
+                {r.status === "Pending" ? (
+                  canDecide ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => onDecide(r, "Approved")}
+                        className="rounded-md bg-[#127A45] px-2.5 py-1 text-[11.5px] font-semibold text-white"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onDecide(r, "Rejected")}
+                        className="rounded-md border border-[#F3D6D6] px-2.5 py-1 text-[11.5px] font-medium text-[#B42318]"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-[#8896A6]">Waiting on the Transport Manager</span>
+                  )
+                ) : r.status === "Approved" ? (
+                  <span className="text-[11px] text-[#8896A6]">
+                    {r.appliedQty ? `${r.appliedQty} on the shelf` : "Applied"}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#8896A6]">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

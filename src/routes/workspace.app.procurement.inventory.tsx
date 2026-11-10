@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { ArrowDown, ArrowUp, FileSpreadsheet, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, FileSpreadsheet, PackagePlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   CardShell,
@@ -11,8 +11,14 @@ import {
   StockChip,
   inputClass,
 } from "@/components/fleetopsx/store-portal";
-import { authService, formatNairaFull, inventoryService } from "@/lib/fleetopsx/services";
+import {
+  authService,
+  formatNairaFull,
+  inventoryService,
+  type RestockRequestRow,
+} from "@/lib/fleetopsx/services";
 import type { InventoryItem } from "@/lib/fleetopsx/types";
+import { useAutoRefresh } from "@/lib/fleetopsx/use-auto-refresh";
 
 /**
  * PROCUREMENT · INVENTORY — the buying desk's own shelf book.
@@ -139,11 +145,19 @@ function ProcurementInventoryPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [sort, setSort] = useState<SortState>({ key: "sku", dir: "asc" });
+  // RESTOCK PERMISSION — a shelf number only rises on one of these, approved by
+  // the Transport Manager. The board shows what is waiting so nobody buys twice.
+  const [restocks, setRestocks] = useState<RestockRequestRow[]>([]);
+  const [restockFor, setRestockFor] = useState<InventoryItem | null>(null);
 
   const load = async () => {
     try {
-      const rows = await inventoryService.list();
+      const [rows, asks] = await Promise.all([
+        inventoryService.list(),
+        inventoryService.restockRequests().catch(() => [] as RestockRequestRow[]),
+      ]);
       setItems(rows);
+      setRestocks(asks);
     } catch {
       toast.error("Could not read the shelf. Retry in a moment.");
     } finally {
@@ -151,9 +165,20 @@ function ProcurementInventoryPage() {
     }
   };
 
+  const openRestock = useMemo(() => {
+    const map = new Map<string, RestockRequestRow>();
+    for (const r of restocks) if (r.status === "Pending") map.set(r.itemId, r);
+    return map;
+  }, [restocks]);
+  const awaiting = restocks.filter((r) => r.status === "Pending");
+
   useEffect(() => {
     void load();
   }, []);
+
+  // The Transport Manager decides elsewhere: an approval lands on this board
+  // (and the shelf number with it) without anyone reloading the page.
+  useAutoRefresh(() => void load(), [load], { interval: 20_000 });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -225,11 +250,80 @@ function ProcurementInventoryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Metric label="Shelf lines" value={filtered.length.toLocaleString("en-NG")} />
         <Metric label="Priced lines" value={`${priced.toLocaleString("en-NG")} of ${filtered.length.toLocaleString("en-NG")}`} />
         <Metric label="Stock value" value={formatNairaFull(totalCost)} />
+        <Metric
+          label="Awaiting restock approval"
+          value={`${awaiting.length.toLocaleString("en-NG")}`}
+        />
       </div>
+
+      {/* THE PERMISSION TRAIL — every restock asked for, and where it stands. */}
+      {restocks.length > 0 ? (
+        <CardShell>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EFF1F4] px-4 py-3">
+            <p className="text-[14px] font-semibold text-[#1B2432]">Restock requests</p>
+            <p className="text-[11.5px] text-[#7C8794]">
+              A shelf quantity only rises once the Transport Manager approves it.
+            </p>
+          </div>
+          <div className="divide-y divide-[#F2F5F8]">
+            {restocks.slice(0, 6).map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[12.5px] font-medium text-[#1B2432]">
+                    {r.itemName} <span className="text-[#7C8794]">({r.sku})</span>
+                  </p>
+                  <p className="text-[11px] text-[#7C8794]">
+                    +{r.quantity.toLocaleString("en-NG")} units requested by {r.requestedBy} ·{" "}
+                    {new Date(r.createdAt).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {r.decidedBy ? ` · ${r.status.toLowerCase()} by ${r.decidedBy}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+                      r.status === "Approved"
+                        ? "bg-[#E9F7EF] text-[#127A45]"
+                        : r.status === "Rejected"
+                          ? "bg-[#FDECEC] text-[#B42318]"
+                          : r.status === "Withdrawn"
+                            ? "bg-[#EEF2F7] text-[#41556B]"
+                            : "bg-[#FFF7E6] text-[#8A5A00]"
+                    }`}
+                  >
+                    {r.status === "Pending" ? "Awaiting TM" : r.status}
+                  </span>
+                  {r.status === "Pending" && r.requestedById === authService.getCurrentUser()?.id ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await inventoryService.decideRestock(r.id, { decision: "Withdrawn" });
+                          toast.success("Restock request withdrawn.");
+                          await load();
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Could not withdraw it.");
+                        }
+                      }}
+                      className="rounded-[6px] border border-[#E2E5E9] px-2 py-1 text-[11.5px] font-medium text-[#5C6470] hover:bg-[#F7F8FA]"
+                    >
+                      Withdraw
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardShell>
+      ) : null}
 
       <CardShell>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EFF1F4] px-4 py-3">
@@ -295,16 +389,41 @@ function ProcurementInventoryPage() {
                     {valueOf(item) > 0 ? formatNairaFull(valueOf(item)) : "—"}
                   </td>
                   <td className="py-3 pr-3">
-                    <StockChip status={statusOf(item)} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StockChip status={statusOf(item)} />
+                      {openRestock.has(item.id) ? (
+                        <span
+                          className="rounded-full bg-[#FFF7E6] px-2 py-0.5 text-[10px] font-semibold text-[#8A5A00]"
+                          title={`+${openRestock.get(item.id)?.quantity} units waiting for the Transport Manager`}
+                        >
+                          Restock · awaiting TM
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="py-3 pr-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(item)}
-                      className="rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-1 text-[12px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
-                    >
-                      Modify
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setRestockFor(item)}
+                        disabled={openRestock.has(item.id)}
+                        title={
+                          openRestock.has(item.id)
+                            ? "A restock request for this line is already waiting for the Transport Manager"
+                            : "Ask the Transport Manager to approve more stock"
+                        }
+                        className="inline-flex items-center gap-1 rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-1 text-[12px] font-medium text-[#127A45] hover:bg-[#F7F8FA] disabled:opacity-40"
+                      >
+                        <PackagePlus className="size-3.5" /> Restock
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(item)}
+                        className="rounded-[6px] border border-[#E2E5E9] bg-white px-2 py-1 text-[12px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
+                      >
+                        Modify
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -378,6 +497,16 @@ function ProcurementInventoryPage() {
           }}
         />
       )}
+      {restockFor && (
+        <RestockRequestModal
+          item={restockFor}
+          onClose={() => setRestockFor(null)}
+          onDone={async () => {
+            setRestockFor(null);
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -432,6 +561,14 @@ function InventoryForm({
     }
     if (!Number.isFinite(Number(unitPrice)) || Number(unitPrice) < 0) {
       toast.error("Unit price must be a number, e.g. 1750.");
+      return;
+    }
+    // A shelf number only rises on an approved restock — Modify corrects the
+    // line and writes stock off, it does not quietly buy anything.
+    if (mode === "edit" && item && qty > Number(item.stock)) {
+      toast.error(
+        "To add stock, raise a Restock request — the Transport Manager approves it before anything is bought.",
+      );
       return;
     }
     setBusy(true);
@@ -503,6 +640,13 @@ function InventoryForm({
             value={stock}
             onChange={(e) => setStock(e.target.value)}
           />
+          {mode === "edit" && item ? (
+            <span className="mt-1 block text-[11px] leading-4 text-[#7C8794]">
+              {qty > Number(item.stock)
+                ? "More than the shelf holds — use Restock so the Transport Manager approves it first."
+                : "Corrections and write-offs only: adding stock needs an approved restock request."}
+            </span>
+          ) : null}
         </ModalField>
         <ModalField label="Cost per unit:" required>
           <input
@@ -540,6 +684,126 @@ function InventoryForm({
           busy={busy}
           onAction={save}
         />
+      </div>
+    </ModalShell>
+  );
+}
+
+/**
+ * ASK TO RESTOCK — the request the Transport Manager has to approve.
+ *
+ * The desk never adds stock here. It states how many units it wants, at what
+ * price, and why; the line stays exactly as it is until that comes back
+ * Approved, at which point the server (not this form) moves the quantity.
+ */
+function RestockRequestModal({
+  item,
+  onClose,
+  onDone,
+}: {
+  item: InventoryItem;
+  onClose: () => void;
+  onDone: () => Promise<void>;
+}) {
+  const [quantity, setQuantity] = useState("");
+  const [unitPrice, setUnitPrice] = useState(
+    Number(item.unitCost ?? 0) > 0 ? String(item.unitCost) : "",
+  );
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const qty = Math.trunc(Number(quantity) || 0);
+  const price = Number(String(unitPrice).replace(/[^0-9.]/g, "")) || 0;
+  const after = Number(item.stock ?? 0) + Math.max(0, qty);
+
+  const submit = async () => {
+    if (qty <= 0) {
+      toast.error("How many units should be added?");
+      return;
+    }
+    setBusy(true);
+    try {
+      await inventoryService.raiseRestock({
+        itemId: item.id,
+        quantity: qty,
+        unitPrice: price > 0 ? price : null,
+        note: note.trim() || undefined,
+      });
+      toast.success(
+        `Restock request sent — ${item.sku} stays at ${item.stock} until the Transport Manager approves it.`,
+      );
+      await onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The restock request was not saved.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="Request Restock"
+      subtitle="The Transport Manager approves it before any stock or money moves."
+      onClose={onClose}
+      width="max-w-[540px]"
+    >
+      <div className="rounded-[8px] border border-[#E2E5E9] bg-[#FCFCFD] px-3.5 py-3 text-[12.5px] text-[#41556B]">
+        <p className="font-semibold text-[#1B2432]">
+          {item.sku} — {item.name}
+        </p>
+        <p className="mt-0.5">
+          On the shelf today: <span className="font-semibold text-[#1B2432]">{Number(item.stock).toLocaleString("en-NG")}</span>{" "}
+          · reorder at {Number(item.reorderLevel ?? 0).toLocaleString("en-NG")}
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ModalField label="Units to add:" required>
+          <input
+            type="number"
+            min={1}
+            className={inputClass}
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            placeholder="e.g. 50"
+          />
+        </ModalField>
+        <ModalField label="Unit price (₦):">
+          <input
+            inputMode="decimal"
+            className={inputClass}
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(e.target.value)}
+            placeholder="Leave blank to keep the shelf price"
+          />
+        </ModalField>
+      </div>
+
+      <div className="mt-3">
+        <ModalField label="Why this restock:">
+          <textarea
+            rows={2}
+            className="w-full rounded-[8px] border border-[#E2E5E9] bg-white px-3 py-2 text-[13px] text-[#1B2432] outline-none placeholder:text-[#9AA2AC] focus:border-[#ED351D]"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. critical stock depletion — two trucks waiting"
+          />
+        </ModalField>
+      </div>
+
+      {qty > 0 ? (
+        <div className="mt-3 flex items-center justify-between rounded-[8px] bg-[#F4F7FA] px-4 py-3 text-[13px]">
+          <span className="text-[#41556B]">
+            {Number(item.stock).toLocaleString("en-NG")} →{" "}
+            <span className="font-semibold text-[#1B2432]">{after.toLocaleString("en-NG")}</span> units
+          </span>
+          <span className="font-semibold text-[#1B2432]">
+            {price > 0 ? `${formatNairaFull(qty * price)} to buy` : "Price to be quoted"}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <ModalActions onCancel={onClose} submitLabel="Send for approval" busy={busy} onAction={submit} />
       </div>
     </ModalShell>
   );
