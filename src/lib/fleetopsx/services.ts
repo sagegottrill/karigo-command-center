@@ -4,6 +4,7 @@ import type {
   ExpenseStatus,
   GateEntry,
   InventoryItem,
+  InventoryRequisition,
   ProcurementRequest,
   Trip,
   TimelineStep,
@@ -1413,6 +1414,19 @@ export const inventoryService = {
     fetchApi(`/inventory-requisitions/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "Rejected", decisionNote }),
+    }),
+  /**
+   * Correct a request's own words before it is decided — the part, how many, or
+   * the description the maintainer wrote. The ticket keeps its place in the
+   * queue and its audit columns; only the ask changes.
+   */
+  updateRequisition: (
+    id: string,
+    data: { part?: string; quantity?: number; description?: string },
+  ) =>
+    fetchApi<InventoryRequisition>(`/inventory-requisitions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
     }),
   /**
    * The workshop's own receipt — the store's "Released" says the part left the

@@ -759,6 +759,158 @@ export function GroupReviewDialog({
   );
 }
 
+/**
+ * THE TRANSPORT MANAGER'S CORRECTION.
+ *
+ * The maintainer writes the ask by hand, on a workshop floor, and sometimes it
+ * arrives with the wrong part name, the wrong count, or a description that
+ * names nothing. Before this desk authorizes the store to spend stock on it,
+ * the manager can correct the ask in place — same ticket, same place in the
+ * queue, same name on the record — rather than rejecting a request that is
+ * only badly worded and making the workshop raise it again.
+ */
+export function EditRequestDialog({
+  group,
+  onClose,
+  onDone,
+}: {
+  group: RequestGroup;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [description, setDescription] = useState(group.description || "");
+  const [edits, setEdits] = useState<Record<string, { part: string; quantity: number }>>(() =>
+    Object.fromEntries(group.lines.map((l) => [l.id, { part: l.part, quantity: l.quantity }])),
+  );
+  const [saving, setSaving] = useState(false);
+
+  /** A line the store has already worked is not ours to rewrite any more. */
+  const locked = (status: string) => !["Pending", "Awaiting Admin Approval"].includes(status);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      for (const l of group.lines) {
+        if (locked(l.status)) continue;
+        const e = edits[l.id] ?? { part: l.part, quantity: l.quantity };
+        const data: { part?: string; quantity?: number; description?: string } = {};
+        if (e.part.trim() && e.part.trim() !== l.part) data.part = e.part.trim();
+        if (e.quantity !== l.quantity) data.quantity = e.quantity;
+        if (description !== (group.description || "")) data.description = description;
+        if (Object.keys(data).length > 0) await inventoryService.updateRequisition(l.id, data);
+      }
+      toast.success(`${group.key} updated — the workshop's record shows the correction.`);
+      onDone();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The correction was not saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Shell
+      title="Edit Request"
+      subtitle={`${group.truckReg === "WORKSHOP" ? "Workshop" : group.truckReg} • ${group.key} • ${group.requestedBy || "\u2014"}`}
+      onClose={onClose}
+      wide
+    >
+      <span className="flex flex-col gap-1.5">
+        <label
+          htmlFor="req-description"
+          className="text-[14px] font-semibold text-[#141A1F]"
+        >
+          What the workshop is asking for
+        </label>
+        <textarea
+          id="req-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="e.g. Replace the air cleaner on the head"
+          className="rounded border border-[#E2E5E9] px-2.5 py-2 text-[13px] outline-none focus:border-[#1B2432]"
+        />
+      </span>
+      <span className="flex flex-col gap-1.5">
+        <span className="text-[14px] font-semibold text-[#141A1F]">Parts and quantities</span>
+        {group.lines.map((l) => {
+          const e = edits[l.id] ?? { part: l.part, quantity: l.quantity };
+          const frozen = locked(l.status);
+          return (
+            <span key={l.id} className="flex flex-col gap-1">
+              <span className="grid grid-cols-[1fr_96px] items-center gap-2 rounded border border-[#E2E5E9] px-2.5 py-2">
+                <input
+                  value={e.part}
+                  disabled={frozen}
+                  onChange={(ev) => setEdits((p) => ({ ...p, [l.id]: { ...e, part: ev.target.value } }))}
+                  aria-label="Part name"
+                  className="h-9 rounded border border-[#E2E5E9] px-2 text-[13px] outline-none focus:border-[#1B2432] disabled:bg-[#F7F8FA] disabled:text-[#8E95A1]"
+                />
+                <span className="flex h-9 items-center justify-between rounded border border-[#E2E5E9] px-1">
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    disabled={frozen}
+                    className="grid size-7 place-items-center rounded hover:bg-[#F1F2F4] disabled:opacity-40"
+                    onClick={() =>
+                      setEdits((p) => ({
+                        ...p,
+                        [l.id]: { ...e, quantity: Math.max(1, e.quantity - 1) },
+                      }))
+                    }
+                  >
+                    <Minus className="size-3.5" />
+                  </button>
+                  <span className="text-[13px] font-semibold tabular-nums">
+                    {e.quantity.toLocaleString("en-NG")}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    disabled={frozen}
+                    className="grid size-7 place-items-center rounded hover:bg-[#F1F2F4] disabled:opacity-40"
+                    onClick={() =>
+                      setEdits((p) => ({
+                        ...p,
+                        [l.id]: { ...e, quantity: Math.min(999, e.quantity + 1) },
+                      }))
+                    }
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </span>
+              </span>
+              {frozen ? (
+                <span className="text-[12px] text-[#8E95A1]">
+                  {l.part} — already {l.status === "Released" ? "handed over by the store" : l.status.toLowerCase()}; not editable here.
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
+      </span>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-10 rounded border border-[#D3D7DE] px-4 text-[14px] font-medium text-[#1B2432] hover:bg-[#F7F8FA]"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void save()}
+          className="h-10 rounded bg-[#34C759] px-4 text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save Correction"}
+        </button>
+      </div>
+    </Shell>
+  );
+}
+
 const PAGE = 5;
 
 function toCsv(rows: string[][]) {

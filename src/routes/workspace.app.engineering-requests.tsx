@@ -10,6 +10,7 @@ import {
   type CheckAsset,
 } from "@/components/fleetopsx/eng-checkup";
 import {
+  EditRequestDialog,
   GroupReviewDialog,
   PartsRequestDialog,
   LubricantRequestDialog,
@@ -133,6 +134,8 @@ function EngineeringRequestsPage() {
   const [section, setSection] = useState<Section>("requests");
   const [assetQuery, setAssetQuery] = useState("");
   const [hoeReviewing, setHoeReviewing] = useState<RequestGroup | null>(null);
+  /** The request the Transport Manager is correcting before he authorizes it. */
+  const [editingGroup, setEditingGroup] = useState<RequestGroup | null>(null);
   const [inspecting, setInspecting] = useState<CheckAsset | null>(null);
   const [completing, setCompleting] = useState<CheckAsset | null>(null);
   const [completingBusy, setCompletingBusy] = useState(false);
@@ -479,6 +482,10 @@ function EngineeringRequestsPage() {
       busyId={busyId}
       onRejectGroup={rejectGroup}
       onApproveGroup={approveGroup}
+      // Correcting the ask is the authorizing desk's own work — the workshop
+      // writes it, this desk fixes a wrong part or count rather than bouncing
+      // the ticket back to the floor to raise it again.
+      onEditGroup={canTM ? (g) => setEditingGroup(g) : undefined}
       onDecideFuel={decideFuel}
       stockOf={stockOf}
       itemById={itemById}
@@ -870,6 +877,13 @@ function EngineeringRequestsPage() {
         <GroupReviewDialog
           group={hoeReviewing}
           onClose={() => setHoeReviewing(null)}
+          onDone={() => void refresh()}
+        />
+      ) : null}
+      {editingGroup ? (
+        <EditRequestDialog
+          group={editingGroup}
+          onClose={() => setEditingGroup(null)}
           onDone={() => void refresh()}
         />
       ) : null}
@@ -1372,6 +1386,7 @@ function DecisionButtons({
   busy,
   onReject,
   onAuthorize,
+  onEdit,
   onPrint,
   authorizeLabel = "Authorize Part Approval",
 }: {
@@ -1380,6 +1395,8 @@ function DecisionButtons({
   busy: boolean;
   onReject?: () => void;
   onAuthorize?: () => void;
+  /** The authorizing desk's correction to the ask — a wrong part, a wrong count. */
+  onEdit?: () => void;
   onPrint: () => void;
   authorizeLabel?: string;
 }) {
@@ -1407,6 +1424,16 @@ function DecisionButtons({
   }
   return (
     <div className="flex items-center gap-2">
+      {onEdit ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onEdit}
+          className="h-9 rounded-lg border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA] disabled:opacity-60"
+        >
+          Edit Request
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={busy}
@@ -1455,6 +1482,7 @@ function EngineeringRequestsBoard({
   busyId,
   onRejectGroup,
   onApproveGroup,
+  onEditGroup,
   onDecideFuel,
   stockOf,
   itemById,
@@ -1473,6 +1501,8 @@ function EngineeringRequestsBoard({
   busyId: string | null;
   onRejectGroup: (key: string, lines: InventoryRequisition[]) => void;
   onApproveGroup: (key: string, lines: InventoryRequisition[]) => void;
+  /** Absent for seats that may decide but not correct (the workshop itself). */
+  onEditGroup?: (g: RequestGroup) => void;
   onDecideFuel: (r: FuelRequest, approve: boolean, hoe: boolean) => void;
   stockOf: (part: string) => number | null;
   itemById: (id: string) => InventoryItem | undefined;
@@ -1621,6 +1651,7 @@ function EngineeringRequestsBoard({
                     <DecisionButtons
                       hoePending={hoe}
                       busy={busyId === g.key}
+                      onEdit={hoe || !onEditGroup ? undefined : () => onEditGroup(g)}
                       onReject={() => onRejectGroup(g.key, g.lines)}
                       onAuthorize={() => onApproveGroup(g.key, g.lines)}
                       onPrint={() =>
@@ -1686,6 +1717,7 @@ function EngineeringRequestsBoard({
                       <DecisionButtons
                         hoePending={hoe}
                         busy={busyId === g.key}
+                        onEdit={hoe || !onEditGroup ? undefined : () => onEditGroup(g)}
                         onReject={() => onRejectGroup(g.key, g.lines)}
                         onAuthorize={() => onApproveGroup(g.key, g.lines)}
                         onPrint={() =>
