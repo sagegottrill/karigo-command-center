@@ -99,7 +99,9 @@ function LoadingSitePortal() {
 
   return (
     <PartnerPortalShell>
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-7">
+      {/* Full width: the yard's board reads across the whole workspace, not a
+          narrow 1200px column with dead space either side of it. */}
+      <div className="w-full px-4 py-5 lg:px-6 lg:py-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-[24px] font-semibold leading-8 text-[#1B2432]">Loading Site</h2>
@@ -162,7 +164,7 @@ function LoadingSitePortal() {
                       <p className="text-[12px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">
                         {DAY_LABEL[day]} · {rows.length}
                       </p>
-                      <div className="mt-2 grid gap-3 xl:grid-cols-2">
+                      <div className="mt-2 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
                         {rows.map((t) => (
                           <div
                             key={t.tripId}
