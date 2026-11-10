@@ -64,13 +64,17 @@ export const Route = createFileRoute("/workspace/app/messages")({
   beforeLoad: () => {
     if (typeof window === "undefined") return;
     const roles = authService.getRoles();
-    if (
-      roles.includes("Customer Portals (External)") &&
-      !roles.some((r: string) => STAFF_ROLES.includes(r))
-    ) {
+    // Partners never reach this page — they get the same thread on their own
+    // ticket, scoped to their company server-side.
+    if (roles.includes("Customer Portals (External)") && !roles.some((r: string) => STAFF_ROLES.includes(r))) {
       throw redirect({ to: "/workspace/customer-portal/dashboard" });
     }
-    if (!roles.some((r: string) => STAFF_ROLES.includes(r))) {
+    // EVERY other signed-in desk may read its own threads. The old allow-list
+    // of role spellings was missing Procurement (and every spelling newer than
+    // it), so the buying desk clicked Messages and landed on "Unauthorized"
+    // while its own badge said it had four unread — the threads were there, the
+    // page just refused to open.
+    if (roles.length === 0) {
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },

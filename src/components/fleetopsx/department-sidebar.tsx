@@ -189,6 +189,10 @@ const DEPARTMENTS: Record<DepartmentKey, DepartmentPortal> = {
       { label: "Procurement Request", to: STORE_PROCUREMENT, icon: ListTree },
       { label: "Issue History", to: STORE_ISSUE_HISTORY, icon: History },
       { label: "Notifications", to: "/workspace/app/notifications", icon: Bell },
+      // The store's own inbox. Every other desk keeps Messages in its rail; the
+      // store had none, so a store officer could never read (or print) the
+      // thread the badge was counting.
+      { label: "Messages", to: "/workspace/app/messages", icon: MessageSquare },
     ],
   },
 };

@@ -11,7 +11,7 @@ import {
   humanCode,
 } from "@/lib/fleetopsx/display-ids";
 import { driverForTrip, type TripDriverMatch } from "@/lib/fleetopsx/driver-duty";
-import { authService, driverService, tripService } from "@/lib/fleetopsx/services";
+import { authService, driverService, loadingSiteService, tripService } from "@/lib/fleetopsx/services";
 import {
   canLogTracking as canLogTrackingRole,
   loggableLegs as loggableLegsFor,
@@ -79,6 +79,16 @@ function LogLocationPage() {
   const [location, setLocation] = useState("");
   const [checkpoints, setCheckpoints] = useState<LocationCheckpoint[]>([]);
   const [saving, setSaving] = useState(false);
+  /**
+   * THE YARDS THIS ACCOUNT MAY LOAD AT (Loading desk only).
+   *
+   * A Saba Factory officer used to be offered a "Mark as Loaded" button on
+   * Happy Home too, because the form listed every site on the dispatch. The
+   * board now hands back only the account's own yard(s); the form offers that
+   * list and nothing else, and the API refuses the rest.
+   */
+  const [mySites, setMySites] = useState<string[]>([]);
+  const [mySiteChecked, setMySiteChecked] = useState(false);
   // Ending the trip is destructive (it closes the dispatch and sends the truck to
   // Check Up), so it asks once before it runs.
   const [confirmClose, setConfirmClose] = useState(false);
@@ -141,6 +151,26 @@ function LogLocationPage() {
   const loggableLegs = loggableLegsFor(roles, TRACKING_LEGS);
   const canLogAnything = loggableLegs.length > 0;
   const loadingOnly = canLogAnything && !canLogTracking;
+
+  // Ask the loading board which yard(s) this account runs — once.
+  useEffect(() => {
+    if (!loadingOnly) return;
+    let cancelled = false;
+    loadingSiteService
+      .board()
+      .then((b) => {
+        if (!cancelled) setMySites(b.sites);
+      })
+      .catch(() => {
+        if (!cancelled) setMySites([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMySiteChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadingOnly]);
   /**
    * Who may CLOSE the trip — GATE-ONLY CLOSURE (21 Oct 2026). Tracking used to
    * carry this button too, and every Tracking close flipped the dispatch to
@@ -208,6 +238,31 @@ function LogLocationPage() {
       toast.error("Add current location");
       return;
     }
+    // The Loading desk writes the yard's own record, which the server scopes to
+    // this account — it refuses a site that is not yours instead of quietly
+    // marking another partner's yard as loaded.
+    if (loadingOnly) {
+      setSaving(true);
+      try {
+        const res = await loadingSiteService.markLoaded({ tripId: trip.id, site: location.trim() });
+        setCheckpoints(await listCheckpoints(trip.id));
+        setLocation("");
+        if (res.duplicate) {
+          toast.info(`${location.trim()} was already marked loaded for this truck.`);
+        } else {
+          toast.success(
+            res.undispatched
+              ? `Load recorded at ${location.trim()} — Security has not logged it out of the gate yet.`
+              : `${location.trim()} is marked loaded.`,
+          );
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "The load was not saved.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     setSaving(true);
     try {
       const row = await addCheckpoint({ tripId: trip.id, location: location.trim(), leg });
@@ -256,6 +311,14 @@ function LogLocationPage() {
   // form (pick which site you are at) and the history (what is still outstanding).
   const sites = tripLoadingSites(trip);
   const siteProgress = loadingSiteProgress(sites, checkpoints);
+  /**
+   * A Loading account may only stamp ITS yard. The chips used to list every
+   * site on the dispatch, so a Saba Factory officer was offered Happy Home.
+   */
+  const mineOnThisDispatch = loadingOnly
+    ? sites.filter((s) => mySites.some((m) => normalizeSiteKey(m) === normalizeSiteKey(s)))
+    : sites;
+  const formSites = loadingOnly ? mineOnThisDispatch : sites;
   const driverPhone = driver?.phone?.trim() || "";
   /**
    * How the roster row was found, when it was not the name the dispatch carries.
@@ -540,8 +603,15 @@ function LogLocationPage() {
                 <span className="mb-1.5 block text-[14px] font-medium tracking-[0.4px] text-[#141A1F]">
                   Loading Site <span className="text-[#ED351D]">*</span>
                 </span>
+                {loadingOnly && mySiteChecked && formSites.length === 0 ? (
+                  <p className="rounded border border-dashed border-[#E2E5E9] bg-[#FCFCFD] px-3 py-2 text-[12px] text-[#5C6470]">
+                    {mySites.length === 0
+                      ? "This account is not bound to any loading site, so there is nothing here to mark. Ask the Transport Manager to assign your yard."
+                      : `This dispatch does not load at ${mySites.join(", ")} — there is nothing here for you to mark.`}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
-                  {sites.map((site) => {
+                  {formSites.map((site) => {
                     const logged = stageDots("Loading", sites, checkpoints).some(
                       (d) => d.logged && d.label === site,
                     );
@@ -600,7 +670,7 @@ function LogLocationPage() {
               </button>
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || (loadingOnly && formSites.length === 0)}
                 onClick={() => void saveLocation()}
                 className="flex h-9 flex-1 items-center justify-center rounded bg-[#ED351D] hover:bg-[#d62e19] text-[14px] font-medium tracking-[0.4px] text-white disabled:opacity-60"
               >

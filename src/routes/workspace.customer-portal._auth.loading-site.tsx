@@ -104,7 +104,9 @@ function LoadingSitePortal() {
           <div>
             <h2 className="text-[24px] font-semibold leading-8 text-[#1B2432]">Loading Site</h2>
             <p className="text-[13px] text-[#5C6470]">
-              {board?.site ? (
+              {board?.needsSite ? (
+                "No loading site is bound to this account yet — ask the Transport Manager to assign your yard."
+              ) : board?.site ? (
                 <>
                   Trucks coming to load at{" "}
                   <span className="font-medium text-[#1B2432]">{board.site}</span> — today,

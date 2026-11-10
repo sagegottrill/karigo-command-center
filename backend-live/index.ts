@@ -258,6 +258,8 @@ function userPayload(user: { id: string; email: string; name: string; phone?: st
     companyId: user.tenantId || 'tnt_001',
     partnerCompanyName: user.partnerCompanyName || partnerCompanyFromEmailFallback(user.email, user.role),
     companyLogo: (user as any).companyLogo || null,
+    /** The yard(s) this account may load at — empty means nothing is assigned. */
+    loadingSites: splitSites((user as any).loadingSites),
     phone: user.phone || undefined,
     passwordResetRequired: Boolean(user.passwordResetRequired),
   };
@@ -771,6 +773,12 @@ app.post('/api/users', authenticate, authorize('Transport Manager', 'Platform Ad
       passwordResetRequired: b.passwordResetRequired !== false,
       partnerCompanyName,
       companyLogo,
+      // A Loading account may be bound to its yard at creation (the same list
+      // the loading board and the phone read).
+      loadingSites:
+        b.loadingSites !== undefined
+          ? joinSites(splitSites(Array.isArray(b.loadingSites) ? b.loadingSites.join(SITE_SEP) : b.loadingSites)) || null
+          : null,
     };
     const user = existingIsDeleted
       ? await prisma.user.update({ where: { id: existing!.id }, data: createData })
@@ -798,12 +806,15 @@ app.patch('/api/users/:id', authenticate, authorize('Transport Manager', 'Platfo
   try {
     // Whitelist: only fields the User model stores may pass through to Prisma.
     // Prevents unknown UI fields from triggering PrismaClientValidationError (500).
-    const ALLOWED_USER_FIELDS = ['name', 'role', 'roles', 'phone', 'tenantId', 'status', 'password', 'passwordResetRequired', 'partnerCompanyName', 'companyLogo'];
+    const ALLOWED_USER_FIELDS = ['name', 'role', 'roles', 'phone', 'tenantId', 'status', 'password', 'passwordResetRequired', 'partnerCompanyName', 'companyLogo', 'loadingSites'];
     const data: any = {};
     for (const key of ALLOWED_USER_FIELDS) {
       if (req.body?.[key] !== undefined) data[key] = req.body[key];
     }
     if (Array.isArray(data.roles)) data.roles = data.roles.join(',');
+    // A loading site is a LIST stored on one column — accept the array the UI
+    // sends and store it the way every reader splits it.
+    if (data.loadingSites !== undefined) data.loadingSites = joinSites(splitSites(Array.isArray(data.loadingSites) ? data.loadingSites.join(SITE_SEP) : data.loadingSites));
     // GUARD-SELF-ROLES: nobody edits their own access. An HR account (or any
     // manager here) could otherwise grant themself Transport Manager, or
     // quietly demote a colleague — the privilege change would leave behind
@@ -3091,6 +3102,20 @@ async function resolveSiteCompany(req) {
   return asked || null;
 }
 
+/**
+ * Every yard in the company's book — the list an admin picks from when binding
+ * a Loading account to its site. Admin only: a loading officer does not get to
+ * browse other people's yards.
+ */
+app.get('/api/loading-sites', authenticate, authorize('Transport Manager', 'Platform Admin', 'HR'), async (req, res) => {
+  try {
+    res.json({ sites: await allLoadingPartnerSites() });
+  } catch (err) {
+    console.error('GET /api/loading-sites failed:', err?.message || err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.get('/api/partner-sites', authenticate, async (req, res) => {
   try {
     const company = await resolveSiteCompany(req);
@@ -3172,15 +3197,25 @@ async function allLoadingPartnerSites() {
   }
   return merged;
 }
-/** The sites this account runs: its own assigned list, else its company's yards. */
+/**
+ * The sites this account runs.
+ *
+ * An account is bound to its own yard. It used to fall back to EVERY partner's
+ * yards when nothing was assigned, so a Saba Factory officer saw "Mark as
+ * Loaded" on Happy Home too and could stamp a load at a yard he never visited.
+ * Now: its own assigned list, else its company's yards (a partner loader), else
+ * the single yard its own name names, else nothing at all — never every yard.
+ */
 async function loadingSitesFor(req) {
   const roles = heldRoles(req);
   const external = roles.includes('Customer Portals (External)');
   const company = external ? ((await partnerCompanyForUser(req.user.id, req.user.email, req.user.role)) || null) : null;
   const rows: any[] = await prisma.$queryRawUnsafe('SELECT "loadingSites" FROM "User" WHERE "id" = $1', String(req.user.id));
   const own = splitSites(rows[0]?.loadingSites);
-  const sites = own.length > 0 ? own : company ? await readPartnerSites(company) : await allLoadingPartnerSites();
-  return { sites, company };
+  if (own.length > 0) return { sites: own, company };
+  if (company) return { sites: await readPartnerSites(company), company };
+  const guess = ownLoadingSite(req.user, await allLoadingPartnerSites());
+  return { sites: guess ? [guess] : [], company };
 }
 /** The yard named in the request, when it is one this account runs. */
 function pickLoadingSite(asked, sites: string[]) {
@@ -3265,7 +3300,21 @@ app.get('/api/loading-site', authenticate, authorize(...LOADING_SITE_ROLES), asy
     }
     const loader = isPartnerLoader(req);
     const asked = String(req.query?.site || '').trim();
+    // No assigned yard: an empty board, never somebody else's sites.
     const site = pickLoadingSite(asked, sites) || ownLoadingSite(req.user, sites) || sites[0] || '';
+    if (!site) {
+      return res.json({
+        company,
+        sites: [],
+        site: '',
+        needsSite: true,
+        loader,
+        waiting: [],
+        pickedUp: [],
+        counts: { waiting: 0, today: 0, tomorrow: 0, upcoming: 0, pickedUp: 0, loadedToday: 0 },
+        generatedAt: new Date().toISOString(),
+      });
+    }
     const key = siteKey(site);
     // Only a requesting partner's own dispatches are cut to its company; a yard
     // loads whoever the fleet sends.

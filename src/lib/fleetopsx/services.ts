@@ -858,6 +858,8 @@ export interface LoadingSiteBoard {
   sites: string[];
   site: string | null;
   loader: boolean;
+  /** True when this account is not bound to any yard yet — nothing to load. */
+  needsSite?: boolean;
   waiting: Array<{
     tripId: string;
     reference: string;
@@ -910,6 +912,7 @@ export const loadingSiteService = {
       sites: Array.isArray(res?.sites) ? res.sites.map(String) : [],
       site: res?.site ? String(res.site) : null,
       loader: Boolean(res?.loader),
+      needsSite: Boolean(res?.needsSite),
       waiting: (Array.isArray(res?.waiting) ? res.waiting : []).map(
         (t: Record<string, unknown>) => ({
           tripId: String(t.tripId ?? ""),
@@ -939,6 +942,15 @@ export const loadingSiteService = {
         loadedToday: Number(res?.counts?.loadedToday ?? 0),
       },
     })),
+
+  /**
+   * Every yard in the book — the admin's picker when binding a Loading account
+   * to the site it runs. Refused for anyone who may not administer accounts.
+   */
+  allSites: () =>
+    fetchApi<{ sites?: unknown }>("/loading-sites").then((res: any) =>
+      Array.isArray(res?.sites) ? res.sites.map(String).filter(Boolean) : [],
+    ),
 
   /** One signed pickup — the details view behind a card. */
   pickup: (id: string) =>

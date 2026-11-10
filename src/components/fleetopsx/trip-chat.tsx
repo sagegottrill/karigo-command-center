@@ -11,7 +11,7 @@
  * thread's members is online or typing right now.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCheck, Pencil, RefreshCcw, Send, Smile, X } from "lucide-react";
+import { Check, CheckCheck, Pencil, Printer, RefreshCcw, Send, Smile, X } from "lucide-react";
 import { toast } from "sonner";
 import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma-empty-state";
 import {
@@ -23,6 +23,82 @@ import {
   type ChatThread,
 } from "@/lib/fleetopsx/chat";
 import { cn } from "@/lib/utils";
+
+/**
+ * PRINT THE WHOLE THREAD — the history, on paper.
+ *
+ * A conversation about a dispatch is evidence: who said what, and exactly when.
+ * Reading it on screen is fine until somebody needs it filed, so this opens a
+ * clean transcript (no chrome, no cut-off bubbles) and hands it to the browser's
+ * print dialog — from there it is a sheet of paper or a PDF.
+ */
+function printThreadHistory(thread: ChatThread) {
+  const messages = thread.messages.filter((m) => !m.recalled && m.body.trim());
+  const esc = (value: string) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  const stamp = (value?: string | null) => {
+    const d = value ? new Date(value) : null;
+    if (!d || Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  const title = thread.name || "Operations Thread";
+  const rows = messages.length
+    ? messages
+        .map(
+          (m) => `<tr>
+      <td class="who"><strong>${esc(m.author)}</strong><span>${esc(m.role)}</span></td>
+      <td class="body">${esc(m.body).replace(/\n/g, "<br>")}</td>
+      <td class="when">${esc(stamp(m.at || m.time))}</td>
+    </tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="3" class="empty">No messages on this thread yet.</td></tr>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)} — message history</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1B2432; margin: 28px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .meta { font-size: 11px; color: #5C6470; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  th { text-align: left; text-transform: uppercase; letter-spacing: .4px; font-size: 9.5px;
+       color: #5C6470; border-bottom: 1px solid #1B2432; padding: 6px 8px; }
+  td { border-bottom: 1px solid #E2E5E9; padding: 8px; vertical-align: top; }
+  td.who { width: 26%; }
+  td.who span { display: block; font-size: 10px; color: #5C6470; margin-top: 2px; }
+  td.when { width: 20%; color: #5C6470; white-space: nowrap; }
+  td.body { white-space: pre-wrap; }
+  td.empty { text-align: center; color: #8E95A1; padding: 24px; }
+  .foot { margin-top: 16px; font-size: 10px; color: #8E95A1; }
+  @page { margin: 14mm; }
+</style></head><body>
+  <h1>${esc(title)}</h1>
+  <div class="meta">Message history · ${esc(String(messages.length))} message${messages.length === 1 ? "" : "s"} · printed ${esc(stamp(new Date().toISOString()))}${thread.subtitle ? ` · ${esc(thread.subtitle)}` : ""}</div>
+  <table>
+    <thead><tr><th>From</th><th>Message</th><th>Sent</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <p class="foot">FleetOpsX · ${esc(title)}</p>
+</body></html>`;
+  const win = window.open("", "_blank", "width=860,height=900");
+  if (!win) {
+    toast.error("Allow pop-ups for this site to print the history.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  win.print();
+}
 
 /** Initials for the avatar chip: "Daniel Dibal" → "DD". */
 function initialsOf(name: string) {
@@ -229,6 +305,7 @@ export function TripChatPanel({
             </p>
           ) : null}
         </div>
+        <div className="flex shrink-0 items-center gap-2">
         {thread.participants.length ? (
           <div className="hidden max-w-[46%] flex-wrap justify-end gap-1 md:flex">
             {thread.participants.map((p) => (
@@ -244,6 +321,17 @@ export function TripChatPanel({
             ))}
           </div>
         ) : null}
+          <button
+            type="button"
+            onClick={() => printThreadHistory(thread)}
+            title="Print this conversation — every message, with its author and exact time"
+            aria-label="Print message history"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded border border-[#E2E5E9] bg-white px-2.5 text-[12px] font-medium tracking-[0.4px] text-[#5C6470] hover:text-[#1B2432]"
+          >
+            <Printer className="size-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Print history</span>
+          </button>
+        </div>
       </div>
 
       <div

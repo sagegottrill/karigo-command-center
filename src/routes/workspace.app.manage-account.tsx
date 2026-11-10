@@ -16,7 +16,7 @@ import { FigmaEmptyState, FigmaLoadingState } from "@/components/fleetopsx/figma
 import { RowActionMenu } from "@/components/fleetopsx/row-action-menu";
 import { ADMIN_DEPARTMENTS } from "@/lib/fleetopsx/admin-departments";
 import { humanCode } from "@/lib/fleetopsx/display-ids";
-import { adminService, authService } from "@/lib/fleetopsx/services";
+import { adminService, authService, loadingSiteService } from "@/lib/fleetopsx/services";
 import { displayStaffDepartment, isManageableStaffUser } from "@/lib/fleetopsx/staff-accounts";
 import type { User } from "@/lib/fleetopsx/types";
 import { csvRow } from "@/lib/fleetopsx/csv";
@@ -55,6 +55,12 @@ function formatLastLogin(value?: string | null): string {
   });
 }
 
+/** A Loading officer loads at a yard — that yard is a setting on the account. */
+function holdsLoading(user: User) {
+  const roles = user.roles?.length ? user.roles : [user.department];
+  return roles.some((r) => /loading/i.test(String(r)));
+}
+
 function staffIdLabel(user: User) {
   const code = humanCode(user.id, user.username);
   return code ? `ID:${code}` : "ID:—";
@@ -81,6 +87,12 @@ function AdminManageAccount() {
     null,
   );
   const [showShareModal, setShowShareModal] = useState(false);
+  // Binding a Loading account to the yard it runs — the list the loading board
+  // (and the phone) reads before it offers a "Mark as Loaded" button.
+  const [siteUser, setSiteUser] = useState<User | null>(null);
+  const [siteOptions, setSiteOptions] = useState<string[]>([]);
+  const [sitePicked, setSitePicked] = useState("");
+  const [siteBusy, setSiteBusy] = useState(false);
   const [sharedCredentials, setSharedCredentials] = useState({ username: "", password: "" });
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +118,38 @@ function AdminManageAccount() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
+
+  const openSiteDialog = async (user: User) => {
+    setMenuFor(null);
+    setSiteUser(user);
+    setSitePicked(user.loadingSites?.[0] ?? "");
+    try {
+      setSiteOptions(await loadingSiteService.allSites());
+    } catch (err) {
+      setSiteOptions([]);
+      toast.error(err instanceof Error ? err.message : "Could not read the loading sites");
+    }
+  };
+
+  const saveLoadingSite = async () => {
+    if (!siteUser) return;
+    setSiteBusy(true);
+    try {
+      const next = sitePicked ? [sitePicked] : [];
+      await adminService.editUser(siteUser.id, { loadingSites: next });
+      setUsers((prev) => prev.map((u) => (u.id === siteUser.id ? { ...u, loadingSites: next } : u)));
+      toast.success(
+        sitePicked
+          ? `${siteUser.name} now loads at ${sitePicked}.`
+          : `${siteUser.name} is no longer bound to a loading site.`,
+      );
+      setSiteUser(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the loading site");
+    } finally {
+      setSiteBusy(false);
+    }
+  };
 
   const listing = users.filter(isManageableStaffUser);
   const filtered = listing.filter((u) => {
@@ -368,6 +412,14 @@ function AdminManageAccount() {
                                 search: { userId: u.id },
                               }),
                           },
+                          ...(holdsLoading(u)
+                            ? [
+                                {
+                                  label: "Set loading site",
+                                  onSelect: () => void openSiteDialog(u),
+                                },
+                              ]
+                            : []),
                           {
                             label: "Reset password",
                             onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
@@ -516,6 +568,14 @@ function AdminManageAccount() {
                               label: "Reset password",
                               onSelect: () => setConfirmAction({ type: "password", userId: u.id }),
                             },
+                            ...(holdsLoading(u)
+                              ? [
+                                  {
+                                    label: "Set loading site",
+                                    onSelect: () => void openSiteDialog(u),
+                                  },
+                                ]
+                              : []),
                             u.status === "Suspended"
                               ? {
                                   label: "Activate",
@@ -668,6 +728,64 @@ function AdminManageAccount() {
             </div>
           </div>
         </div>
+      )}
+
+      {siteUser && (
+        <PortalOverlay onBackdropClick={() => (siteBusy ? null : setSiteUser(null))}>
+          <div
+            className="relative w-full max-w-[420px] rounded-[10px] bg-white p-6 shadow-[0px_10px_40px_rgba(0,0,0,0.08)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSiteUser(null)}
+              className="absolute top-5 right-5 text-[#8E95A1]"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
+            <h3 className="mb-1 text-[18px] font-semibold tracking-[0.4px] text-[#ED351D]">
+              Loading site
+            </h3>
+            <p className="mb-5 text-[12px] tracking-[0.4px] text-[rgba(92,100,112,0.6)]">
+              {siteUser.name} can only mark a load at this yard.
+            </p>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium tracking-[0.4px] text-[#5C6470]">
+                Yard
+              </span>
+              <select
+                value={sitePicked}
+                onChange={(e) => setSitePicked(e.target.value)}
+                className="h-10 rounded border border-[#E2E5E9] bg-white px-3 text-[14px] text-[#1B2432] outline-none"
+              >
+                <option value="">No loading site</option>
+                {siteOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-6 flex items-center justify-between gap-6">
+              <button
+                type="button"
+                onClick={() => setSiteUser(null)}
+                className="text-[14px] font-medium text-[#ED351D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={siteBusy}
+                onClick={() => void saveLoadingSite()}
+                className="flex-1 rounded bg-[#ED351D] py-2.5 text-[14px] font-medium text-white hover:bg-[#d62e19] disabled:opacity-60"
+              >
+                {siteBusy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </PortalOverlay>
       )}
 
       {showShareModal && (

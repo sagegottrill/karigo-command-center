@@ -75,6 +75,8 @@ export interface User {
   initials: string;
   companyId?: string; // The Platform Tenant ID this user belongs to
   partnerCompanyName?: string; // If this user is an External Partner, their external company name
+  /** The yard(s) a Loading account may stamp — empty means none is assigned. */
+  loadingSites?: string[];
 }
 
 export type TruckStatus =

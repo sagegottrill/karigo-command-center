@@ -13,7 +13,7 @@ import {
   type ItemFamily,
 } from "@/components/fleetopsx/store-portal";
 import { fetchApi } from "@/lib/fleetopsx/apiClient";
-import { authService, formatNairaFull } from "@/lib/fleetopsx/services";
+import { authService } from "@/lib/fleetopsx/services";
 import type { InventoryItem, ProcurementRequest } from "@/lib/fleetopsx/types";
 import { cn } from "@/lib/utils";
 
@@ -37,15 +37,16 @@ const NEW_PART_CATEGORIES: string[] = [
  *
  * Two ways in, because the yard needs both:
  *
- *   Registered inventory — a line already on the shelf. Its name, category and
- *   last price auto-fill, and the unit cost stays EDITABLE: the buying desk may
- *   already have a fresher quote than the shelf's last price.
+ *   Registered inventory — a line already on the shelf. Its name and category
+ *   auto-fill from the shelf row.
  *
  *   New part — a part the store has never stocked, so there is nothing to pick
- *   and nothing to auto-fill. The name is typed, the category is picked, and the
- *   price is whatever the store knows today (or left blank until the buyer
- *   quotes it). The PO carries the typed name and a generated buying reference;
- *   receiving matches it by name, and the line enters stock when it is booked in.
+ *   and nothing to auto-fill. The name is typed and the category is picked.
+ *
+ * NEITHER CARRIES A PRICE (TM's ruling, Nov 2026): the store raises the need and
+ * the Procurement desk prices it. The Unit Cost field used to sit here and the
+ * store's figure became the PO's price before a buyer had quoted anything — the
+ * store is cost-blind elsewhere, so it is cost-blind here too.
  *
  * Either way the request lands on the Transport Manager's authorisation desk,
  * never straight into stock.
@@ -62,16 +63,12 @@ export function RequestProcurementModal({
   /** Pre-picked when the row menu's "Procure Request" opened the modal. */
   initialItemId?: string;
 }) {
-  const initialItem = initialItemId ? items.find((i) => i.id === initialItemId) : undefined;
   const [mode, setMode] = useState<"registered" | "new">("registered");
   const [familyOption, setFamilyOption] = useState(FAMILY_OPTIONS[0] ?? "All Categories");
   const [itemId, setItemId] = useState(initialItemId ?? "");
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState(NEW_PART_CATEGORIES[0] ?? "Spare Parts");
   const [quantity, setQuantity] = useState("");
-  const [cost, setCost] = useState(
-    initialItem?.unitCost ? String(initialItem.unitCost) : "",
-  );
   const [note, setNote] = useState("");
   const [requestedBy, setRequestedBy] = useState(currentUserName());
   const [busy, setBusy] = useState(false);
@@ -83,15 +80,10 @@ export function RequestProcurementModal({
   );
   const chosen = useMemo(() => candidates.find((i) => i.id === itemId) || null, [candidates, itemId]);
 
-  /** Picking a shelf line fills the price from the shelf — still editable. */
   const pickItem = (id: string) => {
     setItemId(id);
-    const item = candidates.find((i) => i.id === id);
-    setCost(item?.unitCost ? String(item.unitCost) : "");
   };
 
-  const unitCost = Number(String(cost).replace(/[^0-9.]/g, "")) || 0;
-  const total = (Number(quantity) || 0) * unitCost;
   const partLabel =
     mode === "registered" ? chosen?.name ?? "" : newName.trim();
 
@@ -118,7 +110,8 @@ export function RequestProcurementModal({
       quantity: Number(quantity) || 0,
       status: "Requested",
       kind: "Part",
-      unitPrice: unitCost > 0 ? unitCost : null,
+      // Priced by Procurement, never by the store.
+      unitPrice: null,
       date: new Date().toISOString(),
       requestedBy: requestedBy.trim() || undefined,
     };
@@ -190,7 +183,6 @@ export function RequestProcurementModal({
                   onChange={(e) => {
                     setFamilyOption(e.target.value);
                     setItemId("");
-                    setCost("");
                   }}
                   className={cn(inputClass, "appearance-none pr-9")}
                 >
@@ -272,17 +264,6 @@ export function RequestProcurementModal({
             placeholder="0"
           />
         </ModalField>
-        <ModalField label="Unit Cost (₦)">
-          <input
-            inputMode="decimal"
-            className={inputClass}
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            placeholder={
-              mode === "registered" ? "Fills from the shelf — change it if quoted differently" : "Leave blank until the buyer quotes"
-            }
-          />
-        </ModalField>
       </div>
 
       <div className="mt-3.5">
@@ -314,7 +295,7 @@ export function RequestProcurementModal({
             {partLabel} × {Number(quantity) || 0}
           </span>
           <span className="text-[13.5px] font-medium text-[#7C8794]">
-            {unitCost > 0 ? `Total Price: ${formatNairaFull(total)}` : "Price to be quoted"}
+            Price to be quoted by Procurement
           </span>
         </div>
       ) : null}
