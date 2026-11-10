@@ -78,7 +78,7 @@ export const Route = createFileRoute("/workspace/app/engineering-requests")({
 });
 
 type Tab = "parts" | "lubricant";
-type Section = "requests" | "hoe" | "overview" | "checkup" | "queue" | "log";
+type Section = "requests" | "overview" | "checkup" | "queue" | "log";
 
 const tailLabel = (t: TruckTail) => (t.registration ? `${t.number} (${t.registration})` : t.number);
 
@@ -237,26 +237,25 @@ function EngineeringRequestsPage() {
     [fuel],
   );
 
-  /**
-   * The head of engineering's queue: what is still Awaiting HOE Review, the
-   * request registered last on top so the newest ask is the one he reads first.
-   */
-  const hoeParts = useMemo(
-    () =>
-      groups
-        .filter((g) => g.stage === "Awaiting HOE Review")
-        .sort((a, b) => String(b.date).localeCompare(String(a.date))),
-    [groups],
-  );
-  const hoeLube = useMemo(() => engFuel.filter((f) => f.status === "Requested"), [engFuel]);
 
-  /** The Figma queue: only the group the TM authorises — with a real target. */
+  /** The Figma queue: only the group the TM authorises — with a real target. */  /**
+   * ONE BOARD, BOTH DESKS.
+   *
+   * The Head of Engineering's queue used to be a tab of its own, which meant the
+   * same request appeared twice in two vocabularies and the desk that had to act
+   * on it depended on which tab you happened to open. His pending requests now
+   * ride the same Requests board — greyed for the Transport Manager, actionable
+   * for him — so a request is on one board from the workshop to the store.
+   */
   const pendingParts = useMemo(
     () =>
       groups.filter(
-        (g) => g.stage === "Awaiting Admin Approval" || g.lines.some((l) => l.status === "Pending"),
+        (g) =>
+          g.stage === "Awaiting Admin Approval" ||
+          (canHoe && g.stage === "Awaiting HOE Review") ||
+          g.lines.some((l) => l.status === "Pending"),
       ),
-    [groups],
+    [groups, canHoe],
   );
   const pendingLube = useMemo(
     () => engFuel.filter((f) => f.status === "HOE Approved" || f.status === "Requested"),
@@ -486,6 +485,9 @@ function EngineeringRequestsPage() {
       // writes it, this desk fixes a wrong part or count rather than bouncing
       // the ticket back to the floor to raise it again.
       onEditGroup={canTM ? (g) => setEditingGroup(g) : undefined}
+      // The Head of Engineering reviews the request where it sits on the board,
+      // not on a tab of its own.
+      onReviewGroup={canHoe ? (g) => setHoeReviewing(g) : undefined}
       onDecideFuel={decideFuel}
       stockOf={stockOf}
       itemById={itemById}
@@ -493,20 +495,6 @@ function EngineeringRequestsPage() {
     />
   );
 
-  /* ================================ HOE review desk ============================ */
-  /** The head of engineering's approval screen: everything still awaiting his
-   *  review, before the TM authorisation board sees it. */
-  const hoeDesk = (
-    <HoeReviewDesk
-      parts={hoeParts}
-      lube={hoeLube}
-      stockOf={stockOf}
-      busy={busyId}
-      canHoe={canHoe}
-      onReviewGroup={(g) => setHoeReviewing(g)}
-      onDecideFuel={decideFuel}
-    />
-  );
 
   /* ================================ hub sections ============================== */
   const hubOverview = (
@@ -830,7 +818,6 @@ function EngineeringRequestsPage() {
         {(
           [
             ["requests", "Requests"],
-            ["hoe", `HOE Review (${hoeParts.length + hoeLube.length})`],
             ["overview", "Overview"],
             ["checkup", `Check-up Queue (${checkupAssets.length})`],
             ["queue", `Maintenance Queue (${maintAssets.length})`],
@@ -857,7 +844,6 @@ function EngineeringRequestsPage() {
       </div>
 
       {section === "requests" ? authorizationBoard : null}
-      {section === "hoe" ? hoeDesk : null}
 
       {section === "overview" ? hubOverview : null}
       {section === "checkup" ? hubCheckup : null}
@@ -1155,183 +1141,6 @@ function MaintenanceReportView({
   );
 }
 
-/* ============================= the HOE review desk ========================= */
-
-/**
- * The head of engineering's approval screen.
- *
- * Every grouped parts request and engineering lubricant draw that is still
- * Awaiting HOE Review, in one queue: the workshop raises it here, the head of
- * engineering validates (correcting part names and quantities — that is the
- * review's whole point) or declines it with a reason, and only then does it
- * move to the TM's authorisation board. The server enforces the order — a call
- * on an already-reviewed group is refused — so this screen cannot skip a step.
- */
-function HoeReviewDesk({
-  parts,
-  lube,
-  stockOf,
-  busy,
-  canHoe,
-  onReviewGroup,
-  onDecideFuel,
-}: {
-  /** Groups still awaiting HOE review — the desk's whole queue. */
-  parts: RequestGroup[];
-  /** Engineering lubricant draws still at Requested. */
-  lube: FuelRequest[];
-  stockOf: (part: string) => number | null;
-  busy: string | null;
-  /** Only the Engineering Manager (and the supervisor) may decide here. */
-  canHoe: boolean;
-  onReviewGroup: (g: RequestGroup) => void;
-  onDecideFuel: (r: FuelRequest, approve: boolean, hoe: boolean) => void;
-}) {
-  const empty = parts.length === 0 && lube.length === 0;
-  return (
-    <div className="w-full rounded-[10px] border border-[#E2E5E9] bg-white p-5 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]">
-      <div className="mb-5 border-b border-[#E2E5E9] pb-4">
-        <h3 className="text-[20px] font-semibold leading-7 tracking-[0.4px] text-[#1B2432]">
-          Head of Engineering Approval
-        </h3>
-      </div>
-
-      {empty ? (
-        <FigmaEmptyState
-          title="Nothing awaits HOE review"
-          body="Requests the workshop raises appear here first — validate or decline them before they reach the TM."
-        />
-      ) : !canHoe ? (
-        <FigmaEmptyState
-          title="This desk belongs to the Engineering Manager"
-          body="Sign in with the Head of Engineering account to validate or decline what the workshop raised."
-        />
-      ) : (
-        <div className="flex flex-col gap-6">
-          {parts.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              <p className="flex items-center gap-2 text-[15px] font-semibold text-[#1B2432]">
-                Spare Part Requests
-                <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#ED351D] px-1.5 text-[12px] text-white">
-                  {parts.length}
-                </span>
-              </p>
-              {parts.map((g) => (
-                <div
-                  key={g.key}
-                  className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[15px] font-semibold text-[#1B2432]">
-                        {g.truckReg === "WORKSHOP" ? "Workshop" : g.truckReg}
-                        <span className="ml-2 text-[12px] font-normal text-[#8E95A1]">{g.key}</span>
-                      </p>
-                      <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                        Requested by:{" "}
-                        <span className="text-[#344256]">Maintainer {g.requestedBy || "\u2014"}</span>
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy === g.key || !canHoe}
-                      onClick={() => onReviewGroup(g)}
-                      className="h-9 rounded bg-[#1B2432] px-3.5 text-[13px] font-medium text-white hover:bg-[#2a3547] disabled:opacity-60"
-                    >
-                      Review and Approve
-                    </button>
-                  </div>
-                  <div className="mt-2 rounded-[6px] border border-[#F3A69A] bg-[#FFF5F4] px-3 py-2">
-                    <p className="text-[13px] font-semibold text-[#ED351D]">Description:</p>
-                    <p className="text-[13px] text-[#1B2432]">{g.description || "\u2014"}</p>
-                  </div>
-                  <div className="mt-2 overflow-hidden rounded-[6px] border border-[#E2E5E9]">
-                    <div className="grid grid-cols-[1fr_72px_110px] items-center bg-[#F7F8FA] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8E95A1]">
-                      <span>Part</span>
-                      <span>Quantity</span>
-                      <span className="text-right">Available Stock</span>
-                    </div>
-                    {g.lines.map((l) => (
-                      <div
-                        key={l.id}
-                        className="grid grid-cols-[1fr_72px_110px] items-center border-t border-[#E2E5E9] bg-white px-3 py-2"
-                      >
-                        <span className="min-w-0 truncate text-[13.5px] font-medium text-[#1B2432]">
-                          {l.part}
-                        </span>
-                        <span className="grid h-7 w-16 place-items-center rounded border border-[#E2E5E9] bg-white text-[13px] font-semibold tabular-nums">
-                          {l.quantity.toLocaleString("en-NG")}
-                        </span>
-                        <span className="text-right text-[13px] font-semibold tabular-nums text-[#1B2432]">
-                          {stockOf(l.part) ?? "\u2014"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {lube.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              <p className="flex items-center gap-2 text-[15px] font-semibold text-[#1B2432]">
-                Lubricant Draws
-                <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#1B2432] px-1.5 text-[12px] text-white">
-                  {lube.length}
-                </span>
-              </p>
-              {lube.map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-[10px] border border-[#E2E5E9] bg-[#F1F2F4]/40 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[15px] font-semibold text-[#1B2432]">
-                        {r.plateNumber === "WORKSHOP" ? "Workshop" : r.plateNumber || r.reference}
-                        <span className="ml-2 text-[12px] font-normal text-[#8E95A1]">
-                          {r.reference}
-                        </span>
-                      </p>
-                      <p className="mt-0.5 text-[13px] text-[#5C6470]">
-                        Requested by:{" "}
-                        <span className="text-[#344256]">Maintainer {r.requestedBy || "\u2014"}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={busy === r.id || !canHoe}
-                        onClick={() => onDecideFuel(r, false, true)}
-                        className="h-9 rounded border border-[#E2E5E9] bg-white px-3.5 text-[13px] font-medium text-[#1B2432] hover:bg-[#F7F8FA] disabled:opacity-60"
-                      >
-                        Reject Request
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === r.id || !canHoe}
-                        onClick={() => onDecideFuel(r, true, true)}
-                        className="h-9 rounded bg-[#34C759] px-3.5 text-[13px] font-medium text-white hover:bg-[#2cab4e] disabled:opacity-60"
-                      >
-                        Review and Approve
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-2 rounded-[6px] border border-[#E2E5E9] bg-white px-3 py-2 text-[13.5px] text-[#1B2432]">
-                    {r.fuelType} • {r.quantity.toLocaleString()} litres
-                    {r.purpose ? <span className="text-[#5C6470]"> • {r.purpose}</span> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ========================= the authorization board ========================= */
 
 /** The store shelf a lubricant line names — for the family + stock columns. */
@@ -1387,11 +1196,14 @@ function DecisionButtons({
   onReject,
   onAuthorize,
   onEdit,
+  onReview,
   onPrint,
   authorizeLabel = "Authorize Part Approval",
 }: {
   /** Still on the Head of Engineering's desk — the design's disabled gray button. */
   hoePending: boolean;
+  /** The Head of Engineering reviewing his own queue, on this same card. */
+  onReview?: () => void;
   busy: boolean;
   onReject?: () => void;
   onAuthorize?: () => void;
@@ -1403,14 +1215,25 @@ function DecisionButtons({
   if (hoePending) {
     return (
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled
-          title="Awaiting Head of Engineering review"
-          className="h-9 rounded-lg bg-[#C4CAD2] px-3.5 text-[13px] font-medium text-white"
-        >
-          Authorize Approval
-        </button>
+        {onReview ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onReview}
+            className="h-9 rounded-lg bg-[#2ECC71] px-3.5 text-[13px] font-medium text-white hover:bg-[#28b564] disabled:opacity-60"
+          >
+            Review Request
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="Awaiting Head of Engineering review"
+            className="h-9 rounded-lg bg-[#C4CAD2] px-3.5 text-[13px] font-medium text-white"
+          >
+            Authorize Approval
+          </button>
+        )}
         <button
           type="button"
           onClick={onPrint}
@@ -1483,6 +1306,7 @@ function EngineeringRequestsBoard({
   onRejectGroup,
   onApproveGroup,
   onEditGroup,
+  onReviewGroup,
   onDecideFuel,
   stockOf,
   itemById,
@@ -1503,6 +1327,8 @@ function EngineeringRequestsBoard({
   onApproveGroup: (key: string, lines: InventoryRequisition[]) => void;
   /** Absent for seats that may decide but not correct (the workshop itself). */
   onEditGroup?: (g: RequestGroup) => void;
+  /** The Head of Engineering's review of what is still on his own desk. */
+  onReviewGroup?: (g: RequestGroup) => void;
   onDecideFuel: (r: FuelRequest, approve: boolean, hoe: boolean) => void;
   stockOf: (part: string) => number | null;
   itemById: (id: string) => InventoryItem | undefined;
@@ -1652,6 +1478,7 @@ function EngineeringRequestsBoard({
                       hoePending={hoe}
                       busy={busyId === g.key}
                       onEdit={hoe || !onEditGroup ? undefined : () => onEditGroup(g)}
+                      onReview={hoe && onReviewGroup ? () => onReviewGroup(g) : undefined}
                       onReject={() => onRejectGroup(g.key, g.lines)}
                       onAuthorize={() => onApproveGroup(g.key, g.lines)}
                       onPrint={() =>
@@ -1718,6 +1545,7 @@ function EngineeringRequestsBoard({
                         hoePending={hoe}
                         busy={busyId === g.key}
                         onEdit={hoe || !onEditGroup ? undefined : () => onEditGroup(g)}
+                        onReview={hoe && onReviewGroup ? () => onReviewGroup(g) : undefined}
                         onReject={() => onRejectGroup(g.key, g.lines)}
                         onAuthorize={() => onApproveGroup(g.key, g.lines)}
                         onPrint={() =>
