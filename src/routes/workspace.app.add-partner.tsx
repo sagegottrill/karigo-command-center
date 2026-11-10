@@ -7,6 +7,7 @@ import {
   loadingSiteChoiceGroups,
 } from "@/lib/fleetopsx/partner-request-options";
 import { adminService, authService, partnerSiteService } from "@/lib/fleetopsx/services";
+import { liveListPartnerCompanies } from "@/lib/fleetopsx/live-api";
 import { toast } from "sonner";
 import { ImportCSVUnavailableModal } from "@/components/fleetopsx/import-CSV-unavailable";
 
@@ -38,6 +39,14 @@ function AddPartner() {
   }, [navigate]);
 
   const [companyName, setCompanyName] = useState("");
+  // Every partner company already on file. A NEW partner typed under an
+  // existing company's name joins that company's dashboard — sharing its
+  // loading sites and its notification tag. That is right for a second login
+  // of the same company, and a trap for a different one, so it is said out loud
+  // while the name is still being typed.
+  const [knownPartnerCompanies, setKnownPartnerCompanies] = useState<
+    { company: string; accounts: number }[]
+  >([]);
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
@@ -75,6 +84,25 @@ function AddPartner() {
   // typed. A company rename clears the picked yard — a site belongs to ITS
   // company, never to the one typing moved away from.
   const companyKey = companyName.trim().replace(/\s+/g, " ");
+
+  useEffect(() => {
+    let alive = true;
+    void liveListPartnerCompanies()
+      .then((list) => {
+        if (alive) setKnownPartnerCompanies(list.map((p) => ({ company: p.company, accounts: p.accounts })));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // The company this name already resolves to (accounts on file), if any.
+  const existingCompany = companyKey
+    ? knownPartnerCompanies.find(
+        (c) => c.accounts > 0 && c.company.toLowerCase() === companyKey.toLowerCase(),
+      ) ?? null
+    : null;
   const pickedSiteCompanyRef = useRef("");
   useEffect(() => {
     if (pickedSiteCompanyRef.current !== companyKey) {
@@ -331,6 +359,17 @@ function AddPartner() {
               placeholder="example: Saba Steel"
               className="flex flex-row items-center py-[10px] px-[16px] rounded-[4px] border-[1px] border-[#e2e5e9] bg-[#ffffff] h-[44px] outline-none focus:border-[#141a1f] text-[15px] font-[400] text-[#141a1f]"
             />
+            {existingCompany && (
+              <p className="rounded-[4px] border border-[#F99E1F] bg-[#FFF7E8] px-[12px] py-[8px] text-[12px] leading-[17px] text-[#7A4B00]">
+                <strong>{existingCompany.company}</strong> already has{" "}
+                {existingCompany.accounts === 1
+                  ? "a partner account"
+                  : `${existingCompany.accounts} partner accounts`}{" "}
+                on file. This new account will join that company — it will share its
+                loading sites and receive its notifications. Use a different company
+                name if this is a separate partner.
+              </p>
+            )}
           </div>
 
           {/* First Name */}
