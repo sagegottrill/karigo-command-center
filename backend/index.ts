@@ -1864,6 +1864,54 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platfo
   const data: any = {};
   if (req.body?.status === 'Completed' && !req.body?.completedAt) data.completedAt = new Date();
   for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
+
+  /**
+   * THE SIGN-OFF GATE.
+   *
+   * "Ready to Go" is the Head of Engineering saying the repair is finished and
+   * the parts are on the truck. A part still in the chain (his desk, the TM's,
+   * the store's, or a delivery not yet received) means the repair is not
+   * finished, whatever the button said — so the refusal lives here, where every
+   * client meets it, not only on one card.
+   *
+   * The one way past it is the Transport Manager's override: an operational
+   * call that the truck earns money now and the parts wait. That defers the
+   * requisitions instead of quietly dropping them, so the workshop knows what
+   * still has to go on at the next yard visit.
+   */
+  if (req.body?.status === 'Completed') {
+    const wo = await prisma.workOrder.findUnique({ where: { id: req.params.id } });
+    const outstanding = wo
+      ? await prisma.inventoryRequisition.findMany({
+          where: {
+            truckReg: wo.truckReg,
+            // Pending is the pre-HOE status older tickets still carry: a part
+            // nobody has acted on is no less outstanding.
+            status: { in: ['Pending', 'Awaiting HOE Review', 'Awaiting Admin Approval', 'Awaiting Pickup', 'Awaiting Procurement', 'Released'] },
+          },
+        })
+      : [];
+    if (outstanding.length > 0) {
+      const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
+      const mayOverride = held.includes('Transport Manager') || held.includes('Platform Admin');
+      const reason = String(req.body?.overrideReason || '').trim();
+      if (!mayOverride || req.body?.force !== true) {
+        return res.status(409).json({
+          error: `${outstanding.length} part${outstanding.length === 1 ? '' : 's'} still outstanding on ${wo?.truckReg}: ` +
+            outstanding.map((r: any) => r.part).join(', '),
+          outstanding: outstanding.map((r: any) => r.part),
+        });
+      }
+      if (!reason) return res.status(400).json({ error: 'An override needs a reason on the record.' });
+      await prisma.inventoryRequisition.updateMany({
+        where: { id: { in: outstanding.map((r: any) => r.id) } },
+        data: { status: 'Deferred', decisionNote: `Deferred by ${req.user?.name || 'the Transport Manager'} — ${reason}` },
+      });
+      const stamp = `Released ahead of ${outstanding.length} part${outstanding.length === 1 ? '' : 's'} (${outstanding.map((r: any) => r.part).join(', ')} deferred): ${reason}`;
+      data.notes = [wo?.notes, stamp].filter(Boolean).join('\n');
+    }
+  }
+
   res.json(await prisma.workOrder.update({ where: { id: req.params.id }, data }));
 });
 // Incorrect records (e.g. sent back) can be removed entirely — Engineering /

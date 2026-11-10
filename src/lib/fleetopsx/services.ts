@@ -1119,13 +1119,19 @@ export const engineeringService = {
     return engineeringService.updateWorkOrder(order.id, stamp);
   },
 
-  /** Close the job out — the truck's check-up date is this moment. */
-  complete: (id: string, cost?: number, mechanic?: string) =>
+  /**
+   * Close the job out — the truck's check-up date is this moment.
+   *
+   * `override` is the Transport Manager's release ahead of the parts: the server
+   * defers the outstanding requisitions instead of refusing the completion.
+   */
+  complete: (id: string, cost?: number, mechanic?: string, override?: { reason: string }) =>
     engineeringService.updateWorkOrder(id, {
       status: "Completed",
       completedAt: new Date().toISOString(),
       ...(cost === undefined ? {} : { cost: Number(cost) || 0 }),
       ...(mechanic ? { mechanic } : {}),
+      ...(override ? { force: true, overrideReason: override.reason } : {}),
     }),
 
   cancel: (id: string, reason?: string) =>

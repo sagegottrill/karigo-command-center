@@ -138,6 +138,8 @@ function EngineeringRequestsPage() {
   const [editingGroup, setEditingGroup] = useState<RequestGroup | null>(null);
   const [inspecting, setInspecting] = useState<CheckAsset | null>(null);
   const [completing, setCompleting] = useState<CheckAsset | null>(null);
+  /** Opened from the Transport Manager's override, not the workshop's sign-off. */
+  const [overriding, setOverriding] = useState<CheckAsset | null>(null);
   const [completingBusy, setCompletingBusy] = useState(false);
 
   const me = authService.getCurrentUser()?.name || "Transport Manager";
@@ -151,6 +153,15 @@ function EngineeringRequestsPage() {
   // workshop role keeps its raise/inspect work; the Platform Admin reads the
   // whole department as supervisor, so it decides everywhere.
   const canHoe = isEngineeringManager() || canTM;
+  /**
+   * Ready to Go is the Head of Engineering's own signature — the repair is
+   * finished and the parts are on the truck. The Transport Manager never gives
+   * it: he holds the parts gate earlier in the chain, and his one lever here is
+   * the override below, which releases a truck ahead of its parts.
+   */
+  const canSignOff =
+    isEngineeringManager() || authService.getRoles().some((r: string) => r === "Platform Admin");
+  const canOverride = canTM;
 
   const refresh = useCallback(async () => {
     const [headsRows, tailsRows, store, reqs, wos, overview] = await Promise.all([
@@ -397,18 +408,31 @@ function EngineeringRequestsPage() {
     return direct ?? null;
   };
 
-  const completeRepairs = async (asset: CheckAsset, notes: string) => {
+  const completeRepairs = async (asset: CheckAsset, notes: string, override = false) => {
     setCompletingBusy(true);
     try {
+      const job = openFor(asset);
+      // The job closes FIRST: the server refuses a completion while parts are
+      // still in the chain, and a refusal after the truck was already freed
+      // would leave the yard on the road with the desk still thinking it is
+      // grounded.
+      if (job && job.status !== "Completed") {
+        if (notes && !override) await engineeringService.updateWorkOrder(job.id, { notes }).catch(() => null);
+        await engineeringService.complete(
+          job.id,
+          undefined,
+          undefined,
+          override ? { reason: notes } : undefined,
+        );
+      }
       if (asset.kind === "head")
         await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
       else await fleetService.updateTailStatus(asset.id, "Available", asset.label);
-      const job = openFor(asset);
-      if (job && job.status !== "Completed") {
-        if (notes) await engineeringService.updateWorkOrder(job.id, { notes }).catch(() => null);
-        await engineeringService.complete(job.id);
-      }
-      toast.success(`${asset.label} returned to Available.`);
+      toast.success(
+        override
+          ? `${asset.label} made available — parts deferred, workshop notified.`
+          : `${asset.label} returned to Available.`,
+      );
       setCompleting(null);
       await refresh();
     } catch (err) {
@@ -711,7 +735,7 @@ function EngineeringRequestsPage() {
                     </button>
                   </div>
                 ))}
-                {canHoe ? (
+                {canSignOff ? (
                   <>
                     <button
                       type="button"
@@ -733,10 +757,27 @@ function EngineeringRequestsPage() {
                       </p>
                     ) : null}
                   </>
+                ) : canOverride && outstanding.length > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={completingBusy}
+                      onClick={() => setOverriding(a)}
+                      className="mt-3 h-10 w-full rounded border border-[#B26A00] bg-white text-[14px] font-medium text-[#B26A00] hover:bg-[#FDF6EC] disabled:opacity-50"
+                    >
+                      Make Available (override)
+                    </button>
+                    <p className="mt-1.5 text-[11.5px] text-[#B26A00]">
+                      {outstanding.length} part{outstanding.length === 1 ? "" : "s"} still
+                      outstanding — releasing the truck now defers them and puts the work on the
+                      workshop's next visit.
+                    </p>
+                  </>
                 ) : (
                   <p className="mt-3 rounded-md bg-[#F1F3F5] px-3 py-2 text-[11.5px] text-[#5C6470]">
-                    The Head of Engineering confirms when this truck is ready to go. Receive
-                    the store's delivery here; he signs it off.
+                    {outstanding.length > 0
+                      ? `${outstanding.length} part${outstanding.length === 1 ? "" : "s"} outstanding — the Head of Engineering signs the truck off once they are on it, or you may release it anyway with an override.`
+                      : "Nothing outstanding. The Head of Engineering gives Ready to Go when the repair is finished."}
                   </p>
                 )}
               </div>
@@ -879,6 +920,15 @@ function EngineeringRequestsPage() {
           busy={completingBusy}
           onClose={() => (completingBusy ? null : setCompleting(null))}
           onConfirm={(notes) => void completeRepairs(completing, notes)}
+        />
+      ) : null}
+      {overriding ? (
+        <MaintenanceCompleteDialog
+          mode="override"
+          asset={overriding}
+          busy={completingBusy}
+          onClose={() => (completingBusy ? null : setOverriding(null))}
+          onConfirm={(reason) => void completeRepairs(overriding, reason, true)}
         />
       ) : null}
       {partsForm ? (

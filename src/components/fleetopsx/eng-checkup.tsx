@@ -543,13 +543,21 @@ export function MaintenanceCompleteDialog({
   onClose,
   onConfirm,
   busy,
+  mode = "signoff",
 }: {
   asset: CheckAsset;
   onClose: () => void;
   onConfirm: (notes: string) => void;
   busy: boolean;
+  /**
+   * "signoff" is the Head of Engineering closing a finished repair.
+   * "override" is the Transport Manager releasing the truck ahead of its parts:
+   * the reason is mandatory, because it is what defers them on the record.
+   */
+  mode?: "signoff" | "override";
 }) {
   const [notes, setNotes] = useState("");
+  const override = mode === "override";
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#141A1F]/60 p-4"
@@ -563,21 +571,37 @@ export function MaintenanceCompleteDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-[#1B2432] px-5 py-4">
-          <h3 className="text-[17px] font-semibold text-white">Ready to Go</h3>
+          <h3 className="text-[17px] font-semibold text-white">
+            {override ? "Make Available (override)" : "Ready to Go"}
+          </h3>
           <p className="text-[12px] text-white/60">
-            {asset.label} • Head of Engineering confirms the repair is done
+            {override
+              ? `${asset.label} • Transport Manager releases the truck ahead of its parts`
+              : `${asset.label} • Head of Engineering confirms the repair is done`}
           </p>
         </div>
         <div className="flex flex-col gap-3 px-5 py-5">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[14px] font-medium text-[#141A1F]">Maintenance Completion Notes</span>
+            <span className="text-[14px] font-medium text-[#141A1F]">
+              {override ? "Reason for the override" : "Maintenance Completion Notes"}
+            </span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
-              placeholder="Physical maintenance completed. All defected parts over-hauled and road-tested."
+              placeholder={
+                override
+                  ? "Truck needed on the road today. Parts stay on order and go on at its next yard visit."
+                  : "Physical maintenance completed. All defected parts over-hauled and road-tested."
+              }
               className="w-full rounded border border-[#1B2432] px-3 py-2 text-[14px] text-[#141A1F] outline-none"
             />
+            {override ? (
+              <p className="-mt-1 text-[11.5px] text-[#B26A00]">
+                The outstanding parts are marked Deferred and the workshop is told to fit them
+                at the truck's next visit.
+              </p>
+            ) : null}
           </label>
           <div className="flex items-center justify-end gap-2">
             <button
@@ -589,11 +613,17 @@ export function MaintenanceCompleteDialog({
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || (override && !notes.trim())}
               onClick={() => onConfirm(notes.trim())}
-              className="h-10 rounded bg-[#34C759] px-4 text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:opacity-60"
+              className="h-10 rounded bg-[#34C759] px-4 text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? "Marking ready…" : "Confirm — Ready to Go"}
+              {busy
+                ? override
+                  ? "Releasing…"
+                  : "Marking ready…"
+                : override
+                  ? "Confirm — Make Available"
+                  : "Confirm — Ready to Go"}
             </button>
           </div>
         </div>
