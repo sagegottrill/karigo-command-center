@@ -1972,12 +1972,27 @@ app.delete('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platf
  *               defect + severity + inspector, and any listed spare parts land
  *               on the Head of Engineering's desk as one grouped request.
  */
+/** The seats that are maintenance personnel — the roster must name only these. */
+const ENGINEERING_STAFF_ROLES = [
+  'Engineering',
+  'Engineering & Maintenance',
+  'Engineering and Maintenance',
+  'Head of Engineering',
+  'Engineering Manager',
+];
 app.get('/api/engineering/technicians', authenticate, async (req: any, res) => {
   try {
     const users = await prisma.user.findMany({
       where: {
         status: 'Active',
-        OR: [{ role: { contains: 'Engin' } }, { roles: { contains: 'Engin' } }],
+        // EXACT SEATS, NOT A SUBSTRING. `roles contains 'Engin'` matched any
+        // account whose roles string mentioned Engineering — including an
+        // all-roles test login that carried every department at once — and
+        // printed it in Maintenance Personnel as if it were an engineer.
+        OR: [
+          { role: { in: ENGINEERING_STAFF_ROLES } },
+          ...ENGINEERING_STAFF_ROLES.map((r) => ({ roles: { contains: r } })),
+        ],
       },
       select: { name: true },
       orderBy: { name: 'asc' },
