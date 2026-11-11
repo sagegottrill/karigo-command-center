@@ -4626,6 +4626,14 @@ app.post('/api/restock-requests', authenticate, authorize(...RESTOCK_RAISE_ROLES
  */
 app.patch('/api/restock-requests/:id', authenticate, async (req: any, res) => {
   try {
+    // WHO FIRST, WHAT SECOND. This route validated the decision before it
+    // checked the seat, so a gate guard could probe the store's rules — and
+    // get a 400 that reads like "your input was wrong" instead of "not your
+    // desk". The raise roles cover the desk that may withdraw its own ask.
+    const restockSeats = [...RESTOCK_DECIDE_ROLES, ...RESTOCK_RAISE_ROLES, ...INVENTORY_WRITE_ROLES];
+    if (!heldRoles(req).some((r) => restockSeats.includes(r))) {
+      return res.status(403).json({ error: 'Restock requests belong to the store and the desk that approves them.' });
+    }
     const decision = String(req.body?.decision || '').trim();
     if (!['Approved', 'Rejected', 'Withdrawn'].includes(decision)) {
       return res.status(400).json({ error: 'decision must be Approved, Rejected or Withdrawn.' });
@@ -4887,7 +4895,7 @@ app.post('/api/inventory/import', authenticate, authorize(...INVENTORY_WRITE_ROL
 app.get('/api/inventory-requisitions', authenticate, async (_req, res) => {
   res.json(await prisma.inventoryRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/inventory-requisitions', authenticate, async (req: any, res) => {
+app.post('/api/inventory-requisitions', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Parts & Store', 'Parts and Store', 'Inventory', ...PROCUREMENT_ROLES), async (req: any, res) => {
   // REQUISITION-CREATE-WHITELIST: only the ticket's own fields are writable at
   // raise time. Passing req.body straight through let any caller fabricate the
   // audit columns the chain is supposed to write — handoffAt, signature,
@@ -4918,7 +4926,7 @@ app.post('/api/inventory-requisitions', authenticate, async (req: any, res) => {
   }
   res.json(await prisma.inventoryRequisition.create({ data }));
 });
-app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
+app.patch('/api/inventory-requisitions/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Parts & Store', 'Parts and Store', 'Inventory', ...PROCUREMENT_ROLES), async (req, res) => {
   // REQUISITION-EDIT-WHITELIST: the screens edit the ticket's own words — the
   // decision (status / decisionNote) or the request's own lines. Identity and
   // audit columns are never client-writable, so a stray client cannot rewrite
@@ -5078,7 +5086,7 @@ app.get('/api/inventory-handoffs', authenticate, async (_req, res) => {
  * Procurement task is raised with the truck waiting on it, and the ticket
  * pauses until stock returns.
  */
-app.post('/api/inventory-handoffs/:reqId/pick', authenticate, async (req, res) => {
+app.post('/api/inventory-handoffs/:reqId/pick', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Parts & Store', 'Parts and Store', 'Inventory', ...PROCUREMENT_ROLES), async (req, res) => {
   const requisition = await prisma.inventoryRequisition.findUnique({ where: { id: req.params.reqId } });
   if (!requisition) return res.status(404).json({ error: 'Requisition not found' });
   const picked = Boolean(req.body.picked);
@@ -5146,7 +5154,7 @@ app.post('/api/inventory-handoffs/:reqId/pick', authenticate, async (req, res) =
  * deduction, the released value attached to the requisition, and the ledger
  * Issue that says which truck took the part out.
  */
-app.post('/api/inventory-handoffs/:reqId/complete', authenticate, async (req, res) => {
+app.post('/api/inventory-handoffs/:reqId/complete', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Parts & Store', 'Parts and Store', 'Inventory', ...PROCUREMENT_ROLES), async (req, res) => {
   const requisition = await prisma.inventoryRequisition.findUnique({ where: { id: req.params.reqId } });
   if (!requisition) return res.status(404).json({ error: 'Requisition not found' });
   if (requisition.status !== 'Awaiting Pickup') {
@@ -5808,7 +5816,7 @@ app.post('/api/procurement/:id/receive', authenticate, authorize(...VENDOR_WRITE
 app.get('/api/fuel', authenticate, async (_req, res) => {
   res.json(await prisma.fuelRequisition.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/fuel', authenticate, async (req: any, res) => {
+app.post('/api/fuel', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Accounts', 'Accountant', 'Driver', 'Lubricant', 'Fuel Manager', 'Fuel Management', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance'), async (req: any, res) => {
   // FUEL-CREATE-WHITELIST: the requisition's own lines only. Raw passthrough
   // let any signed-in caller invent approved litrages, costs or dates from
   // fields the client never sent.
@@ -6699,7 +6707,7 @@ const isFuelPartner = (req: any) => String(req.user?.role || '') === 'Customer P
  * in — all of them raise it the same way, and the request is immediately the
  * Lubricant desk's work.
  */
-app.post('/api/fuel-requests', authenticate, async (req: any, res) => {
+app.post('/api/fuel-requests', authenticate, authorize(...FUEL_REQUEST_DESK_ROLES), async (req: any, res) => {
   if (isFuelPartner(req)) {
     return res.status(403).json({ error: 'Partner accounts cannot open a tank draw — raise it with the fuel desk.' });
   }
@@ -7957,6 +7965,16 @@ app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) 
       const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
       if (!memberIds.includes(uid)) {
         return res.status(403).json({ error: 'You are not part of this conversation' });
+      }
+    }
+    // A TRUCK'S THREAD IS THE DEPARTMENT'S, NOT THE COMPANY'S. "Open to the
+    // whole Engineering department" was implemented as "any signed-in staff
+    // member", so a gate guard could post into a repair argument between the
+    // workshop and the Transport Manager. Same seats the log opens it for.
+    if (isStaff && convo.kind === 'maintenance') {
+      const ENGINEERING_THREAD_ROLES = ['Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Transport Manager', 'Platform Admin', 'Fleet Field Ops', 'Fleet Field Operations'];
+      if (!heldRoles(req).some((r) => ENGINEERING_THREAD_ROLES.includes(r))) {
+        return res.status(403).json({ error: "A truck's thread belongs to the Engineering department" });
       }
     }
     const body = String(req.body?.body || '').trim();
