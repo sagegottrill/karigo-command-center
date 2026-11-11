@@ -23,6 +23,12 @@ export type LiveBadges = {
    * parts alert sat unread in the centre while Engineering showed no dot.
    */
   moduleUnread: Record<string, number>;
+  /**
+   * Unread notifications per sending department that are a REQUEST to this
+   * user — the ones the server filed with this role as the one who must act.
+   * The rail counts these: a truck leaving the gate is news, not a request.
+   */
+  moduleAction: Record<string, number>;
 };
 
 const EMPTY: LiveBadges = {
@@ -32,6 +38,7 @@ const EMPTY: LiveBadges = {
   fleetDispatchPending: 0,
   unreadMessages: 0,
   moduleUnread: {},
+  moduleAction: {},
 };
 
 // ---- Module-level singleton store: ONE poller per page, shared by every
@@ -75,10 +82,16 @@ async function refresh() {
                   Number(m.unread ?? 0),
                 ]),
               ),
+              actions: Object.fromEntries(
+                (Array.isArray(s?.modules) ? s.modules : []).map((m: any) => [
+                  String(m.module),
+                  Number(m.action ?? 0),
+                ]),
+              ),
             },
           ] as const,
       )
-      .catch(() => ["summary", { unread: 0, modules: {} }] as const);
+      .catch(() => ["summary", { unread: 0, modules: {}, actions: {} }] as const);
 
     // 2 + 3. Trip-derived badges — internal roles only (partner users can't list trips).
     //         One shared /trips call feeds both counters.
@@ -120,6 +133,7 @@ async function refresh() {
       if (key === "summary") {
         next.unreadNotifications = value.unread;
         next.moduleUnread = value.modules;
+        next.moduleAction = value.actions;
       }
       if (key === "requests") next.partnerRequestsPending = value;
       if (key === "dispatch") next.fleetDispatchPending = value;

@@ -39,9 +39,10 @@ type AdminNavItem = {
   /**
    * Which live badge count drives the orange dot (only rendered when > 0).
    *
-   * `module:<name>` reads the unread count of the notifications that department
-   * SENT — the same number the notification centre shows against it — so a rail
-   * item never sits silent while an alert from that desk is waiting to be read.
+   * `module:<name>` counts the unread notifications that department SENT which
+   * are a REQUEST to this user (the server names his role as the one to act).
+   * Plain news from a desk — a truck out of the gate, a location update — stays
+   * in the notification centre and no longer lights the rail.
    */
   liveDot?:
     | "partnerRequests"
@@ -206,7 +207,7 @@ export function TransportAdminSidebar({
   const badges = useLiveBadges();
 
   const liveDotCount = (dot?: AdminNavItem["liveDot"]) => {
-    if (dot?.startsWith("module:")) return badges.moduleUnread[dot.slice("module:".length)] ?? 0;
+    if (dot?.startsWith("module:")) return badges.moduleAction[dot.slice("module:".length)] ?? 0;
     return dot === "partnerRequests"
       ? badges.partnerRequestsPending
       : dot === "fleetDispatch"
@@ -218,9 +219,9 @@ export function TransportAdminSidebar({
             : dot === "messages"
               ? badges.unreadMessages
               : dot === "partInventory"
-                ? badges.moduleUnread.Inventory ?? 0
+                ? badges.moduleAction.Inventory ?? 0
                 : dot === "engineeringRequests"
-                  ? badges.moduleUnread.Engineering ?? 0
+                  ? badges.moduleAction.Engineering ?? 0
                   : 0;
   };
 
