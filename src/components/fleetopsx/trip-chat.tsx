@@ -343,7 +343,11 @@ export function TripChatPanel({
         ) : messages.length === 0 ? (
           <FigmaEmptyState
             title="No messages yet"
-            body="Start the thread — anything agreed here stays with the dispatch."
+            body={
+              thread?.kind === "maintenance"
+                ? "Start the thread — everything agreed about this truck stays on its own file."
+                : "Start the thread — anything agreed here stays with the dispatch."
+            }
           />
         ) : (
           grouped.map((group) => (

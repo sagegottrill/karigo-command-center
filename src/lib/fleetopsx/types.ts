@@ -657,7 +657,8 @@ export interface Message {
 
 export interface Conversation {
   id: ID;
-  kind: "direct" | "group" | "channel" | "trip";
+  /** `maintenance` is a truck's own thread, opened from the maintenance log. */
+  kind: "direct" | "group" | "channel" | "trip" | "partner" | "maintenance";
   name: string;
   subtitle: string;
   unread: number;

@@ -1838,7 +1838,7 @@ app.patch('/api/expenses/:id', authenticate, authorize('Transport Manager', 'Pla
 app.get('/api/work-orders', authenticate, async (_req, res) => {
   res.json(await prisma.workOrder.findMany({ orderBy: { createdAt: 'desc' } }));
 });
-app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
+app.post('/api/work-orders', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   // Validate before writing: `truckReg` is the record's identity (the fleet
   // audit matches it against the registry) and an empty defect produced a job
   // no workshop could act on.
@@ -1851,7 +1851,7 @@ app.post('/api/work-orders', authenticate, authorize('Engineering', 'Platform Ad
   for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
   res.json(await prisma.workOrder.create({ data }));
 });
-app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
+app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   // Same whitelist as create — an unknown field in an update payload must
   // correct the job, not kill the save with a Prisma 500.
   const ALLOWED_WO_FIELDS = ['truckReg', 'defect', 'category', 'priority', 'mechanic', 'reportedBy', 'cost', 'notes', 'status', 'severity', 'inspectedBy', 'startedAt', 'estimatedReadyAt', 'completedAt'];
@@ -3868,7 +3868,7 @@ app.post('/api/trucks', authenticate, authorize('Platform Admin', 'Transport Man
 // FIELD-OPS-STATUS — the yard desk flips a head's registry status (Available,
 // Check Up, Maintenance, Out of Yard…) as it inspects trucks returning from
 // trip; the status is the one column the whole availability story hangs on.
-app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering'), async (req, res) => {
+app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager'), async (req, res) => {
   try {
     const data = { ...req.body };
     delete data.id;
@@ -3911,7 +3911,7 @@ app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Mana
     throw e;
   }
 });
-app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
+app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager'), async (req, res) => {
   const data = { ...req.body };
   delete data.id;
   delete data.createdAt;
@@ -3958,6 +3958,57 @@ app.patch('/api/engineering/grounding', authenticate, authorize('Platform Admin'
   } catch (e: any) {
     if (String(e?.code) === 'P2025') return res.status(404).json({ error: 'That truck is not on the register.' });
     throw e;
+  }
+});
+
+/*
+ * A TRUCK'S MAINTENANCE THREAD — the place the reason gets argued out.
+ *
+ * The log answers what was done and when; it cannot answer "is Friday still
+ * realistic?" or "did the bearing arrive?". Every other context in this app
+ * has a thread (each dispatch has one); a truck under repair had none, so the
+ * conversation happened on the phone and left no record. One thread per asset,
+ * found by `assetKey`, opened from the maintenance log and readable by the
+ * whole Engineering department — the workshop, the Head and the Transport
+ * Manager looking at the same truck instead of three versions of it.
+ */
+app.post('/api/engineering/assets/thread', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Transport Manager', 'Platform Admin', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+  const kind = String(req.body?.kind || '').trim();
+  const id = String(req.body?.id || '').trim();
+  if (!id || !['head', 'tail'].includes(kind)) {
+    return res.status(400).json({ error: 'Send the asset kind (head or tail) and its id.' });
+  }
+  try {
+    const asset = kind === 'head'
+      ? await prisma.truck.findUnique({ where: { id }, select: { cabId: true, registration: true } })
+      : await prisma.tail.findUnique({ where: { id }, select: { number: true, registration: true } });
+    if (!asset) return res.status(404).json({ error: 'That truck is not on the register.' });
+    const label = kind === 'head'
+      ? (asset as any).cabId
+      : (asset as any).registration
+        ? `${(asset as any).number} (${(asset as any).registration})`
+        : (asset as any).number;
+    const reg = String((asset as any).registration || (asset as any).cabId || '');
+    const assetKey = `${kind}:${id}`;
+    let convo = await prisma.conversation.findFirst({ where: { assetKey } });
+    if (!convo) {
+      convo = await prisma.conversation.create({
+        data: {
+          kind: 'maintenance',
+          assetKey,
+          name: label,
+          subtitle: `Maintenance chat${reg ? ` · ${reg}` : ''}`,
+          participants: ['Engineering', 'Transport Manager'],
+          memberIds: [],
+          messages: [],
+          unread: 0,
+          lastAt: '',
+        },
+      });
+    }
+    res.json(serializeConversation(convo, String(req.user.id), 0));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -7652,7 +7703,9 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
     const all = await prisma.conversation.findMany({ orderBy: { updatedAt: 'desc' } });
     // A chat exists from its first message on — empty threads are invisible
     // to every reader (they reappear the instant somebody writes in them).
-    const audible = all.filter((c: any) => !isEmptyThread(c));
+    // A TRUCK's maintenance thread is the exception: Engineering opens it to
+    // ask about that truck, so it must be there before the first word.
+    const audible = all.filter((c: any) => c.kind === 'maintenance' || !isEmptyThread(c));
     let visible = audible;
     if (isPartnerRequest(req)) {
       const company = await partnerCompanyOf(req);
@@ -7680,11 +7733,15 @@ app.get('/api/conversations', authenticate, async (req: any, res) => {
       void companyKey;
     } else {
       // Staff see trip threads (minus dead empty closed ones), plus the DMs
-      // and groups they belong to.
+      // and groups they belong to. Maintenance threads are the department's
+      // own file on a truck — every Engineering desk reads them, because the
+      // whole point is that the workshop, the Head and the Transport Manager
+      // are looking at the same truck.
       const uid = String(req.user.id);
       visible = audible.filter(
         (c: any) =>
           c.tripId ||
+          c.kind === 'maintenance' ||
           (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
       );
     }
@@ -7728,9 +7785,11 @@ app.get('/api/conversations/unread', authenticate, async (req: any, res) => {
       visible = audible.filter(
         (c: any) =>
           c.tripId ||
+          c.kind === 'maintenance' ||
           (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(uid)),
       );
-    }      const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
+    }
+    const read = await readMapFor(req.user.id, visible.map((c: any) => c.id));
       let count = 0;
     for (const c of visible) {
       const raw = Array.isArray(c.messages) ? c.messages : [];
@@ -7876,7 +7935,9 @@ app.post('/api/conversations/:id/messages', authenticate, async (req: any, res) 
       return res.status(403).json({ error: 'This conversation belongs to another company' });
     }
     const isStaff = !isPartnerRequest(req);
-    if (isStaff && !convo.tripId) {
+    // A truck's maintenance thread is open to the whole department (see the
+    // list's own rule); DMs and groups stay member-only.
+    if (isStaff && !convo.tripId && convo.kind !== 'maintenance') {
       const uid = String(req.user.id);
       const memberIds: string[] = Array.isArray(convo.memberIds) ? convo.memberIds.map(String) : [];
       if (!memberIds.includes(uid)) {

@@ -1094,10 +1094,17 @@ export const engineeringService = {
         reportedBy: input.reportedBy || "",
         cost: Number(input.cost) || 0,
         notes: input.notes || "",
-        status: "Reported",
+        // A record written at sign-off is born Completed (the log's history);
+        // everything the workshop raises normally is a Reported job.
+        status: input.status || "Reported",
+        ...(input.completedAt ? { completedAt: input.completedAt } : {}),
+        ...(input.startedAt ? { startedAt: input.startedAt } : {}),
+        ...(input.inspectedBy ? { inspectedBy: input.inspectedBy } : {}),
+        ...(input.severity ? { severity: input.severity } : {}),
       }),
     }).then((res: any) => {
       const wo = mapWorkOrder(res);
+      if (wo.status !== "Reported") return wo;
       void notificationService
         .create({
           title: "New Work Order",

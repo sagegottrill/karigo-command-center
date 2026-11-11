@@ -164,6 +164,17 @@ export const chatService = {
         body: JSON.stringify({ kind: "partner", partnerName }),
       }),
     ),
+  /**
+   * Open (or start) the maintenance thread of one truck — the department's own
+   * file on that asset, opened from its row in the maintenance log.
+   */
+  openMaintenanceThread: async (kind: "head" | "tail", id: string): Promise<ChatThread> =>
+    mapThread(
+      await fetchApi("/engineering/assets/thread", {
+        method: "POST",
+        body: JSON.stringify({ kind, id }),
+      }),
+    ),
   /** Open the thread of a specific dispatch. */
   openDispatch: async (tripId: string): Promise<ChatThread> =>
     mapThread(

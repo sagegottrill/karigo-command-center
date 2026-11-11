@@ -384,6 +384,9 @@ model Conversation {
   unread       Int      @default(0)
   lastAt       String   @default("now")
   tripId       String?
+  /// The asset a MAINTENANCE thread belongs to (`head:<truckId>` / `tail:<tailId>`).
+  /// Null on every other kind of thread. One truck, one thread.
+  assetKey     String?  @unique
   participants Json
   /// Concrete staff users who belong to a DM/group thread (user IDs).
   memberIds    Json?

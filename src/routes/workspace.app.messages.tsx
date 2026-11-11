@@ -78,6 +78,11 @@ export const Route = createFileRoute("/workspace/app/messages")({
       throw redirect({ to: "/workspace/app/unauthorized" });
     }
   },
+  // `?thread=<id>` — a truck's maintenance log links straight into that asset's
+  // thread, so the reader lands on the conversation instead of an inbox.
+  validateSearch: (search: Record<string, unknown>): { thread?: string } => ({
+    thread: typeof search.thread === "string" && search.thread ? search.thread : undefined,
+  }),
   component: MessagesPage,
 });
 
@@ -100,7 +105,8 @@ function MessagesPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string>("");
+  const { thread: threadParam } = Route.useSearch();
+  const [selectedId, setSelectedId] = useState<string>(threadParam || "");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "dms" | "unread">("all");
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
@@ -190,6 +196,12 @@ function MessagesPage() {
       return haystack.includes(q);
     });
   }, [withTrips, query, filter]);
+
+  // A link carrying ?thread= wins over the first row until the reader clicks
+  // somewhere else — the maintenance log opens a truck, not an inbox.
+  useEffect(() => {
+    if (threadParam) setSelectedId(threadParam);
+  }, [threadParam]);
 
   const selected: ChatThread | null =
     withTrips.find((t) => t.id === selectedId) ?? rows[0] ?? withTrips[0] ?? null;

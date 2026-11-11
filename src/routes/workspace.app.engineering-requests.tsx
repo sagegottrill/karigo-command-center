@@ -10,6 +10,7 @@ import {
   MaintenanceCompleteDialog,
   type CheckAsset,
 } from "@/components/fleetopsx/eng-checkup";
+import { MaintenanceLog } from "@/components/fleetopsx/eng-maintenance-log";
 import {
   EditRequestDialog,
   GroupReviewDialog,
@@ -504,6 +505,31 @@ function EngineeringRequestsPage() {
           undefined,
           override ? { reason: notes } : undefined,
         );
+      } else if (!job) {
+        // NO JOB, NO HISTORY. Most of the yard is grounded without a work order
+        // ever being raised, and a repair that closes nothing would vanish from
+        // the maintenance log the moment the truck drove out — which is exactly
+        // the hole the Transport Manager was looking at. Signing a truck off
+        // therefore WRITES the repair it just closed: what was wrong (the
+        // reason Engineering committed), what was done (the sign-off notes),
+        // who signed it and when. One row per repair, always.
+        const { reason } = groundingOf(asset);
+        await engineeringService
+          .createWorkOrder({
+            truckReg: asset.reg,
+            defect: reason || "Repair completed — no fault was logged on the job",
+            category: "General",
+            priority: "Medium",
+            status: "Completed",
+            completedAt: new Date().toISOString(),
+            startedAt: new Date().toISOString(),
+            notes: notes || (override ? "Released with parts outstanding." : ""),
+            reportedBy: me,
+            inspectedBy: me,
+            severity: "",
+            mechanic: "",
+          })
+          .catch(() => null);
       }
       if (asset.kind === "head")
         await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
@@ -870,31 +896,13 @@ function EngineeringRequestsPage() {
     </div>
   );
 
+  /**
+   * THE REPAIR HISTORY, not a list of closures. One card per truck: how often
+   * it was in, what was done each time, what it cost, how long it stood, and the
+   * thread in which its repair was argued out. See the component's own note.
+   */
   const hubLog = (
-    <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
-      <h3 className="text-[16px] font-semibold text-[#1B2432]">Fleet Inspection Log</h3>
-      <p className="mt-0.5 text-[12.5px] text-[#8E95A1]">Completed inspections, newest first</p>
-      {completedJobs.length === 0 ? (
-        <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">
-          No completed job on record yet.
-        </p>
-      ) : (
-        <div className="mt-3 flex flex-col divide-y divide-[#E2E5E9]">
-          {completedJobs.slice(0, 12).map((o) => (
-            <div key={o.id} className="flex items-center justify-between gap-3 py-2.5">
-              <span className="min-w-0">
-                <span className="block truncate text-[14px] font-medium text-[#1B2432]">
-                  {o.truckReg} • {o.defect || "Passed inspection"}
-                </span>
-                <span className="text-[12px] text-[#8E95A1]">
-                  {(o.completedAt || o.reportedAt || "").slice(0, 10)} • {o.severity || o.priority}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <MaintenanceLog orders={orders} requisitions={requisitions} heads={heads} tails={tails} />
   );
 
   return (
