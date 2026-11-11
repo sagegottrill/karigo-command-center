@@ -4532,7 +4532,12 @@ app.get('/api/inventory-movements', authenticate, async (req, res) => {
 // the Transport Manager, and only an approved request moves the quantity. The
 // PATCH below refuses a stock increase for everyone else, so the same rule
 // holds even if a client skips the screen.
-const RESTOCK_RAISE_ROLES = [...PROCUREMENT_ROLES];
+// THE SHELF IS THE STORE'S, the approval is the Transport Manager's. The
+// store keepers were missing from their own raise list, so the one desk that
+// actually sees a low shelf was 403 when it asked to top it up; the desks that
+// DECIDE (TM, Platform Admin) stay out, on the same "the approver does not
+// raise" rule the part requests follow.
+const RESTOCK_RAISE_ROLES = ['Parts & Store', 'Parts and Store', 'Inventory', ...PROCUREMENT_ROLES];
 const RESTOCK_DECIDE_ROLES = ['Transport Manager', 'Platform Admin'];
 
 /** Each row carries the line's live shelf numbers, so the queue reads at a glance. */
@@ -4638,11 +4643,19 @@ app.patch('/api/restock-requests/:id', authenticate, async (req: any, res) => {
     if (!['Approved', 'Rejected', 'Withdrawn'].includes(decision)) {
       return res.status(400).json({ error: 'decision must be Approved, Rejected or Withdrawn.' });
     }
+    const roles = heldRoles(req);
+    const canDecide = roles.some((r) => RESTOCK_DECIDE_ROLES.includes(r));
+    // DECIDE BEFORE LOOK. Approving or rejecting is the Transport Manager's, so
+    // the store keeper who may raise and withdraw must be refused BEFORE the
+    // lookup — otherwise the 404-versus-403 answer tells him which request ids
+    // exist. Withdrawing stays after it, because it needs the row to know whose
+    // ask this is.
+    if (decision !== 'Withdrawn' && !canDecide) {
+      return res.status(403).json({ error: 'Only the Transport Manager approves or rejects a restock.' });
+    }
     const row = await prisma.restockRequest.findUnique({ where: { id: req.params.id } });
     if (!row) return res.status(404).json({ error: 'Restock request not found.' });
     if (row.status !== 'Pending') return res.status(409).json({ error: `This request is already ${row.status.toLowerCase()}.` });
-    const roles = heldRoles(req);
-    const canDecide = roles.some((r) => RESTOCK_DECIDE_ROLES.includes(r));
     const isRequester = row.requestedById && String(row.requestedById) === String(req.user?.id || '');
     if (decision === 'Withdrawn') {
       // The desk that asked may take it back; a manager may clear it too.
