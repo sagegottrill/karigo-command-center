@@ -4901,6 +4901,21 @@ app.post('/api/inventory-requisitions', authenticate, async (req: any, res) => {
       return res.status(400).json({ error: `${required} is required to raise a requisition.` });
     }
   }
+  // THE APPROVER DOES NOT RAISE. The board hides Request Part from the Head of
+  // Engineering and the Engineering Manager because they decide those very
+  // requests — but the API accepted a raw POST from either seat, so the chain
+  // had a hole: an approver could raise a ticket he then signs off himself.
+  // Refused only when the account holds NO raising role, so a multi-role desk
+  // that also works the workshop keeps its own raise button.
+  const held: string[] = Array.isArray(req.user?.roles) ? req.user.roles : [req.user?.role];
+  const approverOnly = held.length > 0 && held.every((r: string) =>
+    ['Head of Engineering', 'Engineering Manager'].includes(r),
+  );
+  if (approverOnly) {
+    return res.status(403).json({
+      error: 'The Head of Engineering decides requests — he does not raise them. The workshop raises; you approve.',
+    });
+  }
   res.json(await prisma.inventoryRequisition.create({ data }));
 });
 app.patch('/api/inventory-requisitions/:id', authenticate, async (req, res) => {
@@ -8546,6 +8561,33 @@ app.get('/api/dashboard/overview', authenticate, async (_req, res) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', time: new Date() }));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', time: new Date() }));
+
+/*
+ * ONE PLACE FOR A WRITE THAT CANNOT LAND.
+ *
+ * A delete or an edit aimed at a row that is already gone used to answer with
+ * Express's HTML error page and a 500 — "Internal Server Error" on the desk's
+ * screen, which reads like the app fell over and never says whether the write
+ * happened. Prisma's own vocabulary is precise, so translate it once, here,
+ * for every route: P2025 is a missing record (404), P2002 a duplicate (409),
+ * P2003/P2014 a reference to something that does not exist (400). Anything
+ * else stays a 500, but as JSON, and it is logged — a silent 500 in this app
+ * is an empty list nobody can file.
+ */
+app.use((err: any, req: any, res: any, _next: any) => {
+  if (res.headersSent) return;
+  const code = String(err?.code || '');
+  if (code === 'P2025') {
+    return res.status(404).json({ error: 'That record is not on the register — it may already have been removed.' });
+  }
+  if (code === 'P2002') return res.status(409).json({ error: 'That record already exists.' });
+  if (code === 'P2003' || code === 'P2014') {
+    return res.status(400).json({ error: 'That change refers to something that does not exist.' });
+  }
+  const status = Number(err?.status);
+  console.error(`[api] ${req?.method} ${req?.originalUrl} failed:`, err?.message || err);
+  res.status(status >= 400 && status < 600 ? status : 500).json({ error: err?.message || 'Server error' });
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
