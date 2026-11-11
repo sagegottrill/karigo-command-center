@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils";
  * (/engineering), the Maintenance Hub (/engineering-hub) and this
  * Authorization page. They were the same department seen from three doors, so
  * they are one page now: Requests first (the authorization the design prints),
- * then the hub's own sections — Overview, Check-up Queue, Maintenance Queue,
+ * then the hub's own sections — Check-up Queue, Maintenance Queue,
  * Maintenance Log — as in-page sections, and the report behind its own toggle.
  */
 export const Route = createFileRoute("/workspace/app/engineering-requests")({
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/workspace/app/engineering-requests")({
 });
 
 type Tab = "parts" | "lubricant";
-type Section = "requests" | "overview" | "checkup" | "queue" | "log";
+type Section = "requests" | "checkup" | "queue" | "log";
 
 const tailLabel = (t: TruckTail) => (t.registration ? `${t.number} (${t.registration})` : t.number);
 
@@ -396,12 +396,6 @@ function EngineeringRequestsPage() {
         ),
     [orders],
   );
-  const availableCount = useMemo(
-    () =>
-      heads.filter((h) => h.status === "Available").length +
-      tails.filter((t) => t.status === "Available").length,
-    [heads, tails],
-  );
 
   const filterAssets = (list: CheckAsset[]): CheckAsset[] => {
     const q = assetQuery.trim().toLowerCase();
@@ -627,67 +621,6 @@ function EngineeringRequestsPage() {
 
 
   /* ================================ hub sections ============================== */
-  const hubOverview = (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {(
-          [
-            ["Available", availableCount, "Ready Fleet"],
-            ["Parts Request", pendingParts.length, "Active"],
-            ["Check-up", checkupAssets.length, "In Queue"],
-            ["Under Maintenance", maintAssets.length, "In Repair"],
-          ] as const
-        ).map(([label, value, hint]) => (
-          <div
-            key={label}
-            className="flex flex-col gap-1 rounded-[10px] border border-[#E2E5E9] bg-white p-4 shadow-[0px_4px_16px_rgba(12,12,13,0.05)]"
-          >
-            <span className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.5px] text-[#5C6470]">
-                {label}
-              </span>
-            </span>
-            <span className="text-[30px] font-bold leading-8 text-[#1B2432] tabular-nums">
-              {value}
-            </span>
-            <span className="text-[12px] text-[#8E95A1]">{hint}</span>
-          </div>
-        ))}
-      </div>
-      <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
-        <p className="flex items-center gap-2 text-[15px] font-semibold text-[#1B2432]">
-          Check-up Queue
-          <span className="grid h-6 min-w-6 place-items-center rounded-[10px] bg-[#ED351D] px-1.5 text-[12px] text-white">
-            {checkupAssets.length}
-          </span>
-        </p>
-        <p className="text-[12.5px] text-[#8E95A1]">Returning fleet awaiting evaluation</p>
-        {checkupAssets.length === 0 ? (
-          <p className="py-6 text-center text-[13.5px] text-[#8E95A1]">
-            No truck is waiting for check-up.
-          </p>
-        ) : (
-          <div className="mt-3 flex flex-col divide-y divide-[#E2E5E9]">
-            {checkupAssets.slice(0, 5).map((a) => (
-              <div key={a.kind + a.id} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="text-[14px] font-medium text-[#1B2432]">{a.label}</span>
-                {canInspect ? (
-                  <button
-                    type="button"
-                    onClick={() => setInspecting(a)}
-                    className="h-8 shrink-0 rounded bg-[#ED351D] px-3 text-[13px] font-medium text-white hover:bg-[#d62e19]"
-                  >
-                    Inspect
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   const hubCheckup = (
     <div className="rounded-[10px] border border-[#E2E5E9] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -956,7 +889,6 @@ function EngineeringRequestsPage() {
         {(
           [
             ["requests", "Requests"],
-            ["overview", "Overview"],
             ["checkup", `Check-up Queue (${checkupAssets.length})`],
             ["queue", `Maintenance Queue (${maintAssets.length})`],
             ["log", "Maintenance Log"],
@@ -983,7 +915,6 @@ function EngineeringRequestsPage() {
 
       {section === "requests" ? authorizationBoard : null}
 
-      {section === "overview" ? hubOverview : null}
       {section === "checkup" ? hubCheckup : null}
       {section === "queue" ? hubQueue : null}
       {section === "log" ? hubLog : null}
