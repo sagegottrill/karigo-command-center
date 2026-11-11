@@ -419,6 +419,29 @@ function PartnerRequestDetailsPage() {
   const loadingSites = useMemo(() => (trip ? tripLoadingSites(trip) : []), [trip]);
 
   /**
+   * WHAT THE LOCATION PICKER OFFERS.
+   *
+   * The yards this request already names come FIRST, so a correction can always
+   * see — and keep or move — the location the request was raised with, even
+   * when that yard is not one of the company's saved sites. The picker used to
+   * list only the named ports and the saved sites, so a partner editing a
+   * request raised against a one-off yard could not find that yard again.
+   */
+  const sitePickerGroups = useMemo(() => {
+    const named = new Set(
+      loadingSiteChoiceGroups(savedSites)
+        .flatMap((g) => g.options)
+        .map((s) => s.trim().toLowerCase()),
+    );
+    const onRequest = loadingSites.filter((s) => s.trim() && !named.has(s.trim().toLowerCase()));
+    return [
+      ...(onRequest.length ? [{ heading: "On this request", options: onRequest }] : []),
+      ...loadingSiteChoiceGroups(savedSites),
+      { heading: "Add a new site", options: [ADD_LOADING_SITE_LABEL] },
+    ];
+  }, [loadingSites, savedSites]);
+
+  /**
    * Timeline = what the Tracking team has actually logged, with the trip status
    * ladder filling in the gaps. A stage with a checkpoint is no longer "ahead of
    * us", even when the status hasn't advanced yet — that mismatch is why logged
@@ -1251,8 +1274,14 @@ function PartnerRequestDetailsPage() {
                       />
                     ) : null}
                     {siteDropdownIndex === index ? (
-                      <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
-                        {[...loadingSiteChoiceGroups(savedSites), { heading: "Add a new site", options: [ADD_LOADING_SITE_LABEL] }].map((group) => (
+                      // Opens DOWNWARD, in the flow of the modal's own scroll
+                      // area. It used to open upward (bottom-full) inside a
+                      // max-h-[90vh] overflow-y-auto panel: a list rendered above
+                      // the top of a scroll container cannot be scrolled to, so
+                      // the partner tapped the field and got nothing — read as
+                      // "I can edit but I cannot change the location".
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                        {sitePickerGroups.map((group) => (
                           <div key={group.heading ?? "named"}>
                             {group.heading ? (
                               <p className="sticky top-0 bg-[#F1F2F4] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-[#5C6470]">

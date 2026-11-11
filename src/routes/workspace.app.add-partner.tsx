@@ -510,7 +510,10 @@ function AddPartner() {
                   />
                 </button>
                 {siteDropdownOpen ? (
-                  <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#e2e5e9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
+                  // Opens downward for the same reason the partner's own edit
+                  // form does: a list rendered above the top of a scrollable
+                  // panel cannot be scrolled to, so the field looked dead.
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[260px] overflow-y-auto overscroll-contain rounded border border-[#e2e5e9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.1)]">
                     {siteOptionGroups.map((group, gi) => (
                       <div key={group.heading ?? `group-${gi}`}>
                         {group.heading ? (
