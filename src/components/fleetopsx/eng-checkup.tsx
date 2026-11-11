@@ -243,7 +243,8 @@ export function InspectionDialog({
       role="dialog"
       aria-modal="true"
       aria-label={`Check-up inspection for ${asset.label}`}
-      onClick={onClose}
+      // No close on an outside click: a stray click on the backdrop threw away a
+      // half-written inspection. Only the X and Cancel close this form.
     >
       <div
         className="my-6 flex max-h-[calc(100vh-48px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[12px] bg-white shadow-xl"
