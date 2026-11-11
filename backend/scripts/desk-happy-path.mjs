@@ -102,6 +102,11 @@ await run('raise a tank draw', partner, 'denied', 'POST', '/api/fuel-requests', 
 await run('raise a part request', partner, 'denied', 'POST', '/api/inventory-requisitions', {});
 await run('add a truck', partner, 'denied', 'POST', '/api/trucks', { registration: 'P-SWEEP' });
 await run('add a staff account', partner, 'denied', 'POST', '/api/users', { name: 'x', email: 'x@test.local' });
+// FIRST LOGIN. A partner issued a temporary password must be able to replace
+// it: the screen posts here, and the allowlist once refused it — the account
+// sat at "this endpoint is not part of the partner portal" with no way out.
+await run('set the password it was issued', partner, 'allowed', 'PATCH', '/api/users/me/password', {});
+await run("reset someone else's password", partner, 'denied', 'PATCH', `/api/users/${GHOST}`, { resetPassword: true });
 
 // Their own portal must still open.
 await run('open their own threads', partner, 'allowed', 'GET', '/api/conversations', undefined);
