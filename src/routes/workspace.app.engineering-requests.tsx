@@ -161,14 +161,37 @@ function EngineeringRequestsPage() {
   // whole department as supervisor, so it decides everywhere.
   const canHoe = isEngineeringManager() || canTM;
   /**
-   * Ready to Go is the Head of Engineering's own signature — the repair is
-   * finished and the parts are on the truck. The Transport Manager never gives
-   * it: he holds the parts gate earlier in the chain, and his one lever here is
-   * the override below, which releases a truck ahead of its parts.
+   * TWO SIDES, TWO CONTROLS. The department closes the repair; the Transport
+   * Manager releases the truck. Neither desk does the other's act — the same
+   * record simply carries both facts. `canSignOff` here is the department's
+   * management seat for the reason/expected-resolution fields.
    */
   const canSignOff =
     isEngineeringManager() || authService.getRoles().some((r: string) => r === "Platform Admin");
   const canOverride = canTM;
+  /**
+   * TWO CONTROLS ON THE SAME RECORD — one per side of the business.
+   *
+   * The department signs the REPAIR off and hands the truck over; that is
+   * maintenance's own work and it never puts a vehicle back on the road by
+   * itself. The Transport Manager releases the TRUCK — availability is fleet
+   * management's call. Same truck, same job, two different decisions; the one
+   * is not a copy of the other.
+   */
+  const heldSeats = authService.getRoles();
+  const canFinishRepair = heldSeats.some((r: string) =>
+    [
+      "Engineering",
+      "Engineering & Maintenance",
+      "Engineering and Maintenance",
+      "Head of Engineering",
+      "Engineering Manager",
+      "Platform Admin",
+    ].includes(r),
+  );
+  const canRelease = heldSeats.some((r: string) =>
+    ["Transport Manager", "Platform Admin"].includes(r),
+  );
 
   const refresh = useCallback(async () => {
     const [headsRows, tailsRows, store, reqs, wos, overview] = await Promise.all([
@@ -483,10 +506,34 @@ function EngineeringRequestsPage() {
     }
   };
 
-  const completeRepairs = async (asset: CheckAsset, notes: string, override = false) => {
+  /**
+   * repair  — the department: work done, job closed, repair history written.
+   * release — the Transport Manager: truck back to Available (repair must be closed).
+   * override— the Transport Manager releasing ahead of parts, with a reason.
+   */
+  const completeRepairs = async (
+    asset: CheckAsset,
+    notes: string,
+    mode: "repair" | "release" | "override" = "repair",
+  ) => {
     setCompletingBusy(true);
     try {
       const job = openFor(asset);
+      if (mode === "release") {
+        if (job) {
+          toast.error(`${asset.label}: the workshop has not marked the repair complete yet.`);
+          setCompleting(null);
+          return;
+        }
+        if (asset.kind === "head")
+          await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
+        else await fleetService.updateTailStatus(asset.id, "Available", asset.label);
+        toast.success(`${asset.label} is Available — released to the road.`);
+        setCompleting(null);
+        await refresh();
+        return;
+      }
+      const override = mode === "override";
       // The job closes FIRST: the server refuses a completion while parts are
       // still in the chain, and a refusal after the truck was already freed
       // would leave the yard on the road with the desk still thinking it is
@@ -525,18 +572,23 @@ function EngineeringRequestsPage() {
           })
           .catch(() => null);
       }
-      if (asset.kind === "head")
-        await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
-      else await fleetService.updateTailStatus(asset.id, "Available", asset.label);
-      toast.success(
-        override
-          ? `${asset.label} made available — parts deferred, workshop notified.`
-          : `${asset.label} returned to Available.`,
-      );
+      // THE HANDSHAKE. The department's act stops at "the repair is finished";
+      // the truck stays under maintenance until the Transport Manager releases
+      // it. Writing Available here was maintenance doing the fleet desk's job.
+      if (override) {
+        if (asset.kind === "head")
+          await fleetService.updateHeadStatus(asset.id, "Available", asset.label);
+        else await fleetService.updateTailStatus(asset.id, "Available", asset.label);
+        toast.success(`${asset.label} made available — parts deferred, workshop notified.`);
+      } else {
+        toast.success(
+          `${asset.label}: repair marked complete — the Transport Manager releases the truck.`,
+        );
+      }
       setCompleting(null);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not return the truck.");
+      toast.error(err instanceof Error ? err.message : "Could not complete the repair.");
     } finally {
       setCompletingBusy(false);
     }
@@ -776,20 +828,22 @@ function EngineeringRequestsPage() {
                     </button>
                   </div>
                 ))}
-                {canSignOff ? (
+                {/* THE DEPARTMENT'S ACT: the repair is finished. It hands the truck
+                    over — it does not put it back on the road. */}
+                {canFinishRepair && openFor(a) ? (
                   <>
                     <button
                       type="button"
                       disabled={outstanding.length > 0 || completingBusy}
                       title={
                         outstanding.length > 0
-                          ? "Parts for this truck are still outstanding — receive them before it goes back on the road."
-                          : "Confirm the repair is complete and the truck can leave the workshop."
+                          ? "Parts for this truck are still outstanding — receive them before the repair is closed."
+                          : "Mark the repair complete. The Transport Manager then releases the truck."
                       }
                       onClick={() => setCompleting(a)}
                       className="mt-3 h-10 w-full rounded bg-[#34C759] text-[14px] font-medium text-white hover:bg-[#2cab4e] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Ready to Go
+                      Repair Complete
                     </button>
                     {outstanding.length > 0 ? (
                       <p className="mt-1.5 text-[11.5px] text-[#B26A00]">
@@ -798,7 +852,9 @@ function EngineeringRequestsPage() {
                       </p>
                     ) : null}
                   </>
-                ) : canOverride && outstanding.length > 0 ? (
+                ) : null}
+                {/* THE TRANSPORT MANAGER'S ACT: the truck may go back out. */}
+                {canRelease && outstanding.length > 0 ? (
                   <>
                     <button
                       type="button"
@@ -814,20 +870,38 @@ function EngineeringRequestsPage() {
                       workshop's next visit.
                     </p>
                   </>
-                ) : (
-                  // MAINTENANCE READS THE STATUS, IT DOES NOT RELEASE THE TRUCK.
-                  // No Ready to Go button for the workshop: the repair is finished
-                  // by them and the truck is freed by the Head of Engineering, so
-                  // this card states where the truck stands and stops there.
+                ) : null}
+                {canRelease && outstanding.length === 0 ? (
+                  <button
+                    type="button"
+                    disabled={completingBusy || Boolean(openFor(a))}
+                    title={
+                      openFor(a)
+                        ? "The workshop has not marked the repair complete yet."
+                        : "Release the truck to the road."
+                    }
+                    onClick={() => void completeRepairs(a, "", "release")}
+                    className="mt-3 h-10 w-full rounded bg-[#2F6BD8] text-[14px] font-medium text-white hover:bg-[#2560c4] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Make Available
+                  </button>
+                ) : null}
+                {!canFinishRepair && !canRelease ? (
+                  // A desk without either control reads the status and stops.
                   <div className="mt-3 rounded-md bg-[#F1F3F5] px-3 py-2">
                     <p className="text-[12px] font-medium text-[#1B2432]">Status: Under Maintenance</p>
                     <p className="mt-0.5 text-[11.5px] text-[#5C6470]">
                       {outstanding.length > 0
-                        ? `${outstanding.length} part${outstanding.length === 1 ? "" : "s"} still outstanding — the repair cannot be signed off until they are on the truck.`
-                        : "Repair in the workshop's hands. The Head of Engineering gives Ready to Go when it is finished."}
+                        ? `${outstanding.length} part${outstanding.length === 1 ? "" : "s"} still outstanding — the workshop receives them before the repair is closed.`
+                        : "The workshop is on it; the Transport Manager releases the truck once the repair is closed."}
                     </p>
                   </div>
-                )}
+                ) : null}
+                {!openFor(a) && !canRelease ? (
+                  <p className="mt-1.5 text-[11.5px] text-[#5C6470]">
+                    Repair closed — waiting for the Transport Manager to release the truck.
+                  </p>
+                ) : null}
               </div>
             );
           })}
@@ -966,7 +1040,7 @@ function EngineeringRequestsPage() {
           asset={overriding}
           busy={completingBusy}
           onClose={() => (completingBusy ? null : setOverriding(null))}
-          onConfirm={(reason) => void completeRepairs(overriding, reason, true)}
+          onConfirm={(reason) => void completeRepairs(overriding, reason, "override")}
         />
       ) : null}
       {partsForm ? (

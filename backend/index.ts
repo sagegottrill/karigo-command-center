@@ -1861,11 +1861,36 @@ app.post('/api/work-orders', authenticate, authorize('Engineering', 'Engineering
   for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
   res.json(await prisma.workOrder.create({ data }));
 });
-/** The one signature that frees a truck: the Head of Engineering's (+ EM, Admin). */
-const ENGINEERING_SIGNOFF_ROLES = ['Head of Engineering', 'Engineering Manager', 'Platform Admin'];
-/** The seats that ONLY work the repair — they read a truck's status, they do not free it. */
-const ENGINEERING_WORKSHOP_ROLES = ['Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance'];
-const ENGINEERING_RELEASE_ROLES = [...ENGINEERING_SIGNOFF_ROLES, 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'];
+/**
+ * TWO CONTROLS ON ONE RECORD, NOT ONE CONTROL DUPLICATED.
+ *
+ * The repair and the truck's availability are different decisions owned by
+ * different desks, even though both land on the same work order and the same
+ * truck row:
+ *
+ *   "the repair is finished"  → the DEPARTMENT (workshop + its managers).
+ *   "the truck may go out"    → the TRANSPORT MANAGER (fleet availability).
+ *
+ * Maintenance closing a repair never puts a truck back on the road by itself;
+ * it hands the truck over. The TM releases it, and his release is the only
+ * thing that writes Available.
+ */
+const ENGINEERING_REPAIR_DONE_ROLES = [
+  'Engineering',
+  'Engineering & Maintenance',
+  'Engineering and Maintenance',
+  'Head of Engineering',
+  'Engineering Manager',
+  'Platform Admin',
+];
+/** Writing a truck/tail back to Available is the fleet side's act, not the workshop's. */
+const ENGINEERING_RELEASE_ROLES = [
+  'Transport Manager',
+  'Platform Admin',
+  'Fleet Operations',
+  'Fleet Field Ops',
+  'Fleet Field Operations',
+];
 
 app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   // Same whitelist as create — an unknown field in an update payload must
@@ -1911,11 +1936,15 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engine
      * closes a job — it is an operational call with a reason on the record, not
      * a repair verdict.
      */
-    const maySignOff = held.some((r) => ENGINEERING_SIGNOFF_ROLES.includes(r));
+    const mayCloseRepair = held.some((r) => ENGINEERING_REPAIR_DONE_ROLES.includes(r));
     const overrideRequested = mayOverride && req.body?.force === true;
-    if (!maySignOff && !overrideRequested) {
+    if (!mayCloseRepair && !overrideRequested) {
       return res.status(403).json({
-        error: 'Ready to Go is the Head of Engineering\'s signature. Maintenance updates the repair; it does not release the truck.',
+        // The workshop (and its managers) close the repair. Keeping the fleet
+        // side out of it is the point: closing a job is the department's work,
+        // and releasing the truck is the Transport Manager's, with a recorded
+        // override when parts are being deferred.
+        error: 'Only the workshop closes a repair. The Transport Manager releases the truck — an override must defer the outstanding parts with a reason.',
       });
     }
     const wo = await prisma.workOrder.findUnique({ where: { id: req.params.id } });
@@ -1952,9 +1981,9 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engine
     // Past the parts gate and still without the signature: the Transport Manager
     // asked to force a clean repair. There is nothing to defer, so there is no
     // override to record — that is the Head of Engineering's call alone.
-    if (!maySignOff && !overrode) {
+    if (!mayCloseRepair && !overrode) {
       return res.status(403).json({
-        error: 'Nothing is outstanding to override — Ready to Go is the Head of Engineering\'s signature.',
+        error: 'Nothing is outstanding to override — maintenance closes the repair; the Transport Manager releases the truck.',
       });
     }
   }
@@ -3943,7 +3972,9 @@ app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transpor
     if (String(data.status || '') === 'Available') {
       const held = heldRoles(req);
       if (held.length && !held.some((r) => ENGINEERING_RELEASE_ROLES.includes(r))) {
-        return res.status(403).json({ error: 'Maintenance cannot release a truck. The Head of Engineering gives Ready to Go.' });
+        return res.status(403).json({
+          error: 'Maintenance cannot put a truck back on the road. The repair is marked complete, then the Transport Manager releases the truck.',
+        });
       }
     }
     // Same cap rule on edit: the cap can be trimmed, but never blanked out and
@@ -3992,7 +4023,7 @@ app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport
   if (String(data.status || '') === 'Available') {
     const held = heldRoles(req);
     if (held.length && !held.some((r) => ENGINEERING_RELEASE_ROLES.includes(r))) {
-      return res.status(403).json({ error: 'Maintenance cannot release a tail. The Head of Engineering gives Ready to Go.' });
+      return res.status(403).json({ error: 'Maintenance cannot release a tail. The Transport Manager releases it.' });
     }
   }
   delete data.createdAt;

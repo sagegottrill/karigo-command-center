@@ -666,12 +666,12 @@ export function MaintenanceCompleteDialog({
       >
         <div className="bg-[#1B2432] px-5 py-4">
           <h3 className="text-[17px] font-semibold text-white">
-            {override ? "Make Available (override)" : "Ready to Go"}
+            {override ? "Make Available (override)" : "Repair Complete"}
           </h3>
           <p className="text-[12px] text-white/60">
             {override
               ? `${asset.label} • Transport Manager releases the truck ahead of its parts`
-              : `${asset.label} • Head of Engineering confirms the repair is done`}
+              : `${asset.label} • maintenance confirms the repair is done`}
           </p>
         </div>
         <div className="flex flex-col gap-3 px-5 py-5">
@@ -714,10 +714,10 @@ export function MaintenanceCompleteDialog({
               {busy
                 ? override
                   ? "Releasing…"
-                  : "Marking ready…"
+                  : "Marking complete…"
                 : override
                   ? "Confirm — Make Available"
-                  : "Confirm — Ready to Go"}
+                  : "Confirm — Repair Complete"}
             </button>
           </div>
         </div>

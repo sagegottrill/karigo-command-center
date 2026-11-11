@@ -13,8 +13,8 @@
  *   inspect a returning truck .... workshop + yard crew + the department's own
  *                                   managers (HOE, EM) + Admin — NOT the TM
  *   drive a job .................. workshop, Head of Engineering, Eng. Manager, Admin
- *   Ready to Go / free the truck .. Head of Engineering, Eng. Manager, Admin
- *                                   (maintenance reads the status, never releases)
+ *   close the repair (work done) . the department: workshop + HOE/EM + Admin
+ *   release the truck to the road  Transport Manager + Admin (never maintenance)
  *   override ahead of parts ....... Transport Manager, Admin
  *   set reason + expected date .... Head of Engineering, Eng. Manager, Admin
  *   raise a part request .......... workshop (the Head approves, does not raise)
@@ -95,24 +95,28 @@ try {
   // Maintenance is NOT on this list. The workshop finishes the repair and hands
   // the truck over; freeing it is the Head of Engineering's signature, and the
   // registry write is the same act, so it is refused on both routes.
-  await check('return truck to Available', SEATS.workshop, false, `/api/trucks/${truck}`, 'PATCH', { status: 'Available' });
-  for (const seat of ['hoe', 'em', 'tm', 'admin'])
-    await check('return truck to Available', SEATS[seat], true, `/api/trucks/${truck}`, 'PATCH', { status: 'Available' });
-  await check('return tail to Available', SEATS.workshop, false, `/api/tails/${tail}`, 'PATCH', { status: 'Available' });
-  for (const seat of ['hoe', 'em', 'tm', 'admin'])
-    await check('return tail to Available', SEATS[seat], true, `/api/tails/${tail}`, 'PATCH', { status: 'Available' });
+  for (const seat of ['workshop', 'hoe', 'em'])
+    await check('release the truck to the road', SEATS[seat], false, `/api/trucks/${truck}`, 'PATCH', { status: 'Available' });
+  for (const seat of ['tm', 'admin'])
+    await check('release the truck to the road', SEATS[seat], true, `/api/trucks/${truck}`, 'PATCH', { status: 'Available' });
+  for (const seat of ['workshop', 'hoe', 'em'])
+    await check('release the tail to the road', SEATS[seat], false, `/api/tails/${tail}`, 'PATCH', { status: 'Available' });
+  for (const seat of ['tm', 'admin'])
+    await check('release the tail to the road', SEATS[seat], true, `/api/tails/${tail}`, 'PATCH', { status: 'Available' });
 
   /* ---- driving / closing the job ---- */
   await check('advance the job', SEATS.workshop, true, `/api/work-orders/${wo}`, 'PATCH', { status: 'Diagnosing' });
   await check('advance the job', SEATS.hoe, true, `/api/work-orders/${wo}`, 'PATCH', { status: 'Repairing' });
   await check('advance the job', SEATS.em, true, `/api/work-orders/${wo}`, 'PATCH', { status: 'Testing' });
-  await check('close the job (Ready to Go)', SEATS.workshop, false, `/api/work-orders/${wo}`, 'PATCH', {
+  // The department closes the repair — the workshop itself, and its managers.
+  for (const seat of ['workshop', 'em'])
+    await check('close the repair (work done)', SEATS[seat], true, `/api/work-orders/${wo}`, 'PATCH', {
+      status: 'Completed', completedAt: new Date().toISOString(), notes: 'matrix test',
+    });
+  await check('close a repair it does not own', SEATS.tm, false, `/api/work-orders/${wo}`, 'PATCH', {
     status: 'Completed', completedAt: new Date().toISOString(), notes: 'matrix test',
   });
-  await check('close the job (Ready to Go)', SEATS.tm, false, `/api/work-orders/${wo}`, 'PATCH', {
-    status: 'Completed', completedAt: new Date().toISOString(), notes: 'matrix test',
-  });
-  await check('close the job (Ready to Go)', SEATS.hoe, true, `/api/work-orders/${wo}`, 'PATCH', {
+  await check('close the repair (work done)', SEATS.hoe, true, `/api/work-orders/${wo}`, 'PATCH', {
     status: 'Completed', completedAt: new Date().toISOString(), notes: 'matrix test',
   });
 
