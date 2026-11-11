@@ -1,7 +1,8 @@
 /**
  * Sign-off gate, exercised against the live API with throwaway rows.
  *
- *   1. Engineering completes a job whose part is still waiting on the TM → 409
+ *   1. Engineering (maintenance) tries to complete it → 403 — the signature
+ *      isn't theirs, whatever the parts say
  *   2. TM forces it without a reason → 400
  *   3. TM forces it with a reason → the job completes, the part is Deferred
  *

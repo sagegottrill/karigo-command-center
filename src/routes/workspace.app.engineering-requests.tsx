@@ -882,11 +882,18 @@ function EngineeringRequestsPage() {
                     </p>
                   </>
                 ) : (
-                  <p className="mt-3 rounded-md bg-[#F1F3F5] px-3 py-2 text-[11.5px] text-[#5C6470]">
-                    {outstanding.length > 0
-                      ? `${outstanding.length} part${outstanding.length === 1 ? "" : "s"} outstanding — the Head of Engineering signs the truck off once they are on it, or you may release it anyway with an override.`
-                      : "Nothing outstanding. The Head of Engineering gives Ready to Go when the repair is finished."}
-                  </p>
+                  // MAINTENANCE READS THE STATUS, IT DOES NOT RELEASE THE TRUCK.
+                  // No Ready to Go button for the workshop: the repair is finished
+                  // by them and the truck is freed by the Head of Engineering, so
+                  // this card states where the truck stands and stops there.
+                  <div className="mt-3 rounded-md bg-[#F1F3F5] px-3 py-2">
+                    <p className="text-[12px] font-medium text-[#1B2432]">Status: Under Maintenance</p>
+                    <p className="mt-0.5 text-[11.5px] text-[#5C6470]">
+                      {outstanding.length > 0
+                        ? `${outstanding.length} part${outstanding.length === 1 ? "" : "s"} still outstanding — the repair cannot be signed off until they are on the truck.`
+                        : "Repair in the workshop's hands. The Head of Engineering gives Ready to Go when it is finished."}
+                    </p>
+                  </div>
                 )}
               </div>
             );

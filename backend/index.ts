@@ -1851,6 +1851,12 @@ app.post('/api/work-orders', authenticate, authorize('Engineering', 'Engineering
   for (const key of ALLOWED_WO_FIELDS) if (req.body?.[key] !== undefined) data[key] = req.body[key];
   res.json(await prisma.workOrder.create({ data }));
 });
+/** The one signature that frees a truck: the Head of Engineering's (+ EM, Admin). */
+const ENGINEERING_SIGNOFF_ROLES = ['Head of Engineering', 'Engineering Manager', 'Platform Admin'];
+/** The seats that ONLY work the repair — they read a truck's status, they do not free it. */
+const ENGINEERING_WORKSHOP_ROLES = ['Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance'];
+const ENGINEERING_RELEASE_ROLES = [...ENGINEERING_SIGNOFF_ROLES, 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations'];
+
 app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Transport Manager', 'Fleet Field Ops', 'Fleet Field Operations'), async (req, res) => {
   // Same whitelist as create — an unknown field in an update payload must
   // correct the job, not kill the save with a Prisma 500.
@@ -1880,7 +1886,31 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engine
    * still has to go on at the next yard visit.
    */
   if (req.body?.status === 'Completed') {
+    const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
+    const mayOverride = held.includes('Transport Manager') || held.includes('Platform Admin');
+    /**
+     * MAINTENANCE DOES NOT RELEASE A TRUCK.
+     *
+     * Closing a job is "Ready to Go" — the repair is finished, the parts are on
+     * and the truck may leave the workshop. The workshop/Engineering seat
+     * finishes the repair and hands the truck over; the signature that frees it
+     * is the Head of Engineering's. His own account used to be on the list that
+     * let Engineering close a job, so a maintainer could put a truck back on the
+     * road without anyone deciding it was safe. Refused here, before the parts
+     * gate, for every client. The Transport Manager's recorded override still
+     * closes a job — it is an operational call with a reason on the record, not
+     * a repair verdict.
+     */
+    const maySignOff = held.some((r) => ENGINEERING_SIGNOFF_ROLES.includes(r));
+    const overrideRequested = mayOverride && req.body?.force === true;
+    if (!maySignOff && !overrideRequested) {
+      return res.status(403).json({
+        error: 'Ready to Go is the Head of Engineering\'s signature. Maintenance updates the repair; it does not release the truck.',
+      });
+    }
     const wo = await prisma.workOrder.findUnique({ where: { id: req.params.id } });
+    /** Set only when a recorded override actually deferred parts — that IS the TM's way through. */
+    let overrode = false;
     const outstanding = wo
       ? await prisma.inventoryRequisition.findMany({
           where: {
@@ -1892,8 +1922,6 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engine
         })
       : [];
     if (outstanding.length > 0) {
-      const held: string[] = Array.isArray((req.user as any).roles) ? (req.user as any).roles : [req.user.role];
-      const mayOverride = held.includes('Transport Manager') || held.includes('Platform Admin');
       const reason = String(req.body?.overrideReason || '').trim();
       if (!mayOverride || req.body?.force !== true) {
         return res.status(409).json({
@@ -1909,6 +1937,15 @@ app.patch('/api/work-orders/:id', authenticate, authorize('Engineering', 'Engine
       });
       const stamp = `Released ahead of ${outstanding.length} part${outstanding.length === 1 ? '' : 's'} (${outstanding.map((r: any) => r.part).join(', ')} deferred): ${reason}`;
       data.notes = [wo?.notes, stamp].filter(Boolean).join('\n');
+      overrode = true;
+    }
+    // Past the parts gate and still without the signature: the Transport Manager
+    // asked to force a clean repair. There is nothing to defer, so there is no
+    // override to record — that is the Head of Engineering's call alone.
+    if (!maySignOff && !overrode) {
+      return res.status(403).json({
+        error: 'Nothing is outstanding to override — Ready to Go is the Head of Engineering\'s signature.',
+      });
     }
   }
 
@@ -3872,6 +3909,15 @@ app.patch('/api/trucks/:id', authenticate, authorize('Platform Admin', 'Transpor
   try {
     const data = { ...req.body };
     delete data.id;
+    // A truck in the workshop leaves it on the Head of Engineering's signature,
+    // never on the maintainer's: the workshop could flip the registry status to
+    // Available and skip the sign-off gate on the work order entirely.
+    if (String(data.status || '') === 'Available') {
+      const held = heldRoles(req);
+      if (held.length && !held.some((r) => ENGINEERING_RELEASE_ROLES.includes(r))) {
+        return res.status(403).json({ error: 'Maintenance cannot release a truck. The Head of Engineering gives Ready to Go.' });
+      }
+    }
     // Same cap rule on edit: the cap can be trimmed, but never blanked out and
     // never turned into the plate — the registry row keeps a real cap number.
     if (data.registration !== undefined) data.registration = String(data.registration ?? '').trim();
@@ -3914,6 +3960,13 @@ app.post('/api/tails', authenticate, authorize('Platform Admin', 'Transport Mana
 app.patch('/api/tails/:id', authenticate, authorize('Platform Admin', 'Transport Manager', 'Fleet Operations', 'Fleet Field Ops', 'Fleet Field Operations', 'Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager'), async (req, res) => {
   const data = { ...req.body };
   delete data.id;
+  // Same rule as the head: maintenance reads the status, it does not free the tail.
+  if (String(data.status || '') === 'Available') {
+    const held = heldRoles(req);
+    if (held.length && !held.some((r) => ENGINEERING_RELEASE_ROLES.includes(r))) {
+      return res.status(403).json({ error: 'Maintenance cannot release a tail. The Head of Engineering gives Ready to Go.' });
+    }
+  }
   delete data.createdAt;
   delete data.updatedAt;
   res.json(await prisma.tail.update({ where: { id: req.params.id }, data }));
