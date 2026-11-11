@@ -145,29 +145,72 @@ function LinesEditor({
 }) {
   const [partId, setPartId] = useState("");
   const [qty, setQty] = useState(1);
+  // TYPE-TO-FIND. The field used to be a native <select>: a hundred-odd spare
+  // parts in a picker you could only open and scroll (and on a phone it is the
+  // OS wheel, where the first letters jump but a part in the middle is a hunt).
+  // Typing three or four letters now filters the shelf and names the matches.
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const options = useMemo(() => [...items].sort((a, b) => a.name.localeCompare(b.name)), [items]);
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const base = q
+      ? options.filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q))
+      : options;
+    return base.slice(0, 8);
+  }, [options, query]);
   return (
     <span className="flex flex-col gap-2">
       <span className="border-t border-[#E2E5E9] pt-3 text-[15px] font-semibold text-[#141A1F]">
         Add Parts from Inventory
       </span>
       <span className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
-        <label className="flex flex-col gap-1">
+        <label className="relative flex flex-col gap-1">
           <span className="text-[14px] font-medium text-[#141A1F]">
             Select Spare Parts <span className="text-[#ED351D]">*</span>
           </span>
-          <select
-            value={partId}
-            onChange={(e) => setPartId(e.target.value)}
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPartId("");
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+            placeholder="Type a part name or SKU — e.g. filt, bolt, oil"
             className="h-10 rounded-lg border border-[#D3D7DE] bg-white px-3 text-[14px] text-[#141A1F] outline-none focus:border-[#1B2432]"
-          >
-            <option value="">Select</option>
-            {options.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name} — {i.stock.toLocaleString("en-NG")} in stock
-              </option>
-            ))}
-          </select>
+          />
+          {open ? (
+            <span className="absolute left-0 right-0 top-full z-50 mt-1 block max-h-[220px] overflow-y-auto rounded-lg border border-[#E2E5E9] bg-white shadow-[0px_4px_16px_rgba(0,0,0,0.12)]">
+              {matches.length === 0 ? (
+                <span className="block px-3 py-2.5 text-[13px] text-[#8E95A1]">
+                  No part matches “{query.trim()}”
+                </span>
+              ) : (
+                matches.map((i) => (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setPartId(i.id);
+                      setQuery(i.name);
+                      setOpen(false);
+                    }}
+                    className={`block w-full px-3 py-2.5 text-left text-[13.5px] hover:bg-[#F1F2F4] ${
+                      partId === i.id ? "bg-[#F1F2F4] font-medium" : ""
+                    }`}
+                  >
+                    <span className="block text-[#1B2432]">{i.name}</span>
+                    <span className="block text-[11.5px] text-[#5C6470]">
+                      {i.sku} — {i.stock.toLocaleString("en-NG")} in stock
+                    </span>
+                  </button>
+                ))
+              )}
+            </span>
+          ) : null}
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[14px] font-medium text-[#141A1F]">

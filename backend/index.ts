@@ -1170,7 +1170,11 @@ app.patch('/api/trips/:id', authenticate, authorize('Platform Admin', 'Transport
   // covers fresh requests, TM-seen requests (no truck yet) and requests waiting
   // on the final dispatch approval.
   const PARTNER_EDITABLE_STATUSES = [
-    'Requested', 'Draft', 'Awaiting Approval', 'Approved', 'Approved for Dispatch',
+    // Everything up to transit. The partner owns the request until the truck is
+    // on the road: once the TM approves or schedules it, a wrong loading yard or
+    // destination is still the customer's to correct (the edit reopens the
+    // request to Requested, so his approval is given again, deliberately).
+    'Requested', 'Draft', 'Awaiting Approval', 'Approved', 'Approved for Dispatch', 'Scheduled',
   ];
   let partnerReopensRequest = false;
   if (isPartner) {

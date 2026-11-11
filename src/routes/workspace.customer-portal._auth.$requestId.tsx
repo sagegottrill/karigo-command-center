@@ -509,9 +509,19 @@ function PartnerRequestDetailsPage() {
     ? ["En Route", "Loaded", "Scheduled", "Delayed"].includes(trip.status)
     : false;
   // Withdrawable only while the request is still pending — the server refuses a
-  // partner edit/delete once the TM or Fleet Ops has acted on it.
+  // partner delete once the TM or Fleet Ops has acted on it.
   const canDelete = trip ? ["Requested", "Awaiting Approval"].includes(trip.status) : false;
-  const canModify = trip ? ["Requested", "Awaiting Approval"].includes(trip.status) : false;
+  /**
+   * A partner owns the request UNTIL THE TRUCK IS ON THE ROAD.
+   *
+   * This offered Modify only while the request was Requested/Awaiting Approval,
+   * so the moment the Transport Manager approved or scheduled it the customer
+   * lost the ability to correct a location or a destination — even though the
+   * server already accepted those edits and reopened the request for approval.
+   * Everything up to (not including) transit is still theirs to correct.
+   */
+  const PRE_TRANSIT = ["Requested", "Awaiting Approval", "Approved", "Approved for Dispatch", "Scheduled"];
+  const canModify = trip ? PRE_TRANSIT.includes(trip.status) : false;
 
   const openModifyModal = () => {
     if (!trip) return;
