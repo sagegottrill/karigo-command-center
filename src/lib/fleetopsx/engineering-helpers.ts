@@ -86,15 +86,20 @@ export function rolesCanWorkOnTrucks() {
 /**
  * Who may put a returning truck through a check-up.
  *
- * The workshop and the yard crew do the physical inspection; the Transport
- * Manager and the Head of Engineering read the result. He used to be handed an
- * Inspect button on all 43 returning trucks, which is the workshop's work, and
- * the server accepted his inspection when he pressed it.
+ * Checking a truck in at the gate is the DEPARTMENT's core work, not oversight-
+ * only: the workshop and the yard crew walk the truck, and the department's own
+ * managers (Head of Engineering, Engineering Manager) sign a check-up too — the
+ * Head IS maintenance, and he has no other way to file the defect the truck came
+ * back with. The Transport Manager is deliberately absent: he used to be handed
+ * an Inspect button on all 43 returning trucks and the server accepted his
+ * verdict — oversight reads the result, it does not produce one.
  */
 export const ENGINEERING_INSPECT_ROLES = [
   "Engineering",
   "Engineering & Maintenance",
   "Engineering and Maintenance",
+  "Head of Engineering",
+  "Engineering Manager",
   "Fleet Field Ops",
   "Fleet Field Operations",
   "Platform Admin",

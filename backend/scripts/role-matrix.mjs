@@ -10,7 +10,8 @@
  *   node scripts/role-matrix.mjs
  *
  * Policy (from the department's own rules):
- *   inspect a returning truck .... workshop + yard crew + Platform Admin
+ *   inspect a returning truck .... workshop + yard crew + the department's own
+ *                                   managers (HOE, EM) + Admin — NOT the TM
  *   drive a job .................. workshop, Head of Engineering, Eng. Manager, Admin
  *   Ready to Go / free the truck .. Head of Engineering, Eng. Manager, Admin
  *                                   (maintenance reads the status, never releases)
@@ -122,9 +123,12 @@ try {
   await check('inspect a returning truck', SEATS.tm, false, '/api/engineering/inspections', 'POST', {
     headId: truck, truckReg: REG, result: 'no-issues', inspectedBy: 'Transport Manager',
   });
-  await check('inspect a returning truck', SEATS.hoe, false, '/api/engineering/inspections', 'POST', {
-    headId: truck, truckReg: REG, result: 'no-issues', inspectedBy: 'Head of Engineering',
-  });
+  // Inspecting is maintenance's core operation, so the department's own managers
+  // hold it too — the Head signs check-ups like the workshop does.
+  for (const seat of ['hoe', 'em'])
+    await check('inspect a returning truck', SEATS[seat], true, '/api/engineering/inspections', 'POST', {
+      headId: truck, truckReg: REG, result: 'no-issues', inspectedBy: seat,
+    });
 
   /* ---- the promise: reason + expected date ---- */
   for (const seat of ['hoe', 'em', 'admin'])

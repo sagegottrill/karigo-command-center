@@ -1983,12 +1983,15 @@ app.get('/api/engineering/technicians', authenticate, async (req: any, res) => {
 });
 
 /*
- * Inspecting a returning truck is the workshop's and the yard crew's work. The
+ * Inspecting a returning truck is the DEPARTMENT's core operation: the workshop
+ * and the yard crew walk it, and the Head of Engineering / Engineering Manager
+ * sign a check-up as well — the Head is maintenance's own head, and the check-up
+ * is the only door through which a returned defect reaches the workshop. The
  * Transport Manager used to be on this list, which is why his board offered an
  * Inspect button on all 43 returning trucks; oversight reads the verdict, it
  * does not produce one.
  */
-app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Platform Admin', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
+app.post('/api/engineering/inspections', authenticate, authorize('Engineering', 'Engineering & Maintenance', 'Engineering and Maintenance', 'Head of Engineering', 'Engineering Manager', 'Platform Admin', 'Fleet Field Ops', 'Fleet Field Operations'), async (req: any, res) => {
   const headId = String(req.body?.headId || '').trim() || null;
   const tailId = String(req.body?.tailId || '').trim() || null;
   const truckReg = String(req.body?.truckReg || '').trim();
