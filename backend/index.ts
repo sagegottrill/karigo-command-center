@@ -118,6 +118,12 @@ const PARTNER_API_ALLOW: RegExp[] = [
   /^\/api\/drivers$/,
   /^\/api\/forgot-password(\/|$)/,
   /^\/api\/password-requests?(\/|$)/,
+  // A partner issued a temporary password MUST be able to set their own: the
+  // first-login screen posts here, and the allowlist refused it — the partner
+  // sat on "Forbidden: this endpoint is not part of the partner portal" with a
+  // valid session and no way forward. Self-service only (authenticate binds it
+  // to req.user); the staff directory and password resets stay shut.
+  /^\/api\/users\/me\/password$/, // SELF-SERVICE PASSWORD
 ];
 const isExternalAccount = (payload: any): boolean => {
   const roles = String(payload?.roles || '')
